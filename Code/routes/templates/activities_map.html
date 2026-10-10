@@ -91,20 +91,6 @@
 <div class="carto-page carto-scene" id="carto-scene">
 
 
-  {% if examen %}
-  <!-- ⚠️ Toutes cartos confondues : celui qui valide n'a pas à activer une
-       carto pour apprendre qu'on attend sa décision dessus. -->
-  <button type="button" class="cex-bandeau" id="cex-bandeau"
-          data-n="{{ examen.n }}" data-cartos="{{ examen.cartos }}"
-          data-carto="{{ examen.carto or '' }}">
-    <span class="cex-bandeau-ic"><i class="fa-solid fa-code-pull-request"></i></span>
-    <span class="cex-bandeau-txt">
-      <strong id="cex-bandeau-titre">{% if examen.n == 1 %}{{ t('examen.bandeau_1') }}{% else %}{{ t('examen.bandeau_n') | replace('{n}', examen.n) }}{% endif %}</strong>
-      <span id="cex-bandeau-sous">{% if examen.carto %}{{ t('examen.sur_carto') | replace('{nom}', examen.carto) }}{% else %}{{ t('examen.sur_n_cartos') | replace('{n}', examen.cartos) }}{% endif %}</span>
-    </span>
-    <span class="cex-bandeau-cta">{{ t('examen.ouvrir') }} <i class="fa-solid fa-arrow-right"></i></span>
-  </button>
-  {% endif %}
 
   <!-- Popup entité choice (cross-carto click with multiple matches) -->
   <div id="cross-entity-popup" class="cross-entity-popup hidden">
@@ -294,6 +280,89 @@
     </div>
   </div>
 
+  <!-- LA RANGÉE DU HAUT — l'identité à gauche, ce qu'on peut faire à droite.
+       Chaque réglage est une TUILE : sa pastille d'icône, son mot, et le même
+       glyphe en filigrane. Une seule action est pleine — ouvrir l'éditeur.
+       ⚠️ Elle est dans le FLUX : le dessin commence sous elle, et le tiroir le
+       pousse au lieu de le recouvrir. C'est ce que montre le board. -->
+  <header class="cs-bar">
+    <div class="cs-id">
+      <span class="cs-id-badge"><span class="cs-id-pt"></span>{{ t('map.title') }}</span>
+      {% if active_entity %}
+        <h1 title="{{ active_entity.name }}">{{ active_entity.name }}</h1>
+      {% else %}
+        <h1 class="is-vide">{{ t('map.no_entity') }}</h1>
+      {% endif %}
+      {% if has_optiqcarto %}
+      <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}">
+        <i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}
+      </span>
+      {% endif %}
+      {% if bandes %}
+      <!-- Les bandes de la carte, dans leur ordre. C'est la CLÉ des pastilles
+           de la liste : leur couleur vient de là, et rien ne le disait. Le nom
+           de chaque bande est au survol — écrits, dix-huit libellés ne
+           tiendraient dans aucune largeur. -->
+      <span class="cs-bandes">
+        <span class="cs-bandes-lab">{{ t('map.bands') }}</span>
+        <span class="cs-bandes-barres">
+          {%- for b in bandes %}<span class="cs-bande" style="--c: {{ b.color }}" title="{{ b.label }}"></span>{% endfor %}
+        </span>
+      </span>
+      {% endif %}
+    </div>
+
+    <div class="cs-actions" id="cs-actions">
+      <span class="cs-pliable" id="cs-pliable">
+        <button type="button" id="carto-wizard-btn" class="cs-t cs-t--entites">
+          <span class="cs-t-ic"><i class="fa-solid fa-building-columns"></i></span>
+          <span class="cs-t-lab">{{ t('map.btn_entities') }}</span>
+          <i class="fa-solid fa-building-columns cs-t-fil" aria-hidden="true"></i>
+        </button>
+        <button type="button" id="btn-import-full" class="cs-t cs-t--import">
+          <span class="cs-t-ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          <span class="cs-t-lab">{{ t('map.btn_import_ia') }}</span>
+          <i class="fa-solid fa-wand-magic-sparkles cs-t-fil" aria-hidden="true"></i>
+        </button>
+        {% if peut_regler_acces %}
+        <button type="button" id="btn-carto-acces" class="cs-t cs-t--acces">
+          <span class="cs-t-ic"><i class="fa-solid fa-user-lock"></i></span>
+          <span class="cs-t-lab">{{ t('map.btn_acces') }}</span>
+          <i class="fa-solid fa-user-lock cs-t-fil" aria-hidden="true"></i>
+        </button>
+        {% endif %}
+        <!-- Un INTERRUPTEUR, pas une action : il porte un vrai bouton à
+             bascule, garde sa classe `.active` (posée par activities_map.js) et
+             s'allume en VERT — la couleur de l'état actif dans toute l'app. -->
+        <button type="button" id="cross-carto-btn" class="cs-t cs-t--cx"
+                title="{{ t('map.cross_carto_title') }}" aria-pressed="false">
+          <span class="cs-t-ic"><i class="fa-solid fa-link cross-carto-icon"></i></span>
+          <span class="cs-t-lab" id="cross-carto-label">{{ t('map.btn_connections') }}</span>
+          <span class="cs-t-switch" aria-hidden="true"><span class="cs-t-switch-pt"></span></span>
+          <span class="cross-carto-dot"></span>
+          <i class="fa-solid fa-link cs-t-fil" aria-hidden="true"></i>
+        </button>
+      </span>
+
+      <!-- ⚠️ Le repli n'emporte QUE les réglages : la tuile qui ouvre
+           l'éditeur reste dehors, comme les trois gestes de l'écran. -->
+      <button type="button" class="cs-plier" id="cs-plier" data-cs="actions"
+              title="{{ t('map.sc_actions_plier') }}" aria-label="{{ t('map.sc_actions_plier') }}"
+              aria-expanded="true" aria-controls="cs-pliable">
+        <i class="fa-solid fa-chevron-right"></i>
+        <span class="cs-plier-k" aria-hidden="true">B</span>
+      </button>
+
+      {% if has_optiqcarto %}
+      <a href="/cartography/editor" class="cs-t cs-t--prim">
+        <span class="cs-t-ic"><i class="fa-solid fa-pen-ruler"></i></span>
+        <span class="cs-t-lab">{{ t('map.viewer_open_editor') }}</span>
+        <i class="fa-solid fa-pen-ruler cs-t-fil" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+    </div>
+  </header>
+
   <!-- CONTENU PRINCIPAL -->
   <div class="carto-container">
   <!-- Le bandeau des connexions ne pousse plus le dessin : il se pose dessus,
@@ -305,75 +374,21 @@
     <span id="cross-carto-count" class="cross-count-badge">0</span> {{ t('map.external_count_suffix') }}
   </div>
 
-  <!-- LES COMMANDES SE POSENT SUR LE DESSIN : rien ne le pousse, rien ne le
-       rétrécit. L'identité à gauche, ce qu'on peut faire à droite.
-       ⚠️ Elles vivent DANS `.carto-container` : posées au-dessus, elles
-       auraient repris de la hauteur au dessin, ce qu'on vient d'enlever. -->
-  <header class="cs-bar">
-    <div class="cs-id">
-      <div class="cs-id-txt">
-        <span class="cs-sur">{{ t('map.title') }}</span>
-        {% if active_entity %}
-          <h1 title="{{ active_entity.name }}">{{ active_entity.name }}</h1>
-        {% else %}
-          <h1 class="is-vide">{{ t('map.no_entity') }}</h1>
-        {% endif %}
-      </div>
-      {% if has_optiqcarto %}
-      <span class="cs-lecture" title="{{ t('map.viewer_readonly') }}">
-        <i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}
-      </span>
-      {% endif %}
-    </div>
-
-    <div class="cs-actions" id="cs-actions">
-      <!-- ⚠️ Le repli ne concerne QUE les réglages. « Recadrer » est le geste
-           le plus utile de l'écran : il reste toujours à un clic. -->
-      <button type="button" class="cs-plier" id="cs-plier" data-cs="actions"
-              title="{{ t('map.sc_actions_plier') }}" aria-label="{{ t('map.sc_actions_plier') }}"
-              aria-expanded="true" aria-controls="cs-pliable">
-        <i class="fa-solid fa-chevron-right"></i>
-      </button>
-
-      <span class="cs-pliable" id="cs-pliable">
-        <button id="carto-wizard-btn" class="cs-b"><i class="fa-solid fa-building-columns"></i><span>{{ t('map.btn_entities') }}</span></button>
-        <button id="btn-import-full" class="cs-b"><i class="fa-solid fa-wand-magic-sparkles"></i><span>{{ t('map.btn_import_ia') }}</span></button>
-        {% if peut_regler_acces %}
-        <button id="btn-carto-acces" class="cs-b"><i class="fa-solid fa-user-lock"></i><span>{{ t('map.btn_acces') }}</span></button>
-        {% endif %}
-        <!-- Un INTERRUPTEUR, pas une action : il garde sa classe `.active`, que
-             pose activities_map.js, et s'allume en VERT. -->
-        <button id="cross-carto-btn" class="cs-b cs-b--bascule" title="{{ t('map.cross_carto_title') }}">
-          <i class="fa-solid fa-link cross-carto-icon"></i>
-          <span id="cross-carto-label">{{ t('map.btn_connections') }}</span>
-          <span class="cross-carto-dot"></span>
-        </button>
-        {% if has_optiqcarto %}
-        <a href="/cartography/editor" class="cs-b cs-b--prim"><i class="fa-solid fa-pen-ruler"></i><span>{{ t('map.viewer_open_editor') }}</span></a>
-        {% endif %}
-      </span>
-
-      {% if has_optiqcarto %}
-      <!-- Les gestes de l'ÉCRAN : ils ne parlent pas des données. -->
-      <span class="cs-seg">
-        <button type="button" class="cs-ic cs-aide" title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
-                aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
-          <i class="fa-regular fa-circle-question"></i>
-        </button>
-        <button type="button" class="cs-ic" data-cs="fit" id="cs-recadrer"
-                title="{{ t('map.fit_view') }}" aria-label="{{ t('map.fit_view') }}">
-          <i class="fa-solid fa-crosshairs"></i>
-        </button>
-        <button type="button" class="cs-ic" data-cs="panneau" id="cs-panneau"
-                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
-                aria-expanded="true">
-          <i class="fa-solid fa-table-columns"></i>
-        </button>
-      </span>
-      {% endif %}
-    </div>
-  </header>
     <div class="carto-left">
+      {% if examen %}
+      <!-- ⚠️ Toutes cartos confondues : celui qui valide n'a pas à activer une
+           carto pour apprendre qu'on attend sa décision dessus. -->
+      <button type="button" class="cex-bandeau" id="cex-bandeau"
+              data-n="{{ examen.n }}" data-cartos="{{ examen.cartos }}"
+              data-carto="{{ examen.carto or '' }}">
+        <span class="cex-bandeau-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+        <span class="cex-bandeau-txt">
+          <strong id="cex-bandeau-titre">{% if examen.n == 1 %}{{ t('examen.bandeau_1') }}{% else %}{{ t('examen.bandeau_n') | replace('{n}', examen.n) }}{% endif %}</strong>
+          <span id="cex-bandeau-sous">{% if examen.carto %}{{ t('examen.sur_carto') | replace('{nom}', examen.carto) }}{% else %}{{ t('examen.sur_n_cartos') | replace('{n}', examen.cartos) }}{% endif %}</span>
+        </span>
+        <span class="cex-bandeau-cta">{{ t('examen.ouvrir') }} <i class="fa-solid fa-arrow-right"></i></span>
+      </button>
+      {% endif %}
       {% if has_optiqcarto %}
       <!-- Viewer OptiqCarto actif -->
       <div class="carto-viewer-card">
@@ -417,13 +432,39 @@
         </div>
       </div>
       {% endif %}
+      {% if has_optiqcarto %}
+      <!-- Les gestes de l'ÉCRAN, posés au coin du dessin : ils ne parlent pas
+           des données, et c'est là qu'on les cherche en regardant la carte.
+           Recadrer est le plus utile des trois — il est le plus gros. -->
+      <div class="cs-flottants">
+        <button type="button" class="cs-f cs-f--aide"
+                title="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}"
+                aria-label="{{ t('map.nav_hint') }} {{ t('map.nav_detail') }}">
+          <i class="fa-regular fa-circle-question"></i>
+        </button>
+        <button type="button" class="cs-f cs-f--prim" data-cs="fit" id="cs-recadrer"
+                title="{{ t('map.fit_view') }}" aria-label="{{ t('map.fit_view') }}">
+          <i class="fa-solid fa-crosshairs"></i>
+          <span class="cs-f-k" aria-hidden="true">C</span>
+        </button>
+        <button type="button" class="cs-f" data-cs="panneau" id="cs-panneau"
+                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
+                aria-expanded="true">
+          <i class="fa-solid fa-table-columns"></i>
+          <span class="cs-f-k" aria-hidden="true">L</span>
+        </button>
+      </div>
+      {% endif %}
     </div>
     <aside class="carto-right cs-tiroir" id="carto-right">
       <div class="activities-panel-header">
-        <div class="activities-panel-icon"><i class="fa-solid fa-list-check"></i></div>
-        <div>
+        <div class="cs-tiroir-tete">
           <h3 class="activities-panel-title">{{ t('map.panel_title') }}</h3>
-          <span class="activities-panel-count">{{ activities|length }} {{ t('map.count_activities') if activities|length != 1 else t('map.count_activity') }}</span>
+          <!-- ⚠️ Le nombre et son mot sont DEUX éléments : activities_map.js
+               écrit dans `.activities-panel-count` par `textContent`, ce qui
+               effacerait un `<strong>` niché dedans. -->
+          <span class="cs-tiroir-n" id="cs-tiroir-n">{{ activities|length }}</span>
+          <span class="activities-panel-count">{{ t('map.count_activities') if activities|length != 1 else t('map.count_activity') }}</span>
         </div>
         <button type="button" class="cs-tiroir-x" data-cs="panneau"
                 title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}">
@@ -437,8 +478,9 @@
         </div>
         <ul class="activities-list" id="activities-list">
           {% for a in activities %}
-            <li class="activity-item" data-id="{{ a.id }}" data-name="{{ a.name | lower }}">
-              <span class="num">{{ loop.index }}</span>
+            <li class="activity-item" data-id="{{ a.id }}" data-name="{{ a.name | lower }}"
+                {%- if couleurs_activites.get(a.id) %} style="--c: {{ couleurs_activites[a.id] }}"{% endif %}>
+              <span class="num">{{ '%02d' % loop.index }}</span>
               <span class="label">{{ a.name }}</span>
             </li>
           {% endfor %}
@@ -455,8 +497,9 @@
          sinon rien ne dirait qu'il existe encore. -->
     <button type="button" class="cs-languette" data-cs="panneau" id="cs-languette"
             title="{{ t('map.sc_panneau_ouvrir') }}" aria-label="{{ t('map.sc_panneau_ouvrir') }}">
-      <i class="fa-solid fa-list-check"></i>
-      <span>{{ t('map.panel_title') }}</span>
+      <span class="cs-languette-ic"><i class="fa-solid fa-list-check"></i></span>
+      <span class="cs-languette-t">{{ t('map.panel_title') }}</span>
+      <span class="cs-languette-n">{{ activities|length }}</span>
     </button>
   </div>
 

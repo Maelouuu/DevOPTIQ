@@ -288,10 +288,8 @@ function initActivitySearch() {
   if (!input) return;
   const items = Array.from(document.querySelectorAll("#activities-list .activity-item"));
   const noRes = document.getElementById("carto-activity-noresult");
-  const countEl = document.querySelector(".activities-panel-count");
   const total = items.length;
   const norm = (s) => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  const plural = (n) => ML(n === 1 ? "activity" : "activities");
   input.addEventListener("input", () => {
     const q = norm(input.value.trim());
     let shown = 0;
@@ -301,9 +299,7 @@ function initActivitySearch() {
       if (match) shown++;
     });
     if (noRes) noRes.style.display = shown === 0 ? "" : "none";
-    if (countEl) countEl.textContent = q
-      ? `${shown} / ${total} ${plural(total)}`
-      : `${total} ${plural(total)}`;
+    majCompteListe(shown, total);
   });
 }
 
@@ -545,6 +541,17 @@ function MF(cle, vars) {
   const s = (window.MAP_I18N || {})[cle] || cle;
   return s.replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars) ? vars[k] : m);
 }
+/* Le compte du tiroir vit dans DEUX éléments : le nombre (38 px, c'est le
+   titre du panneau) et son mot. ⚠️ Un seul élément écrit par `textContent`
+   ne pourrait pas porter les deux tailles. */
+function majCompteListe(montres, total) {
+  const n = document.getElementById("cs-tiroir-n");
+  const mot = document.querySelector(".activities-panel-count");
+  const filtre = montres !== total;
+  if (n) n.textContent = filtre ? `${montres}/${total}` : String(total);
+  if (mot) mot.textContent = ML(total === 1 ? "activity" : "activities");
+}
+
 const nbActivites = (n) => `${n} ${ML(n === 1 ? 'activity' : 'activities')}`;
 
 function wireEntityShare() {
@@ -1148,6 +1155,7 @@ function initCrossCartoMode() {
     _active = val;
     crossCartoMode = val;
     btn.classList.toggle("active", _active);
+    btn.setAttribute("aria-pressed", String(_active));
     document.body.classList.toggle("connexion-mode-active", _active);
     const infoDefault = document.getElementById("carto-info-default");
     const infoCross   = document.getElementById("carto-info-cross");
@@ -2095,8 +2103,7 @@ async function initCalqueStrip() {
            <span class="label">${a.name}</span>
          </li>`
       ).join("");
-      const countEl = document.querySelector(".activities-panel-count");
-      if (countEl) countEl.textContent = nbActivites(acts.length);
+      majCompteListe(acts.length, acts.length);
       // Re-wire click handlers on new items
       initListClicks();
     } catch (_) {}

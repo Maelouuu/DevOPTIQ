@@ -3484,13 +3484,108 @@ qui flotte vérifié À L'INTÉRIEUR du corps). Suite : 2736 passés.
 Maquettes : canvas « Page Carto — 5 organisations » (Dock/Capsule, Papier,
 Volets, Flottant, Colonne).
 
-Tests : `tests/test_94_page_carte_scene.py` (9 cas — la structure qui donne ces
-pixels, qu'une retouche distraite remettrait en place sans s'en apercevoir).
-Suite : 2702 passés, `repet_image` 2674 + 28 sautés. Éprouvé au banc
-(`tools/devrun_import.py`) dans les deux langues : repli et sa mémoire,
-languette, raccourcis, plein écran et sortie par `f`, mode Connexions, défilement
-du tiroir jusqu'à la dernière activité, entité sans carto, et les fenêtres de la
-page (entités, import) qui s'ouvrent entières malgré `overflow: hidden`.
+#### LE BOARD — tuiles en haut, dessin au centre, liste à droite (2026-10-10)
+
+Quatrième passe, et la première qui parte d'une maquette que l'UTILISATEUR a
+retravaillée de son côté (board PDF, trois planches). Deux corrections
+demandées, appliquées :
+- **le vert et le violet deviennent notre ROSE FUCHSIA**, décliné en quatre
+  teintes (voile `#fdf2f8`, pâle `#fce7f3`, poudré `#fbcfe8`, plein `#ec4899`
+  → `#9d174d`). Le VERT ne reste que pour **l'état actif** du mode Connexions
+  — c'est la règle déjà tenue partout dans l'app, et c'est la seule qui
+  justifie une deuxième couleur ;
+- **le bouton flèche n'existe pas** : le board posait un carré blanc à « ↗ »
+  sur « Ouvrir l'éditeur ». Il ne correspond à aucune fonction — la tuile
+  entière EST le lien. Retiré. Tenu par
+  `test_94::test_le_bouton_fleche_du_board_n_existe_pas`.
+  ⚠️ La tuile de repli « ‹ / B », elle, est GARDÉE : c'est le repli des
+  réglages demandé à la passe précédente, pas une invention du board.
+
+**Ce que le board change, et ce qu'il coûte.**
+
+| Écran | Dessin affiché | Liste repliée |
+|---|---|---|
+| 1920×1080 | 1574×874 — **66,3 %** | 1878×874 — **79,2 %** |
+| 1600×1000 | 1254×794 — 62,2 % | |
+| 1440×900 | 1094×694 — 58,6 % | |
+| 1280×800 | 934×594 — 54,2 % | |
+
+Rien ne déborde, et aucun titre ne se tronque aux quatre tailles. ⚠️ **C'est
+moins que les 89,4 % de la passe FLOTTANT** : les commandes reviennent dans le
+FLUX (84 px de rangée) au lieu de se poser sur le dessin. C'est le prix de
+l'organisation choisie, il est écrit ici pour qu'on ne le redécouvre pas.
+⚠️ La rangée est mesurée à **84 px et non les ~150 du board** : un board se
+dessine plus grand que nature, et chaque pixel pris là est pris au dessin.
+
+⚠️⚠️ **Et cela renverse une note de la veille** — « on ne recadre plus après
+un repli ». Le tiroir POUSSE de nouveau le dessin (c'est ce que montre la
+planche 2 du board) : replier change donc la largeur de la zone d'affichage,
+et sans recadrage on gagnerait 304 px de vide à droite au lieu d'un dessin
+plus grand. `carto_scene.js` recadre **après** la transition (380 ms) : plus
+tôt, le viewer se cadrerait sur une largeur qui n'est pas encore la bonne.
+
+**La rangée du haut.** Une carte d'identité à gauche (pastille de rubrique,
+nom de la carto en Fraunces 23 px, « Lecture seule »), puis une TUILE par
+réglage : pastille d'icône colorée, mot, et le même glyphe en filigrane à 8 %.
+UNE seule tuile est pleine — ouvrir l'éditeur. Le mode Connexions porte un
+vrai **interrupteur** (et `aria-pressed`), gris éteint, vert allumé.
+
+- ⚠️ **Le bandeau des Connexions était BLEU** alors que sa tuile s'allume en
+  vert : deux couleurs pour un même état. Il prend celle de son interrupteur.
+- ⚠️ Sous **1380 px** les quatre réglages deviennent des carrés (le libellé
+  d'une tuile est un confort, une rangée qui déborde est un défaut), et
+  l'interrupteur disparaît — sans ça il décalait son icône vers le haut et la
+  tuile ne ressemblait plus à ses voisines.
+
+**La bande des couleurs — ce qui manquait vraiment.** Le board remplissait le
+bout vide de la carte d'identité avec une trame décorative. Elle porte à la
+place **les bandes de la carto, dans leur ordre**, et c'est la CLÉ d'une
+nouveauté de la liste : **la pastille numérotée d'une activité porte la
+couleur de SA forme** sur le dessin (`editor.js` : `s.color = band.color`).
+On retrouve une activité dans la carte sans lire son nom. Rien, jusqu'ici, ne
+disait d'où venait une couleur.
+- ⚠️ **La couleur vient d'un fichier Visio et part dans un attribut `style`** :
+  seul un hexadécimal passe. Jinja protège de la sortie d'attribut, **pas** de
+  l'injection d'une propriété CSS (« red;background:url(…) »). Même garde que
+  `_echap_couleur` pour les vignettes de la page Partage. Vérifié **rouge** en
+  retirant le filtre.
+- Sans forme reconnue, pastille **neutre** — on n'invente pas une couleur,
+  c'est le repli de `_extractLaneFill`.
+- ⚠️ La bande s'efface **avant** que le nom de la carto ne se tronque (sous
+  1600 px), et la pastille de rubrique part à son tour sous 1500 px : la barre
+  de navigation dit déjà où on est, le NOM de la carto ne se lit nulle part
+  ailleurs. Mesuré : plus aucune troncature de 1280 à 1920.
+- Les noms de bande sont au **survol** — écrits, dix-huit libellés ne
+  tiendraient dans aucune largeur.
+
+**Le tiroir : le NOMBRE est le titre.** « ACTIVITÉS » en capitales, puis 42 en
+Fraunces 38 px, puis son mot. ⚠️ **Deux éléments, pas un** : `activities_map.js`
+écrit le compte par `textContent`, ce qui effacerait un `<strong>` niché
+dedans. `majCompteListe(montrés, total)` remplace les deux écritures
+d'autrefois (recherche, changement de calque) et affiche « 3/42 » quand on
+filtre. Replié, le tiroir devient un **onglet vertical** au bord, qui porte son
+compte.
+
+**Les trois gestes de l'écran quittent la barre** et se posent au coin du
+dessin — là où on les cherche en regardant la carte : « ? », **recadrer**
+(le plus gros : c'est le plus utile) et replier la liste, chacun avec sa
+lettre. ⚠️ Ils vivent **dans `.carto-left`** : `position: absolute` cherche son
+repère dans le premier ancêtre positionné.
+
+⚠️ **Cette passe remplace les DEUX précédentes dans `cartography.css`**
+(« LA SCÈNE » puis « FLOTTANT », 820 lignes) : trois générations de règles s'y
+empilaient, dont une bonne moitié de mort (`.cs-logo`, `.cs-meta`,
+`.cs-entite`, `.cs-editeur`, `.cs-b`, `.cs-ic`, `.cs-seg`, `.cs-id-txt`…). La
+section porte la MISE EN PAGE autant que la peau, écrite d'abord — **oublier
+la première a déjà cassé cette barre deux fois**.
+
+Tests : `tests/test_94_page_carte_scene.py` (16 cas — la rangée dans le flux,
+ce qui se pose sur le dessin, le repli qui n'emporte que les réglages, la
+flèche absente, la couleur des pastilles et son garde-fou, la bande des
+couleurs, le compte en deux morceaux). Suite : 2794 passés. Éprouvé au banc
+(`tools/devrun_import.py`) dans les deux langues, de 1280 à 1920 : repli des
+réglages et sa mémoire, repli de la liste et son recadrage, languette,
+raccourcis `c` / `l` / `b`, recherche, mode Connexions.
 
 ### L'import se lit aussi dans l'AUTRE SENS (2026-10-01)
 
