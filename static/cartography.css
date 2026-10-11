@@ -4876,6 +4876,9 @@ body.a-carto-scene { margin-bottom: 0; }
   /* ⚠️ 84 px et non les ~150 du board : un board se dessine plus grand que
      nature, et chaque pixel pris ici est pris au dessin. */
   --cs-bar-h: 84px;
+  /* Le diamètre de la poignée des réglages — et la hauteur sur laquelle
+     s’alignent la carte d’identité et l’action pleine. */
+  --cs-rond: 52px;
   --cs-gap: 14px;
   --cs-tiroir-w: 304px;
 
@@ -4913,6 +4916,10 @@ body.a-carto-scene { margin-bottom: 0; }
   display: flex;
   align-items: center;
   gap: 13px;
+  /* Alignée sur la poignée : même hauteur, centrée dans la rangée. Les
+     tuiles de réglage, elles, gardent la leur. */
+  align-self: center;
+  height: var(--cs-rond, 52px);
 }
 .carto-scene .cs-actions {
   flex: none;
@@ -5253,7 +5260,11 @@ body.a-carto-scene { margin-bottom: 0; }
   justify-content: flex-start;
   gap: 12px;
   min-width: 0;
-  padding: 10px 24px 10px 12px;
+  /* Même hauteur que la poignée verte : les deux pièces qui restent quand
+     les réglages sont repliés se lisent sur une seule ligne. */
+  align-self: center;
+  height: var(--cs-rond, 52px);
+  padding: 0 24px 0 9px;
   border-radius: 999px;
   border-color: transparent;
   background:
@@ -5302,8 +5313,8 @@ body.a-carto-scene { margin-bottom: 0; }
   flex: none;
   position: relative;
   align-self: center;
-  width: 52px;
-  height: 52px;
+  width: var(--cs-rond, 52px);
+  height: var(--cs-rond, 52px);
   display: grid;
   place-items: center;
   padding: 0;
