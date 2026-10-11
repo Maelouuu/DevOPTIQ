@@ -592,6 +592,18 @@ def api_weakness():
     else:
         H = Sa / WPA
 
+    # ⚠️ `freq` était LU, STOCKÉ… et n'entrait dans aucun calcul. Mesuré :
+    # hebdomadaire, durée 60, probabilité 1/2, surcroît 30, attente 60 — la
+    # fréquence 1 et la fréquence 2 rendaient exactement les mêmes résultats
+    # annuels (16 occurrences, 8 h, 24 h). Un champ qui ne fait rien est pire
+    # qu'un champ absent : on règle sans savoir qu'on ne règle rien.
+    #
+    # `H` compte les PÉRIODES par an (semaines, mois…) et `freq` le nombre de
+    # fois PAR période — exactement la même lecture que l'onglet Rôle, où
+    # `weight = durée × fréquence`. Le produit des deux est donc le nombre
+    # d'occurrences par an.
+    H = H * max(1, freq)
+
     O = 1.0 / N_denom
     P = H * O
     Q = L_qty * O

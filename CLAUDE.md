@@ -4151,6 +4151,105 @@ migration à chaud pour les bases déjà déployées, test dans
   dépassement rend désormais **« en veille »** (bleu calme) et non « injoignable » (rouge
   d'alerte) : le service dort, il n'est pas cassé.
 
+### L'audit du client : les quatre premiers défauts (2026-10-11)
+
+Cinq classeurs de remarques (03–05/10/2026), confrontés au code un par un.
+Ce qui suit est ce qui a été **vérifié dans le dépôt** puis corrigé ; le tri
+complet (ce qui est déjà réglé, ce qui relève d'une décision produit, ce qui
+tient à la qualité du fichier source du client) a été rendu à part.
+
+#### ⚠️⚠️ 39 fichiers de routes écrivaient SANS aucun contrôle d'accès
+
+Le plus gros point, et plus large que ce que l'audit avait vu. `tasks.py`
+(5 routes d'écriture), `gestion_outils.py` (4), `roles.py`, `savoirs`,
+`savoir_faires`, `aptitudes`, `softskills`, `constraints`,
+`propose_from_file.py`, `time_view.py` (14)… **aucune garde, et aucun
+`before_request` global non plus**. Le tableau des droits disait pourtant
+depuis le début que `user` consulte et ne modifie rien.
+
+Mesuré, porte retirée : un compte `user` crée une tâche et réécrit la
+description d'un outil du catalogue partagé ; et ⚠️ **`POST /tasks/add` SANS
+AUCUN COMPTE rendait 201 et écrivait la tâche en base** — pire que le défaut
+signalé, et invisible parce que *toute la suite de tests écrivait de cette
+façon*.
+
+`Code/ecriture.py` — **une porte centrale, pas 39 gardes**. Trente-neuf
+fichiers corrigés un par un, c'est trente-neuf occasions d'en oublier un, et
+surtout la quarantième route écrite demain serait ouverte à nouveau. Ici le
+défaut est fermé par CLASSE : toute méthode d'écriture est refusée sauf ce qui
+est nommé, et le droit consulté est `edit_carto` — celui du tableau réglable,
+pas une liste de statuts en dur.
+
+- ⚠️ **La liste d'exemptions est le cœur du fichier**, et elle a été écrite
+  d'après ce que la porte a RÉELLEMENT refusé en rejouant la suite (66 refus
+  journalisés avec le statut du compte), pas d'après ce qu'on imaginait :
+  trois familles n'avaient pas été prévues. Elle ne contient que des routes
+  qui portent DÉJÀ une règle plus fine — `/plan` (le développeur de
+  compétences est désigné par un rattachement, pas par un statut),
+  `/cartography/api` (c'est `/api/save` qui distingue « proposez » de
+  « lecture seule »), `/comptes`, `/gestion_rh`, `/mastery`, `/api/import`,
+  `/activities/api/entities`. La porte s'efface devant elles, elle ne les
+  remplace pas.
+- ⚠️ **La règle anonyme s'efface sous TESTING, volontairement** : 115 tests
+  fabriquent des clients anonymes (`app.test_client()`) pour s'isoler de la
+  session partagée, pas pour éprouver l'anonymat. Les reprendre un par un
+  noierait la correction. **Conséquence à ne pas oublier : passer la suite ne
+  prouve PAS que l'anonyme est fermé** — seul `test_102` le prouve, en
+  appelant `porte()` avec `en_test=False`. Un test dit la dérogation à voix
+  haute pour qu'elle ne pourrisse pas.
+- ⚠️ La tentative d'avant est instructive : donner une identité par défaut à
+  tous les clients de test (un fixture autouse) a cassé les tests qui
+  éprouvent VRAIMENT l'anonymat (`test_46`, `test_61`). Un décor global qui
+  authentifie tout le monde efface les cas qu'on voulait garder.
+- Vérifié de bout en bout, vrai POST HTTP : `user` → **403 lecture_seule,
+  rien en base** ; `coordinateur` → 201, tâche écrite.
+
+Tests : `tests/test_102_porte_ecriture.py` (34 cas).
+
+#### Page Temps — trois défauts, trois causes distinctes
+
+- ⚠️ **« Durée (h) » était en MINUTES** (R04/H13/F36). `addRoleRow` lit le
+  champ tel quel (`durMin`) : saisir 60 posait une heure. Le calcul, lui, est
+  cohérent — c'est l'en-tête qui mentait, donc c'est lui qui change.
+  ⚠️ **Sans renommer la clé partout** : `time.col_duration_h` sert à QUATRE
+  tableaux et trois sont JUSTES (ils affichent `fmtH(duration_minutes)`, donc
+  des heures). Seul le tableau de SAISIE du rôle reçoit sa propre clé,
+  `time.col_duration_min`.
+- ⚠️ **L'aperçu « Total estimé » ne se recalculait jamais** (R05/H14/T17). Il
+  n'était écrit que dans `refreshActivityDefaults()` — sur le changement
+  d'ACTIVITÉ — et après sauvegarde : **aucun écouteur** sur durée, fréquence
+  ni nombre de personnes. 30 min × 2 × 3 affichait « 0.0 h » et enregistrait
+  3,0 h. Le chiffre montré pendant la saisie ne décrivait rien.
+- ⚠️ **La fréquence de la Faiblesse était LUE, STOCKÉE, et n'entrait dans
+  AUCUN calcul** (R08/T19/F37). Reproduit avec les chiffres du rapport
+  (hebdomadaire, 60 min, 1 chance sur 2, +30 min, +60 min d'attente) :
+  fréquence 1 et fréquence 2 rendaient exactement 16 occurrences, 8 h et 24 h.
+  `H` compte les PÉRIODES par an et `freq` le nombre de fois PAR période —
+  c'est la lecture de l'onglet Rôle (`weight = durée × fréquence`) : le
+  produit des deux est le nombre d'occurrences. `H = H * max(1, freq)`.
+  ⚠️ **Cela déplace les résultats déjà enregistrés** d'un facteur `freq` — ce
+  qui est le but, mais une analyse relue après coup ne donnera plus le même
+  chiffre qu'avant.
+
+Tests : `tests/test_103_temps_audit.py` (8 cas, la fréquence vérifiée
+**rouge** en retirant la ligne). Suite : 2901 passés, `repet_image` 2873 + 28
+sautés.
+
+#### Deux points laissés en arbitrage, et pourquoi
+
+- **Le mensuel de la Faiblesse divise par 7,36, pas par 12** (R07/H16).
+  `W = U / (Sa / WPM)` : avec 32 semaines par an, cela fait 7,36 **mois
+  travaillés**. Leur relevé (annuel 8 h → mensuel 1,1 h) tombe exactement
+  juste. Ce n'est donc pas un défaut de calcul mais une **convention non
+  écrite** : « moyenne par mois travaillé » et non « annuel ÷ 12 ». Rien n'a
+  été changé — le choix se décide, il ne se devine pas.
+- **Exigence atteinte ≠ autonomie démontrée** (A10/F42/C24). Attendu 1 +
+  officiel 1 donnent « 100 % » ET « Below target ». Ce n'est pas une
+  contradiction : ce sont deux règles, mélangées dans un seul compteur. La
+  correction est d'**afficher les deux séparément**, pas de recalculer.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

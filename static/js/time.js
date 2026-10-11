@@ -542,6 +542,23 @@
   }
   $('#act-activity')?.addEventListener('change', refreshActivityDefaults);
 
+  // ⚠️ L'aperçu n'était recalculé QUE sur le changement d'activité et après
+  // sauvegarde : taper 30 min, fréquence 2, 3 personnes laissait « 0.0 h » à
+  // l'écran alors que l'enregistrement rendait 3,0 h. Le chiffre affiché
+  // pendant la saisie ne décrivait rien.
+  function majApercuActivite() {
+    const total = toMinutes(n('#act-duration'), v('#act-duration-unit'))
+                * parseInt(v('#act-frequency') || '1', 10)
+                * parseInt(v('#act-people') || '1', 10);
+    const cible = $('#act-total');
+    if (cible) cible.textContent = fmtH(total);
+  }
+  ['#act-duration', '#act-duration-unit', '#act-frequency', '#act-people']
+    .forEach(sel => {
+      $(sel)?.addEventListener('input', majApercuActivite);
+      $(sel)?.addEventListener('change', majApercuActivite);
+    });
+
   $('#btn-act-save')?.addEventListener('click', async ()=>{
     const payload = {
       activity_id: parseInt(v('#act-activity'),10),

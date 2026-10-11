@@ -278,6 +278,11 @@ TRANSLATIONS = {
         'time.unit_days':            'jours',
         'time.col_activity':         'Activité',
         'time.col_duration_h':       'Durée (h)',
+        # ⚠️ Le tableau de SAISIE du rôle est en minutes : `addRoleRow`
+        # lit le champ tel quel (`durMin`). Saisir 60 donnait « 1,0 h »
+        # sous un en-tête « Durée (h) » — une charge 60 fois autre que
+        # celle qu'on croyait poser.
+        'time.col_duration_min':     'Durée (min)',
         'time.col_delay_h':          'Délai (h)',
         'time.col_count':            'Nb',
         'time.col_load_h':           'Charge (h)',
@@ -2317,6 +2322,7 @@ TRANSLATIONS = {
         'time.unit_days':            'days',
         'time.col_activity':         'Activity',
         'time.col_duration_h':       'Duration (h)',
+        'time.col_duration_min':     'Duration (min)',
         'time.col_delay_h':          'Delay (h)',
         'time.col_count':            'Qty',
         'time.col_load_h':           'Workload (h)',
