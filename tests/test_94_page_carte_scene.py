@@ -282,13 +282,13 @@ class TestLaCouleurVientDuDessin:
         # L'activité est là quand même, avec sa pastille neutre.
         assert '<span class="num">02</span>' in html
 
-    def test_la_bande_des_couleurs_est_la_cle_des_pastilles(self, app, client, scene):
-        """Rien ne disait d'où venait la couleur d'une pastille. Les bandes de
-        la carto, dans leur ordre, le disent — leur nom au survol."""
+    def test_la_bande_des_couleurs_a_ete_retiree(self, app, client, scene):
+        """Elle servait de clé aux pastilles. Retirée à la demande : les
+        pastilles gardent leur couleur, qui vient de la FORME et non de cette
+        liste-là."""
         html = _page(client, app, scene["u"], scene["avec"])
-        assert html.count('class="cs-bande"') == 2
-        assert 'title="Qualité"' in html
-        assert 'title="Logistique"' in html
+        assert 'cs-bande' not in html
+        assert 'map.bands' not in html
 
     def test_le_compte_du_tiroir_est_en_deux_morceaux(self, app, client, scene):
         """⚠️ Le nombre est le TITRE du panneau (38 px) et son mot le suit.
@@ -311,8 +311,8 @@ class TestLesDeuxLangues:
 
     @pytest.mark.parametrize("lang,attendus", [
         # ⚠️ Jinja échappe l'apostrophe : « Ouvrir l&#39;éditeur » dans le rendu.
-        ("fr", ["Replier les réglages", "Replier la liste", "diteur</span>", ">Bandes<"]),
-        ("en", ["Collapse the settings", "Collapse the list", "Open editor", ">Bands<"]),
+        ("fr", ["Replier les réglages", "Replier la liste", "diteur</span>"]),
+        ("en", ["Collapse the settings", "Collapse the list", "Open editor"]),
     ])
     def test_les_libelles_de_la_scene_suivent_la_langue(self, app, client, scene,
                                                         lang, attendus):

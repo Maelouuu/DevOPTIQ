@@ -5034,46 +5034,6 @@ body.a-carto-scene { margin-bottom: 0; }
   box-shadow: 0 10px 28px rgba(190, 24, 93, .13),
               inset 0 1px 0 rgba(255, 255, 255, .72);
 }
-/* ⚠️ Le board remplissait ce bout de carte avec une TRAME décorative. Il
-   porte ici les bandes de la carto, dans leur ordre : c'est la clé des
-   pastilles de la liste, dont la couleur vient de là. Une largeur fixe par
-   bande (11 px) tient n'importe quel nombre de bandes ; leur nom est au
-   survol, écrits ils ne tiendraient nulle part. */
-.cs-bandes {
-  position: relative;
-  /* Le NOM de la carto passe avant : la bande absorbe tout ce qui manque
-     (facteur de retrait 999) et disparait avant que le titre ne se tronque. */
-  flex: 0 999 auto;
-  min-width: 0;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  max-width: 46%;
-  overflow: hidden;
-}
-.cs-bandes-lab {
-  flex: none;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: var(--cs-r-dark);
-  opacity: .6;
-  white-space: nowrap;
-}
-.cs-bandes-barres { display: flex; align-items: center; gap: 3px; }
-.cs-bande {
-  flex: none;
-  width: 8px;
-  height: 30px;
-  border-radius: 3px;
-  background: var(--c, #cbd5e1);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45),
-              0 1px 2px rgba(63, 29, 43, .18);
-  transition: transform .14s cubic-bezier(.22, 1, .36, 1);
-}
-.cs-bande:hover { transform: scaleY(1.18); }
 
 .cs-id-badge {
   flex: none;
@@ -5745,13 +5705,6 @@ body.a-carto-scene { margin-bottom: 0; }
   .cs-t--cx { padding-right: 0; }
 }
 
-/* ⚠️ La bande des couleurs s’efface AVANT que le nom de la carto ne se
-   tronque. Le facteur de retrait n’y suffisait pas : une fois la bande
-   réduite à zéro, ses marges tronquaient encore le titre de 12 px. */
-@media (max-width: 1600px) {
-  .cs-bandes { display: none; }
-}
-
 /* Sous 1500 px la pastille de rubrique part à son tour : la barre de
    navigation dit déjà où on est, le NOM de la carto ne se lit nulle part
    ailleurs. Mesuré à 1440 : sans elle, plus aucune troncature. */
@@ -5763,7 +5716,6 @@ body.a-carto-scene { margin-bottom: 0; }
   .carto-scene { height: auto; overflow: visible; }
   .carto-scene .cs-bar { height: auto; flex-wrap: wrap; gap: 10px; }
   .carto-scene .cs-id { flex: 1 1 100%; padding: 12px 16px; }
-  .cs-bandes { display: none; }
   .carto-scene .cs-id h1 { font-size: 20px; }
   .carto-scene .cs-actions { flex-wrap: wrap; }
   .carto-scene .carto-container { flex-direction: column; }

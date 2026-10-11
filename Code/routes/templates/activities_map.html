@@ -298,18 +298,6 @@
         <i class="fa-solid fa-eye"></i>{{ t('map.viewer_readonly') }}
       </span>
       {% endif %}
-      {% if bandes %}
-      <!-- Les bandes de la carte, dans leur ordre. C'est la CLÉ des pastilles
-           de la liste : leur couleur vient de là, et rien ne le disait. Le nom
-           de chaque bande est au survol — écrits, dix-huit libellés ne
-           tiendraient dans aucune largeur. -->
-      <span class="cs-bandes">
-        <span class="cs-bandes-lab">{{ t('map.bands') }}</span>
-        <span class="cs-bandes-barres">
-          {%- for b in bandes %}<span class="cs-bande" style="--c: {{ b.color }}" title="{{ b.label }}"></span>{% endfor %}
-        </span>
-      </span>
-      {% endif %}
     </div>
 
     <div class="cs-actions" id="cs-actions">

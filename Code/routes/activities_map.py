@@ -368,17 +368,12 @@ def activities_map_page():
     # du gabarit : seul un hexadécimal passe. Jinja protège de la sortie
     # d'attribut, PAS de l'injection d'une propriété CSS (« red;background:… »).
     couleurs_activites = {}
-    bandes = []
     if active_entity and getattr(active_entity, 'optiqcarto_data', None):
         try:
             import json as _json
             import re as _re
             _hex = _re.compile(r'#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z')
             carto = _json.loads(active_entity.optiqcarto_data)
-            for bd in carto.get('bands', []):
-                c = (bd.get('color') or '').strip()
-                if _hex.match(c):
-                    bandes.append({'label': (bd.get('label') or '').strip(), 'color': c})
             par_forme, par_nom = {}, {}
             for sh in carto.get('shapes', []):
                 c = (sh.get('color') or '').strip()
@@ -414,7 +409,6 @@ def activities_map_page():
         has_optiqcarto=has_optiqcarto,
         extco_activity_ids=extco_activity_ids,
         couleurs_activites=couleurs_activites,
-        bandes=bandes,
         active_calque_id=active_calque_id,
         is_admin=_map_is_admin(),
         # Qui ouvre quelles cartos : le bouton n'apparaît que pour qui règle
