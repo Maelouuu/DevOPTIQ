@@ -76,6 +76,7 @@ PAGE_LABELS = {
     "test_55_technical_domains":         "Domaines de Technicité",
     "test_102_domain_status":            "Domaines de Technicité — Statut",
     "test_103_upload_vsdx_connexions":    "Upload Cartographie — Connexions VSDX",
+    "test_104_vsdx_connection_parser_gaps": "Parseur Connexions VSDX — Compléments",
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
     "test_57_mastery":                   "Niveaux de Maîtrise",
     "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
