@@ -201,6 +201,13 @@ def create_app(test_config=None):
         if not _sess.get('lang'):
             _sess['lang'] = DEFAULT_LANG
 
+    # ⚠️ La porte d'ÉCRITURE — 39 fichiers de routes écrivaient sans aucun
+    # contrôle d'accès (relevé le 11/10/2026). Elle est posée ICI, une fois,
+    # et refuse toute méthode d'écriture à qui n'a pas le droit : une garde
+    # par route laisserait la prochaine route écrite ouverte.
+    from Code.ecriture import installer_porte_ecriture
+    installer_porte_ecriture(app)
+
     @app.context_processor
     def inject_translation():
         from flask import session as _sess

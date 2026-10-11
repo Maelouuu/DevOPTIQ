@@ -25,7 +25,7 @@
 
   <style>
     /* Viewer : canvas plein écran, tout le reste caché */
-    html, body { margin: 0; padding: 0; overflow: hidden; background: #f0f4f0; }
+    html, body { margin: 0; padding: 0; overflow: hidden; background: #fdfdff; }
 
     #toolbar, #properties, #dock-wrap,
     #welcome-modal, #vsdx-dialog, #bands-dialog,
@@ -38,6 +38,24 @@
       right: 0 !important; bottom: 0 !important;
       border-radius: 0 !important;
       background: transparent !important;
+    }
+
+    /* Le fond de la zone de déplacement.
+       Avant : #F3F5F2 plat + une trame de points NOIRS à 8 % tous les 22 px —
+       un gris sale sur lequel une carto claire ne ressort pas.
+       Maintenant : un blanc très légèrement bleuté, une trame deux fois plus
+       discrète et un halo froid dans les angles. Le dessin, lui, est chaud et
+       saturé : c'est ce contraste de température qui le détache.
+       ⚠️ Écrit ici et pas dans optiqcarto/style.css : cette feuille est
+       partagée avec l'ÉDITEUR et recopiée dans le dépôt OptiqCarto. */
+    #canvas {
+      background-color: #fdfdff !important;
+      background-image:
+        radial-gradient(1100px 700px at 12% -10%, rgba(99, 102, 241, .055), transparent 62%),
+        radial-gradient(900px 640px at 92% 108%, rgba(236, 72, 153, .05), transparent 62%),
+        radial-gradient(circle, rgba(27, 29, 41, .045) 1px, transparent 1px) !important;
+      background-size: 100% 100%, 100% 100%, 26px 26px !important;
+      background-attachment: fixed, fixed, scroll !important;
     }
 
     /* Placeholder si pas de carto chargée */

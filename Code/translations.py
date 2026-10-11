@@ -278,6 +278,11 @@ TRANSLATIONS = {
         'time.unit_days':            'jours',
         'time.col_activity':         'Activité',
         'time.col_duration_h':       'Durée (h)',
+        # ⚠️ Le tableau de SAISIE du rôle est en minutes : `addRoleRow`
+        # lit le champ tel quel (`durMin`). Saisir 60 donnait « 1,0 h »
+        # sous un en-tête « Durée (h) » — une charge 60 fois autre que
+        # celle qu'on croyait poser.
+        'time.col_duration_min':     'Durée (min)',
         'time.col_delay_h':          'Délai (h)',
         'time.col_count':            'Nb',
         'time.col_load_h':           'Charge (h)',
@@ -423,6 +428,10 @@ TRANSLATIONS = {
         'map.btn_import_ia':            'Import IA',
         'map.btn_connections':          'Connexions',
         'map.btn_entities':             'Gestion des entités',
+        'map.sc_actions_plier':          'Replier les réglages',
+        'map.sc_actions_deplier':        'Déplier les réglages',
+        'map.sc_panneau_fermer':         'Replier la liste',
+        'map.sc_panneau_ouvrir':         'Afficher la liste',
         'map.nav_hint':                 'Navigation :',
         'map.nav_detail':               'Clic gauche maintenu pour se déplacer • Molette pour zoomer • Clic sur une activité pour y accéder',
         'map.external_label':           'Activités externes :',
@@ -2312,6 +2321,7 @@ TRANSLATIONS = {
         'time.unit_days':            'days',
         'time.col_activity':         'Activity',
         'time.col_duration_h':       'Duration (h)',
+        'time.col_duration_min':     'Duration (min)',
         'time.col_delay_h':          'Delay (h)',
         'time.col_count':            'Qty',
         'time.col_load_h':           'Workload (h)',
@@ -2452,6 +2462,10 @@ TRANSLATIONS = {
         'map.btn_import_ia':            'AI Import',
         'map.btn_connections':          'Connections',
         'map.btn_entities':             'Manage entities',
+        'map.sc_actions_plier':          'Collapse the settings',
+        'map.sc_actions_deplier':        'Expand the settings',
+        'map.sc_panneau_fermer':         'Collapse the list',
+        'map.sc_panneau_ouvrir':         'Show the list',
         'map.nav_hint':                 'Navigation:',
         'map.nav_detail':               'Click and drag to move • Scroll to zoom • Click on an activity to open it',
         'map.external_label':           'External activities:',

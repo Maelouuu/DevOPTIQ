@@ -568,5 +568,79 @@
     ],
     "author": "routine",
     "fixed_at": "2026-09-24T03:24:03"
+  },
+  {
+    "patch_uid": "2026-10-02-role-analysis-orphan-lines",
+    "title": "Suppression d'un rôle : les lignes de ses analyses de temps ne restent plus orphelines",
+    "node_ids": [
+      "tests/test_95_temps_calculs.py::TestSuppressionRoleNeLaisseAucuneLigneOrpheline::test_retirer_la_bande_d_un_role_efface_les_lignes_de_ses_analyses",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_summary_annual_uses_calendar_params",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_line_without_duration_falls_back_to_activity_duration",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_frequency_zero_counts_as_one_in_weight",
+      "tests/test_95_temps_calculs.py::TestRoleAnalysisSummary::test_list_includes_role_name_and_summary"
+    ],
+    "page_slug": "temps_calculs",
+    "failure_reason": "Dans la suite complète, la synthèse d'une analyse de rôle fraîchement créée contenait des durées fantômes (30 min au lieu de 12, etc.) ; le test passait seul.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "_sync_carto_to_db supprimait les TimeRoleAnalysis d'un rôle retiré de la carte par query.delete() en masse : le cascade ORM ne joue pas et SQLite n'applique pas ON DELETE CASCADE. Les TimeRoleLine restaient orphelines, et une nouvelle analyse réutilisant le même id en héritait.",
+    "fix_description": "Suppression explicite des TimeRoleLine des analyses concernées avant la suppression en masse des analyses.",
+    "files_changed": [
+      "Code/routes/cartography_editor.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-02T03:32:51"
+  },
+  {
+    "patch_uid": "2026-10-03-details-softskills-libelle-vide",
+    "title": "GET /activities/<id>/details renvoyait des softskills au libellé vide",
+    "node_ids": [
+      "tests/test_96_activities_data_contenu.py::TestDetailsContenu::test_softskill_nom_et_description_viennent_de_habilete"
+    ],
+    "page_slug": "activities_data_contenu",
+    "failure_reason": "name et description des softskills valaient \"\" au lieu de l habilete saisie.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "La route lisait getattr(ss, name/description) alors que le modele Softskill n a que la colonne habilete : apres chaque rafraichissement front (competences_crud.js), les softskills s affichaient sans texte.",
+    "fix_description": "La route utilise ss.habilete pour name et description.",
+    "files_changed": [
+      "Code/routes/activities_data.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-03T03:16:10"
+  },
+  {
+    "patch_uid": "2026-10-08-generate-report-syntax-error",
+    "title": "generate_report.py : entrée PAGE_LABELS corrompue (SyntaxError)",
+    "node_ids": [],
+    "page_slug": "performance_items_gaps",
+    "failure_reason": "Le rapport visuel ne pouvait pas être généré : generate_report.py levait une SyntaxError (ligne 41, deux entrées fusionnées par une mauvaise résolution de conflit).",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "Le libellé de test_100_performance_items_gaps contenait une autre entrée du dictionnaire imbriquée dans une chaîne.",
+    "fix_description": "Entrée restaurée proprement ; ajout du libellé de test_101_pulse_plan_gaps.",
+    "files_changed": [
+      "tests/generate_report.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-08T03:22:35"
+  },
+  {
+    "patch_uid": "2026-10-09-domains-scale-lang-isolation",
+    "title": "Échelle des domaines : forcer la langue FR dans le test",
+    "node_ids": [
+      "tests/test_55_technical_domains.py::TestScale::test_scale_returns_five_levels"
+    ],
+    "page_slug": "technical_domains",
+    "failure_reason": "Le test échouait seul : libellé reçu en anglais (Technical expert) au lieu de Référence technique.",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Le test dépendait de la langue de session posée par un test précédent ; seul, la langue par défaut du client authentifié n est pas le français.",
+    "fix_description": "Langue forcée à fr via session_transaction avant l appel.",
+    "files_changed": [
+      "tests/test_55_technical_domains.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-09T03:23:02"
   }
 ]

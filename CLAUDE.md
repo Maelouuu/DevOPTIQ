@@ -3218,6 +3218,525 @@ Livré à **21h58 en Inde**, mardi soir — la règle est tenue. Vérifié en li
 (`openImportHistory`, `imh-hist-head`, `btn-sans-taches`), et les fichiers de
 l'ancien import de tâches rendent 404.
 
+### La page Carte devient une SCÈNE (2026-10-01)
+
+« C'est dommage qu'on ne voie pas la carto en plus grand, c'est le cœur de
+l'app. » Le reproche était chiffrable, et il l'a été avant de toucher à quoi
+que ce soit :
+
+| Écran | Carto affichée | Haut du dessin | Page |
+|---|---|---|---|
+| 1920×1080 | 1226×580 — **34 % de la fenêtre** | à 311 px du bord | 390 px de vide en bas |
+| 1440×900 | 1050×580 — 47 % | à 311 px | **débordait** (941 px) |
+| 1280×800 | 890×580 — 50 % | à 367 px | **débordait** (996 px) |
+
+Le viewer était plafonné à **580 px de haut quel que soit l'écran** —
+`.carto-right { height: 650px }` fixait la hauteur du panneau, et la carte
+s'alignait dessus. Au-dessus, **trois bandeaux empilés** répétaient la même
+chose : barre de page (titre + nom d'entité), rappel de navigation (une ligne
+entière pour dire qu'on déplace à la souris), en-tête de carte (titre + nom
+d'entité À NOUVEAU, à 60 px du premier).
+
+**Après** : 66 % de la fenêtre sur un 1920×1080, le dessin commence à 175 px,
+et **plus aucun défilement** aux trois tailles. Tiroir replié, la carto gagne
+encore **320 px, soit +26 % de largeur**.
+
+**Ce qui a changé.**
+- `.carto-scene` : une colonne de la hauteur de l'écran, `overflow: hidden`.
+  Une barre, la carto, un tiroir. Les anciennes règles ne sont pas touchées —
+  la nouvelle section arrive APRÈS dans `cartography.css` et les écrase par
+  l'ordre de déclaration ; elles servent encore aux fenêtres de la page.
+- **Une seule barre** (58 px) : titre, entité, « lecture seule », puis les
+  actions. L'en-tête de carte est supprimé, le rappel de navigation aussi —
+  son texte attend derrière un « ? ».
+- **Le tiroir se replie** (bouton, languette, raccourci `l`), et son état vit
+  dans `localStorage` : il se retrouve replié à la visite suivante.
+- **Plein écran** (bouton, raccourci `f`) et **recentrage** (le logo, `c`).
+
+⚠️ **On RECADRE la carto après un repli ou un passage en plein écran** — et il
+a fallu le voir à l'écran pour le trancher. Le premier jet ne recadrait pas,
+au nom du « on ne vole pas son point de vue à l'utilisateur » que respecte tout
+outil de dessin. Sauf que le viewer ancre la carto par son **coin**, pas par
+son centre : replier le tiroir ne donnait donc pas « plus de marge autour du
+dessin », il donnait **320 px de vide à droite**. Or on replie précisément pour
+voir plus grand. Le recadrage attend la fin de la transition (380 ms) : plus
+tôt, le viewer se cadrerait sur une largeur qui n'est pas encore la bonne.
+
+⚠️ **Le tiroir POUSSE la carto, il ne la recouvre pas.** La mini map et la
+pastille de zoom du viewer vivent en bas à droite : un panneau flottant posé
+par-dessus les masquerait.
+
+⚠️ **`100vh - 86px` était une constante DEVINÉE.** La barre de navigation et sa
+marge occupent 106 px : la page débordait de 28 px et se remettait à défiler,
+ce qu'on venait justement de supprimer. `--cs-top` est désormais **mesuré** par
+`carto_scene.js` (`getBoundingClientRect().top`), recalculé au redimensionnement
+et au passage en plein écran — où il vaut 0, et la règle donne 100vh toute
+seule.
+
+⚠️ **Il restait 8 px de défilement** : `optiq.css` ne remet pas la marge du
+`body` à zéro, et celle du navigateur s'ajoute SOUS la scène, qui finit
+pourtant pile au bord. Huit pixels suffisent à faire réapparaître la barre de
+défilement d'une page calibrée pour n'en avoir aucune. La classe
+`body.a-carto-scene`, posée par le script, la neutralise — sans rien changer
+ailleurs.
+
+⚠️ **`position: absolute` cherche son repère dans le premier ANCÊTRE
+positionné.** Le bandeau des connexions était resté AU-DESSUS du corps : il se
+posait n'importe où. Il vit maintenant DANS `.carto-container`, dont la
+position est relative. Tenu par `test_94`.
+
+⚠️ **Les raccourcis ne se déclenchent jamais pendant une saisie** : la
+recherche d'activité est à deux centimètres, et « f » y sert à écrire. Ni
+quand une fenêtre est ouverte par-dessus : Échap doit la fermer, pas sortir du
+plein écran.
+
+⚠️ **`requestFullscreen` rend une PROMESSE** qui peut être rejetée (permission,
+iframe) : sans `.catch()`, un simple refus remplit la console d'erreurs non
+gérées.
+
+⚠️ **L'entrée en scène part d'une opacité nulle** : elle n'est posée que si
+l'onglet est visible, sinon le navigateur met l'animation en pause et la page
+reste blanche jusqu'au retour dessus. (Même piège que la page Partage.)
+
+⚠️ **Le bandeau d'examen des propositions est un enfant FLEX de la scène** :
+sans `flex: none` il se laisse écraser quand la place manque, et l'alerte
+devient illisible au moment où elle compte.
+
+**Sans carto**, les boutons de la scène ne sont pas RENDUS (pas seulement
+masqués) : replier ou passer en plein écran n'a aucun sens devant un écran
+d'accueil.
+
+#### La barre, l'écho et le fond — deuxième passe (2026-10-02)
+
+« Toute la section du haut, c'est hideux. » C'était exact, et chiffrable : la
+barre alignait **cinq vocabulaires de boutons** côte à côte — trois pleins
+roses, un en contour rose, un sombre, puis trois icônes blanches — et deux de
+ses icônes étaient des **PNG recolorés par un filtre CSS** à côté d'icônes
+vectorielles. Tout criait au même volume, donc rien ne ressortait.
+
+- **UN seul bouton** (`.cs-b`), et **une seule action primaire** : ouvrir
+  l'éditeur. Les réglages (entités, import, accès, connexions) partagent la
+  même forme discrète ; « Connexions » est un interrupteur, donc il a un état
+  plein — en bleu, pour ne pas se confondre avec l'action primaire.
+  ⚠️ Sa classe `.active` est posée par `activities_map.js` : ne pas la renommer.
+- **Les trois gestes de la scène** (aide, plein écran, tiroir) sont réunis dans
+  un segment : ils parlent de l'ÉCRAN, pas des données.
+- **Le nom de la carto devient le titre** — c'est lui qu'on vient lire.
+  « Cartographie des activités » passe en surtitre.
+- Les deux `<img>` deviennent des icônes Font Awesome. Un PNG qu'on recolore
+  au `filter` ne suivra jamais l'état du bouton.
+
+**L'écho — trois contours, chacun un peu plus grand.**
+⚠️ **Premier jet en `box-shadow` : invisible.** Six ombres emboîtées, alternant
+blanc et filet sombre — à taille réelle, un halo mou. Un anneau d'ombre doit se
+détacher sur la couleur EXACTE du fond pour qu'on voie l'écart, et ce fond
+porte deux dégradés radiaux : l'anneau « vide » ne tombe jamais pile dessus.
+Ce sont donc **deux pseudo-éléments en `border`** sur `.carto-left` : de vrais
+traits, transparents au milieu, qui se voient sur n'importe quoi.
+⚠️ **Et il a coûté 10 POINTS de surface au premier essai** : 66 % → 56,6 % sur
+un 1920×1080, 53,6 % → 41,7 % sur un 1280×800 — on revenait vers l'état d'avant
+la refonte, alors que « on ne voit pas la carto en grand » était le reproche de
+départ. Les anneaux se resserrent (−6 / −12), le padding de la scène cède la
+place à celui du corps (ils s'additionnaient), et l'écart carte/tiroir tombe à
+26 px. Résultat : **63,8 %**, l'écho coûte 2,3 points. Sous 1480 px il se
+resserre encore (−4 / −8), sous 1100 il n'en reste qu'un.
+⚠️ Le tiroir n'a PAS d'écho : deux échos côte à côte, c'est aucun centre.
+
+**Le fond.** `--bg-canvas: #F3F5F2` plus une trame de points NOIRS à 8 % tous
+les 22 px : un gris plat et sale sur lequel une carto claire ne ressort pas. Le
+canevas devient une **feuille** (#fdfdff, trame deux fois plus discrète, halos
+froids dans les angles) posée sur un **plan de travail** plus soutenu
+(#e9e7f2 + halos). C'est l'écart entre les deux qui détache le dessin, pas la
+beauté de l'un ou de l'autre.
+⚠️ La règle du canevas vit dans `cartography_viewer.html`, **pas** dans
+`static/optiqcarto/style.css` : cette feuille est partagée avec l'ÉDITEUR et
+recopiée dans le dépôt OptiqCarto. Le fond de l'éditeur est une autre décision,
+qu'on ne prend pas en passant.
+
+#### LE STUDIO — la carto sur une scène sombre (2026-10-02)
+
+« Ça ne m'en met pas plein les yeux. » Deux passes **claires** n'y avaient rien
+changé, et pour une raison de fond : la carto est un objet **CLAIR** — une
+feuille blanche couverte de bandes pâles. Posée sur un fond clair, elle ne peut
+pas éclater, il n'y a aucun écart à exploiter. On ne pend pas un tableau sur un
+mur de la même couleur que lui.
+
+La page devient donc une **scène sombre**. Le dessin est la seule chose
+lumineuse de l'écran ; tout le reste — îlots de commande, tiroir, languette —
+est en verre sombre et ne lui dispute jamais le regard. Bénéfice qu'on n'avait
+pas vu venir : la barre de navigation de l'application est un galet
+**graphite**, et elle flottait jusqu'ici sur du lavande pâle. Les deux se
+raccordent enfin. La page Carte est explicitement HORS du design system clair
+(voir « Design system UI ») : c'est la seule page qui a droit à cette identité.
+
+- **La scène** : bleu de nuit `#080a14` (le noir pur écrase, celui-ci garde de
+  la matière), une trame de 46 px pour l'échelle, trois halos aux angles, une
+  **vignette** qui éteint les bords, et **3,8 % de grain** — sans lui, un fond
+  fait de dégradés purs a l'air plat et numérique. Un souffle de 40 s derrière
+  la carto : la page RESPIRE, elle ne clignote pas.
+- **DEUX ÎLOTS, pas un bandeau.** Sur un 1920, une barre pleine largeur laissait
+  700 px de vide entre le titre et les actions — et ce vide était du verre, donc
+  il bouchait le haut de la scène. Deux îlots laissent passer l'aurore : ce qui
+  est plein ne l'est que là où il y a quelque chose.
+- **Le nom de la carto prend la police d'affichage** (Fraunces) : c'est le titre
+  de la scène, une graisse de plus ne suffisait pas à le dire.
+- **Les boutons sont en verre**, et il n'y a **qu'une seule couleur pleine** :
+  ouvrir l'éditeur. Un éclat la traverse au survol — la seule fantaisie, et elle
+  ne dure que le temps du geste. L'interrupteur « Connexions » s'allume en cyan,
+  et son bandeau reprend ce cyan : on voit d'où il vient.
+- **L'écho** (trois contours espacés) devient **lumineux** : sur du sombre, un
+  trait PORTE. Il ne se dessine que s'il y a une carto (classe `a-carto`, posée
+  par `carto_scene.js`) — sinon il encadrait l'écran d'accueil, trois anneaux
+  autour de rien. ⚠️ Le tiroir n'en a pas : deux échos côte à côte, c'est aucun
+  centre.
+
+⚠️⚠️ **Le verre ne fonctionne QUE sur fond sombre.** Replié, le tiroir laisse la
+carto s'étendre SOUS la languette : son fond devenait la feuille blanche et son
+libellé clair disparaissait dessus — une pastille blanche avec du texte blanc.
+Tout ce qui peut atterrir sur le dessin (languette, bandeau des connexions) est
+donc une pastille **sombre et opaque**, jamais du verre.
+
+⚠️ **Les trois états vifs d'une activité** — survol depuis le dessin, cible
+d'une liaison, origine d'une liaison — étaient des fonds PÂLES posés en
+`!important`. Sur le tiroir sombre, le libellé est clair : le fond pâle le
+rendait invisible. Mêmes signaux, mêmes couleurs, en version lumineuse.
+
+⚠️ **Remplacer une passe de style emporte aussi sa MISE EN PAGE.** La passe
+précédente portait les deux ; la retirer a emporté `display: inline-flex` et
+`gap` avec elle — icône et libellé se chevauchaient, et le segment des trois
+gestes tombait hors de la barre. La structure des commandes est désormais
+écrite à part, avant leur peau.
+
+⚠️ `color: var(--st-encre)` était posé sur le **body**, alors que la variable
+est déclarée sur `.carto-scene` : une propriété personnalisée se résout là où
+elle est DÉCLARÉE, la règle ne faisait donc rien. Et la poser vraiment sur le
+body aurait éclairci le texte des **fenêtres claires** de la page.
+
+**La surface reste tenue** : **62,8 %** de la fenêtre sur un 1920×1080 (34 %
+avant la refonte de la veille), rien ne déborde aux trois tailles. L'écho a déjà
+coûté 10 points une fois — il se resserre sous 1480 px, et il n'en reste qu'un
+sous 1100.
+
+#### FLOTTANT — tranché sur maquettes, pas dans le code (2026-10-06)
+
+Deux refontes écrites directement dans le code ont été refusées l'une après
+l'autre (« hideux », puis « ça ne m'en met pas plein les yeux »). La troisième
+est passée par un **canvas de maquettes** : cinq organisations dessinées à
+l'échelle, la même carto et la même nav dans toutes, une seule décision à
+prendre. **C'est la bonne méthode pour cette page** — une passe de style coûte
+une demi-journée de code et se juge en trois secondes.
+
+⚠️ **Et les deux premières ont échoué pour la même raison : j'avais redessiné
+ce qui ne devait pas bouger.** La barre de navigation est un galet ARGENTÉ
+clair à tuiles blanches — je l'avais maquettée en sombre ; et je changeais le
+fond du dessin à chaque direction. Les deux sont fixes, au pixel près.
+
+**Ce qui est retenu — la carto prend tout, les commandes se posent dessus.**
+
+| Écran | Dessin affiché |
+|---|---|
+| 1920×1080 | 1904×974 — **89,4 %** de la fenêtre |
+| 1440×900 | 1424×794 — 87,2 % |
+| 1280×800 | 1264×694 — 85,7 % |
+
+(34 % avant la première refonte, 62,8 % avec la scène sombre.) Rien ne déborde
+aux trois tailles.
+
+- **Deux couleurs, et deux seulement** : **ROSE** pour l'action et la sélection
+  (ouvrir l'éditeur, la ligne choisie), **VERT** pour l'état actif (le mode
+  Connexions, sa pastille, son bandeau). Tout le reste est neutre. Les passes
+  précédentes empilaient sombre + rose + violet + cyan + ambre : « multicolore
+  de partout ».
+- **Deux îlots blancs** posés sur le dessin : l'identité à gauche, les
+  commandes à droite. ⚠️ Ils vivent DANS `.carto-container` — posés au-dessus,
+  ils reprendraient au dessin la hauteur qu'on vient de lui rendre. Et la barre
+  qui les porte est en `pointer-events: none` : elle couvre toute la largeur,
+  sans ça on ne pourrait plus déplacer la carto sous elle.
+- **Les réglages se REPLIENT** (`#cs-plier`, classe `is-plie` sur `#cs-actions`,
+  mémorisée dans `localStorage`) : l'îlot tombe de sept boutons à quatre
+  pastilles. ⚠️ Le repli n'emporte QUE les réglages — recadrer est le geste le
+  plus utile de l'écran, il reste dehors, toujours à un clic.
+- ⚠️ **Le PLEIN ÉCRAN est retiré, remplacé par RECADRER.** Agrandir la fenêtre
+  ne sert presque jamais sur cette page ; remettre le dessin au milieu de la
+  zone, on le fait sans arrêt. Partis avec lui : `basculerPlein`, `majPlein`,
+  le raccourci `f`, l'écouteur `fullscreenchange`, les règles `:fullscreen` et
+  les clés `map.sc_plein` / `map.sc_quitter_plein`. Raccourcis restants :
+  `c` recadrer, `l` la liste, `b` les réglages.
+
+⚠️⚠️ **Renversement d'une décision écrite noir sur blanc ici-même.** « Le
+tiroir POUSSE la carto, il ne la recouvre pas : la mini map et la pastille de
+zoom du viewer vivent en bas à droite. » **C'était faux pour le viewer** — relu
+dans le code plutôt que supposé : `renderMinimap()` sort immédiatement
+(`OPTIQCARTO_READONLY && !CONSULTATION`), et `#zoom-pill` n'est pas dans
+`cartography_viewer.html`. Ces deux pièces appartiennent à l'ÉDITEUR. Le coin
+est libre, le panneau peut s'y poser — et c'est ce qui rend ces 89 % possibles.
+⚠️ Conséquence : **on ne recadre plus après un repli**. La zone d'affichage ne
+change pas de taille quand le panneau s'efface ; recadrer ferait sauter le
+dessin pour rien. L'autre moitié de la note de la veille tombe avec.
+
+⚠️ **Remplacer une passe de style emporte aussi sa MISE EN PAGE** — deuxième
+fois. La structure des commandes (`display: inline-flex`, `gap`) est réécrite
+en tête de la nouvelle section, avant leur peau.
+
+Tests : `tests/test_94_page_carte_scene.py` (10 cas — le geste de recadrage à
+la place du plein écran, le repli qui n'emporte que les réglages, et tout ce
+qui flotte vérifié À L'INTÉRIEUR du corps). Suite : 2736 passés.
+Maquettes : canvas « Page Carto — 5 organisations » (Dock/Capsule, Papier,
+Volets, Flottant, Colonne).
+
+#### LE BOARD — tuiles en haut, dessin au centre, liste à droite (2026-10-10)
+
+Quatrième passe, et la première qui parte d'une maquette que l'UTILISATEUR a
+retravaillée de son côté (board PDF, trois planches). Deux corrections
+demandées, appliquées :
+- **le vert et le violet deviennent notre ROSE FUCHSIA**, décliné en quatre
+  teintes (voile `#fdf2f8`, pâle `#fce7f3`, poudré `#fbcfe8`, plein `#ec4899`
+  → `#9d174d`). Le VERT ne reste que pour **l'état actif** du mode Connexions
+  — c'est la règle déjà tenue partout dans l'app, et c'est la seule qui
+  justifie une deuxième couleur ;
+- **le bouton flèche n'existe pas** : le board posait un carré blanc à « ↗ »
+  sur « Ouvrir l'éditeur ». Il ne correspond à aucune fonction — la tuile
+  entière EST le lien. Retiré. Tenu par
+  `test_94::test_le_bouton_fleche_du_board_n_existe_pas`.
+  ⚠️ La tuile de repli « ‹ / B », elle, est GARDÉE : c'est le repli des
+  réglages demandé à la passe précédente, pas une invention du board.
+
+**Ce que le board change, et ce qu'il coûte.**
+
+| Écran | Dessin affiché | Liste repliée |
+|---|---|---|
+| 1920×1080 | 1574×874 — **66,3 %** | 1878×874 — **79,2 %** |
+| 1600×1000 | 1254×794 — 62,2 % | |
+| 1440×900 | 1094×694 — 58,6 % | |
+| 1280×800 | 934×594 — 54,2 % | |
+
+Rien ne déborde, et aucun titre ne se tronque aux quatre tailles. ⚠️ **C'est
+moins que les 89,4 % de la passe FLOTTANT** : les commandes reviennent dans le
+FLUX (84 px de rangée) au lieu de se poser sur le dessin. C'est le prix de
+l'organisation choisie, il est écrit ici pour qu'on ne le redécouvre pas.
+⚠️ La rangée est mesurée à **84 px et non les ~150 du board** : un board se
+dessine plus grand que nature, et chaque pixel pris là est pris au dessin.
+
+⚠️⚠️ **Et cela renverse une note de la veille** — « on ne recadre plus après
+un repli ». Le tiroir POUSSE de nouveau le dessin (c'est ce que montre la
+planche 2 du board) : replier change donc la largeur de la zone d'affichage,
+et sans recadrage on gagnerait 304 px de vide à droite au lieu d'un dessin
+plus grand. `carto_scene.js` recadre **après** la transition (380 ms) : plus
+tôt, le viewer se cadrerait sur une largeur qui n'est pas encore la bonne.
+
+**La rangée du haut.** Une carte d'identité à gauche (pastille de rubrique,
+nom de la carto en Fraunces 23 px, « Lecture seule »), puis une TUILE par
+réglage : pastille d'icône colorée, mot, et le même glyphe en filigrane à 8 %.
+UNE seule tuile est pleine — ouvrir l'éditeur. Le mode Connexions porte un
+vrai **interrupteur** (et `aria-pressed`), gris éteint, vert allumé.
+
+- ⚠️ **Le bandeau des Connexions était BLEU** alors que sa tuile s'allume en
+  vert : deux couleurs pour un même état. Il prend celle de son interrupteur.
+- ⚠️ Sous **1380 px** les quatre réglages deviennent des carrés (le libellé
+  d'une tuile est un confort, une rangée qui déborde est un défaut), et
+  l'interrupteur disparaît — sans ça il décalait son icône vers le haut et la
+  tuile ne ressemblait plus à ses voisines.
+
+**La bande des couleurs — ce qui manquait vraiment.** Le board remplissait le
+bout vide de la carte d'identité avec une trame décorative. Elle porte à la
+place **les bandes de la carto, dans leur ordre**, et c'est la CLÉ d'une
+nouveauté de la liste : **la pastille numérotée d'une activité porte la
+couleur de SA forme** sur le dessin (`editor.js` : `s.color = band.color`).
+On retrouve une activité dans la carte sans lire son nom. Rien, jusqu'ici, ne
+disait d'où venait une couleur.
+- ⚠️ **La couleur vient d'un fichier Visio et part dans un attribut `style`** :
+  seul un hexadécimal passe. Jinja protège de la sortie d'attribut, **pas** de
+  l'injection d'une propriété CSS (« red;background:url(…) »). Même garde que
+  `_echap_couleur` pour les vignettes de la page Partage. Vérifié **rouge** en
+  retirant le filtre.
+- Sans forme reconnue, pastille **neutre** — on n'invente pas une couleur,
+  c'est le repli de `_extractLaneFill`.
+- ⚠️ La bande s'efface **avant** que le nom de la carto ne se tronque (sous
+  1600 px), et la pastille de rubrique part à son tour sous 1500 px : la barre
+  de navigation dit déjà où on est, le NOM de la carto ne se lit nulle part
+  ailleurs. Mesuré : plus aucune troncature de 1280 à 1920.
+- Les noms de bande sont au **survol** — écrits, dix-huit libellés ne
+  tiendraient dans aucune largeur.
+
+**Le tiroir : le NOMBRE est le titre.** « ACTIVITÉS » en capitales, puis 42 en
+Fraunces 38 px, puis son mot. ⚠️ **Deux éléments, pas un** : `activities_map.js`
+écrit le compte par `textContent`, ce qui effacerait un `<strong>` niché
+dedans. `majCompteListe(montrés, total)` remplace les deux écritures
+d'autrefois (recherche, changement de calque) et affiche « 3/42 » quand on
+filtre. Replié, le tiroir devient un **onglet vertical** au bord, qui porte son
+compte.
+
+**Les trois gestes de l'écran quittent la barre** et se posent au coin du
+dessin — là où on les cherche en regardant la carte : « ? », **recadrer**
+(le plus gros : c'est le plus utile) et replier la liste, chacun avec sa
+lettre. ⚠️ Ils vivent **dans `.carto-left`** : `position: absolute` cherche son
+repère dans le premier ancêtre positionné.
+
+⚠️ **Cette passe remplace les DEUX précédentes dans `cartography.css`**
+(« LA SCÈNE » puis « FLOTTANT », 820 lignes) : trois générations de règles s'y
+empilaient, dont une bonne moitié de mort (`.cs-logo`, `.cs-meta`,
+`.cs-entite`, `.cs-editeur`, `.cs-b`, `.cs-ic`, `.cs-seg`, `.cs-id-txt`…). La
+section porte la MISE EN PAGE autant que la peau, écrite d'abord — **oublier
+la première a déjà cassé cette barre deux fois**.
+
+Tests : `tests/test_94_page_carte_scene.py` (16 cas — la rangée dans le flux,
+ce qui se pose sur le dessin, le repli qui n'emporte que les réglages, la
+flèche absente, la couleur des pastilles et son garde-fou, la bande des
+couleurs, le compte en deux morceaux). Suite : 2794 passés. Éprouvé au banc
+(`tools/devrun_import.py`) dans les deux langues, de 1280 à 1920 : repli des
+réglages et sa mémoire, repli de la liste et son recadrage, languette,
+raccourcis `c` / `l` / `b`, recherche, mode Connexions.
+
+##### Reprise du board : la couleur, le glissé, le cadrage (2026-10-11)
+
+Sept reproches sur la première implantation, tous mesurés avant d'être
+corrigés.
+
+**« On a du rose mais pas de vert, et la moitié des boutons ont perdu leurs
+couleurs. »** Le mode Connexions était GRIS tant qu'il était éteint — il ne
+devenait vert qu'une fois allumé, donc jamais à l'ouverture de la page. Un
+bouton ne perd pas son identité parce qu'il est au repos : la tuile est verte
+dans les deux états, c'est son INTERRUPTEUR qui dit lequel. C'est aussi la
+seule façon de tenir la règle des deux couleurs sans que le vert soit
+invisible neuf fois sur dix.
+
+**« L'ouverture et la fermeture des réglages est brute. »** Elle l'était :
+`display: none` ne s'anime pas. Deux tentatives, la seconde retenue :
+- ⚠️ **colonne de grille `1fr` → `0fr`** : séduisant (on anime « jusqu'à la
+  largeur naturelle » sans la connaître), mais mesuré — la boîte interne ne
+  suit pas sa cellule (**237 px dehors, 100 px dedans** à mi-course), et un
+  écart se creusait entre les tuiles et la poignée pendant tout le mouvement.
+- **Retenu** : `carto_scene.js` mesure la largeur naturelle une fois
+  (`--cs-pliable-w`), la boîte interne est **ancrée à droite** et garde cette
+  largeur, et c'est le conteneur qui se referme. Les tuiles se rangent DANS la
+  poignée au lieu de s'écraser sur place. ⚠️ Sans script le repli reste
+  instantané (classe `a-mesure` posée seulement après la mesure) : jamais
+  cassé, juste sans glissé. ⚠️ La mesure se refait à l'arrivée des polices
+  (`document.fonts.ready`) — une police tardive change la largeur des
+  libellés et la mesure d'avant ne vaudrait plus rien.
+- ⚠️ **Même durée et même courbe pour la largeur et l'opacité** : à 0,26 s
+  contre 0,42 s, les tuiles avaient disparu avant la fin du mouvement et on
+  regardait un vide glisser.
+
+**« Le bouton qui ouvre le menu ne peut pas avoir le même design que les
+boutons qu'il contient. »** Exact : même rayon, même ombre, même silhouette —
+on le prenait pour un cinquième réglage. Les tuiles sont POSÉES (ombre
+portée), la poignée est CREUSÉE (pastille étroite, ombre interne, pas de
+bordure). Deux vocabulaires, deux rôles.
+
+**« Le bouton afficher la liste ne sert à rien. »** Il y avait TROIS portes
+pour un seul interrupteur : la languette (ouvrir), le chevron du tiroir
+(fermer), et ce bouton au coin du dessin. Retiré. Le coin ne porte plus que
+l'aide et le recadrage.
+
+**« Fermer la liste doit recadrer pour que la carto soit la plus grande
+possible. »** Mesuré, et ce n'était pas qu'une affaire de réglage : la boîte
+du dessin fait **8787 × 6221 (ratio 1,41)** quand la zone d'affichage fait
+**1572 × 863 (1,80)**, ou **1876 × 863 (2,15)** liste repliée. Le cadrage est
+donc borné par la **hauteur** dans les deux cas — replier n'ajoute que de la
+largeur, et **à cadrage strict le dessin ne grandissait pas d'un pixel** : on
+gagnait 304 px de vide. D'où deux cadrages, exactement comme demandé :
+
+| | zoom | dessin | zone remplie |
+|---|---|---|---|
+| liste ouverte — **strict** | 0,1361 | 1196 × 847 | 74,6 %, tout visible |
+| liste repliée — **généreux** | **0,1524** | 1339 × 948 | **78,5 %**, 9 % hors champ |
+
+`fitView(bornes, plancher, tolerance)` : au-delà de 1, on agrandit jusqu'à
+`tolerance` fois le cadrage strict — ⚠️ **jamais plus que le cadrage par
+l'autre axe**, qui serait un zoom sur un morceau et non une carte. Le dessin
+reste centré, donc ce qui dépasse se répartit des deux côtés et se retrouve au
+glisser. La page décide (`TOLERANCE_GENEREUSE = 1.12`), l'éditeur applique.
+⚠️ La tolérance arrive par `postMessage` d'une autre fenêtre : elle n'est
+acceptée que comme nombre fini dans ]1, 2].
+
+**« La typo est trop petite, du texte brut. »** Le libellé d'une tuile était
+en 12,5 px — c'est pourtant le texte qu'on vient lire. Toute la rangée monte :
+libellé 12,5 → **14 px** (14,5 sur l'action pleine), titre 23 → 25, pastille
+de rubrique 10,5 → 11, « Lecture seule » 11,5 → 12,5, « Bandes » 9,5 → 10,5,
+pastille d'icône 28 → 30 px. Le mode compact passe de 1380 à **1480 px** :
+des libellés plus larges débordent plus tôt.
+
+**« Ouvrir l'éditeur est rognée en haut. »** Elle ne l'était pas : `.cs-t:hover`
+SOULÈVE une tuile de 2 px, et la barre touchait le bord d'une scène en
+`overflow: hidden` — les 2 px du survol et le halo de l'ombre étaient coupés
+net, d'où le coin carré dès qu'on passait dessus. La scène a 9 px de marge en
+haut.
+
+Tests : `test_94` (19 cas — une seule porte pour ouvrir et une pour fermer, le
+conteneur qui permet le glissé, le cadrage qui dépend de l'état de la liste),
+`test_79` (la signature de `fitView` est un contrat : le cliquet l'a vue
+changer, et il garde en plus le fait que le cadrage généreux reste borné).
+Suite : 2849 passés, `repet_image` 2821 + 28 sautés. `editor.js` resynchronisé
+dans le dépôt OptiqCarto. Éprouvé au banc de 1280 à 1920, dans les deux
+langues : plus aucun fragment français sur l'écran anglais.
+
+##### Le zoom s'aligne sur la LARGEUR, et deux boutons qui ne ressemblent à rien d'autre (2026-10-11)
+
+**Le cadrage, troisième version — et la bonne.** Les deux précédentes
+partaient du cadrage « tout tient », borné par la HAUTEUR : mesuré, la boîte
+du dessin (**8787 × 6221, ratio 1,41**) est bien plus carrée que la zone
+(**1,80** liste ouverte, **2,15** repliée), si bien que le zoom valait 0,1361
+dans les deux cas — replier la liste ne faisait pas grandir le dessin d'un
+pixel. La tolérance (× 1,12) ne faisait que compenser à la marge.
+
+Le zoom s'aligne donc sur la **largeur de la zone**, point. Une carto est
+large et se lit de gauche à droite : on lui donne toute la largeur, et ce qui
+dépasse en hauteur se parcourt au glisser.
+
+| | zoom | dessin rendu | zone |
+|---|---|---|---|
+| liste ouverte | **0,1765** | 1551 × 1098 | 1572 × 863 |
+| liste repliée | **0,2106** | 1851 × 1310 | 1876 × 863 |
+
+La largeur est remplie exactement ; 27 % (liste ouverte) à 34 % (repliée) de
+la hauteur passe sous la ligne de flottaison. ⚠️ **Un dessin plus haut que la
+zone se cale en HAUT, pas au centre** : centré, on couperait son premier
+couloir autant que le dernier — or une carto se lit depuis le haut.
+`fitView(bornes, plancher, cadrage)` ; `cadrage: 'largeur'` est la seule
+valeur reconnue, tout le reste retombe sur « tout tient » (les vignettes de
+la comparaison avant/après en dépendent).
+
+⚠️ **Et le zoom PAR DÉFAUT n'était pas celui de la page.** Le viewer se cadre
+lui-même à la fin de son chargement (`fitView()` sans mode) : mesuré 0,1361 à
+l'ouverture contre 0,2106 après un clic sur « recadrer ». La page écoute donc
+`carto-state-ready` — le signal que l'éditeur émettait déjà — et impose son
+cadrage.
+
+**Les réglages sont REPLIÉS par défaut.** La page s'ouvre sur la carto, pas
+sur ce qui sert à la régler. ⚠️ Seul un choix mémorisé les déplie : rien en
+mémoire = replié.
+
+**La poignée des réglages : un DISQUE vert en verre liquide.** Elle avait
+encore la forme d'une tuile ; on la prenait pour un cinquième réglage.
+Désormais 52 px de diamètre, trois verts superposés, des masses qui dérivent
+sous la surface (`csLiquide`, 9 s) et le reflet figé par-dessus.
+⚠️ **Le chevron passe au-dessus des deux pseudo-éléments** : ceux-ci sont
+positionnés, ils peindraient donc par-dessus un contenu qui ne l'est pas.
+⚠️ **Son état se lit sans la cliquer** : déployée elle est soutenue et calme,
+repliée elle s'éclaircit et porte un anneau. Le chevron TOURNE (règle CSS sur
+`.is-plie`) au lieu de changer de classe — remplacer une classe ne s'anime
+pas. La lettre du raccourci a quitté le bouton : elle ne tient pas dans un
+disque, elle vit dans l'info-bulle.
+
+**« Ouvrir l'éditeur » : une PILULE à plusieurs fuchsias.** C'était un aplat
+de la même forme que les réglages. ⚠️ Deux différences de FORME, pas
+seulement de couleur : rayon plein (pilule) quand les réglages sont des
+rectangles, et contenu en LIGNE (pastille à gauche, mot à droite) quand le
+leur est en colonne. ⚠️ Et le rapport s'inverse — les réglages posent une
+pastille VIVE sur un fond pâle, l'action une pastille PASTEL sur un fond vif.
+Le fond empile quatre fuchsias (vif, pastel, prune, un soupçon de lilas) au
+lieu d'un aplat, et un reflet traverse la pilule au survol : le seul mouvement
+de la rangée, et il ne dure que le geste. Le filigrane est retiré — c'était
+un repère de tuile, sur une pilule il ne fait que du bruit.
+
+Tests : `test_94` (22 cas — le cadrage sur la largeur, le zoom par défaut, le
+calage en haut, les réglages repliés par défaut), `test_79` (la signature de
+`fitView` est un contrat, le cliquet l'a vue changer deux fois).
+Suite : 2859 passés, `repet_image` 2831 + 28 sautés. `editor.js` resynchronisé
+dans le dépôt OptiqCarto. Éprouvé au banc de 1280 à 1920, dans les deux
+langues.
+
 ### L'import se lit aussi dans l'AUTRE SENS (2026-10-01)
 
 L'écran de vérification des tâches ne savait poser qu'une question : pour chaque
@@ -3631,6 +4150,121 @@ migration à chaud pour les bases déjà déployées, test dans
   `optiqfluent-staging` en 8,9 s — la sonde coupait à **12 s**. Délai porté à 28 s, et un
   dépassement rend désormais **« en veille »** (bleu calme) et non « injoignable » (rouge
   d'alerte) : le service dort, il n'est pas cassé.
+
+### L'audit du client : les quatre premiers défauts (2026-10-11)
+
+Cinq classeurs de remarques (03–05/10/2026), confrontés au code un par un.
+Ce qui suit est ce qui a été **vérifié dans le dépôt** puis corrigé ; le tri
+complet (ce qui est déjà réglé, ce qui relève d'une décision produit, ce qui
+tient à la qualité du fichier source du client) a été rendu à part.
+
+#### ⚠️⚠️ 39 fichiers de routes écrivaient SANS aucun contrôle d'accès
+
+Le plus gros point, et plus large que ce que l'audit avait vu. `tasks.py`
+(5 routes d'écriture), `gestion_outils.py` (4), `roles.py`, `savoirs`,
+`savoir_faires`, `aptitudes`, `softskills`, `constraints`,
+`propose_from_file.py`, `time_view.py` (14)… **aucune garde, et aucun
+`before_request` global non plus**. Le tableau des droits disait pourtant
+depuis le début que `user` consulte et ne modifie rien.
+
+Mesuré, porte retirée : un compte `user` crée une tâche et réécrit la
+description d'un outil du catalogue partagé ; et ⚠️ **`POST /tasks/add` SANS
+AUCUN COMPTE rendait 201 et écrivait la tâche en base** — pire que le défaut
+signalé, et invisible parce que *toute la suite de tests écrivait de cette
+façon*.
+
+`Code/ecriture.py` — **une porte centrale, pas 39 gardes**. Trente-neuf
+fichiers corrigés un par un, c'est trente-neuf occasions d'en oublier un, et
+surtout la quarantième route écrite demain serait ouverte à nouveau. Ici le
+défaut est fermé par CLASSE : toute méthode d'écriture est refusée sauf ce qui
+est nommé, et le droit consulté est `edit_carto` — celui du tableau réglable,
+pas une liste de statuts en dur.
+
+- ⚠️ **La liste d'exemptions est le cœur du fichier**, et elle a été écrite
+  d'après ce que la porte a RÉELLEMENT refusé en rejouant la suite (66 refus
+  journalisés avec le statut du compte), pas d'après ce qu'on imaginait :
+  trois familles n'avaient pas été prévues. Elle ne contient que des routes
+  qui portent DÉJÀ une règle plus fine — `/plan` (le développeur de
+  compétences est désigné par un rattachement, pas par un statut),
+  `/cartography/api` (c'est `/api/save` qui distingue « proposez » de
+  « lecture seule »), `/comptes`, `/gestion_rh`, `/mastery`, `/api/import`,
+  `/activities/api/entities`. La porte s'efface devant elles, elle ne les
+  remplace pas.
+- ⚠️ **La règle anonyme s'efface sous TESTING, volontairement** : 115 tests
+  fabriquent des clients anonymes (`app.test_client()`) pour s'isoler de la
+  session partagée, pas pour éprouver l'anonymat. Les reprendre un par un
+  noierait la correction. **Conséquence à ne pas oublier : passer la suite ne
+  prouve PAS que l'anonyme est fermé** — seul `test_102` le prouve, en
+  appelant `porte()` avec `en_test=False`. Un test dit la dérogation à voix
+  haute pour qu'elle ne pourrisse pas.
+- ⚠️ La tentative d'avant est instructive : donner une identité par défaut à
+  tous les clients de test (un fixture autouse) a cassé les tests qui
+  éprouvent VRAIMENT l'anonymat (`test_46`, `test_61`). Un décor global qui
+  authentifie tout le monde efface les cas qu'on voulait garder.
+- Vérifié de bout en bout, vrai POST HTTP : `user` → **403 lecture_seule,
+  rien en base** ; `coordinateur` → 201, tâche écrite.
+
+⚠️⚠️ **Et la porte était plus STRICTE que la règle carto** — relevé sur le
+pilote AVANT la livraison, pas après. Deux comptes ARaymond (un `champion`
+qui POSSÈDE une cartographie, un `user`) y auraient perdu le droit d'écrire
+les données de LEUR propre carto. Or `carto_access.can_edit` dit depuis
+toujours que sur une carto PRIVÉE, son propriétaire fait ce qu'il veut quel
+que soit son statut. Une porte qui contredit la règle qu'elle fait respecter
+est un deuxième avis, pas une porte : elle consulte donc `can_edit` sur la
+carto ACTIVE, et ne retombe sur le droit de statut que lorsqu'il n'y a pas de
+carto active. Sur une carto COMMUNE, en revanche, c'est bien le tableau des
+droits qui tranche — elle engage toute l'organisation.
+
+⚠️ Ce défaut ne pouvait PAS se voir dans la suite : le compte de test est
+`admin`, donc toutes les portes lui sont ouvertes. Il s'est vu en LISANT la
+base du client avant de pousser (`tools/db/etat_statuts.py`, lecture seule).
+L'inventaire avant livraison n'est pas une formalité.
+
+Tests : `tests/test_102_porte_ecriture.py` (37 cas).
+
+#### Page Temps — trois défauts, trois causes distinctes
+
+- ⚠️ **« Durée (h) » était en MINUTES** (R04/H13/F36). `addRoleRow` lit le
+  champ tel quel (`durMin`) : saisir 60 posait une heure. Le calcul, lui, est
+  cohérent — c'est l'en-tête qui mentait, donc c'est lui qui change.
+  ⚠️ **Sans renommer la clé partout** : `time.col_duration_h` sert à QUATRE
+  tableaux et trois sont JUSTES (ils affichent `fmtH(duration_minutes)`, donc
+  des heures). Seul le tableau de SAISIE du rôle reçoit sa propre clé,
+  `time.col_duration_min`.
+- ⚠️ **L'aperçu « Total estimé » ne se recalculait jamais** (R05/H14/T17). Il
+  n'était écrit que dans `refreshActivityDefaults()` — sur le changement
+  d'ACTIVITÉ — et après sauvegarde : **aucun écouteur** sur durée, fréquence
+  ni nombre de personnes. 30 min × 2 × 3 affichait « 0.0 h » et enregistrait
+  3,0 h. Le chiffre montré pendant la saisie ne décrivait rien.
+- ⚠️ **La fréquence de la Faiblesse était LUE, STOCKÉE, et n'entrait dans
+  AUCUN calcul** (R08/T19/F37). Reproduit avec les chiffres du rapport
+  (hebdomadaire, 60 min, 1 chance sur 2, +30 min, +60 min d'attente) :
+  fréquence 1 et fréquence 2 rendaient exactement 16 occurrences, 8 h et 24 h.
+  `H` compte les PÉRIODES par an et `freq` le nombre de fois PAR période —
+  c'est la lecture de l'onglet Rôle (`weight = durée × fréquence`) : le
+  produit des deux est le nombre d'occurrences. `H = H * max(1, freq)`.
+  ⚠️ **Cela déplace les résultats déjà enregistrés** d'un facteur `freq` — ce
+  qui est le but, mais une analyse relue après coup ne donnera plus le même
+  chiffre qu'avant.
+
+Tests : `tests/test_103_temps_audit.py` (8 cas, la fréquence vérifiée
+**rouge** en retirant la ligne). Suite : 2904 passés, `repet_image` 2876 + 28
+sautés.
+
+#### Deux points laissés en arbitrage, et pourquoi
+
+- **Le mensuel de la Faiblesse divise par 7,36, pas par 12** (R07/H16).
+  `W = U / (Sa / WPM)` : avec 32 semaines par an, cela fait 7,36 **mois
+  travaillés**. Leur relevé (annuel 8 h → mensuel 1,1 h) tombe exactement
+  juste. Ce n'est donc pas un défaut de calcul mais une **convention non
+  écrite** : « moyenne par mois travaillé » et non « annuel ÷ 12 ». Rien n'a
+  été changé — le choix se décide, il ne se devine pas.
+- **Exigence atteinte ≠ autonomie démontrée** (A10/F42/C24). Attendu 1 +
+  officiel 1 donnent « 100 % » ET « Below target ». Ce n'est pas une
+  contradiction : ce sont deux règles, mélangées dans un seul compteur. La
+  correction est d'**afficher les deux séparément**, pas de recalculer.
+
+---
 
 ## Notes importantes (suite)
 

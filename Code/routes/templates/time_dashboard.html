@@ -201,7 +201,10 @@
             <thead>
               <tr>
                 <th>{{ t('time.col_activity') }}</th>
-                <th>{{ t('time.col_duration_h') }}</th>
+                <!-- ⚠️ MINUTES, pas heures : `addRoleRow` lit ce champ tel
+                     quel. L'en-tête disait « (h) » et faisait saisir une
+                     charge soixante fois autre que celle qu'on croyait. -->
+                <th>{{ t('time.col_duration_min') }}</th>
                 <th>{{ t('time.col_recurrence') }}</th>
                 <th>{{ t('time.col_freq') }}</th>
                 <th>{{ t('time.col_weight') }}</th>

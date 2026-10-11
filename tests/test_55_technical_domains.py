@@ -64,6 +64,8 @@ def _cleanup_role(app, role_id):
 class TestScale:
 
     def test_scale_returns_five_levels(self, auth_client):
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "fr"
         r = auth_client.get("/domains/scale")
         assert r.status_code == 200
         data = r.get_json()
