@@ -10,10 +10,15 @@
    jamais sur cette page, alors que RECADRER — remettre le dessin au milieu
    de la zone d'affichage — est le geste qu'on fait sans arrêt.
 
-   ⚠️ Et on RECADRE après avoir replié la liste. Elle POUSSE le dessin (elle
-   ne le recouvre pas) : replier change donc la largeur de la zone
-   d'affichage, et sans recadrage on gagnerait 300 px de vide à droite au
-   lieu d'un dessin plus grand — or c'est exactement pour ça qu'on replie.
+   ⚠️ Et RECADRER ne veut pas dire la même chose selon que la liste est là
+   ou non. Mesuré sur la carto du banc : la boîte du dessin (8787 × 6221) est
+   bien plus CARRÉE que la zone d'affichage (1572 × 872, ou 1876 × 872 liste
+   repliée). Le cadrage est donc borné par la HAUTEUR dans les deux cas, et
+   replier n'ajoute que de la largeur : à cadrage strict, le dessin ne
+   grandit pas d'un pixel — on gagne juste 304 px de vide.
+   Liste OUVERTE on garde donc le cadrage STRICT (on travaille, on veut tout
+   voir) ; liste REPLIÉE on cadre GÉNÉREUX : le dessin remplit la zone, au
+   prix d'un dixième de sa hauteur hors champ, qui se retrouve au glisser.
    ════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -21,6 +26,9 @@
   const CLE_TIROIR  = 'optiq_carto_tiroir';    // replié ou non, d'une visite à l'autre
   const CLE_REGLAGE = 'optiq_carto_reglages';  // idem pour les réglages
   const DUREE_REPLI = 380;                     // la transition du tiroir, en ms
+  // Liste repliée, on accepte que le dessin dépasse d'un dixième pour qu'il
+  // remplisse la zone. Au-delà on ne montre plus la carto, on zoome dedans.
+  const TOLERANCE_GENEREUSE = 1.12;
   const scene = document.getElementById('carto-scene');
   if (!scene) return;
 
@@ -38,9 +46,14 @@
   // ── Recadrer ───────────────────────────────────────────────────────
   function recentrer() {
     const frame = document.getElementById('carto-viewer-frame');
-    if (frame && frame.contentWindow) {
-      try { frame.contentWindow.postMessage({ type: 'fit-view' }, '*'); } catch (e) { /* iframe pas prête */ }
-    }
+    if (!frame || !frame.contentWindow) return;
+    const replie = scene.classList.contains('is-replie');
+    try {
+      frame.contentWindow.postMessage({
+        type: 'fit-view',
+        tolerance: replie ? TOLERANCE_GENEREUSE : 1
+      }, '*');
+    } catch (e) { /* iframe pas prête */ }
   }
 
   // ── Le tiroir ──────────────────────────────────────────────────────
@@ -73,6 +86,28 @@
   // ouvrir l'éditeur et recadrer restent toujours à un clic.
   const actions = document.getElementById('cs-actions');
   const btnPlier = document.getElementById('cs-plier');
+  const pliable = document.getElementById('cs-pliable');
+
+  // ⚠️ On ne peut pas animer une largeur vers `auto` : on mesure la largeur
+  // naturelle des tuiles et on la pose en variable. Tant qu'elle n'est pas
+  // mesurée, le repli reste instantané — jamais cassé, juste sans glissé.
+  function mesurerPliable() {
+    if (!actions || !pliable) return;
+    const dedans = pliable.querySelector('.cs-pliable-in');
+    if (!dedans) return;
+    // La largeur naturelle n'existe que DÉPLIÉ. On retire d'abord `a-mesure`
+    // pour que rien ne s'anime pendant la mesure : tout se joue dans la même
+    // image, donc rien ne clignote.
+    const plie = actions.classList.contains('is-plie');
+    actions.classList.remove('a-mesure');
+    if (plie) actions.classList.remove('is-plie');
+    const w = Math.ceil(dedans.getBoundingClientRect().width);
+    if (plie) actions.classList.add('is-plie');
+    if (w > 0) {
+      actions.style.setProperty('--cs-pliable-w', w + 'px');
+      actions.classList.add('a-mesure');
+    }
+  }
 
   function poserReglages(plie, memoriser) {
     if (!actions) return;
@@ -126,13 +161,19 @@
   let _t = null;
   window.addEventListener('resize', () => {
     clearTimeout(_t);
-    _t = setTimeout(ajusterHauteur, 80);
+    _t = setTimeout(() => { ajusterHauteur(); mesurerPliable(); }, 80);
   });
 
   // ── État initial ───────────────────────────────────────────────────
   poserTiroir(lire(CLE_TIROIR) === '1', false);
   poserReglages(lire(CLE_REGLAGE) === '1', false);
   ajusterHauteur();
+  mesurerPliable();
+  // ⚠️ Une police qui arrive après coup change la largeur des libellés : la
+  // mesure d'avant ne vaudrait plus rien.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(mesurerPliable).catch(() => {});
+  }
 
   // ⚠️ L'entrée en scène PART d'une opacité nulle : dans un onglet en
   // arrière-plan le navigateur met l'animation en pause, et la rangée

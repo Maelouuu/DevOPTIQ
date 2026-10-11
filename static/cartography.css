@@ -4883,7 +4883,11 @@ body.a-carto-scene { margin-bottom: 0; }
   margin: 0;
   /* ⚠️ Pas de padding latéral ailleurs : `.carto-container` portait le sien,
      et les deux s'additionnaient. */
-  padding: 0 6px 6px;
+  /* ⚠️ Le haut n'est PAS décoratif : `.cs-t:hover` soulève une tuile de
+     2 px et son ombre déborde. Sans cette marge, la scène — en
+     `overflow: hidden` — les coupait net, et la tuile de l'éditeur
+     paraissait rognée dès qu'on la survolait. */
+  padding: 9px 6px 6px;
   /* ⚠️ `--cs-top` est MESURÉ par carto_scene.js : ce qui surmonte la scène
      (barre de navigation et sa marge) n'a pas de hauteur fixe, et une
      constante devinée remettait la page à défiler de 28 px. */
@@ -4916,8 +4920,41 @@ body.a-carto-scene { margin-bottom: 0; }
   align-items: stretch;
   gap: 10px;
 }
-.cs-pliable { display: flex; align-items: stretch; gap: 10px; }
+/* Le repli SANS script : instantané, mais jamais cassé. */
+.cs-pliable { overflow: hidden; }
+.cs-pliable-in { display: flex; align-items: stretch; gap: 10px; }
 .cs-actions.is-plie .cs-pliable { display: none; }
+
+/* Et dès que carto_scene.js a mesuré la largeur naturelle des tuiles, le
+   repli GLISSE — il était instantané, donc « brut ».
+   ⚠️ On anime une VRAIE largeur, pas une colonne de grille : essayé d'abord
+   en passant la colonne de 1fr à 0fr, et mesuré que la boîte interne ne suit
+   pas sa cellule (237 px dehors, 100 px dedans) — un écart se creusait entre
+   les tuiles et la poignée pendant tout le mouvement.
+   ⚠️ La boîte interne est ANCRÉE À DROITE et garde sa largeur : les tuiles
+   se rangent DANS la poignée, elles ne s'écrasent pas sur place.
+   ⚠️ Même durée et même courbe pour la largeur et l'opacité : une opacité
+   plus rapide ferait disparaître les tuiles avant la fin du mouvement, et on
+   regarderait un vide glisser.
+   ⚠️ Le padding et la marge négative rendent au survol et à l'ombre les
+   quelques pixels verticaux que l'overflow leur prendrait. */
+.cs-actions.a-mesure .cs-pliable {
+  position: relative;
+  display: block;
+  width: var(--cs-pliable-w);
+  padding: 8px 0;
+  margin: -8px 0;
+  transition: width .42s cubic-bezier(.22, 1, .36, 1),
+              opacity .42s cubic-bezier(.22, 1, .36, 1);
+}
+.cs-actions.a-mesure .cs-pliable-in {
+  position: absolute;
+  right: 0;
+  top: 8px;
+  bottom: 8px;
+  width: var(--cs-pliable-w);
+}
+.cs-actions.a-mesure.is-plie .cs-pliable { display: block; width: 0; opacity: 0; }
 
 .carto-scene .carto-container {
   flex: 1;
@@ -5010,12 +5047,12 @@ body.a-carto-scene { margin-bottom: 0; }
 }
 .cs-bandes-lab {
   flex: none;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--cs-r-dark);
-  opacity: .55;
+  opacity: .6;
   white-space: nowrap;
 }
 .cs-bandes-barres { display: flex; align-items: center; gap: 3px; }
@@ -5043,9 +5080,9 @@ body.a-carto-scene { margin-bottom: 0; }
   background: #fff;
   border: 1px solid rgba(190, 24, 93, .14);
   box-shadow: 0 2px 6px rgba(190, 24, 93, .1);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
-  letter-spacing: .09em;
+  letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--cs-r-deep);
   white-space: nowrap;
@@ -5063,10 +5100,10 @@ body.a-carto-scene { margin-bottom: 0; }
   margin: 0;
   min-width: 0;
   font-family: var(--pg-font-display, 'Fraunces', Georgia, serif);
-  font-size: 23px;
+  font-size: 25px;
   font-weight: 700;
   line-height: 1.1;
-  letter-spacing: -.012em;
+  letter-spacing: -.014em;
   color: var(--cs-encre);
   white-space: nowrap;
   overflow: hidden;
@@ -5086,12 +5123,12 @@ body.a-carto-scene { margin-bottom: 0; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 25px;
-  padding: 0 11px;
+  height: 27px;
+  padding: 0 12px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, .8);
+  background: rgba(255, 255, 255, .82);
   border: 1px solid rgba(157, 23, 77, .16);
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   color: var(--cs-r-dark);
   white-space: nowrap;
@@ -5126,25 +5163,26 @@ body.a-carto-scene { margin-bottom: 0; }
 
 .cs-t-ic {
   flex: none;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 10px;
   background: linear-gradient(140deg, var(--t-ic, var(--cs-r)), var(--t-ic2, var(--cs-r-deep)));
   color: #fff;
-  font-size: 12.5px;
+  font-size: 13.5px;
   box-shadow: 0 3px 8px var(--t-glow, rgba(190, 24, 93, .26));
 }
 .cs-t-lab {
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.15;
-  letter-spacing: -.005em;
+  letter-spacing: -.012em;
   color: var(--t-ink, var(--cs-r-dark));
   white-space: nowrap;
 }
+.cs-t--prim .cs-t-lab { font-size: 14.5px; letter-spacing: -.016em; }
 .cs-t-fil {
   position: absolute;
   right: -7px;
@@ -5162,15 +5200,15 @@ body.a-carto-scene { margin-bottom: 0; }
 /* Le mode Connexions est un INTERRUPTEUR : éteint il est neutre, allumé il
    passe au vert — la couleur de l'état actif dans toute l'application. */
 .cs-t--cx {
-  --t-1: #fff; --t-2: #f6f7f9; --t-bord: #e4e7ec;
-  --t-ic: #94a3b8; --t-ic2: #64748b; --t-ink: #475569;
-  --t-glow: rgba(100, 116, 139, .2);
-  padding-right: 48px;
+  --t-1: #fff; --t-2: var(--cs-v-1); --t-bord: #cdeeda;
+  --t-ic: #4ade80; --t-ic2: var(--cs-v); --t-ink: #14532d;
+  --t-glow: rgba(22, 163, 74, .2);
+  padding-right: 50px;
 }
 .cs-t--cx.active {
-  --t-1: var(--cs-v-1); --t-2: #dcfce7; --t-bord: var(--cs-v-bord);
-  --t-ic: #22c55e; --t-ic2: var(--cs-v-deep); --t-ink: #14532d;
-  --t-glow: rgba(22, 163, 74, .26);
+  --t-1: var(--cs-v-1); --t-2: #bbf7d0; --t-bord: var(--cs-v-bord);
+  --t-ic: #22c55e; --t-ic2: var(--cs-v-deep);
+  --t-glow: rgba(22, 163, 74, .32);
 }
 .cs-t-switch {
   position: absolute;
@@ -5220,30 +5258,31 @@ body.a-carto-scene { margin-bottom: 0; }
 /* La tuile de repli : le chevron, et la lettre qui fait la même chose. */
 .cs-plier {
   flex: none;
-  width: 40px;
+  width: 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 0 9px;
-  border-radius: 18px;
-  border: 1px solid #f0e2ea;
-  background: linear-gradient(180deg, #fff, var(--cs-r-1));
-  box-shadow: 0 4px 14px rgba(63, 29, 43, .06);
+  justify-content: center;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(157, 23, 77, .055);
+  box-shadow: inset 0 1px 2px rgba(157, 23, 77, .09);
   color: var(--cs-r-deep);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: background .15s ease, transform .16s cubic-bezier(.22, 1, .36, 1),
-              box-shadow .16s ease;
+  transition: background .16s ease, color .16s ease;
 }
-.cs-plier:hover { background: linear-gradient(180deg, var(--cs-r-1), var(--cs-r-2)); transform: translateY(-2px); }
-.cs-plier:active { transform: translateY(0) scale(.96); }
+.cs-plier:hover { background: rgba(157, 23, 77, .13); }
+.cs-plier:active { background: rgba(157, 23, 77, .18); }
+.cs-plier i { transition: transform .42s cubic-bezier(.22, 1, .36, 1); }
 .cs-plier-k {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: .04em;
   color: var(--cs-r);
-  opacity: .6;
+  opacity: .5;
 }
 
 /* ── 3 · LE DESSIN ────────────────────────────────────────────────── */
@@ -5590,10 +5629,10 @@ body.a-carto-scene { margin-bottom: 0; }
 /* ── 6 · ÉCRANS ÉTROITS ───────────────────────────────────────────── */
 /* Sous 1380 px les quatre réglages deviennent des carrés : le libellé d'une
    tuile est un confort, la rangée qui déborde est un défaut. */
-@media (max-width: 1380px) {
+@media (max-width: 1480px) {
   .cs-t--entites, .cs-t--import, .cs-t--acces, .cs-t--cx {
     min-width: 0;
-    width: 46px;
+    width: 48px;
     padding: 11px 0;
     align-items: center;
     justify-content: center;

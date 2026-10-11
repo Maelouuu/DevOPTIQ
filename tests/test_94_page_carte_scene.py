@@ -140,12 +140,41 @@ class TestLaCartoPrendToutePlace:
         assert 'id="cs-languette"' in html
 
     def test_sans_carto_la_scene_n_offre_pas_ses_boutons(self, app, client, scene):
-        """Recadrer ou replier la liste n'a aucun sens devant un écran
-        d'accueil : les boutons ne sont pas RENDUS, pas seulement masqués."""
+        """Recadrer n'a aucun sens devant un écran d'accueil : les boutons ne
+        sont pas RENDUS, pas seulement masqués."""
         html = _page(client, app, scene["u"], scene["sans"])
         assert 'id="cs-recadrer"' not in html
-        assert 'id="cs-panneau"' not in html
+        assert 'class="cs-flottants"' not in html
         assert 'carto-no-carto-card' in html
+
+    def test_une_seule_porte_pour_ouvrir_la_liste_et_une_pour_la_fermer(self, app, client, scene):
+        """Il y en avait TROIS : la languette, le chevron du tiroir, et un
+        bouton « afficher la liste » au coin du dessin. Le troisième ne
+        servait à rien — on l'a retiré, et le coin du dessin ne porte plus
+        que l'aide et le recadrage."""
+        html = _page(client, app, scene["u"], scene["avec"])
+        assert 'id="cs-panneau"' not in html
+        d = html.index('class="cs-flottants"')
+        bloc = html[d:html.index("</div>", d)]
+        assert bloc.count("<button") == 2, bloc.count("<button")
+        assert 'data-cs="fit"' in bloc
+        assert 'data-cs="panneau"' not in bloc
+        # Les deux vraies portes, elles, sont toujours là.
+        assert 'class="cs-tiroir-x" data-cs="panneau"' in html
+        assert 'class="cs-languette" data-cs="panneau"' in html
+
+    def test_le_repli_a_de_quoi_GLISSER(self, app, client, scene):
+        """⚠️ `display: none` ne s'anime pas : le repli était instantané,
+        donc brut. Il faut un conteneur INTERNE dont la largeur ne bouge pas
+        pour que les tuiles glissent au lieu de s'écraser."""
+        html = _page(client, app, scene["u"], scene["avec"])
+        d = html.index('id="cs-pliable"')
+        assert 'class="cs-pliable-in"' in html[d:d + 400]
+        js = _lire("static/js/carto_scene.js")
+        assert "mesurerPliable" in js
+        assert "--cs-pliable-w" in js
+        # La mesure se refait quand la police arrive : elle change les largeurs.
+        assert "document.fonts" in js
 
     def test_la_rangee_du_haut_est_dans_le_FLUX(self, app, client, scene):
         """⚠️ Renversement de la passe précédente, et il est voulu : la barre
@@ -183,6 +212,20 @@ class TestLaCartoPrendToutePlace:
         editeur = html.index('cs-t--prim')
         flottants = html.index('class="cs-flottants"')
         assert pliable < poignee < editeur < flottants
+
+    def test_recadrer_ne_dit_pas_la_meme_chose_selon_l_etat_de_la_liste(self, app, client, scene):
+        """Mesuré : la boîte du dessin (8787 × 6221) est bien plus carrée que
+        la zone (1572 × 863, ou 1876 × 863 liste repliée). Le cadrage est
+        borné par la HAUTEUR dans les deux cas — à cadrage strict, replier la
+        liste ne fait pas grandir le dessin d'un pixel. Liste repliée, on
+        cadre donc GÉNÉREUSEMENT."""
+        js = _lire("static/js/carto_scene.js")
+        assert "TOLERANCE_GENEREUSE" in js
+        assert "tolerance: replie ? TOLERANCE_GENEREUSE : 1" in js
+        ed = _lire("static/optiqcarto/editor.js")
+        # ⚠️ La tolérance vient d'une autre fenêtre : elle est bornée.
+        assert "function fitView(bornes, plancher, tolerance)" in ed
+        assert "t > 1 && t <= 2" in ed
 
     def test_le_bouton_fleche_du_board_n_existe_pas(self, app, client, scene):
         """Le board portait un carré blanc à flèche posé sur « Ouvrir

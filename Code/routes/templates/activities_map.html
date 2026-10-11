@@ -313,7 +313,12 @@
     </div>
 
     <div class="cs-actions" id="cs-actions">
+      <!-- ⚠️ Le conteneur INTERNE n'est pas décoratif : le repli s'anime
+           en faisant passer la colonne de grille de `1fr` à `0fr`, et il
+           faut un enfant à largeur propre pour que le contenu GLISSE au
+           lieu de s'écraser. `display: none` ne s'anime pas. -->
       <span class="cs-pliable" id="cs-pliable">
+        <span class="cs-pliable-in">
         <button type="button" id="carto-wizard-btn" class="cs-t cs-t--entites">
           <span class="cs-t-ic"><i class="fa-solid fa-building-columns"></i></span>
           <span class="cs-t-lab">{{ t('map.btn_entities') }}</span>
@@ -342,10 +347,13 @@
           <span class="cross-carto-dot"></span>
           <i class="fa-solid fa-link cs-t-fil" aria-hidden="true"></i>
         </button>
+        </span>
       </span>
 
-      <!-- ⚠️ Le repli n'emporte QUE les réglages : la tuile qui ouvre
-           l'éditeur reste dehors, comme les trois gestes de l'écran. -->
+      <!-- ⚠️ La poignée NE DOIT PAS ressembler aux tuiles qu'elle range :
+           on la prendrait pour un cinquième réglage. C'est une pastille
+           étroite. Et le repli n'emporte QUE les réglages : la tuile qui
+           ouvre l'éditeur reste dehors. -->
       <button type="button" class="cs-plier" id="cs-plier" data-cs="actions"
               title="{{ t('map.sc_actions_plier') }}" aria-label="{{ t('map.sc_actions_plier') }}"
               aria-expanded="true" aria-controls="cs-pliable">
@@ -446,12 +454,6 @@
                 title="{{ t('map.fit_view') }}" aria-label="{{ t('map.fit_view') }}">
           <i class="fa-solid fa-crosshairs"></i>
           <span class="cs-f-k" aria-hidden="true">C</span>
-        </button>
-        <button type="button" class="cs-f" data-cs="panneau" id="cs-panneau"
-                title="{{ t('map.sc_panneau_fermer') }}" aria-label="{{ t('map.sc_panneau_fermer') }}"
-                aria-expanded="true">
-          <i class="fa-solid fa-table-columns"></i>
-          <span class="cs-f-k" aria-hidden="true">L</span>
         </button>
       </div>
       {% endif %}

@@ -3587,6 +3587,90 @@ couleurs, le compte en deux morceaux). Suite : 2794 passés. Éprouvé au banc
 réglages et sa mémoire, repli de la liste et son recadrage, languette,
 raccourcis `c` / `l` / `b`, recherche, mode Connexions.
 
+##### Reprise du board : la couleur, le glissé, le cadrage (2026-10-11)
+
+Sept reproches sur la première implantation, tous mesurés avant d'être
+corrigés.
+
+**« On a du rose mais pas de vert, et la moitié des boutons ont perdu leurs
+couleurs. »** Le mode Connexions était GRIS tant qu'il était éteint — il ne
+devenait vert qu'une fois allumé, donc jamais à l'ouverture de la page. Un
+bouton ne perd pas son identité parce qu'il est au repos : la tuile est verte
+dans les deux états, c'est son INTERRUPTEUR qui dit lequel. C'est aussi la
+seule façon de tenir la règle des deux couleurs sans que le vert soit
+invisible neuf fois sur dix.
+
+**« L'ouverture et la fermeture des réglages est brute. »** Elle l'était :
+`display: none` ne s'anime pas. Deux tentatives, la seconde retenue :
+- ⚠️ **colonne de grille `1fr` → `0fr`** : séduisant (on anime « jusqu'à la
+  largeur naturelle » sans la connaître), mais mesuré — la boîte interne ne
+  suit pas sa cellule (**237 px dehors, 100 px dedans** à mi-course), et un
+  écart se creusait entre les tuiles et la poignée pendant tout le mouvement.
+- **Retenu** : `carto_scene.js` mesure la largeur naturelle une fois
+  (`--cs-pliable-w`), la boîte interne est **ancrée à droite** et garde cette
+  largeur, et c'est le conteneur qui se referme. Les tuiles se rangent DANS la
+  poignée au lieu de s'écraser sur place. ⚠️ Sans script le repli reste
+  instantané (classe `a-mesure` posée seulement après la mesure) : jamais
+  cassé, juste sans glissé. ⚠️ La mesure se refait à l'arrivée des polices
+  (`document.fonts.ready`) — une police tardive change la largeur des
+  libellés et la mesure d'avant ne vaudrait plus rien.
+- ⚠️ **Même durée et même courbe pour la largeur et l'opacité** : à 0,26 s
+  contre 0,42 s, les tuiles avaient disparu avant la fin du mouvement et on
+  regardait un vide glisser.
+
+**« Le bouton qui ouvre le menu ne peut pas avoir le même design que les
+boutons qu'il contient. »** Exact : même rayon, même ombre, même silhouette —
+on le prenait pour un cinquième réglage. Les tuiles sont POSÉES (ombre
+portée), la poignée est CREUSÉE (pastille étroite, ombre interne, pas de
+bordure). Deux vocabulaires, deux rôles.
+
+**« Le bouton afficher la liste ne sert à rien. »** Il y avait TROIS portes
+pour un seul interrupteur : la languette (ouvrir), le chevron du tiroir
+(fermer), et ce bouton au coin du dessin. Retiré. Le coin ne porte plus que
+l'aide et le recadrage.
+
+**« Fermer la liste doit recadrer pour que la carto soit la plus grande
+possible. »** Mesuré, et ce n'était pas qu'une affaire de réglage : la boîte
+du dessin fait **8787 × 6221 (ratio 1,41)** quand la zone d'affichage fait
+**1572 × 863 (1,80)**, ou **1876 × 863 (2,15)** liste repliée. Le cadrage est
+donc borné par la **hauteur** dans les deux cas — replier n'ajoute que de la
+largeur, et **à cadrage strict le dessin ne grandissait pas d'un pixel** : on
+gagnait 304 px de vide. D'où deux cadrages, exactement comme demandé :
+
+| | zoom | dessin | zone remplie |
+|---|---|---|---|
+| liste ouverte — **strict** | 0,1361 | 1196 × 847 | 74,6 %, tout visible |
+| liste repliée — **généreux** | **0,1524** | 1339 × 948 | **78,5 %**, 9 % hors champ |
+
+`fitView(bornes, plancher, tolerance)` : au-delà de 1, on agrandit jusqu'à
+`tolerance` fois le cadrage strict — ⚠️ **jamais plus que le cadrage par
+l'autre axe**, qui serait un zoom sur un morceau et non une carte. Le dessin
+reste centré, donc ce qui dépasse se répartit des deux côtés et se retrouve au
+glisser. La page décide (`TOLERANCE_GENEREUSE = 1.12`), l'éditeur applique.
+⚠️ La tolérance arrive par `postMessage` d'une autre fenêtre : elle n'est
+acceptée que comme nombre fini dans ]1, 2].
+
+**« La typo est trop petite, du texte brut. »** Le libellé d'une tuile était
+en 12,5 px — c'est pourtant le texte qu'on vient lire. Toute la rangée monte :
+libellé 12,5 → **14 px** (14,5 sur l'action pleine), titre 23 → 25, pastille
+de rubrique 10,5 → 11, « Lecture seule » 11,5 → 12,5, « Bandes » 9,5 → 10,5,
+pastille d'icône 28 → 30 px. Le mode compact passe de 1380 à **1480 px** :
+des libellés plus larges débordent plus tôt.
+
+**« Ouvrir l'éditeur est rognée en haut. »** Elle ne l'était pas : `.cs-t:hover`
+SOULÈVE une tuile de 2 px, et la barre touchait le bord d'une scène en
+`overflow: hidden` — les 2 px du survol et le halo de l'ombre étaient coupés
+net, d'où le coin carré dès qu'on passait dessus. La scène a 9 px de marge en
+haut.
+
+Tests : `test_94` (19 cas — une seule porte pour ouvrir et une pour fermer, le
+conteneur qui permet le glissé, le cadrage qui dépend de l'état de la liste),
+`test_79` (la signature de `fitView` est un contrat : le cliquet l'a vue
+changer, et il garde en plus le fait que le cadrage généreux reste borné).
+Suite : 2849 passés, `repet_image` 2821 + 28 sautés. `editor.js` resynchronisé
+dans le dépôt OptiqCarto. Éprouvé au banc de 1280 à 1920, dans les deux
+langues : plus aucun fragment français sur l'écran anglais.
+
 ### L'import se lit aussi dans l'AUTRE SENS (2026-10-01)
 
 L'écran de vérification des tâches ne savait poser qu'une question : pour chaque
