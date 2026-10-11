@@ -4204,7 +4204,23 @@ pas une liste de statuts en dur.
 - Vérifié de bout en bout, vrai POST HTTP : `user` → **403 lecture_seule,
   rien en base** ; `coordinateur` → 201, tâche écrite.
 
-Tests : `tests/test_102_porte_ecriture.py` (34 cas).
+⚠️⚠️ **Et la porte était plus STRICTE que la règle carto** — relevé sur le
+pilote AVANT la livraison, pas après. Deux comptes ARaymond (un `champion`
+qui POSSÈDE une cartographie, un `user`) y auraient perdu le droit d'écrire
+les données de LEUR propre carto. Or `carto_access.can_edit` dit depuis
+toujours que sur une carto PRIVÉE, son propriétaire fait ce qu'il veut quel
+que soit son statut. Une porte qui contredit la règle qu'elle fait respecter
+est un deuxième avis, pas une porte : elle consulte donc `can_edit` sur la
+carto ACTIVE, et ne retombe sur le droit de statut que lorsqu'il n'y a pas de
+carto active. Sur une carto COMMUNE, en revanche, c'est bien le tableau des
+droits qui tranche — elle engage toute l'organisation.
+
+⚠️ Ce défaut ne pouvait PAS se voir dans la suite : le compte de test est
+`admin`, donc toutes les portes lui sont ouvertes. Il s'est vu en LISANT la
+base du client avant de pousser (`tools/db/etat_statuts.py`, lecture seule).
+L'inventaire avant livraison n'est pas une formalité.
+
+Tests : `tests/test_102_porte_ecriture.py` (37 cas).
 
 #### Page Temps — trois défauts, trois causes distinctes
 
@@ -4232,7 +4248,7 @@ Tests : `tests/test_102_porte_ecriture.py` (34 cas).
   chiffre qu'avant.
 
 Tests : `tests/test_103_temps_audit.py` (8 cas, la fréquence vérifiée
-**rouge** en retirant la ligne). Suite : 2901 passés, `repet_image` 2873 + 28
+**rouge** en retirant la ligne). Suite : 2904 passés, `repet_image` 2876 + 28
 sautés.
 
 #### Deux points laissés en arbitrage, et pourquoi

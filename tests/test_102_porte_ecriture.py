@@ -153,6 +153,77 @@ class TestCeQueLaPorteLaissePasser:
             ctx.pop()
 
 
+class TestLaPorteSuitLaRegleCarto:
+    """⚠️ Relevé sur le pilote ARaymond AVANT la livraison : deux comptes non
+    coordinateurs — un `champion` qui POSSÈDE une cartographie, un `user` —
+    auraient perdu le droit d'écrire chez eux.
+
+    `carto_access.can_edit` dit depuis toujours que sur une carto PRIVÉE son
+    propriétaire fait ce qu'il veut, quel que soit son statut. Une porte qui
+    contredit la règle qu'elle fait respecter est un deuxième avis, pas une
+    porte.
+    """
+
+    @pytest.fixture()
+    def ma_carto(self, app, comptes):
+        from Code.models.models import Entity
+        with app.app_context():
+            e = Entity(name="T102 privée", owner_id=comptes["user"],
+                       is_shared=False)
+            db.session.add(e)
+            db.session.commit()
+            eid = e.id
+        yield eid
+        with app.app_context():
+            from Code.models.models import Entity
+            Entity.query.filter_by(id=eid).delete(synchronize_session=False)
+            db.session.commit()
+
+    def _avec_carto(self, app, uid, eid):
+        from flask import session
+        ctx = app.test_request_context("/")
+        ctx.push()
+        session["user_id"] = uid
+        session["active_entity_id"] = eid
+        return ctx
+
+    def test_le_proprietaire_d_une_carto_PRIVEE_ecrit_chez_lui(
+            self, app, comptes, ma_carto):
+        """Même avec le statut le plus bas : c'est SA carto."""
+        ctx = self._avec_carto(app, comptes["user"], ma_carto)
+        try:
+            assert porte("/tasks/add", "POST") is None
+        finally:
+            ctx.pop()
+
+    def test_mais_pas_chez_les_autres(self, app, comptes, ma_carto):
+        """La même carto, vue par quelqu'un d'autre : elle n'est pas à lui."""
+        ctx = self._avec_carto(app, comptes["champion"], ma_carto)
+        try:
+            assert porte("/tasks/add", "POST") == "lecture_seule"
+        finally:
+            ctx.pop()
+
+    def test_sur_une_carto_COMMUNE_le_statut_reprend_la_main(
+            self, app, comptes, ma_carto):
+        """⚠️ Une carto commune engage toute l'organisation : là, c'est le
+        tableau des droits qui tranche, et un `user` n'écrit pas."""
+        from Code.models.models import Entity
+        with app.app_context():
+            e = db.session.get(Entity, ma_carto)
+            e.is_shared = True
+            db.session.commit()
+        ctx = self._avec_carto(app, comptes["user"], ma_carto)
+        try:
+            assert porte("/tasks/add", "POST") == "lecture_seule"
+        finally:
+            ctx.pop()
+            with app.app_context():
+                e = db.session.get(Entity, ma_carto)
+                e.is_shared = False
+                db.session.commit()
+
+
 class TestLaFormeDeLaPorte:
 
     def test_elle_garde_les_quatre_methodes_d_ecriture(self):

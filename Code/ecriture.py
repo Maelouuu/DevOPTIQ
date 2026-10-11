@@ -125,6 +125,32 @@ def _refus(code):
     return jsonify({"error": texte, "code": code}), statut
 
 
+def _peut_ecrire():
+    """Le compte peut-il écrire les données de la carto sur laquelle il
+    travaille ?
+
+    ⚠️ PAS seulement `a_le_droit('edit_carto')`. Sur une carto PRIVÉE, son
+    propriétaire fait ce qu'il veut quel que soit son statut — c'est la règle
+    de `carto_access.can_edit`, et la porte doit dire exactement la même
+    chose. Mesuré avant livraison sur le pilote : deux comptes ARaymond (un
+    `champion` propriétaire de sa carto, un `user`) auraient perdu le droit
+    d'écrire chez eux. Une porte qui contredit la règle qu'elle fait
+    respecter est un deuxième avis, pas une porte.
+
+    Sans carto active, l'écriture ne vise aucune cartographie : on retombe
+    alors sur le droit de statut.
+    """
+    from Code.carto_access import can_edit
+    from Code.models.models import Entity
+    try:
+        entite = Entity.get_active()
+    except Exception:
+        entite = None
+    if entite is not None:
+        return bool(can_edit(entite))
+    return bool(a_le_droit(DROIT_ECRITURE))
+
+
 def porte(chemin, methode, en_test=False):
     """Le verdict, isolé de Flask — pour qu'il soit testable tel quel.
 
@@ -150,7 +176,7 @@ def porte(chemin, methode, en_test=False):
         # ⚠️ Conséquence à ne pas oublier : passer la suite ne prouve PAS que
         # l'anonyme est fermé. Seul ce fichier de tests le prouve.
         return None if en_test else "non_connecte"
-    if a_le_droit(DROIT_ECRITURE):
+    if _peut_ecrire():
         return None
     # Règle 1 — connecté, mais sans le droit d'écrire. C'est le défaut que
     # l'audit a relevé : un compte `user` créait des tâches et réécrivait la
