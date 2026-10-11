@@ -125,14 +125,13 @@ class TestLeZoomNePeutPasValoirZero:
         # pour les vignettes de la comparaison avant / après. Le plancher reste
         # STRICTEMENT positif — c'est tout l'objet de ce test.
         corps = _corps(_lire(EDITOR_JS),
-                       "function fitView(bornes, plancher, tolerance) {")
+                       "function fitView(bornes, plancher, cadrage) {")
         assert "ZOOM_MIN" in corps, "fitView ne borne pas le zoom par le bas"
         assert "plancher > 0" in corps, "un plancher nul rendrait un zoom nul possible"
-        # Le cadrage GENEREUX remplit la zone quitte à laisser un peu de carto
-        # hors champ -- mais jamais plus que le cadrage par l’autre axe, qui
-        # serait un zoom sur un morceau au lieu d’une carte.
-        assert "Math.max(parLargeur, parHauteur)" in corps, (
-            "le cadrage genereux n’est pas borné : il zoomerait sur un fragment")
+        # Le cadrage sur la LARGEUR laisse le dessin déborder en hauteur : il
+        # se cale alors en haut, jamais au centre.
+        assert "cadrage === 'largeur'" in corps
+        assert "rendue > r.height ? 0 :" in corps
         assert "r.width > 0" in corps and "r.height > 0" in corps, (
             "fitView doit renoncer sur un canevas pas encore posé")
         assert "Number.isFinite(dw)" in corps and "Number.isFinite(dh)" in corps, (

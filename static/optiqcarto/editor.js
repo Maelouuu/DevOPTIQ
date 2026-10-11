@@ -3802,12 +3802,10 @@ function _boundsForFit() {
 // `plancher` : le plus petit zoom admis. ZOOM_MIN (celui de la molette) par
 // défaut ; une VIGNETTE doit pouvoir descendre plus bas, sinon une grande
 // carto n'y tient pas et n'en montre qu'un morceau.
-// `tolerance` : cadrage GÉNÉREUX. 1 (défaut) = tout le dessin tient dans la
-// zone. Au-delà, on agrandit jusqu'à `tolerance` fois ce cadrage-là, quitte à
-// laisser un peu de carto hors champ — jamais plus que le cadrage par
-// l'autre axe, qui serait un zoom sur un morceau. Le dessin reste CENTRÉ,
-// donc ce qui dépasse se répartit des deux côtés et se retrouve au glisser.
-function fitView(bornes, plancher, tolerance) {
+// `cadrage` : 'largeur' aligne le zoom sur la LARGEUR de la zone — la carto
+// occupe toute la place disponible et déborde en hauteur, qu'on parcourt au
+// glisser. Tout autre valeur (défaut) fait tenir le dessin ENTIER.
+function fitView(bornes, plancher, cadrage) {
   const b = (bornes && Number.isFinite(bornes.minX)) ? bornes : _boundsForFit();
   if (!b) {
     vpX = 0; vpY = 280; vpScale = 0.5;
@@ -3831,13 +3829,14 @@ function fitView(bornes, plancher, tolerance) {
 
   const minimum = (Number.isFinite(plancher) && plancher > 0) ? plancher : ZOOM_MIN;
   const parLargeur = r.width / dw, parHauteur = r.height / dh;
-  let facteur = Math.min(parLargeur, parHauteur);
-  if (Number.isFinite(tolerance) && tolerance > 1) {
-    facteur = Math.min(Math.max(parLargeur, parHauteur), facteur * tolerance);
-  }
+  const facteur = (cadrage === 'largeur') ? parLargeur : Math.min(parLargeur, parHauteur);
   vpScale = Math.max(minimum, Math.min(facteur, 2));
-  vpX = (r.width  - dw * vpScale) / 2 - (minX - pad) * vpScale;
-  vpY = (r.height - dh * vpScale) / 2 - (minY - pad) * vpScale;
+  vpX = (r.width - dw * vpScale) / 2 - (minX - pad) * vpScale;
+  // ⚠️ Un dessin plus HAUT que la zone se cale en HAUT, pas au centre :
+  // centré, on couperait son premier couloir autant que le dernier — or une
+  // carto se lit depuis le haut.
+  const rendue = dh * vpScale;
+  vpY = (rendue > r.height ? 0 : (r.height - rendue) / 2) - (minY - pad) * vpScale;
   applyViewport();
 }
 
@@ -8194,10 +8193,9 @@ window.addEventListener('message', function(e) {
 
   // Recentrer la carto sur toutes les formes (depuis le bouton icône de la page map)
   if (e.data.type === 'fit-view') {
-    // ⚠️ La tolérance vient d'une autre fenêtre : on n'accepte qu'un nombre,
-    // et borné. Un facteur aberrant rendrait un zoom qui n'en est pas un.
-    const t = e.data.tolerance;
-    fitView(null, null, (Number.isFinite(t) && t > 1 && t <= 2) ? t : undefined);
+    // ⚠️ Le mode vient d'une autre fenêtre : on ne reconnaît qu'une valeur,
+    // tout le reste retombe sur le cadrage qui fait tout tenir.
+    fitView(null, null, e.data.cadrage === 'largeur' ? 'largeur' : undefined);
   }
 
   // Zoom sur une activité + halo lumineux (depuis la prévisualisation cross-carto)

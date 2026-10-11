@@ -3671,6 +3671,72 @@ Suite : 2849 passés, `repet_image` 2821 + 28 sautés. `editor.js` resynchronis�
 dans le dépôt OptiqCarto. Éprouvé au banc de 1280 à 1920, dans les deux
 langues : plus aucun fragment français sur l'écran anglais.
 
+##### Le zoom s'aligne sur la LARGEUR, et deux boutons qui ne ressemblent à rien d'autre (2026-10-11)
+
+**Le cadrage, troisième version — et la bonne.** Les deux précédentes
+partaient du cadrage « tout tient », borné par la HAUTEUR : mesuré, la boîte
+du dessin (**8787 × 6221, ratio 1,41**) est bien plus carrée que la zone
+(**1,80** liste ouverte, **2,15** repliée), si bien que le zoom valait 0,1361
+dans les deux cas — replier la liste ne faisait pas grandir le dessin d'un
+pixel. La tolérance (× 1,12) ne faisait que compenser à la marge.
+
+Le zoom s'aligne donc sur la **largeur de la zone**, point. Une carto est
+large et se lit de gauche à droite : on lui donne toute la largeur, et ce qui
+dépasse en hauteur se parcourt au glisser.
+
+| | zoom | dessin rendu | zone |
+|---|---|---|---|
+| liste ouverte | **0,1765** | 1551 × 1098 | 1572 × 863 |
+| liste repliée | **0,2106** | 1851 × 1310 | 1876 × 863 |
+
+La largeur est remplie exactement ; 27 % (liste ouverte) à 34 % (repliée) de
+la hauteur passe sous la ligne de flottaison. ⚠️ **Un dessin plus haut que la
+zone se cale en HAUT, pas au centre** : centré, on couperait son premier
+couloir autant que le dernier — or une carto se lit depuis le haut.
+`fitView(bornes, plancher, cadrage)` ; `cadrage: 'largeur'` est la seule
+valeur reconnue, tout le reste retombe sur « tout tient » (les vignettes de
+la comparaison avant/après en dépendent).
+
+⚠️ **Et le zoom PAR DÉFAUT n'était pas celui de la page.** Le viewer se cadre
+lui-même à la fin de son chargement (`fitView()` sans mode) : mesuré 0,1361 à
+l'ouverture contre 0,2106 après un clic sur « recadrer ». La page écoute donc
+`carto-state-ready` — le signal que l'éditeur émettait déjà — et impose son
+cadrage.
+
+**Les réglages sont REPLIÉS par défaut.** La page s'ouvre sur la carto, pas
+sur ce qui sert à la régler. ⚠️ Seul un choix mémorisé les déplie : rien en
+mémoire = replié.
+
+**La poignée des réglages : un DISQUE vert en verre liquide.** Elle avait
+encore la forme d'une tuile ; on la prenait pour un cinquième réglage.
+Désormais 52 px de diamètre, trois verts superposés, des masses qui dérivent
+sous la surface (`csLiquide`, 9 s) et le reflet figé par-dessus.
+⚠️ **Le chevron passe au-dessus des deux pseudo-éléments** : ceux-ci sont
+positionnés, ils peindraient donc par-dessus un contenu qui ne l'est pas.
+⚠️ **Son état se lit sans la cliquer** : déployée elle est soutenue et calme,
+repliée elle s'éclaircit et porte un anneau. Le chevron TOURNE (règle CSS sur
+`.is-plie`) au lieu de changer de classe — remplacer une classe ne s'anime
+pas. La lettre du raccourci a quitté le bouton : elle ne tient pas dans un
+disque, elle vit dans l'info-bulle.
+
+**« Ouvrir l'éditeur » : une PILULE à plusieurs fuchsias.** C'était un aplat
+de la même forme que les réglages. ⚠️ Deux différences de FORME, pas
+seulement de couleur : rayon plein (pilule) quand les réglages sont des
+rectangles, et contenu en LIGNE (pastille à gauche, mot à droite) quand le
+leur est en colonne. ⚠️ Et le rapport s'inverse — les réglages posent une
+pastille VIVE sur un fond pâle, l'action une pastille PASTEL sur un fond vif.
+Le fond empile quatre fuchsias (vif, pastel, prune, un soupçon de lilas) au
+lieu d'un aplat, et un reflet traverse la pilule au survol : le seul mouvement
+de la rangée, et il ne dure que le geste. Le filigrane est retiré — c'était
+un repère de tuile, sur une pilule il ne fait que du bruit.
+
+Tests : `test_94` (22 cas — le cadrage sur la largeur, le zoom par défaut, le
+calage en haut, les réglages repliés par défaut), `test_79` (la signature de
+`fitView` est un contrat, le cliquet l'a vue changer deux fois).
+Suite : 2859 passés, `repet_image` 2831 + 28 sautés. `editor.js` resynchronisé
+dans le dépôt OptiqCarto. Éprouvé au banc de 1280 à 1920, dans les deux
+langues.
+
 ### L'import se lit aussi dans l'AUTRE SENS (2026-10-01)
 
 L'écran de vérification des tâches ne savait poser qu'une question : pour chaque

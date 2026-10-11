@@ -213,19 +213,41 @@ class TestLaCartoPrendToutePlace:
         flottants = html.index('class="cs-flottants"')
         assert pliable < poignee < editeur < flottants
 
-    def test_recadrer_ne_dit_pas_la_meme_chose_selon_l_etat_de_la_liste(self, app, client, scene):
-        """Mesuré : la boîte du dessin (8787 × 6221) est bien plus carrée que
-        la zone (1572 × 863, ou 1876 × 863 liste repliée). Le cadrage est
-        borné par la HAUTEUR dans les deux cas — à cadrage strict, replier la
-        liste ne fait pas grandir le dessin d'un pixel. Liste repliée, on
-        cadre donc GÉNÉREUSEMENT."""
+    def test_le_zoom_s_aligne_sur_la_LARGEUR_de_la_zone(self, app, client, scene):
+        """Mesuré : la boîte du dessin (8787 × 6221, ratio 1,41) est bien plus
+        carrée que la zone (1,80 liste ouverte, 2,15 repliée). Un cadrage
+        borné par la hauteur donnait donc le MÊME zoom dans les deux cas —
+        replier la liste ne faisait pas grandir le dessin d'un pixel. Aligné
+        sur la largeur : 0,1765 liste ouverte, 0,2106 repliée."""
         js = _lire("static/js/carto_scene.js")
-        assert "TOLERANCE_GENEREUSE" in js
-        assert "tolerance: replie ? TOLERANCE_GENEREUSE : 1" in js
+        assert "cadrage: 'largeur'" in js
+        assert "TOLERANCE_GENEREUSE" not in js
         ed = _lire("static/optiqcarto/editor.js")
-        # ⚠️ La tolérance vient d'une autre fenêtre : elle est bornée.
-        assert "function fitView(bornes, plancher, tolerance)" in ed
-        assert "t > 1 && t <= 2" in ed
+        assert "function fitView(bornes, plancher, cadrage)" in ed
+        # ⚠️ Le mode vient d'une autre fenêtre : une seule valeur est reconnue.
+        assert "e.data.cadrage === 'largeur'" in ed
+
+    def test_le_zoom_PAR_DEFAUT_est_celui_de_la_page(self, app, client, scene):
+        """⚠️ Le viewer se cadre LUI-MÊME à la fin de son chargement, et à sa
+        façon. Sans rattrapage, le zoom d'ouverture n'était pas celui de la
+        page : mesuré 0,1361 à l'arrivée contre 0,2106 après un clic sur
+        « recadrer »."""
+        js = _lire("static/js/carto_scene.js")
+        assert "carto-state-ready" in js
+        ed = _lire("static/optiqcarto/editor.js")
+        assert "'carto-state-ready'" in ed
+
+    def test_un_dessin_plus_haut_que_la_zone_se_cale_en_HAUT(self, app, client, scene):
+        """Centré, on couperait son premier couloir autant que le dernier —
+        or une carto se lit depuis le haut."""
+        ed = _lire("static/optiqcarto/editor.js")
+        assert "rendue > r.height ? 0 :" in ed
+
+    def test_les_reglages_sont_replies_par_defaut(self, app, client, scene):
+        """La page s'ouvre sur la carto, pas sur ce qui sert à la régler.
+        ⚠️ Seul un choix MÉMORISÉ les déplie : rien en mémoire = replié."""
+        js = _lire("static/js/carto_scene.js")
+        assert "memoReglages === null ? true : memoReglages === '1'" in js
 
     def test_le_bouton_fleche_du_board_n_existe_pas(self, app, client, scene):
         """Le board portait un carré blanc à flèche posé sur « Ouvrir

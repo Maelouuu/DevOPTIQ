@@ -10,15 +10,13 @@
    jamais sur cette page, alors que RECADRER — remettre le dessin au milieu
    de la zone d'affichage — est le geste qu'on fait sans arrêt.
 
-   ⚠️ Et RECADRER ne veut pas dire la même chose selon que la liste est là
-   ou non. Mesuré sur la carto du banc : la boîte du dessin (8787 × 6221) est
-   bien plus CARRÉE que la zone d'affichage (1572 × 872, ou 1876 × 872 liste
-   repliée). Le cadrage est donc borné par la HAUTEUR dans les deux cas, et
-   replier n'ajoute que de la largeur : à cadrage strict, le dessin ne
-   grandit pas d'un pixel — on gagne juste 304 px de vide.
-   Liste OUVERTE on garde donc le cadrage STRICT (on travaille, on veut tout
-   voir) ; liste REPLIÉE on cadre GÉNÉREUX : le dessin remplit la zone, au
-   prix d'un dixième de sa hauteur hors champ, qui se retrouve au glisser.
+   ⚠️ Le zoom s'aligne sur la LARGEUR de la zone d'affichage, jamais sur sa
+   hauteur. Une carto est large et se lit de gauche à droite : on lui donne
+   toute la largeur, et ce qui dépasse en hauteur se parcourt au glisser.
+   Conséquence voulue — le zoom est plus PETIT liste ouverte (zone étroite)
+   et plus grand une fois la liste repliée, donc replier fait vraiment
+   grandir le dessin. Un cadrage borné par la hauteur, lui, ne bougeait pas
+   d'un pixel quand on repliait.
    ════════════════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -26,9 +24,6 @@
   const CLE_TIROIR  = 'optiq_carto_tiroir';    // replié ou non, d'une visite à l'autre
   const CLE_REGLAGE = 'optiq_carto_reglages';  // idem pour les réglages
   const DUREE_REPLI = 380;                     // la transition du tiroir, en ms
-  // Liste repliée, on accepte que le dessin dépasse d'un dixième pour qu'il
-  // remplisse la zone. Au-delà on ne montre plus la carto, on zoome dedans.
-  const TOLERANCE_GENEREUSE = 1.12;
   const scene = document.getElementById('carto-scene');
   if (!scene) return;
 
@@ -47,12 +42,8 @@
   function recentrer() {
     const frame = document.getElementById('carto-viewer-frame');
     if (!frame || !frame.contentWindow) return;
-    const replie = scene.classList.contains('is-replie');
     try {
-      frame.contentWindow.postMessage({
-        type: 'fit-view',
-        tolerance: replie ? TOLERANCE_GENEREUSE : 1
-      }, '*');
+      frame.contentWindow.postMessage({ type: 'fit-view', cadrage: 'largeur' }, '*');
     } catch (e) { /* iframe pas prête */ }
   }
 
@@ -117,15 +108,21 @@
       btnPlier.title = lib;
       btnPlier.setAttribute('aria-label', lib);
       btnPlier.setAttribute('aria-expanded', String(!plie));
-      const ic = btnPlier.querySelector('i');
-      // Le chevron montre où va le contenu : les tuiles sont à GAUCHE de la
-      // poignée, elles se replient donc vers la gauche.
-      if (ic) ic.className = plie ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right';
+      // ⚠️ Le chevron TOURNE (règle CSS sur `.is-plie`) au lieu de changer de
+      // classe : remplacer une classe ne s'anime pas.
     }
     if (memoriser) ecrire(CLE_REGLAGE, plie ? '1' : '0');
   }
 
   // ── Branchements ───────────────────────────────────────────────────
+  // ⚠️ Le viewer se cadre LUI-MÊME quand il a fini de charger, et il le fait
+  // à sa façon (« tout tient »). Sans ce rattrapage, le zoom par défaut
+  // n'était pas celui de la page : mesuré 0,1361 à l'ouverture contre 0,2106
+  // après un clic sur « recadrer ».
+  window.addEventListener('message', (e) => {
+    if (e && e.data && e.data.type === 'carto-state-ready') recentrer();
+  });
+
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-cs]');
     if (!el || !scene.contains(el)) return;
@@ -166,7 +163,10 @@
 
   // ── État initial ───────────────────────────────────────────────────
   poserTiroir(lire(CLE_TIROIR) === '1', false);
-  poserReglages(lire(CLE_REGLAGE) === '1', false);
+  // ⚠️ Repliés PAR DÉFAUT — une visite sans choix mémorisé s'ouvre sur la
+  // carto, pas sur ses réglages. Seul un '0' explicite les déplie.
+  const memoReglages = lire(CLE_REGLAGE);
+  poserReglages(memoReglages === null ? true : memoReglages === '1', false);
   ajusterHauteur();
   mesurerPliable();
   // ⚠️ Une police qui arrive après coup change la largeur des libellés : la
