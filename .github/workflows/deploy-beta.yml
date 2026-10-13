@@ -1,0 +1,192 @@
+name: Deploy → Pilote (optiqfluent-staging)
+
+# La branche optiqfluent-staging est l'environnement du test pilote client :
+# chaque push déploie le service Cloud Run optiqfluent-staging (créé par
+# tools/deploy/deploy_cloudrun.sh). Les variables d'environnement du service
+# (DATABASE_URL, SECRET_KEY, clés IA, REQUIRE_LICENSE=0, PROMPTS_KEY,
+# TESTPANEL_ENABLED=1) sont déjà posées sur le service et sont PRÉSERVÉES :
+# on ne remplace que l'image.
+
+on:
+  push:
+    # Le nom de la branche suit celui du service Cloud Run. L'ancien nom
+    # (optiqfluent-beta-test) reste accepté le temps que tous les clones locaux
+    # soient renommés.
+    branches: [optiqfluent-staging, optiqfluent-beta-test]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: europe-west1
+  SERVICE: optiqfluent-staging
+  IMAGE: europe-west1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cloud-run-source-deploy/optiqfluent
+
+jobs:
+  deploy:
+    name: Build & Deploy (Pilote)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write   # requis pour Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Le Dockerfile (durci OptiqFluent) refuse de builder sans le bundle de
+      # prompts chiffré — le catalogue en clair est exclu de l'image. Même
+      # étape que deploy-staging.yml, même secret PROMPTS_KEY.
+      - name: Chiffrer les prompts IA (prompts.enc requis par le Dockerfile)
+        env:
+          PROMPTS_KEY: ${{ secrets.PROMPTS_KEY }}
+        run: |
+          test -n "$PROMPTS_KEY" || {
+            echo "::error::Secret PROMPTS_KEY manquant (Settings → Secrets → Actions)";
+            exit 1;
+          }
+          pip install --quiet cryptography
+          python tools/prompts/encrypt_prompts.py > /dev/null
+          echo "Bundle prompts.enc généré"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:beta .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:beta
+
+      # Base pilote DÉDIÉE (isolée de staging) : si le secret PILOT_DATABASE_URL
+      # est défini, la base est créée sur le serveur si elle n'existe pas
+      # (connexion de maintenance sur l'endpoint direct, hors pooler), puis
+      # DATABASE_URL est remplacée sur le service au déploiement. Sans secret,
+      # la config actuelle du service est conservée telle quelle.
+      - name: Créer la base pilote si besoin (secret PILOT_DATABASE_URL)
+        env:
+          PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+        run: |
+          if [ -z "$PILOT_DATABASE_URL" ]; then
+            echo "Secret PILOT_DATABASE_URL absent — base actuelle du service conservée"
+            exit 0
+          fi
+          pip install --quiet psycopg2-binary
+          python3 - <<'PY'
+          import os, re, sys
+          import psycopg2
+          # Nettoyage : espaces, retours à la ligne ou guillemets collés au
+          # copier-coller du secret ne doivent pas casser l'URL.
+          url = os.environ["PILOT_DATABASE_URL"].strip().strip('"').strip("'").strip()
+          m = re.match(r"postgresql(?:\+\w+)?://([^:]+):([^@]+)@([^/:]+)(?::(\d+))?/([^?]+)", url)
+          if not m:
+              sys.exit("PILOT_DATABASE_URL illisible (attendu postgresql://user:mdp@hote/base?...)")
+          user, pwd, host, port, db = m.groups()
+          print(f"Cible : hôte={host} base={db} (utilisateur {user})")
+          host_direct = host.replace("-pooler", "")
+          con = None
+          for maint in ("neondb", "postgres"):
+              try:
+                  con = psycopg2.connect(dbname=maint, user=user, password=pwd,
+                                         host=host_direct, port=port or 5432,
+                                         sslmode="require", connect_timeout=20)
+                  break
+              except Exception as e:
+                  print(f"connexion de maintenance via {maint} : {e}")
+          if con is None:
+              sys.exit("impossible de joindre le serveur pour créer la base")
+          con.autocommit = True
+          cur = con.cursor()
+          cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db,))
+          if cur.fetchone():
+              print(f"Base « {db} » déjà présente — rien à créer")
+          else:
+              cur.execute(f'CREATE DATABASE "{db}"')
+              print(f"Base « {db} » créée (vide — le schéma et les comptes pilote"
+                    " seront créés au démarrage de l'app)")
+          PY
+
+      # Sans secret : seule l'image change, la config du service est conservée.
+      # Avec secret : DATABASE_URL est remplacée (les autres variables restent).
+      - name: Deploy to Cloud Run (optiqfluent-staging)
+        env:
+          PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+        run: |
+          EXTRA=()
+          if [ -n "$PILOT_DATABASE_URL" ]; then
+            # Même nettoyage que l'étape précédente (espaces/guillemets/CRLF)
+            CLEANED=$(printf '%s' "$PILOT_DATABASE_URL" | tr -d '\r\n' \
+              | sed -e "s/^[\"' ]*//" -e "s/[\"' ]*$//")
+            # Délimiteur ^##^ : jamais présent dans une URL de connexion.
+            # SURTOUT PAS '@' — l'URL contient user:mdp@hôte, gcloud coupait
+            # la valeur au @ et le service recevait une URL sans hôte
+            # (cause des crashs de démarrage des révisions 00010/00011).
+            EXTRA+=(--update-env-vars "^##^DATABASE_URL=${CLEANED}")
+            # Purge des clés parasites créées par l'ancien délimiteur : tout
+            # nom qui n'est pas un identifiant d'environnement valide.
+            GARBAGE=$(gcloud run services describe ${{ env.SERVICE }} \
+                --region ${{ env.REGION }} \
+                --format='value(spec.template.spec.containers[0].env.name)' \
+              | tr ';' '\n' | grep -v -E '^[A-Za-z_][A-Za-z0-9_]*$' \
+              | paste -sd, - || true)
+            if [ -n "$GARBAGE" ]; then
+              echo "Purge des variables parasites : $GARBAGE"
+              EXTRA+=(--remove-env-vars "$GARBAGE")
+            fi
+            echo "Base pilote dédiée : DATABASE_URL remplacée sur le service"
+          fi
+          if ! gcloud run deploy ${{ env.SERVICE }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            "${EXTRA[@]}" \
+            --quiet; then
+            echo "=== ÉCHEC DU DÉPLOIEMENT — logs récents du service ==="
+            gcloud logging read \
+              "resource.type=cloud_run_revision AND resource.labels.service_name=${{ env.SERVICE }}" \
+              --project "${{ env.PROJECT_ID }}" --freshness 15m --limit 150 \
+              --order desc --format 'value(timestamp,severity,textPayload)' || true
+            exit 1
+          fi
+
+      # --retry seul ne réessaie PAS sur un 404 : juste après la bascule de
+      # trafic, la nouvelle révision peut mettre quelques secondes à répondre
+      # (constaté au run #1). --retry-all-errors couvre ce délai de propagation.
+      #
+      # ⚠️ /health et PAS /healthz. Sur un *.run.app, le frontend Google
+      # INTERCEPTE /healthz et sert sa propre 404 : la requête n'atteint jamais
+      # l'application. Mesuré sur ce service — cette 404 n'a ni cookie de
+      # session Flask ni x-cloud-trace-context, alors qu'une route réellement
+      # inconnue de l'app en porte. Ce test échouait donc à CHAQUE livraison,
+      # après un déploiement pourtant réussi ; un contrôle qui rougit toujours
+      # n'est plus un contrôle. Le hub et pulse avaient déjà basculé.
+      - name: Smoke test
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE }} \
+            --region ${{ env.REGION }} --format='value(status.url)')
+          echo "Service : $URL"
+          curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$URL/health" \
+            && echo " ← health OK"
+          # Connexion réelle d'un compte pilote (seedé au boot) : le login
+          # renvoie 302 → /activities/map si OK, 302 → /login sinon.
+          LOC=$(curl -sS -o /dev/null -w '%{redirect_url}' \
+            --data-urlencode 'email=aditya.vaze@araymond.com' \
+            --data-urlencode 'password=password' "$URL/login")
+          echo "Login pilote → $LOC"
+          case "$LOC" in
+            */activities/map) echo " ← comptes pilote OK" ;;
+            *) echo "::error::Le compte pilote ne peut pas se connecter"; exit 1 ;;
+          esac

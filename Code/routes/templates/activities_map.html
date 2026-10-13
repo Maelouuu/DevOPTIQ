@@ -307,34 +307,50 @@
            lieu de s'écraser. `display: none` ne s'anime pas. -->
       <span class="cs-pliable" id="cs-pliable">
         <span class="cs-pliable-in">
-        <button type="button" id="carto-wizard-btn" class="cs-t cs-t--entites">
-          <span class="cs-t-ic"><i class="fa-solid fa-building-columns"></i></span>
-          <span class="cs-t-lab">{{ t('map.btn_entities') }}</span>
-          <i class="fa-solid fa-building-columns cs-t-fil" aria-hidden="true"></i>
-        </button>
-        <button type="button" id="btn-import-full" class="cs-t cs-t--import">
-          <span class="cs-t-ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
-          <span class="cs-t-lab">{{ t('map.btn_import_ia') }}</span>
-          <i class="fa-solid fa-wand-magic-sparkles cs-t-fil" aria-hidden="true"></i>
-        </button>
+        <span class="cs-tw">
+          <button type="button" id="carto-wizard-btn" class="cs-t cs-t--entites"
+                  aria-label="{{ t('map.btn_entities') }} — {{ t('map.tt_entities') }}">
+            <span class="cs-t-ic"><i class="fa-solid fa-building-columns"></i></span>
+            <span class="cs-t-lab">{{ t('map.btn_entities') }}</span>
+            <i class="fa-solid fa-building-columns cs-t-fil" aria-hidden="true"></i>
+          </button>
+          <span class="cs-tt" aria-hidden="true"><b>{{ t('map.btn_entities') }}</b>{{ t('map.tt_entities') }}</span>
+        </span>
+        <span class="cs-tw">
+          <button type="button" id="btn-import-full" class="cs-t cs-t--import"
+                  aria-label="{{ t('map.btn_import_ia') }} — {{ t('map.tt_import_ia') }}">
+            <span class="cs-t-ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+            <span class="cs-t-lab">{{ t('map.btn_import_ia') }}</span>
+            <i class="fa-solid fa-wand-magic-sparkles cs-t-fil" aria-hidden="true"></i>
+          </button>
+          <span class="cs-tt" aria-hidden="true"><b>{{ t('map.btn_import_ia') }}</b>{{ t('map.tt_import_ia') }}</span>
+        </span>
         {% if peut_regler_acces %}
-        <button type="button" id="btn-carto-acces" class="cs-t cs-t--acces">
-          <span class="cs-t-ic"><i class="fa-solid fa-user-lock"></i></span>
-          <span class="cs-t-lab">{{ t('map.btn_acces') }}</span>
-          <i class="fa-solid fa-user-lock cs-t-fil" aria-hidden="true"></i>
-        </button>
+        <span class="cs-tw">
+          <button type="button" id="btn-carto-acces" class="cs-t cs-t--acces"
+                  aria-label="{{ t('map.btn_acces') }} — {{ t('map.tt_acces') }}">
+            <span class="cs-t-ic"><i class="fa-solid fa-user-lock"></i></span>
+            <span class="cs-t-lab">{{ t('map.btn_acces') }}</span>
+            <i class="fa-solid fa-user-lock cs-t-fil" aria-hidden="true"></i>
+          </button>
+          <span class="cs-tt" aria-hidden="true"><b>{{ t('map.btn_acces') }}</b>{{ t('map.tt_acces') }}</span>
+        </span>
         {% endif %}
         <!-- Un INTERRUPTEUR, pas une action : il porte un vrai bouton à
              bascule, garde sa classe `.active` (posée par activities_map.js) et
              s'allume en VERT — la couleur de l'état actif dans toute l'app. -->
-        <button type="button" id="cross-carto-btn" class="cs-t cs-t--cx"
-                title="{{ t('map.cross_carto_title') }}" aria-pressed="false">
-          <span class="cs-t-ic"><i class="fa-solid fa-link cross-carto-icon"></i></span>
-          <span class="cs-t-lab" id="cross-carto-label">{{ t('map.btn_connections') }}</span>
-          <span class="cs-t-switch" aria-hidden="true"><span class="cs-t-switch-pt"></span></span>
-          <span class="cross-carto-dot"></span>
-          <i class="fa-solid fa-link cs-t-fil" aria-hidden="true"></i>
-        </button>
+        <span class="cs-tw">
+          <button type="button" id="cross-carto-btn" class="cs-t cs-t--cx"
+                  aria-pressed="false"
+                  aria-label="{{ t('map.btn_connections') }} — {{ t('map.cross_carto_title') }}">
+            <span class="cs-t-ic"><i class="fa-solid fa-link cross-carto-icon"></i></span>
+            <span class="cs-t-lab" id="cross-carto-label">{{ t('map.btn_connections') }}</span>
+            <span class="cs-t-switch" aria-hidden="true"><span class="cs-t-switch-pt"></span></span>
+            <span class="cross-carto-dot"></span>
+            <i class="fa-solid fa-link cs-t-fil" aria-hidden="true"></i>
+          </button>
+          <span class="cs-tt" aria-hidden="true"><b>{{ t('map.btn_connections') }}</b>{{ t('map.cross_carto_title') }}</span>
+        </span>
         </span>
       </span>
 
@@ -349,11 +365,15 @@
       </button>
 
       {% if has_optiqcarto %}
-      <a href="/cartography/editor" class="cs-t cs-t--prim">
-        <span class="cs-t-ic"><i class="fa-solid fa-pen-ruler"></i></span>
-        <span class="cs-t-lab">{{ t('map.viewer_open_editor') }}</span>
-        <i class="fa-solid fa-pen-ruler cs-t-fil" aria-hidden="true"></i>
-      </a>
+      <span class="cs-tw cs-tw--prim">
+        <a href="/cartography/editor" class="cs-t cs-t--prim"
+           aria-label="{{ t('map.viewer_open_editor') }} — {{ t('map.tt_editor') }}">
+          <span class="cs-t-ic"><i class="fa-solid fa-pen-ruler"></i></span>
+          <span class="cs-t-lab">{{ t('map.viewer_open_editor') }}</span>
+          <i class="fa-solid fa-pen-ruler cs-t-fil" aria-hidden="true"></i>
+        </a>
+        <span class="cs-tt" aria-hidden="true"><b>{{ t('map.viewer_open_editor') }}</b>{{ t('map.tt_editor') }}</span>
+      </span>
       {% endif %}
     </div>
   </header>

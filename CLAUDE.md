@@ -4151,6 +4151,43 @@ migration à chaud pour les bases déjà déployées, test dans
   dépassement rend désormais **« en veille »** (bleu calme) et non « injoignable » (rouge
   d'alerte) : le service dort, il n'est pas cassé.
 
+### Chaque bouton de la carte dit ce qu'il fait (2026-10-13)
+
+« On ne sait pas à quoi servent les boutons. Seul le bouton Liens a une
+légende quand on le survole. » C'était exact, et vérifiable : un seul des
+cinq portait un `title`. Et sous le seuil du mode compact leur LIBELLÉ est
+masqué — ils deviennent des carrés d'icône muets, ce qui est précisément
+l'écran sur lequel on les regardait.
+
+- Une bulle **dessinée par la page**, pas un `title`. Celui du système met
+  une seconde à sortir, ne se voit jamais au clavier, et se superposerait à
+  la nôtre si les deux cohabitaient (le piège déjà rencontré sur la matrice
+  RH) : aucun des cinq boutons n'en porte plus. `aria-label` porte la MÊME
+  phrase, parce qu'une bulle dessinée par la page n'existe pas pour un
+  lecteur d'écran. Elle sort aussi au `:focus-within`.
+- Elle dit ce que le bouton FAIT, pas comment il s'appelle : une bulle qui
+  répète le libellé n'apprend rien.
+- **Les libellés tiennent jusqu'à 1200 px** (contre 1480) : tuiles resserrées
+  (114 → 102 px de large), et sous 1340 px c'est la taille du NOM de la carto
+  qui cède, pas les libellés qui disent à quoi servent les boutons.
+
+⚠️ **DEUX boîtes tranchaient la bulle, et le symptôme trompe** : on voit son
+BEC et pas elle, donc on cherche un z-index.
+1. `.cs-pliable` est en `overflow: hidden` — c'est ce qui fait glisser les
+   tuiles dans la poignée au repli — et il coupe au ras. Il lui faut de l'air
+   dessous (`--cs-tt-air`, rendu à la mise en page par une marge négative :
+   la rangée ne grandit pas d'un pixel, et la boîte interne remonte son bas
+   d'autant, sinon les tuiles s'étireraient dedans).
+2. `.carto-container` vient APRÈS la rangée dans le document et il est en
+   `position: relative` : à z-index automatique, c'est lui qui passait
+   devant. La rangée prend donc `position: relative; z-index: 20`.
+
+⚠️ **Et la requête qui réduit le titre ne faisait RIEN** : déclarée avant la
+règle de base qui le pose à 25 px, à spécificité égale c'est la dernière
+déclarée qui gagne. Troisième fois que ce piège mord dans cette feuille.
+
+Tests : `tests/test_94_page_carte_scene.py` (28 cas). Suite : 2910 passés.
+
 ### L'audit du client : les quatre premiers défauts (2026-10-11)
 
 Cinq classeurs de remarques (03–05/10/2026), confrontés au code un par un.

@@ -4903,6 +4903,13 @@ body.a-carto-scene { margin-bottom: 0; }
 
 .carto-scene .cs-bar {
   flex: none;
+  /* ⚠️ La rangée doit passer AU-DESSUS du panneau du dessin : sans ça,
+     les bulles des boutons — qui sortent par le bas — se dessinent
+     DERRIÈRE lui. `.carto-container` est en `position: relative` et vient
+     après dans le document : à z-index automatique, c'est lui qui gagne.
+     Le symptôme est trompeur — on voit le bec de la bulle, pas la bulle. */
+  position: relative;
+  z-index: 20;
   height: var(--cs-bar-h);
   display: flex;
   align-items: stretch;
@@ -4928,8 +4935,101 @@ body.a-carto-scene { margin-bottom: 0; }
   gap: 10px;
 }
 /* Le repli SANS script : instantané, mais jamais cassé. */
-.cs-pliable { overflow: hidden; }
+.cs-pliable {
+  overflow: hidden;
+  /* ⚠️ De l'air SOUS la boîte de découpe, pour que la bulle d'un bouton n'y
+     soit pas tranchée. La marge négative rend exactement cet espace à la
+     mise en page : la rangée ne grandit pas d'un pixel. */
+  padding-bottom: var(--cs-tt-air, 78px);
+  margin-bottom: calc(-1 * var(--cs-tt-air, 78px));
+}
 .cs-pliable-in { display: flex; align-items: stretch; gap: 10px; }
+
+/* ⚠️ L'ENVELOPPE existe pour la bulle : la tuile est en `overflow: hidden`
+   — c'est ce qui coupe son filigrane au coin — et une bulle posée dedans
+   serait tranchée net. C'est donc l'enveloppe qui la porte. */
+.cs-tw {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  flex: none;
+}
+.cs-tw--prim { align-self: center; }
+
+/* La bulle. ⚠️ Dessinée par la page, PAS un attribut `title` : celui du
+   système met une seconde à sortir, ne se voit jamais au clavier, et se
+   superposerait à celle-ci si les deux cohabitaient (le piège déjà rencontré
+   sur la matrice RH). `aria-label` porte la même phrase pour les lecteurs
+   d'écran. */
+.cs-tt {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  z-index: 30;
+  display: block;
+  width: max-content;
+  max-width: 250px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: #3f1d2b;
+  color: #fdf2f8;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  box-shadow: 0 10px 26px rgba(63, 29, 43, .3);
+  opacity: 0;
+  transform: translate(-50%, -5px);
+  pointer-events: none;
+  transition: opacity .14s ease, transform .18s cubic-bezier(.22, 1, .36, 1);
+}
+.cs-tt b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--cs-r-3, #fbcfe8);
+}
+/* Le bec, qui relie la bulle à son bouton. */
+.cs-tt::after {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border: 5px solid transparent;
+  border-bottom-color: #3f1d2b;
+}
+/* ⚠️ `focus-within` autant que `hover` : au clavier il n'y a pas de survol,
+   et c'est précisément là qu'une infobulle système ne sert à rien. */
+.cs-tw:hover .cs-tt,
+.cs-tw:focus-within .cs-tt { opacity: 1; transform: translate(-50%, 0); }
+
+/* ⚠️ Une bulle collée au bord de la fenêtre déborderait : la dernière se
+   cale à droite, la première à gauche. */
+.cs-actions > .cs-tw:last-of-type .cs-tt,
+.cs-pliable-in .cs-tw:last-child .cs-tt { left: auto; right: 0; transform: translate(0, -5px); }
+.cs-actions > .cs-tw:last-of-type:hover .cs-tt,
+.cs-actions > .cs-tw:last-of-type:focus-within .cs-tt,
+.cs-pliable-in .cs-tw:last-child:hover .cs-tt,
+.cs-pliable-in .cs-tw:last-child:focus-within .cs-tt { transform: translate(0, 0); }
+.cs-actions > .cs-tw:last-of-type .cs-tt::after,
+.cs-pliable-in .cs-tw:last-child .cs-tt::after { left: auto; right: 22px; margin-left: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-tt { transition: none; }
+}
+
+/* En disposition empilée (sous 1100 px) la rangée passe à gauche : une bulle
+   centrée sur les premières tuiles sortirait par la gauche. */
+@media (max-width: 1100px) {
+  .cs-tt { left: 0; right: auto; transform: translate(0, -5px); }
+  .cs-tw:hover .cs-tt,
+  .cs-tw:focus-within .cs-tt { transform: translate(0, 0); }
+  .cs-tt::after { left: 22px; right: auto; margin-left: 0; }
+}
 .cs-actions.is-plie .cs-pliable { display: none; }
 
 /* Et dès que carto_scene.js a mesuré la largeur naturelle des tuiles, le
@@ -4949,8 +5049,8 @@ body.a-carto-scene { margin-bottom: 0; }
   position: relative;
   display: block;
   width: var(--cs-pliable-w);
-  padding: 8px 0;
-  margin: -8px 0;
+  padding: 8px 0 var(--cs-tt-air, 78px);
+  margin: -8px 0 calc(-1 * var(--cs-tt-air, 78px));
   transition: width .42s cubic-bezier(.22, 1, .36, 1),
               opacity .42s cubic-bezier(.22, 1, .36, 1);
 }
@@ -4958,7 +5058,7 @@ body.a-carto-scene { margin-bottom: 0; }
   position: absolute;
   right: 0;
   top: 8px;
-  bottom: 8px;
+  bottom: var(--cs-tt-air, 78px);
   width: var(--cs-pliable-w);
 }
 .cs-actions.a-mesure.is-plie .cs-pliable { display: block; width: 0; opacity: 0; }
@@ -5106,13 +5206,13 @@ body.a-carto-scene { margin-bottom: 0; }
 .cs-t {
   position: relative;
   flex: none;
-  min-width: 114px;
+  min-width: 102px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 6px;
-  padding: 11px 13px;
+  gap: 5px;
+  padding: 10px 11px;
   border-radius: 18px;
   border: 1px solid var(--t-bord, #e9dfe6);
   background: linear-gradient(145deg, var(--t-1, #fff) 0%, var(--t-2, #f7f3f6) 100%);
@@ -5689,7 +5789,7 @@ body.a-carto-scene { margin-bottom: 0; }
 /* ── 6 · ÉCRANS ÉTROITS ───────────────────────────────────────────── */
 /* Sous 1380 px les quatre réglages deviennent des carrés : le libellé d'une
    tuile est un confort, la rangée qui déborde est un défaut. */
-@media (max-width: 1480px) {
+@media (max-width: 1200px) {
   .cs-t--entites, .cs-t--import, .cs-t--acces, .cs-t--cx {
     min-width: 0;
     width: 48px;
@@ -5710,6 +5810,15 @@ body.a-carto-scene { margin-bottom: 0; }
    ailleurs. Mesuré à 1440 : sans elle, plus aucune troncature. */
 @media (max-width: 1500px) {
   .cs-id-badge { display: none; }
+}
+
+/* ⚠️ Sous 1340 px le titre de la carto se tronquait — et la rangée garde
+   désormais ses libellés jusqu'en bas, donc c'est la taille du NOM qui cède,
+   pas les libellés qui disent à quoi servent les boutons.
+   ⚠️ Déclarée ICI, après la règle de base : à spécificité égale c'est la
+   dernière déclarée qui gagne, et placée plus haut elle ne faisait rien. */
+@media (max-width: 1340px) {
+  .carto-scene .cs-id h1 { font-size: 21px; }
 }
 
 @media (max-width: 1100px) {
