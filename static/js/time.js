@@ -273,6 +273,16 @@
       const el = document.getElementById(k);
       if (el) el.textContent = val;
     });
+    // ⚠️ La base de calcul du mensuel, écrite noir sur blanc : il divise par
+    // les mois TRAVAILLÉS (semaines/an ÷ 4,34524), pas par douze. Sans ça on
+    // lit « annuel ÷ 12 » et on conclut à une erreur.
+    const base = document.getElementById('fw-base-mois');
+    if (base) {
+      const sem = (j.params || {}).weeks_per_year || calendarParams.weeks_per_year || 47;
+      const mois = (sem / 4.34524).toFixed(1).replace('.', ',');
+      base.textContent = tl('fw_base_mois', 'Base : {sem} semaines par an, soit {mois} mois travaillés.')
+        .replace('{sem}', sem).replace('{mois}', mois);
+    }
     // AA = occurrences (nombre, pas de conversion)
     const aaEl = document.getElementById('AA');
     if (aaEl) aaEl.textContent = m['AA'] != null ? Math.round(m['AA']) : '—';
@@ -298,6 +308,16 @@
     return s;
   }
 
+  /* ⚠️ Un champ qu'on a TOUCHÉ ne se fait plus écraser par le
+     pré-remplissage d'une activité. On marque la saisie plutôt que de
+     regarder la valeur : une durée volontairement mise à 0 est un choix,
+     « vide » n'en est pas un. */
+  function marqueSaisie(champ) {
+    if (!champ || champ.dataset.saisi) return;
+    champ.addEventListener('input', () => { champ.dataset.saisi = '1'; });
+  }
+  const intact = (champ) => !!champ && !champ.dataset.saisi;
+
   function addProjectRow() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -318,11 +338,15 @@
       const id = act.value;
       const r = await fetch(`/temps/api/activity_defaults/${id}`);
       const j = await r.json();
-      tr.querySelector('.cell-dur').value = parseFloat(j.duration_minutes) || 0;
-      tr.querySelector('.cell-del').value = parseFloat(j.delay_minutes) || 0;
-      du.value = 'minutes'; deu.value = 'minutes';
+      const cDur = tr.querySelector('.cell-dur'), cDel = tr.querySelector('.cell-del');
+      // ⚠️ On ne remplit que ce qui n'a pas été saisi : taper 30 puis choisir
+      // l'activité remettait 0, d'où les projets enregistrés à 0 h.
+      if (intact(cDur)) { cDur.value = parseFloat(j.duration_minutes) || 0; du.value = 'minutes'; }
+      if (intact(cDel)) { cDel.value = parseFloat(j.delay_minutes) || 0; deu.value = 'minutes'; }
       recalc();
     }
+    marqueSaisie(tr.querySelector('.cell-dur'));
+    marqueSaisie(tr.querySelector('.cell-del'));
     act.onchange = prefillDefaults;
     prefillDefaults();
 
@@ -535,11 +559,14 @@
     if (!act) return;
     const r = await fetch(`/temps/api/activity_defaults/${act}`);
     const j = await r.json();
-    $('#act-duration').value = parseFloat(j.duration_minutes) || 0;
-    $('#act-duration-unit').value = 'minutes';
+    if (intact($('#act-duration'))) {
+      $('#act-duration').value = parseFloat(j.duration_minutes) || 0;
+      $('#act-duration-unit').value = 'minutes';
+    }
     const total = toMinutes(n('#act-duration'), v('#act-duration-unit')) * parseInt(v('#act-frequency')||'1',10) * parseInt(v('#act-people')||'1',10);
     $('#act-total').textContent = fmtH(total);
   }
+  marqueSaisie($('#act-duration'));
   $('#act-activity')?.addEventListener('change', refreshActivityDefaults);
 
   // ⚠️ L'aperçu n'était recalculé QUE sur le changement d'activité et après
@@ -730,10 +757,12 @@
       const id = actSel.value;
       const r = await fetch(`/temps/api/activity_defaults/${id}`);
       const j = await r.json();
-      tr.querySelector('.r-dur').value = parseFloat(j.duration_minutes) || 0;
+      const champ = tr.querySelector('.r-dur');
+      if (intact(champ)) champ.value = parseFloat(j.duration_minutes) || 0;
       recalc();
     }
 
+    marqueSaisie(tr.querySelector('.r-dur'));
     if (!duration) prefillDuration();
 
     function recalc(){
