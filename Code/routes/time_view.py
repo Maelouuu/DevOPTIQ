@@ -57,6 +57,91 @@ def get_calendar_params():
     cp = get_company_params()
     return {'hours_per_day': 7.0, 'days_per_week': cp['Js'], 'weeks_per_year': cp['Sa']}
 
+# Semaines par mois : la base « mois TRAVAILLES » de l'onglet Faiblesse.
+SEMAINES_PAR_MOIS = 4.34524
+SEMAINES_PAR_AN = 52.1429
+
+
+def annuel_minutes(par_periode, recurrence, params=None):
+    """Minutes par an d'une charge exprimee PAR PERIODE de recurrence.
+
+    Une seule implementation : l'onglet Role, le tableau de bord et l'apercu
+    du navigateur s'y referent tous. Deux versions de cette regle finiraient
+    par donner deux chiffres pour la meme analyse.
+
+    Calendrier civil pour le mensuel (12) et l'annuel (1) ; ce n'est PAS la
+    base de l'onglet Faiblesse, qui compte en periodes TRAVAILLEES (voir
+    `cout_faiblesse`). Les deux coexistent depuis toujours et n'ont pas ete
+    unifiees : changer l'une deplacerait des analyses deja enregistrees.
+    """
+    p = params or get_calendar_params()
+    r = (recurrence or '').strip().lower()
+    q = float(par_periode or 0)
+    if r.startswith('jour'):
+        return q * float(p['days_per_week']) * float(p['weeks_per_year'])
+    if r.startswith('hebdo'):
+        return q * float(p['weeks_per_year'])
+    if r.startswith('mens'):
+        return q * 12.0
+    return q
+
+
+def heures_plein_temps(params=None):
+    """Les heures d'un temps plein sur le calendrier de l'entite."""
+    p = params or get_calendar_params()
+    return float(p['hours_per_day']) * float(p['days_per_week']) * float(p['weeks_per_year'])
+
+
+def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
+                   travail_ajoute_min, attente_ajoutee_min, denom_proba,
+                   params=None):
+    """Les variables O..AA de l'onglet Faiblesse.
+
+    Extrait de `api_weakness`, qui l'appelle : le tableau de bord doit chiffrer
+    une faiblesse ENREGISTREE exactement comme l'ecran qui l'a produite.
+
+    `H` compte les occurrences par an : les PERIODES travaillees (le mensuel
+    divise par 4,34524 semaines, pas par douze) multipliees par la frequence.
+    """
+    p = params or get_calendar_params()
+    Js, Sa = float(p['days_per_week']), float(p['weeks_per_year'])
+    rec = (recurrence or '').strip().lower()
+
+    if rec.startswith('jour'):
+        H = Js * Sa
+    elif rec.startswith('hebdo'):
+        H = Sa
+    elif rec.startswith('mens'):
+        H = Sa / SEMAINES_PAR_MOIS
+    else:
+        H = Sa / SEMAINES_PAR_AN
+
+    H = H * max(1, int(frequence or 1))
+
+    B = float(duree_std_min or 0)
+    C = float(delai_std_min or 0)
+    L = float(travail_ajoute_min or 0)
+    M = float(attente_ajoutee_min or 0)
+    N = max(1, int(denom_proba or 1))
+
+    O = 1.0 / N
+    P_ = H * O
+    Q = L * O
+    Rv = (L + M) * O
+    S = B + Q
+    T = C + Rv
+    U = L * P_
+    V = (L + M) * P_
+    base_mois = (Sa / SEMAINES_PAR_MOIS)
+    W = U / base_mois if base_mois else 0
+    X = V / base_mois if base_mois else 0
+    Y = C + M
+    Z = M
+    AA = P_
+    return {"O": O, "P": P_, "Q": Q, "R": Rv, "S": S, "T": T,
+            "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA}
+
+
 def activity_duration_minutes(activity_id):
     a = Activities.query.get(activity_id)
     return float(getattr(a, 'duration_minutes', 0) or 0)
@@ -472,9 +557,13 @@ def _role_summary(R):
     sum_year = sum(_line_duration(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('ann'))
 
     p = get_calendar_params()
-    dpw, wpy = p['days_per_week'], p['weeks_per_year']
-    annual = sum_day * (dpw * wpy) + sum_week * wpy + sum_month * 12 + sum_year
-    monthly = sum_day * (dpw * wpy / 12.0) + sum_week * (wpy / 12.0) + sum_month + sum_year / 12.0
+    # Une seule regle (`annuel_minutes`) : elle etait reecrite ici ET dans le
+    # navigateur, et le tableau de bord en aurait fait une troisieme.
+    annual = (annuel_minutes(sum_day, 'journalier', p)
+              + annuel_minutes(sum_week, 'hebdomadaire', p)
+              + annuel_minutes(sum_month, 'mensuel', p)
+              + annuel_minutes(sum_year, 'annuel', p))
+    monthly = annual / 12.0
 
     return {
         "sum_daily_minutes": float(sum_day),
@@ -579,44 +668,12 @@ def api_weakness():
         B = to_minutes(d.get('duration_std', 0), d.get('duration_unit') or 'minutes')
 
     params = get_calendar_params()
-    Js, Sa = params['days_per_week'], params['weeks_per_year']
-    WPM = 4.34524
-    WPA = 52.1429
+    Sa = params['weeks_per_year']
 
-    if rec.startswith('jour'):
-        H = Js * Sa
-    elif rec.startswith('hebdo'):
-        H = Sa
-    elif rec.startswith('mens'):
-        H = Sa / WPM
-    else:
-        H = Sa / WPA
-
-    # ⚠️ `freq` était LU, STOCKÉ… et n'entrait dans aucun calcul. Mesuré :
-    # hebdomadaire, durée 60, probabilité 1/2, surcroît 30, attente 60 — la
-    # fréquence 1 et la fréquence 2 rendaient exactement les mêmes résultats
-    # annuels (16 occurrences, 8 h, 24 h). Un champ qui ne fait rien est pire
-    # qu'un champ absent : on règle sans savoir qu'on ne règle rien.
-    #
-    # `H` compte les PÉRIODES par an (semaines, mois…) et `freq` le nombre de
-    # fois PAR période — exactement la même lecture que l'onglet Rôle, où
-    # `weight = durée × fréquence`. Le produit des deux est donc le nombre
-    # d'occurrences par an.
-    H = H * max(1, freq)
-
-    O = 1.0 / N_denom
-    P = H * O
-    Q = L_qty * O
-    Rv = (L_qty + M_qty) * O
-    S = B + Q
-    T = C + Rv
-    U = L_qty * P
-    V = (L_qty + M_qty) * P
-    W = U / (Sa / WPM) if (Sa / WPM) else 0
-    X = V / (Sa / WPM) if (Sa / WPM) else 0
-    Y = C + M_qty
-    Z = M_qty
-    AA = P
+    m = cout_faiblesse(B, C, rec, freq, L_qty, M_qty, N_denom, params)
+    O, P, Q, Rv = m["O"], m["P"], m["Q"], m["R"]
+    S, T, U, V = m["S"], m["T"], m["U"], m["V"]
+    W, X, Y, Z, AA = m["W"], m["X"], m["Y"], m["Z"], m["AA"]
 
     if save:
         if mode == 'tasks' and tasks_payload:
@@ -657,4 +714,162 @@ def api_weakness():
         "calc": {"O": O, "P": P, "Q": Q, "R": Rv, "S": S, "T": T, "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA},
         "B_minutes": B, "C_minutes": C,
         "params": get_calendar_params()
+    })
+
+
+@time_bp.route('/api/weakness/<int:wid>', methods=['DELETE'])
+def api_weakness_delete(wid):
+    """Il n'existait aucune route pour retirer une faiblesse : une fois
+    enregistree elle pesait a jamais dans le total de l'accueil."""
+    w = TimeWeakness.query.get_or_404(wid)
+    # Le mode « par taches » ecrit une ligne par tache PLUS une ligne de total
+    # (task_id nul) : retirer le total doit emporter ses taches, sinon elles
+    # restent en base sans rien qui les rattache.
+    if w.task_id is None:
+        # ⚠️ Objet par objet, PAS `delete(synchronize_session=False)` : ce
+        # dernier laisse les lignes supprimees vivantes dans la session, et
+        # le prochain flush tombe en « 'NoneType' object has no attribute
+        # '__dict__' » — dans une route sans rapport.
+        for ligne in (TimeWeakness.query
+                      .filter_by(activity_id=w.activity_id, weakness=w.weakness)
+                      .filter(TimeWeakness.task_id.isnot(None)).all()):
+            db.session.delete(ligne)
+    db.session.delete(w)
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": True})
+
+
+# ========================= TABLEAU DE BORD =========================
+@time_bp.route('/api/tableau_de_bord', methods=['GET'])
+def api_tableau_de_bord():
+    """Tout ce que l'accueil de la page Temps affiche, en UNE requete.
+
+    L'ecran s'ouvrait sur un formulaire vide a 0,0 h : on ne voyait nulle part
+    ce qui avait deja ete mesure, ni ce qui restait a mesurer.
+    """
+    ensure_time_role_schema()
+    params = get_calendar_params()
+    plein_temps_min = heures_plein_temps(params) * 60.0
+
+    activites = Activities.for_active_entity().order_by(Activities.name.asc()).all()
+    noms = {a.id: a.name for a in activites}
+    ids = list(noms.keys())
+
+    # — Par activite : une ligne par analyse d'activite enregistree
+    par_activite = []
+    if ids:
+        for x in (TimeAnalysis.query
+                  .filter_by(type='activity')
+                  .filter(TimeAnalysis.activity_id.in_(ids))
+                  .order_by(TimeAnalysis.id.desc()).all()):
+            par_periode = (float(x.duration or 0)
+                           * max(1, int(x.frequency or 1))
+                           * max(1, int(x.nb_people or 1)))
+            par_activite.append({
+                "id": x.id,
+                "activity_id": x.activity_id,
+                "activite": noms.get(x.activity_id, ""),
+                "recurrence": x.recurrence,
+                "frequence": int(x.frequency or 1),
+                "personnes": int(x.nb_people or 1),
+                "par_periode_min": par_periode,
+                "annuel_min": annuel_minutes(par_periode, x.recurrence, params),
+            })
+
+    charge_annuelle = sum(a["annuel_min"] for a in par_activite)
+
+    # — Par role : seules les analyses qui portent sur cette carto
+    par_role = []
+    for R in (TimeRoleAnalysis.query
+              .order_by(TimeRoleAnalysis.created_at.desc(), TimeRoleAnalysis.id.desc())
+              .all()):
+        lignes = list(R.lines)
+        if not any(ln.activity_id in noms for ln in lignes):
+            continue
+        resume = _role_summary(R)
+        role = Role.query.get(R.role_id) if R.role_id else None
+        par_role.append({
+            "id": R.id,
+            "role_id": R.role_id,
+            "role": role.name if role else "",
+            "nom": getattr(R, "name", None) or "",
+            "n_activites": len(lignes),
+            "annuel_min": resume["annual_minutes"],
+            "mensuel_min": resume["monthly_minutes"],
+        })
+
+    # — Faiblesses : SEULEMENT les lignes de total (task_id nul). Le mode « par
+    #   taches » ecrit en plus une ligne par tache : les compter toutes
+    #   doublerait le cout de chaque faiblesse detaillee.
+    faiblesses = []
+    if ids:
+        for w in (TimeWeakness.query
+                  .filter(TimeWeakness.task_id.is_(None))
+                  .filter(TimeWeakness.activity_id.in_(ids))
+                  .order_by(TimeWeakness.id.desc()).all()):
+            m = cout_faiblesse(w.duration_std_minutes, w.delay_std_minutes,
+                               w.recurrence, w.frequency,
+                               to_minutes(w.work_added_qty, w.work_added_unit),
+                               to_minutes(w.wait_added_qty, w.wait_added_unit),
+                               w.prob_denom, params)
+            faiblesses.append({
+                "id": w.id,
+                "activity_id": w.activity_id,
+                "activite": noms.get(w.activity_id, ""),
+                "nom": (w.weakness or "").strip(),
+                "recurrence": w.recurrence,
+                "occurrences": m["AA"],
+                "travail_annuel_min": m["U"],
+                "attente_annuelle_min": m["V"],
+                "annuel_min": m["U"] + m["V"],
+                "mensuel_min": m["W"] + m["X"],
+            })
+    # ⚠️ On trie sur le TRAVAIL refait, pas sur le total : l'attente d'un
+    # fournisseur peut peser des centaines d'heures sans couter une minute de
+    # travail, et mettrait cette faiblesse-la en tete de liste.
+    faiblesses.sort(key=lambda f: f["travail_annuel_min"], reverse=True)
+    travail_faiblesses = sum(f["travail_annuel_min"] for f in faiblesses)
+    attente_faiblesses = sum(f["attente_annuelle_min"] for f in faiblesses)
+
+    # — Projets : ponctuels, ils ne rentrent pas dans la charge ANNUELLE
+    projets = []
+    for p in (TimeProject.for_active_entity()
+              .order_by(TimeProject.created_at.desc(), TimeProject.id.desc()).all()):
+        projets.append({
+            "id": p.id,
+            "nom": p.name or "",
+            "n_activites": len(p.lines),
+            "charge_min": sum(float(ln.duration_minutes) * max(1, ln.nb_people) for ln in p.lines),
+            "duree_min": sum(float(ln.duration_minutes) for ln in p.lines),
+        })
+
+    chiffrees = len({a["activity_id"] for a in par_activite})
+
+    return jsonify({
+        "ok": True,
+        "calendrier": params,
+        "plein_temps_min": plein_temps_min,
+        "charge": {
+            "annuel_min": charge_annuelle,
+            "mensuel_min": charge_annuelle / 12.0,
+            "hebdo_min": (charge_annuelle / float(params['weeks_per_year'])
+                          if params['weeks_per_year'] else 0.0),
+            # ⚠️ NUL (et non zero) quand rien n'est mesure : « 0 equivalent
+            # temps plein » se lit comme un resultat, « — » comme une absence.
+            "etp": (charge_annuelle / plein_temps_min) if (plein_temps_min and charge_annuelle) else None,
+        },
+        "faiblesses": {
+            # ⚠️ DEUX natures, jamais additionnees : `travail_min` est du
+            # travail refait, comparable a la charge ; `attente_min` est du
+            # temps d'horloge, qui ne coute de travail a personne. Les sommer
+            # donnait « 84 % de la charge » pour 5 % reels.
+            "travail_min": travail_faiblesses,
+            "attente_min": attente_faiblesses,
+            "part": (travail_faiblesses / charge_annuelle) if charge_annuelle else None,
+            "items": faiblesses,
+        },
+        "couverture": {"chiffrees": chiffrees, "total": len(ids)},
+        "par_role": par_role,
+        "par_activite": par_activite,
+        "projets": projets,
     })

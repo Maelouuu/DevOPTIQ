@@ -520,3 +520,290 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   .fw-group-body { grid-template-columns: 1fr !important; }
   .kpis { grid-template-columns: 1fr; }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LA REFONTE — trois ecrans : on arrive, on choisit, on saisit.
+
+   Mesure d'avant : quatre onglets cote a cote (quatre modeles mentaux sans
+   rien qui les relie), six chiffres dans l'onglet Role dont deux que rien ne
+   distinguait, tout a 0,0 h a l'arrivee, 1180 px utilises sur 1920, et les
+   analyses enregistrees isolees en bas de chaque onglet.
+
+   ⚠️ Les derives de l'accent (--pg-accent-soft/-border/-glow) rendent du GRIS
+   sur toute l'application : ils sont declares sur :root, ou --pg-accent vaut
+   encore le gris par defaut. On ecrit donc l'ambre en clair ici.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.page--time {
+  --tm-ambre:   #d97706;
+  --tm-ambre-f: #b45309;
+  --tm-ambre-p: #fef3c7;
+  --tm-ambre-b: #fcd34d;
+  --tm-projet:    #64748b;
+  --tm-activite:  #7c3aed;
+  --tm-role:      #d97706;
+  --tm-faiblesse: #dc2626;
+}
+
+/* Plus de largeur : la page n'en occupait que 1180 sur 1920.
+   ⚠️ Le corps porte `zoom: .8` — ces 1680 px de mise en page s'affichent sur
+   1344 px d'ecran, soit 84 % d'une fenetre de 1600 et 70 % d'une 1920. Lire
+   1680 comme « trop large » serait une erreur de repere. */
+#page-temps.container { max-width: 1680px; }
+
+.tm-ecran { display: none; }
+.tm-ecran.is-actif { display: block; }
+
+/* ───────────────────────────── 1 · ACCUEIL ───────────────────────────── */
+.tm-entete {
+  display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap;
+  padding: 4px 2px 16px;
+}
+.tm-entete-txt { flex: 1; min-width: 280px; }
+.tm-entete-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.tm-h1 {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 30px; font-weight: 700; letter-spacing: -.015em;
+  margin: 0 0 4px; color: var(--ink);
+}
+.tm-base { font-size: 13px; color: var(--muted); }
+
+.tm-chiffres { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+
+.tm-carte {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px); padding: 18px 20px;
+  box-shadow: var(--sh-card);
+}
+.tm-carte--phare {
+  background: linear-gradient(135deg, #78350f, var(--tm-ambre-f));
+  border: 0; color: #fff;
+  box-shadow: 0 12px 30px rgba(120, 53, 15, .26);
+}
+.tm-lbl {
+  font-size: 11.5px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tm-carte--phare .tm-lbl { color: rgba(255,255,255,.78); }
+.tm-grand {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 44px; font-weight: 700; line-height: 1.05; margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.tm-carte:not(.tm-carte--phare) .tm-grand { font-size: 38px; }
+.tm-unite { font-size: 16px; font-weight: 600; opacity: .78; margin-left: 6px; }
+.tm-rouge { color: var(--tm-faiblesse); }
+.tm-etp { font-size: 13px; margin-top: 4px; color: rgba(255,255,255,.9); }
+.tm-sous { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
+.tm-filet { height: 1px; background: rgba(255,255,255,.22); margin: 13px 0 11px; }
+.tm-carte:not(.tm-carte--phare) .tm-filet,
+.tm-res-bloc .tm-filet { background: var(--border); }
+.tm-secondaires { display: flex; gap: 22px; font-size: 12.5px; }
+.tm-lbl2 { opacity: .72; }
+.tm-moyen { font-size: 16px; font-weight: 700; margin-top: 1px; }
+
+.tm-faib-liste { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.tm-faib-l { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.tm-faib-nom {
+  flex: 1; min-width: 0; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-faib-barre { height: 6px; border-radius: 4px; background: #fca5a5; flex: none; }
+.tm-faib-val { font-weight: 700; color: #b91c1c; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.tm-jauge { height: 8px; border-radius: 5px; background: #eef0f6; margin-top: 12px; overflow: hidden; }
+.tm-jauge-in { height: 100%; background: linear-gradient(90deg, var(--tm-ambre-f), var(--tm-ambre)); }
+.btn-couv {
+  margin-top: 12px; width: 100%; justify-content: center;
+  background: var(--tm-ambre-p); border: 1px solid var(--tm-ambre-b); color: #92400e;
+}
+
+/* ── Les deux lectures ── */
+.tm-lectures { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.tm-lecture { padding: 0; overflow: hidden; }
+.tm-lecture-head {
+  display: flex; align-items: center; gap: 11px;
+  padding: 14px 18px 12px; border-bottom: 1px solid var(--border);
+}
+.tm-pastille {
+  width: 28px; height: 28px; flex: none; border-radius: 9px;
+  display: grid; place-items: center; color: #fff; font-size: 12px;
+}
+.tm-pastille--role     { background: var(--tm-role); }
+.tm-pastille--act      { background: var(--tm-activite); }
+.tm-pastille--dossier  { background: var(--tm-projet); }
+.tm-lecture-titre { font-size: 15px; font-weight: 700; }
+.tm-lecture-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.tm-lecture-pied {
+  font-size: 11.5px; color: var(--muted);
+  padding: 9px 18px 13px; border-top: 1px solid var(--border);
+}
+.tm-lecture-pied:empty { display: none; }
+
+.tm-barres { padding: 6px 0; }
+.tm-barre-l {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 18px; border-top: 1px solid #f3f5f9;
+}
+.tm-barres .tm-barre-l:first-child { border-top: 0; }
+.tm-barre-nom {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-barre-piste {
+  position: relative; width: 150px; flex: none; height: 9px;
+  border-radius: 5px; background: #f1f3f8;
+}
+.tm-barre-in {
+  position: absolute; inset: 0 auto 0 0; border-radius: 5px;
+  background: linear-gradient(90deg, var(--tm-ambre), #f59e0b);
+}
+/* Le repere du temps plein : un trait, pas une couleur de plus. */
+.tm-repere { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); }
+.tm-barre-val {
+  width: 64px; flex: none; text-align: right;
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.tm-barre-plus { padding: 8px 18px; font-size: 12px; color: var(--muted); }
+
+/* ── Vos analyses ── */
+.tm-analyses { margin-top: 14px; padding: 0; overflow: hidden; }
+.tm-groupe { padding: 12px 18px 14px; border-top: 1px solid var(--border); }
+.tm-groupe-titre {
+  font-size: 12px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; margin-bottom: 9px;
+  padding-left: 9px; border-left: 3px solid var(--border);
+}
+.tm-g-projet    { border-left-color: var(--tm-projet);    color: var(--tm-projet); }
+.tm-g-activite  { border-left-color: var(--tm-activite);  color: var(--tm-activite); }
+.tm-g-role      { border-left-color: var(--tm-role);      color: var(--tm-ambre-f); }
+.tm-g-faiblesse { border-left-color: var(--tm-faiblesse); color: var(--tm-faiblesse); }
+
+/* ───────────────────────────── 2 · CHOISIR ───────────────────────────── */
+.tm-retour {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 13px; border-radius: var(--r-btn, 9px);
+  border: 1px solid var(--border-strong, var(--border));
+  background: var(--card); color: var(--ink-2); cursor: pointer;
+}
+.tm-retour:hover { border-color: var(--tm-ambre); color: var(--tm-ambre-f); }
+
+.tm-choix-tete { text-align: center; padding: 26px 0 24px; }
+.tm-choix-sub { font-size: 14px; color: var(--muted); margin: 6px 0 0; }
+
+.tm-portes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.tm-porte {
+  display: block; text-align: left; cursor: pointer;
+  font-family: inherit;
+  background: var(--card); border: 1px solid var(--border);
+  border-top: 3px solid var(--border-strong, var(--border));
+  border-radius: var(--r-card, 14px); padding: 20px 18px 18px;
+  box-shadow: var(--sh-card);
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.tm-porte:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(20,27,46,.12); }
+.tm-porte-ic {
+  width: 44px; height: 44px; border-radius: 13px;
+  display: grid; place-items: center; color: #fff; font-size: 17px;
+}
+.tm-porte-titre { display: block; font-size: 18px; font-weight: 700; margin-top: 13px; color: var(--ink); }
+/* ⚠️ Une hauteur minimale : sans elle les quatre cartes se decalent selon la
+   longueur de leur phrase, et la rangee n'a plus de ligne de base. */
+.tm-porte-quand { display: block; font-size: 13px; line-height: 1.5; color: var(--ink-2); margin-top: 6px; min-height: 76px; }
+.tm-porte-ex {
+  display: block; font-size: 12px; font-weight: 700; margin-top: 8px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.tm-p-projet    { border-top-color: var(--tm-projet); }
+.tm-p-projet .tm-porte-ic    { background: var(--tm-projet); }
+.tm-p-projet .tm-porte-ex    { color: var(--tm-projet); }
+.tm-p-activite  { border-top-color: var(--tm-activite); }
+.tm-p-activite .tm-porte-ic  { background: var(--tm-activite); }
+.tm-p-activite .tm-porte-ex  { color: var(--tm-activite); }
+.tm-p-role      { border-top-color: var(--tm-role); }
+.tm-p-role .tm-porte-ic      { background: var(--tm-role); }
+.tm-p-role .tm-porte-ex      { color: var(--tm-ambre-f); }
+.tm-p-faiblesse { border-top-color: var(--tm-faiblesse); }
+.tm-p-faiblesse .tm-porte-ic { background: var(--tm-faiblesse); }
+.tm-p-faiblesse .tm-porte-ex { color: var(--tm-faiblesse); }
+
+/* ───────────────────────────── 3 · SAISIR ───────────────────────────── */
+.tm-barre { display: flex; align-items: center; gap: 13px; padding: 4px 2px 16px; }
+.tm-barre-ic {
+  width: 30px; height: 30px; flex: none; border-radius: 10px;
+  display: grid; place-items: center; color: #fff; font-size: 13px;
+  background: var(--tm-ambre);
+}
+#tm-travail[data-analyse="projet"]    .tm-barre-ic { background: var(--tm-projet); }
+#tm-travail[data-analyse="activite"]  .tm-barre-ic { background: var(--tm-activite); }
+#tm-travail[data-analyse="role"]      .tm-barre-ic { background: var(--tm-role); }
+#tm-travail[data-analyse="faiblesse"] .tm-barre-ic { background: var(--tm-faiblesse); }
+.tm-barre-titre {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 23px; font-weight: 700; margin: 0; color: var(--ink);
+}
+
+.tm-cols { display: grid; grid-template-columns: minmax(0, 1fr) 312px; gap: 16px; align-items: start; }
+.tm-saisie { min-width: 0; }
+
+/* Le resultat COLLE : on remplissait jusqu'a vingt-six champs sans jamais
+   voir un chiffre, et il fallait defiler jusqu'en bas pour en trouver six. */
+.tm-res {
+  position: sticky; top: 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px); padding: 16px 18px 18px;
+  box-shadow: var(--sh-card);
+}
+.tm-res-tete {
+  font-size: 12px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  padding-bottom: 11px; margin-bottom: 13px; border-bottom: 1px solid var(--border);
+}
+.tm-res-bloc { display: none; }
+.tm-res-bloc.is-actif { display: block; }
+.tm-res-bloc .tm-grand { font-size: 36px; color: var(--ink); }
+.tm-res-lignes { display: flex; flex-direction: column; gap: 7px; }
+.tm-res-lignes > div {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; font-size: 13px; color: var(--muted);
+}
+.tm-res-lignes b { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.tm-res-detail { margin-top: 12px; }
+.tm-res-detail > summary {
+  cursor: pointer; font-size: 12px; font-weight: 700;
+  color: var(--tm-ambre-f); margin-bottom: 9px;
+}
+
+/* L'attente : lisible, mais jamais confondue avec le travail refait. */
+.tm-attente {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--muted);
+}
+.tm-attente:empty { display: none; }
+.tm-attente b { font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tm-attente i { font-style: normal; font-size: 11.5px; color: var(--faint, var(--muted)); }
+
+/* ───────────────────────────── Responsive ───────────────────────────── */
+/* ⚠️ Pixels REELS : une requete de media ignore le `zoom` du corps. A
+   1000 px reels il reste 1250 px de mise en page — c'est la vraie limite en
+   dessous de laquelle les deux colonnes se marchent dessus. Le seuil de
+   1180 se declenchait alors qu'il en restait 1475. */
+@media (max-width: 1000px) {
+  .tm-chiffres { grid-template-columns: 1fr; }
+  .tm-lectures { grid-template-columns: 1fr; }
+  .tm-portes   { grid-template-columns: 1fr 1fr; }
+  .tm-porte-quand { min-height: 0; }
+  /* Plus de place pour la saisie : a cette largeur, le panneau colle a droite
+     volerait la moitie du formulaire. Il repasse au-dessus, non colle. */
+  .tm-cols { grid-template-columns: 1fr; }
+  .tm-res { position: static; order: -1; }
+}
+@media (max-width: 680px) {
+  .tm-portes { grid-template-columns: 1fr; }
+  .tm-h1 { font-size: 25px; }
+  .tm-grand { font-size: 36px; }
+  .tm-barre-piste { width: 92px; }
+}

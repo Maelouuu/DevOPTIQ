@@ -21,31 +21,53 @@
   let currentActivityEditId = null;
   let calendarParams = {hours_per_day:7, days_per_week:5, weeks_per_year:47};
 
-  // ---------- Tabs ----------
-  $$('.tab').forEach(b=>{
-    b.onclick = () => {
-      $$('.tab').forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      const which = b.dataset.tab;
-      $$('.tab-panel').forEach(p=>p.classList.remove('active'));
-      $('#tab-' + which).classList.add('active');
-    }
-  });
-  $$('.subtab').forEach(b=>{
-    b.onclick = () => {
-      $$('.subtab').forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      const which = b.dataset.subtab;
-      $$('.subtab-panel').forEach(p=>p.classList.remove('active'));
-      $('#subtab-' + which).classList.add('active');
-      
-      // CORRECTION: Recharger les defaults quand on clique sur l'onglet faiblesse
-      if (which === 'faiblesse') {
-        setTimeout(() => refreshWeaknessDefaults(), 100);
-      }
-    }
-  });
+  /* ─────────────────── Les trois ecrans de la page ───────────────────
+     Quatre onglets cote a cote, c'etaient quatre modeles mentaux sans rien
+     qui les relie : on arrive (accueil), on choisit (choix), on saisit
+     (travail) — une seule analyse a l'ecran a la fois. */
+  const ANALYSES = {
+    projet:    { ic: 'fa-diagram-project',      cle: 'tab_project'  },
+    activite:  { ic: 'fa-bolt',                 cle: 'tab_activity' },
+    role:      { ic: 'fa-user-tie',             cle: 'tab_role'     },
+    faiblesse: { ic: 'fa-triangle-exclamation', cle: 'tab_weakness' }
+  };
 
+  function ouvrirEcran(nom){
+    $$('.tm-ecran').forEach(e => e.classList.toggle('is-actif', e.id === 'tm-' + nom));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function ouvrirAccueil(){
+    ouvrirEcran('accueil');
+    // On revient de la saisie : tout ce que l'accueil montre a pu bouger.
+    await Promise.all([chargerTableauDeBord(), refreshProjectList(),
+                       refreshActivityWorkloadList(), refreshRoleAnalyses()]);
+  }
+
+  function ouvrirAnalyse(type){
+    const a = ANALYSES[type];
+    if (!a) return;
+    $$('.subtab-panel').forEach(p => p.classList.remove('active'));
+    $('#subtab-' + type)?.classList.add('active');
+    $$('.tm-res-bloc').forEach(b => b.classList.toggle('is-actif', b.dataset.pour === type));
+    const titre = $('#tm-barre-titre');
+    if (titre) titre.textContent = tl(a.cle, type);
+    const ic = $('#tm-barre-ic');
+    if (ic) ic.innerHTML = '<i class="fa-solid ' + a.ic + '"></i>';
+    const ecran = $('#tm-travail');
+    if (ecran) ecran.dataset.analyse = type;
+    ouvrirEcran('travail');
+    // Le panneau de droite ne doit jamais s'ouvrir sur un chiffre perime.
+    if (type === 'projet')    recalcProjectTotals();
+    if (type === 'activite')  majResultatActivite();
+    if (type === 'role')      recalcRoleTotals();
+    if (type === 'faiblesse') { refreshWeaknessDefaults().then(() => calculFaiblesse()); }
+  }
+
+  $('#tm-btn-nouvelle')?.addEventListener('click', () => ouvrirEcran('choix'));
+  $('#tm-btn-couv')?.addEventListener('click', () => ouvrirAnalyse('activite'));
+  $$('.tm-retour').forEach(b => b.addEventListener('click', () => ouvrirAccueil()));
+  $$('.tm-porte').forEach(b => b.addEventListener('click', () => ouvrirAnalyse(b.dataset.analyse)));
   // ---------- Utils ----------
   function toMinutes(qty, unit){
     const k={minutes:1, heures:60, jours:1440};
@@ -56,6 +78,29 @@
     const h=min/60;
     return (Math.round(h*10)/10).toFixed(1)+'h';
   }
+  const echap = (x) => String(x == null ? '' : x)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  /* ⚠️ La MEME regle que `annuel_minutes` cote serveur. Elle etait deja
+     reecrite ici (dans recalcRoleTotals) ; le tableau de bord en aurait fait
+     une troisieme. Un seul endroit, et un test confronte les deux. */
+  function annuelMinutes(parPeriode, rec){
+    const dpw = calendarParams.days_per_week || 5;
+    const wpy = calendarParams.weeks_per_year || 47;
+    const r = String(rec || '').toLowerCase();
+    const q = parseFloat(parPeriode || 0);
+    if (r.startsWith('jour'))  return q * dpw * wpy;
+    if (r.startsWith('hebdo')) return q * wpy;
+    if (r.startsWith('mens'))  return q * 12;
+    return q;
+  }
+
+  function nombre(x){
+    const lang = L.lang === 'en' ? 'en-GB' : 'fr-FR';
+    try { return Number(x).toLocaleString(lang); } catch (_) { return String(x); }
+  }
+
   function unitSelect(){
     const s=document.createElement('select');
     s.className='input';
@@ -104,93 +149,59 @@
     return s;
   }
 
-  // CORRECTION: Fonction refreshWeaknessDefaults améliorée avec parseFloat
   async function refreshWeaknessDefaults() {
     const actSel = $('#fw-activity');
-    if (!actSel) {
-      console.log('refreshWeaknessDefaults: select #fw-activity non trouvé');
-      return;
-    }
-    
-    const act = actSel.value;
-    if (!act) {
-      console.log('refreshWeaknessDefaults: aucune activité sélectionnée');
-      return;
-    }
-    
-    console.log('refreshWeaknessDefaults: chargement pour activité ID', act);
-    
+    const act = actSel && actSel.value;
+    if (!act) return;
+
     try {
       const r = await fetch(`/temps/api/activity_defaults/${act}`);
       const j = await r.json();
-      
-      console.log('Données reçues de l\'API:', j);
-      
-      // CORRECTION: Utiliser parseFloat || 0 au lieu de ?? 0
+
       const durationMin = parseFloat(j.duration_minutes) || 0;
       const delayMin = parseFloat(j.delay_minutes) || 0;
-      
-      console.log('Durée parsée:', durationMin, '- Délai parsé:', delayMin);
-      
+
+      // ⚠️ Quatrieme site de pre-remplissage, oublie par le correctif des
+      // trois autres : taper une duree puis choisir l'activite la remettait
+      // a la valeur de la fiche.
       const durInput = $('#fw-dur');
-      const delInput = $('#fw-del');
-      
-      if (durInput) {
+      if (intact(durInput)) {
         durInput.value = durationMin;
-        console.log('Champ #fw-dur défini à:', durationMin);
-      } else {
-        console.log('Champ #fw-dur non trouvé');
+        if ($('#fw-dur-unit')) $('#fw-dur-unit').value = 'minutes';
       }
-      
-      if ($('#fw-dur-unit')) {
-        $('#fw-dur-unit').value = 'minutes';
-      }
-      
-      if (delInput) {
+      const delInput = $('#fw-del');
+      if (intact(delInput)) {
         delInput.value = delayMin;
-        console.log('Champ #fw-del défini à:', delayMin);
-      } else {
-        console.log('Champ #fw-del non trouvé');
+        if ($('#fw-del-unit')) $('#fw-del-unit').value = 'minutes';
       }
-      
-      if ($('#fw-del-unit')) {
-        $('#fw-del-unit').value = 'minutes';
-      }
-      
-      // Remplir les tâches
+
       if (fwTaskBody) {
         fwTaskBody.innerHTML = (j.tasks||[]).map(t=>{
           const taskDur = parseFloat(t.duration_minutes) || 0;
           const taskDel = parseFloat(t.delay_minutes) || 0;
           return `<tr data-task="${t.id}">
-            <td>${t.name}</td>
+            <td>${echap(t.name)}</td>
             <td><input type="number" class="input t-dur" step="0.1" min="0" value="${taskDur}" /></td>
             <td class="td-unit"></td>
             <td><input type="number" class="input t-del" step="0.1" min="0" value="${taskDel}" /></td>
             <td class="td-dunit"></td>
           </tr>`;
         }).join('');
-        
+
         $$('#fw-task-rows tr').forEach(tr=>{
-          const u1 = unitSelect(); 
+          const u1 = unitSelect();
           const tdUnit = tr.querySelector('.td-unit');
-          if (tdUnit) {
-            tdUnit.appendChild(u1); 
-            u1.value='minutes';
-          }
-          const u2 = unitSelect(); 
+          if (tdUnit) { tdUnit.appendChild(u1); u1.value='minutes'; }
+          const u2 = unitSelect();
           const tdDunit = tr.querySelector('.td-dunit');
-          if (tdDunit) {
-            tdDunit.appendChild(u2); 
-            u2.value='minutes';
-          }
+          if (tdDunit) { tdDunit.appendChild(u2); u2.value='minutes'; }
         });
       }
-      
+
       recalcTaskSum();
-      
+
     } catch (err) {
-      console.error('Erreur refreshWeaknessDefaults:', err);
+      console.error('Faiblesse — chargement des valeurs par defaut :', err);
     }
   }
 
@@ -233,9 +244,9 @@
 
   function showFwFeedback(isOk, msg) { flashFeedback('fw-feedback', isOk, msg); }
 
-  async function sendWeakness(save=false){
+  async function sendWeakness(save=false, discret=false){
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
-    if (!modeEl) return showFwFeedback(false, 'Sélectionnez un mode');
+    if (!modeEl) { if (!discret) showFwFeedback(false, tl('error', 'Erreur')); return; }
     const mode = modeEl.value;
 
     const payload = {
@@ -265,7 +276,7 @@
 
     const r = await fetch('/temps/api/weakness', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const j = await r.json();
-    if (!j.ok) return showFwFeedback(false, 'Erreur de calcul / enregistrement');
+    if (!j.ok) { if (!discret) showFwFeedback(false, tl('error', 'Erreur')); return; }
 
     const m = j.calc || {};
     ['S','T','U','V','W','X','Y','Z'].forEach(k=>{
@@ -289,11 +300,31 @@
     // Les résultats n'apparaissent qu'après un premier calcul réussi
     document.getElementById('fw-results-empty')?.classList.add('hidden');
     document.getElementById('fw-results-section')?.classList.remove('hidden');
+
+    // Le panneau colle a droite : le cout ANNUEL en tete, deux secondaires.
+    updateKpi('tm-fw-an',   fmtH((m['U'] || 0) + (m['V'] || 0)));
+    updateKpi('tm-fw-mois', fmtH((m['W'] || 0) + (m['X'] || 0)));
+    updateKpi('tm-fw-occ',  m['AA'] != null ? Math.round(m['AA']) : '—');
+
     if (save) showFwFeedback(true, 'Analyse faiblesse enregistrée avec succès');
   }
 
-  $('#btn-fw-calc')?.addEventListener('click', ()=> sendWeakness(false));
   $('#btn-fw-save')?.addEventListener('click', ()=> sendWeakness(true));
+
+  /* ⚠️ Le resultat se met a jour PENDANT la saisie, mais la formule reste
+     celle du serveur : la reecrire ici en ferait une seconde, et deux
+     implementations d'un meme verdict finissent par diverger. On appelle
+     donc la route, en differe — pas a chaque frappe. */
+  let minuterieFw = null;
+  function calculFaiblesse(){
+    if (!$('#fw-activity')?.value) return;
+    clearTimeout(minuterieFw);
+    minuterieFw = setTimeout(() => { sendWeakness(false, true); }, 420);
+  }
+  $('#subtab-faiblesse')?.addEventListener('input', calculFaiblesse);
+  $('#subtab-faiblesse')?.addEventListener('change', calculFaiblesse);
+  marqueSaisie($('#fw-dur'));
+  marqueSaisie($('#fw-del'));
 
   // =====================================================
   // =================== CHARGES - PROJET ================
@@ -573,14 +604,20 @@
   // sauvegarde : taper 30 min, fréquence 2, 3 personnes laissait « 0.0 h » à
   // l'écran alors que l'enregistrement rendait 3,0 h. Le chiffre affiché
   // pendant la saisie ne décrivait rien.
-  function majApercuActivite() {
-    const total = toMinutes(n('#act-duration'), v('#act-duration-unit'))
-                * parseInt(v('#act-frequency') || '1', 10)
-                * parseInt(v('#act-people') || '1', 10);
-    const cible = $('#act-total');
-    if (cible) cible.textContent = fmtH(total);
+  function majApercuActivite() { majResultatActivite(); }
+
+  /* Le total par occurrence ne dit pas grand-chose seul : une demi-heure
+     par jour et une demi-heure par an s'affichaient pareil. */
+  function majResultatActivite() {
+    const parOcc = toMinutes(n('#act-duration'), v('#act-duration-unit'))
+                 * parseInt(v('#act-frequency') || '1', 10)
+                 * parseInt(v('#act-people') || '1', 10);
+    const an = annuelMinutes(parOcc, v('#act-recurrence'));
+    updateKpi('act-total', fmtH(parOcc));
+    updateKpi('tm-act-an', fmtH(an));
+    updateKpi('tm-act-mois', fmtH(an / 12));
   }
-  ['#act-duration', '#act-duration-unit', '#act-frequency', '#act-people']
+  ['#act-duration', '#act-duration-unit', '#act-frequency', '#act-people', '#act-recurrence']
     .forEach(sel => {
       $(sel)?.addEventListener('input', majApercuActivite);
       $(sel)?.addEventListener('change', majApercuActivite);
@@ -794,10 +831,9 @@
       else sumA += weight;
     });
 
-    const dpw = calendarParams.days_per_week || 5;
-    const wpy = calendarParams.weeks_per_year || 47;
-    const annual = sumD*(dpw*wpy) + sumW*wpy + sumM*12 + sumA;
-    const monthly = sumD*(dpw*wpy/12) + sumW*(wpy/12) + sumM + sumA/12;
+    const annual = annuelMinutes(sumD, 'journalier') + annuelMinutes(sumW, 'hebdomadaire')
+                 + annuelMinutes(sumM, 'mensuel') + annuelMinutes(sumA, 'annuel');
+    const monthly = annual / 12;
 
     updateKpi('kpi-role-d', fmtH(sumD));
     updateKpi('kpi-role-w', fmtH(sumW));
@@ -865,12 +901,13 @@
           <div class="acc-title">
             <b class="role-name">${it.name || 'Analyse rôle'}</b>
             <input class="role-name-input hidden input" value="${(it.name || '').replace(/"/g,'&quot;')}" />
-            <span class="badge">${it.role}</span>
+            <span class="badge">${echap(it.role)}</span>
+            <span class="badge">${tl('kpi_est_year', 'Annuel')} ${fmtH(it.annual_minutes)}</span>
           </div>
-          <div class="acc-meta">
-            J:${fmtH(it.sum_daily_minutes)} · H:${fmtH(it.sum_weekly_minutes)} · M:${fmtH(it.sum_monthly_minutes)} · A:${fmtH(it.sum_yearly_minutes)} ·
-            Mensuel:${fmtH(it.monthly_minutes)} · Annuel:${fmtH(it.annual_minutes)}
-          </div>
+          <!-- ⚠️ Six chiffres bruts (« J:0.0h · H:1.13h · M:0.4h · A:0.0h ·
+               Mensuel:19.4h · Annuel:223.9h ») : le defaut meme que la refonte
+               corrige dans l'ecran de saisie. Le detail reste dans la fiche. -->
+          <div class="acc-meta">${tl('kpi_est_month', 'Mensuel')} ${fmtH(it.monthly_minutes)}</div>
           <div class="acc-actions">
             <button class="icon-btn edit-role" title="Renommer">✎</button>
             <button class="icon-btn success save-role hidden" title="Enregistrer">✔</button>
@@ -985,6 +1022,168 @@
     });
   }
 
+  // =====================================================
+  // ================== TABLEAU DE BORD ==================
+  // =====================================================
+  const PLAFOND_BARRES = 8;
+
+  function fmtPhrase(cle, defaut, vals){
+    let out = tl(cle, defaut);
+    Object.keys(vals).forEach(k => { out = out.split('{' + k + '}').join(vals[k]); });
+    return out;
+  }
+
+  function barres(cible, items, repere){
+    if (!cible) return;
+    const vus = items.slice(0, PLAFOND_BARRES);
+    const max = Math.max(repere || 0, ...vus.map(i => i.annuel_min), 1);
+    cible.innerHTML = vus.map(it => {
+      const p = Math.min(100, (it.annuel_min / max) * 100);
+      // ⚠️ Le repere du temps plein est pose sur la MEME echelle que les
+      // barres : ailleurs il ne voudrait rien dire.
+      const trait = repere
+        ? `<span class="tm-repere" style="left:${Math.min(100, (repere / max) * 100)}%"></span>` : '';
+      return `<div class="tm-barre-l" data-ouvrir="${echap(it.ouvrir || '')}">
+        <span class="tm-barre-nom" title="${echap(it.nom)}">${echap(it.nom)}</span>
+        <span class="tm-barre-piste"><span class="tm-barre-in" style="width:${p}%"></span>${trait}</span>
+        <span class="tm-barre-val">${fmtH(it.annuel_min)}</span>
+      </div>`;
+    }).join('');
+    if (items.length > PLAFOND_BARRES) {
+      cible.insertAdjacentHTML('beforeend',
+        `<div class="tm-barre-plus">+ ${items.length - PLAFOND_BARRES}</div>`);
+    }
+  }
+
+  function rendreFaiblesses(d){
+    const liste = $('#tm-faiblesse-list');
+    const items = (d.faiblesses || {}).items || [];
+    updateKpi('tm-faib', items.length ? Math.round((d.faiblesses.travail_min || 0) / 60) : '—');
+
+    // L'attente, dite a part et nommee pour ce qu'elle est.
+    const att = $('#tm-attente');
+    if (att) {
+      const v = (d.faiblesses || {}).attente_min || 0;
+      att.innerHTML = (items.length && v)
+        ? `<span>${echap(tl('tm_faib_attente', ''))}</span>`
+          + `<b>${fmtH(v)}</b>`
+          + `<i>${echap(tl('tm_faib_attente_dit', ''))}</i>` : '';
+    }
+
+    const sous = $('#tm-faib-sous');
+    if (sous) {
+      if (!items.length) sous.textContent = tl('tm_faib_aucune', '');
+      else {
+        const part = d.faiblesses.part != null
+          ? fmtPhrase('tm_faib_part', '{p} %', { p: Math.round(d.faiblesses.part * 100) }) + ' · ' : '';
+        const cle = items.length > 1 ? 'tm_faib_n_pl' : 'tm_faib_n';
+        sous.textContent = part + fmtPhrase(cle, '{n}', { n: items.length });
+      }
+    }
+
+    const apercu = $('#tm-faib-liste');
+    if (apercu) {
+      const max = Math.max(1, ...items.map(f => f.travail_annuel_min));
+      apercu.innerHTML = items.slice(0, 3).map(f => `
+        <div class="tm-faib-l">
+          <span class="tm-faib-nom" title="${echap(f.nom || f.activite)}">${echap(f.nom || f.activite)}</span>
+          <span class="tm-faib-barre" style="width:${Math.max(6, (f.travail_annuel_min / max) * 46)}px"></span>
+          <span class="tm-faib-val">${fmtH(f.travail_annuel_min)}</span>
+        </div>`).join('');
+    }
+
+    if (!liste) return;
+    if (!items.length) { liste.innerHTML = `<div class="muted">${tl('tm_faib_aucune', '')}</div>`; return; }
+    liste.innerHTML = items.map(f => `
+      <div class="acc-item" data-id="${f.id}">
+        <div class="acc-head">
+          <div class="acc-title">
+            <b>${echap(f.nom || f.activite)}</b>
+            <span class="badge">${echap(f.activite)}</span>
+            <span class="badge">${fmtH(f.travail_annuel_min)}</span>
+          </div>
+          <div class="acc-meta">${Math.round(f.occurrences)} × ${echap(f.recurrence)}
+            · ${echap(tl('tm_faib_attente', ''))} ${fmtH(f.attente_annuelle_min)}</div>
+          <div class="acc-actions">
+            <button class="icon-btn danger del-fw" title="${echap(tl('del_ok', 'Supprimer'))}">🗑</button>
+          </div>
+        </div>
+      </div>`).join('');
+    $$('#tm-faiblesse-list .del-fw').forEach(b => {
+      b.onclick = async (e) => {
+        e.stopPropagation();
+        if (!(await confirmDel('del_faiblesse', 'Supprimer cette faiblesse ?'))) return;
+        const id = b.closest('.acc-item').dataset.id;
+        const r = await fetch(`/temps/api/weakness/${id}`, { method: 'DELETE' });
+        if ((await r.json()).ok) await chargerTableauDeBord();
+      };
+    });
+  }
+
+  async function chargerTableauDeBord(){
+    let d;
+    try {
+      const r = await fetch('/temps/api/tableau_de_bord');
+      d = await r.json();
+    } catch (_) { return; }
+    if (!d || !d.ok) return;
+
+    const c = d.calendrier || {};
+    const base = $('#tm-base');
+    if (base) base.textContent = fmtPhrase('tm_base', '', {
+      sem: c.weeks_per_year, jours: c.days_per_week, heures: c.hours_per_day });
+
+    // — Charge
+    const an = (d.charge || {}).annuel_min || 0;
+    updateKpi('tm-charge', an ? nombre(Math.round(an / 60)) : '—');
+    updateKpi('tm-charge-mois', an ? fmtH(d.charge.mensuel_min) : '—');
+    updateKpi('tm-charge-sem', an ? fmtH(d.charge.hebdo_min) : '—');
+    const etp = $('#tm-etp');
+    if (etp) {
+      // ⚠️ `etp` est NUL quand rien n'est mesure : « 0 equivalent temps
+      // plein » se lirait comme un resultat, pas comme une absence.
+      if (d.charge.etp == null) etp.textContent = tl('tm_rien_mesure', '');
+      else {
+        const v2 = Math.round(d.charge.etp * 100) / 100;
+        etp.textContent = fmtPhrase(v2 > 1 ? 'tm_etp_pl' : 'tm_etp', '{n}',
+                                    { n: nombre(v2) });
+      }
+    }
+
+    rendreFaiblesses(d);
+
+    // — Couverture
+    const couv = d.couverture || { chiffrees: 0, total: 0 };
+    const reste = Math.max(0, couv.total - couv.chiffrees);
+    updateKpi('tm-couv-nb', reste);
+    const sur = $('#tm-couv-sur');
+    if (sur) sur.textContent = ' ' + fmtPhrase('tm_couv_sur', '/ {t}', { t: couv.total });
+    const cbase = $('#tm-couv-base');
+    if (cbase) cbase.textContent = reste === 0
+      ? tl('tm_couv_tout', '')
+      : fmtPhrase(couv.chiffrees === 1 ? 'tm_couv_base_une' : 'tm_couv_base', '{n}',
+                  { n: couv.chiffrees });
+    const jauge = $('#tm-couv-jauge');
+    if (jauge) jauge.style.width = (couv.total ? (couv.chiffrees / couv.total) * 100 : 0) + '%';
+    $('#tm-btn-couv')?.classList.toggle('hidden', reste === 0);
+
+    // — Deux lectures
+    barres($('#tm-role-liste'),
+           (d.par_role || []).map(r2 => ({ nom: r2.role || r2.nom, annuel_min: r2.annuel_min })),
+           d.plein_temps_min);
+    if (!(d.par_role || []).length && $('#tm-role-liste'))
+      $('#tm-role-liste').innerHTML = `<div class="muted">${tl('tm_vide_role', '')}</div>`;
+    const pied = $('#tm-role-pied');
+    if (pied) pied.textContent = (d.par_role || []).length
+      ? fmtPhrase('tm_repere_plein', '', { h: fmtH(d.plein_temps_min) }) : '';
+
+    barres($('#tm-act-liste'),
+           (d.par_activite || []).slice().sort((a, b) => b.annuel_min - a.annuel_min)
+             .map(a2 => ({ nom: a2.activite, annuel_min: a2.annuel_min })), 0);
+    if (!(d.par_activite || []).length && $('#tm-act-liste'))
+      $('#tm-act-liste').innerHTML = `<div class="muted">${tl('tm_vide_act', '')}</div>`;
+  }
+
   // ---------------------- INIT ------------------------
   (async () => {
     await loadCalendarParams();
@@ -999,12 +1198,9 @@
           fwAct.innerHTML = actOptions.map(o=>`<option value="${o.value}">${o.textContent}</option>`).join('');
         }
       }
-      // CORRECTION: Attendre un petit délai pour que le DOM soit prêt
-      setTimeout(async () => {
-        await refreshWeaknessDefaults();
-      }, 150);
     }
 
+    await chargerTableauDeBord();
     await refreshProjectList();
     await refreshActivityWorkloadList();
 
@@ -1012,10 +1208,11 @@
     if ($('#act-activity') && $('#act-activity').value) {
       const r0 = await fetch(`/temps/api/activity_defaults/${$('#act-activity').value}`);
       const j0 = await r0.json();
-      $('#act-duration').value = parseFloat(j0.duration_minutes) || 0;
-      $('#act-duration-unit').value = 'minutes';
-      const total = toMinutes(n('#act-duration'), v('#act-duration-unit')) * parseInt(v('#act-frequency')||'1',10) * parseInt(v('#act-people')||'1',10);
-      $('#act-total').textContent = fmtH(total);
+      if (intact($('#act-duration'))) {
+        $('#act-duration').value = parseFloat(j0.duration_minutes) || 0;
+        $('#act-duration-unit').value = 'minutes';
+      }
+      majResultatActivite();
     }
 
     // Projet : une ligne par défaut au démarrage

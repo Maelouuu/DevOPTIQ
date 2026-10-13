@@ -4350,6 +4350,142 @@ sautés.
   contradiction : ce sont deux règles, mélangées dans un seul compteur. La
   correction est d'**afficher les deux séparément**, pas de recalculer.
 
+
+### La page Temps refondue : on arrive, on choisit, on saisit (2026-10-13)
+
+« Vraiment pas au niveau vis-à-vis du reste de l'app, très très brouillon, on
+ne comprend pas tout, on s'emmêle. » Mesuré avant de redessiner :
+
+| Onglet | Hauteur | Champs | Chiffres à l'arrivée |
+|---|---|---|---|
+| Projet | 333 px | 7 | 4 (tous à 0,0 h) |
+| Activité | 406 px | 6 | **0** |
+| Rôle | 611 px | **26** | 6 |
+| Faiblesse | 631 px | **15** | **0** avant de calculer |
+
+Quatre causes, chacune traitée :
+1. **Quatre onglets = quatre modèles mentaux** sans rien qui les relie, et un
+   vocabulaire différent dans chacun pour la même notion (« Nb », « Fréq. »,
+   « Quantité », « Nombre d'exécutions par période »).
+2. **Six chiffres dans l'onglet Rôle** — Somme Jour/Hebdo/Mensuelle/Annuelle,
+   puis Estimation Mensuelle/Annuelle — et la différence entre « Somme » et
+   « Estimation » n'était écrite **nulle part**.
+3. **Tout à 0,0 h en arrivant** : un formulaire vierge qui ressemble à un
+   résultat vide, et rien qui dise ce qui avait déjà été mesuré.
+4. **Les analyses enregistrées en bas de CHAQUE onglet** : le travail déjà
+   fait ne se voyait qu'en entrant dans la saisie. 1180 px utilisés sur 1920.
+
+**La méthode d'abord.** Trois restructurations dessinées À L'ÉCHELLE dans un
+canvas (« Page Temps — 3 restructurations ») avant la moindre ligne de code —
+la même méthode que pour la page Carte, et pour la même raison : une passe de
+style coûte une demi-journée et se juge en trois secondes. L'arbitrage n'était
+pas « laquelle » mais **« jusqu'où »** : les trois pièces (le tableau de bord
+d'arrivée, les quatre portes, le panneau de résultat permanent) sont
+complémentaires, mais les trois PAGES ne le sont pas — 2 et 3 proposaient
+toutes deux l'écran d'accueil. Retenu : les trois enchaînées.
+
+**Trois écrans** (`.tm-ecran`, `is-actif`), plus un seul onglet :
+- **`#tm-accueil`** — un chiffre de tête (charge annuelle + équivalent temps
+  plein), le coût des faiblesses, **ce qui n'est pas chiffré**, deux lectures
+  (par rôle avec le repère du temps plein, par activité), et les analyses
+  enregistrées réunies en un seul endroit.
+- **`#tm-choix`** — « De quoi voulez-vous estimer la charge ? », quatre portes
+  qui disent **quand** s'en servir, avec un exemple.
+- **`#tm-travail`** — une analyse à l'écran, et son **résultat collé à droite**
+  (`position: sticky`) qui vit pendant la frappe.
+
+⚠️ **Ce qui rend la refonte sûre : les IDs des compteurs n'ont pas bougé.**
+`updateKpi` écrit par ID — déplacer un compteur du bas du formulaire vers le
+panneau de droite ne casse rien TANT QUE l'id survit. Les quatre panneaux de
+saisie, eux, sont repris tels quels. `test_105` garde la liste des seize ids.
+
+**`GET /temps/api/tableau_de_bord`** — tout ce que l'accueil montre, en UNE
+requête (calendrier, charge, faiblesses, couverture, par rôle, par activité,
+projets). Quatre appels auraient donné quatre instants différents.
+
+⚠️⚠️ **L'ATTENTE N'EST PAS DU TRAVAIL — le défaut que seul le banc a montré.**
+La carte des faiblesses additionnait le travail refait (U) et l'attente (V),
+puis comparait le total à la charge de TRAVAIL. Relevé au banc : **61 h de
+travail refait contre 984 h d'attente**, et l'écran annonçait « 84 % de la
+charge » pour **5 %** réels. Une activité qui attend deux jours la réponse
+d'un fournisseur ne coûte deux jours de travail à personne. Les deux natures
+sont désormais rendues séparément (`travail_min` / `attente_min`), la part ne
+compte que le travail, et le classement des faiblesses suit le travail refait
+— sinon celle qui ne coûte rien mais fait attendre trois jours arrive en tête.
+
+⚠️ **Le mode « par tâches » écrit une ligne PAR TÂCHE plus une ligne de total**
+(`task_id` nul) : le tableau de bord ne compte que les lignes de total, sinon
+chaque faiblesse détaillée coûterait le double. Et `DELETE /api/weakness/<id>`
+— qui n'existait pas, une faiblesse enregistrée pesait à jamais — emporte les
+lignes de tâche de son total.
+
+**Une seule règle d'annualisation** : `annuel_minutes()` (serveur) et
+`annuelMinutes()` (navigateur). Elle était écrite dans `_role_summary` ET dans
+`recalcRoleTotals` ; le tableau de bord en aurait fait une troisième.
+`_role_summary` l'appelle désormais, et `test_105` confronte les deux
+implémentations — la Python sur ses chiffres, la JS sur ses quatre facteurs.
+⚠️ Elle compte en calendrier CIVIL (mensuel = 12). Ce n'est **pas** la base de
+l'onglet Faiblesse, qui compte en périodes TRAVAILLÉES (`cout_faiblesse`,
+mensuel = 47 ÷ 4,34524). Les deux coexistent depuis toujours et n'ont pas été
+unifiées : changer l'une déplacerait des analyses déjà enregistrées.
+
+**La faiblesse se calcule PENDANT la saisie** — le bouton « Calculer » a
+disparu. ⚠️ Mais la formule reste celle du SERVEUR, appelée en différé
+(420 ms) : la réécrire dans le navigateur en ferait une seconde, et deux
+implémentations d'un même verdict finissent par diverger. C'est le choix
+inverse de celui des curseurs du plan de formation, et pour une raison
+mesurable : là-bas le verdict est une division, ici ce sont treize variables.
+
+⚠️ **Le corps de cette page porte `zoom: .8`.** Le conteneur passé à 1440 px
+n'occupait que **72 %** d'une fenêtre de 1600 — à peine mieux qu'avant la
+refonte. Et les requêtes de media, elles, IGNORENT ce zoom : le seuil de
+1180 px se déclenchait alors qu'il restait 1475 px de mise en page. Corrigé :
+conteneur 1680 px (**84 %** à 1600, 70 % à 1920), seuil à 1000 px réels. Même
+piège que pour la page Compétences, écrit noir sur blanc plus haut.
+
+⚠️⚠️ **`delete(synchronize_session=False)` laisse des objets MORTS dans la
+session** — et le symptôme ne désigne pas le coupable. Ma route de suppression
+l'employait : trois tests plus loin, `POST /api/weakness` tombait en 500 sur
+son `commit()` avec « 'NoneType' object has no attribute '__dict__' ».
+SQLAlchemy retrouve au flush un objet expiré dont la ligne n'existe plus,
+tente de la relire pour calculer sa clé d'identité, et n'obtient rien. **En
+production le défaut ne se voit pas** (la session est déposée à la fin de
+chaque requête) ; dans la suite elle est PARTAGÉE du début à la fin. On
+supprime objet par objet.
+
+⚠️ **Deux tests relisaient `Code/routes/time_view.py`** : verts en local,
+rouges à chaque exécution dans l'arbre d'image (bytecode-only). Réécrits sur
+le COMPORTEMENT — l'ordre rendu plutôt que la ligne de tri, les chiffres de
+`_role_summary` plutôt que le texte de sa source. C'est mieux que de les faire
+sauter : le contrôle y gagne.
+
+**Trois défauts corrigés au passage**, tous visibles seulement à l'écran :
+- `refreshWeaknessDefaults` était le **quatrième** site de pré-remplissage,
+  oublié par le correctif des trois autres : taper une durée puis choisir
+  l'activité la remettait à la valeur de la fiche. Ses neuf `console.log` de
+  mise au point sont partis avec.
+- La ligne d'une analyse de rôle, sur l'accueil, affichait « J:0.0h · H:1.13h ·
+  M:0.4h · A:0.0h · Mensuel:19.4h · Annuel:223.9h » — six chiffres bruts,
+  exactement le défaut que la refonte corrige dans l'écran de saisie.
+- Le sous-titre du bandeau (« Estimez et suivez les charges : projets,
+  activités, rôles et impact des faiblesses ») décrivait ce que l'écran
+  montre, juste au-dessus de la question qu'il pose.
+
+Banc : **`tools/devrun_temps.py`** (port 8127, `/devrun/fr` et `/devrun/en`) —
+douze activités dont **six seulement chiffrées**, deux rôles (l'un au-dessus
+du temps plein, l'autre bien en dessous), trois faiblesses de coûts très
+inégaux, deux projets, et un calendrier de travail réglé. Sans les activités
+non chiffrées on ne voit jamais que le cas heureux, où le total annoncé porte
+sur toute la carto.
+
+Tests : `tests/test_105_temps_refonte.py` (25 cas ; **six défauts remis un par
+un, six cliquets tombés** — l'attente recomptée, le double comptage des
+tâches, l'ETP rendu à zéro, la règle d'annualisation réécrite, les onglets
+remis, le bouton « Calculer »). Suite : 2993 passés, `repet_image` 2965 + 28
+sautés. Éprouvé au banc de 1280 à 1920 dans les deux langues : parcours
+complet, résultat en direct, zéro fuite française sur l'écran anglais, aucun
+débordement horizontal.
+
 ---
 
 ## Notes importantes (suite)
