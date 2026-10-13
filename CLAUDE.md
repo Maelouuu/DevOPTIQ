@@ -4151,6 +4151,55 @@ migration à chaud pour les bases déjà déployées, test dans
   dépassement rend désormais **« en veille »** (bleu calme) et non « injoignable » (rouge
   d'alerte) : le service dort, il n'est pas cassé.
 
+### Un développeur de compétences l'est PAR RÔLE, pas par personne (2026-10-13)
+
+« Je suis développeur de compétences pour 2 rôles pour une personne qui en a
+4. Or quand je vais sur l'évaluation, je vois les 4 rôles alors que je ne suis
+censé pouvoir en évaluer que 2. » C'était exact — et ce n'était pas qu'un
+affichage.
+
+⚠️ **`encadre()` répond par PERSONNE** : vrai dès qu'il existe UN rattachement,
+quel que soit le rôle
+(`UserRole.filter_by(user_id=…, manager_id=dev).count() > 0`). `peut_lire`
+ET `peut_noter` s'appuyaient dessus, et la synthèse bouclait sur TOUS les
+`UserRole` de la personne. Il ne voyait donc pas seulement les quatre rôles :
+il pouvait les **noter**.
+
+- `encadre_pour_role(dev, collaborateur, role)` : le lien **global**
+  (`users.manager_id`) couvre tous les rôles — c'est son rôle — le lien **par
+  rôle** ne couvre que le sien. C'est la distinction que `_dissoudre_lien_global`
+  maintient depuis le début côté ÉCRITURE, et qui n'était lue nulle part côté
+  lecture.
+- `roles_suivis(acteur, collaborateur)` rend `None` pour « aucune
+  restriction » (soi-même, lien global, coordinateur). ⚠️ `None` et une liste
+  VIDE ne disent pas la même chose : les confondre rouvrirait le défaut dans
+  l'autre sens, en cachant les rôles d'un développeur global.
+- ⚠️ **Les routes qui ÉCRIVENT EXIGENT le rôle** (`role_required`, 400) :
+  sans lui le contrôle retombe sur la règle par personne, donc l'omettre
+  suffirait à contourner le contrôle. L'écran l'envoyait déjà.
+- ⚠️ **Et le rôle doit PORTER l'activité** : sinon on noterait l'activité d'un
+  rôle qu'on ne suit pas, en présentant celui qu'on suit.
+
+⚠️⚠️ **Deux routes n'avaient AUCUN contrôle**, trouvées en tirant le fil :
+- `GET /mastery/activity/<u>/<a>` — tout compte connecté lisait le niveau de
+  n'importe qui sur n'importe quelle activité, **preuves comprises** ;
+- `POST /mastery/required` — le niveau ATTENDU d'un rôle est une décision, et
+  n'importe quel compte connecté la posait. Il faut désormais suivre ce rôle,
+  ou être coordinateur.
+
+⚠️ Le test `test_77::test_le_rattachement_PAR_ROLE_ouvre_le_meme_droit`
+affirmait le DÉFAUT (« un rattachement par rôle ouvre le même droit ») : il est
+renversé. Son décor explique d'ailleurs le symptôme — le développeur n'était
+rattaché qu'à `collab`, et c'est le lien par rôle posé sur `tiers` qui lui
+ouvrait TOUS les rôles de `tiers`.
+
+Tests : `tests/test_104_developpeur_par_role.py` (15 cas, le scénario du
+client au mot près — 3 vérifiés **rouges** en remettant la règle par
+personne). `test_57` passe le rôle partout (la route l'exige), et son helper
+nomme ses rôles de façon unique : les rôles sont COMMUNS à l'entreprise
+depuis le 23/09, un nom fixe fait collision dès que deux tests tournent.
+Suite : 2958 passés, `repet_image` 2930 + 28 sautés.
+
 ### Chaque bouton de la carte dit ce qu'il fait (2026-10-13)
 
 « On ne sait pas à quoi servent les boutons. Seul le bouton Liens a une

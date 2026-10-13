@@ -203,7 +203,9 @@ def dashboard(user_id, role_id):
     role = Role.query.get(role_id)
     if not role:
         return jsonify({"error": "role_not_found"}), 404
-    if not peut_lire(current_user(), user_id):
+    # ⚠️ AVEC le rôle : un développeur de deux rôles sur quatre n'ouvre pas
+    # les deux autres.
+    if not peut_lire(current_user(), user_id, role_id=role_id):
         return jsonify({"error": "forbidden"}), 403
     return jsonify({"user_id": user_id, "role_id": role_id, "role_name": nom_affiche(role),
                     "activities": dashboard_rows(user_id, role_id)}), 200
@@ -262,7 +264,7 @@ def synthese(user_id):
     est renvoyée à côté, comme repère, jamais comme résultat.
     """
     from Code.models.models import Role, User
-    from Code.competences_acces import peut_lire
+    from Code.competences_acces import peut_lire, roles_suivis
 
     cible = User.query.get(user_id)
     if not cible:
@@ -280,8 +282,16 @@ def synthese(user_id):
     # un rôle (`Entity.get_active` valide contre les cartos accessibles), et
     # l'écran se vidait alors pour une autre raison. C'est le filtre des
     # activités qui était de trop : voir `dashboard_rows`.
+    # ⚠️ On ne liste QUE les rôles que l'acteur suit. « Je suis développeur
+    # pour 2 rôles d'une personne qui en a 4, et je vois les 4 » : `encadre()`
+    # répond par PERSONNE, et cette boucle prenait tous les rôles.
+    # ⚠️ `None` veut dire « aucune restriction » (soi-même, lien global,
+    # coordinateur) — le confondre avec une liste vide rouvrirait le défaut.
+    suivis = roles_suivis(current_user(), user_id)
     roles, profil = [], []
     for ur in UserRole.query.filter_by(user_id=user_id).all():
+        if suivis is not None and ur.role_id not in suivis:
+            continue
         role = Role.query.get(ur.role_id)
         if role is None:
             continue
@@ -392,6 +402,18 @@ def set_required():
         return jsonify({"error": "invalid_payload"}), 400
     if lvl is not None and lvl not in MASTERY_SCALE:
         return jsonify({"error": "invalid_level"}), 400
+    # ⚠️ Aucun contrôle ici non plus : le niveau attendu d'un rôle est une
+    # décision, et n'importe quel compte connecté la posait. Il faut suivre ce
+    # rôle — ou être coordinateur.
+    from Code.competences_acces import _statut_eleve
+    acteur = current_user()
+    if acteur is None:
+        return jsonify({"error": "forbidden"}), 403
+    if not _statut_eleve(acteur):
+        suit = UserRole.query.filter_by(role_id=rid, manager_id=acteur.id).count()
+        if not suit:
+            return jsonify({"error": "forbidden",
+                            "reason": "not_the_developer_for_this_role"}), 403
     row = db.session.execute(db.select(activity_roles.c.activity_id).where(
         (activity_roles.c.activity_id == aid) & (activity_roles.c.role_id == rid))).first()
     if not row:
@@ -405,9 +427,15 @@ def set_required():
 
 @mastery_bp.route("/activity/<int:user_id>/<int:activity_id>", methods=["GET"])
 def get_activity(user_id, activity_id):
+    """⚠️ Cette route n'avait AUCUN contrôle : tout compte connecté
+    lisait le niveau de n’importe qui sur n’importe quelle activité,
+    preuves comprises."""
+    from Code.competences_acces import peut_lire
     if not Activities.query.get(activity_id):
         return jsonify({"error": "activity_not_found"}), 404
     role_id = request.args.get("role_id", type=int)
+    if not peut_lire(current_user(), user_id, role_id=role_id):
+        return jsonify({"error": "forbidden"}), 403
     return jsonify(activity_mastery(user_id, activity_id, role_id)), 200
 
 
@@ -427,9 +455,21 @@ def evaluate():
     # ⚠️ Cette route n'avait AUCUN contrôle : tout compte connecté pouvait poser
     # n'importe quel niveau sur n'importe qui — y compris se décerner un niveau
     # officiel. Le masquage dans l'écran n'est pas une sécurité.
-    ok, motif = peut_noter(current_user(), uid, evaluator)
+    # ⚠️ Et le RÔLE est obligatoire : sans lui on retomberait sur la règle par
+    # personne, donc l'omettre suffirait à noter un rôle qu'on ne développe
+    # pas. L'écran l'envoie déjà.
+    rid = p.get("role_id")
+    if not rid:
+        return jsonify({"error": "invalid_payload", "reason": "role_required"}), 400
+    ok, motif = peut_noter(current_user(), uid, evaluator, role_id=rid)
     if not ok:
         return jsonify({"error": "forbidden", "reason": motif}), 403
+    # ⚠️ Le rôle doit porter CETTE activité : sinon on noterait l'activité
+    # d'un rôle qu'on ne suit pas, en présentant celui qu'on suit.
+    lien = db.session.execute(db.select(activity_roles.c.activity_id).where(
+        (activity_roles.c.activity_id == aid) & (activity_roles.c.role_id == rid))).first()
+    if not lien:
+        return jsonify({"error": "association_not_found"}), 404
     d = Data.query.get(did)
     if not d or d.semantic_nature != "RESULT":
         return jsonify({"error": "not_a_result"}), 400
@@ -446,5 +486,4 @@ def evaluate():
     ev.evaluated_at = now
     ev.evaluator_user_id = p.get("evaluator_user_id")
     db.session.commit()
-    role_id = p.get("role_id")
-    return jsonify({"ok": True, "state": activity_mastery(uid, aid, role_id)}), 200
+    return jsonify({"ok": True, "state": activity_mastery(uid, aid, rid)}), 200

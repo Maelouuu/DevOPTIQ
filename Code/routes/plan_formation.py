@@ -290,7 +290,7 @@ def _serialiser(plan, activites, source=None):
 @plan_bp.route("/<int:user_id>/<int:role_id>", methods=["GET"])
 def lire(user_id, role_id):
     """Le plan enregistré, et l'écart qu'il doit combler."""
-    if not peut_lire(current_user(), user_id):
+    if not peut_lire(current_user(), user_id, role_id=role_id):
         return jsonify({"error": "forbidden"}), 403
     if not Role.query.get(role_id):
         return jsonify({"error": "role_not_found"}), 404
@@ -306,7 +306,7 @@ def proposer():
         return jsonify({"error": "invalid_payload"}), 400
     # Proposer un plan de développement pour quelqu'un, c'est le noter : même
     # porte, même clé.
-    ok, motif = peut_noter(current_user(), user_id, "2")
+    ok, motif = peut_noter(current_user(), user_id, "2", role_id=role_id)
     if not ok:
         return jsonify({"error": "forbidden", "reason": motif}), 403
     activites = contexte_ecart(user_id, role_id)
@@ -323,7 +323,7 @@ def enregistrer():
     user_id, role_id = p.get("user_id"), p.get("role_id")
     if not (user_id and role_id):
         return jsonify({"error": "invalid_payload"}), 400
-    ok, motif = peut_noter(current_user(), user_id, "2")
+    ok, motif = peut_noter(current_user(), user_id, "2", role_id=role_id)
     if not ok:
         return jsonify({"error": "forbidden", "reason": motif}), 403
     if not (User.query.get(user_id) and Role.query.get(role_id)):
@@ -345,7 +345,7 @@ def enregistrer():
 
 @plan_bp.route("/<int:user_id>/<int:role_id>", methods=["DELETE"])
 def supprimer(user_id, role_id):
-    ok, motif = peut_noter(current_user(), user_id, "2")
+    ok, motif = peut_noter(current_user(), user_id, "2", role_id=role_id)
     if not ok:
         return jsonify({"error": "forbidden", "reason": motif}), 403
     plan = _charger(user_id, role_id)

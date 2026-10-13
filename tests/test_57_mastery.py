@@ -46,6 +46,22 @@ def _create_role(app, entity_id, name="Rôle Maîtrise Test 57"):
         return r.id
 
 
+_N_ROLE = 0
+
+
+def _role_lie(app, entity_id, activity_id, nom=None):
+    """Un rôle porteur de l'activité. `/mastery/evaluate` l'exige désormais,
+    et vérifie qu'il porte bien CETTE activité — sinon on noterait l'activité
+    d'un rôle qu'on ne suit pas en présentant celui qu'on suit."""
+    # Les rôles sont COMMUNS à l’entreprise et uniques par nom : un nom
+    # fixe ferait collision dès que deux tests du fichier tournent.
+    global _N_ROLE
+    _N_ROLE += 1
+    rid = _create_role(app, entity_id, nom or ("Rôle 57 n%d" % _N_ROLE))
+    _link_role_activity(app, activity_id, rid)
+    return rid
+
+
 def _link_role_activity(app, activity_id, role_id, status="garant"):
     with app.app_context():
         from Code.models.models import activity_roles
@@ -95,6 +111,7 @@ class TestGetActivity:
 
     def test_no_result_returns_null_global_level(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         try:
             r = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}")
             assert r.status_code == 200
@@ -103,10 +120,11 @@ class TestGetActivity:
             assert data["global_level"] is None
             assert data["color"] == "grey"
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_result_not_evaluated_is_incomplete(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         _create_result_data(app, ids["entity_id"], aid)
         try:
             r = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}")
@@ -117,7 +135,7 @@ class TestGetActivity:
             assert len(data["results"]) == 1
             assert data["results"][0]["demonstrated_level"] is None
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
 
 class TestEvaluate:
@@ -133,39 +151,43 @@ class TestEvaluate:
 
     def test_invalid_evaluator_returns_400(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid)
         try:
             r = auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                  "data_id": did, "evaluator": "9", "mastery_level": 2}),
+                                  "data_id": did, "evaluator": "9", "mastery_level": 2, "role_id": rid}),
                 content_type="application/json",
             )
             assert r.status_code == 400
             assert r.get_json()["error"] == "invalid_payload"
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_invalid_level_returns_400(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid)
         try:
             r = auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                  "data_id": did, "evaluator": "1", "mastery_level": 42}),
+                                  "data_id": did, "evaluator": "1", "mastery_level": 42, "role_id": rid}),
                 content_type="application/json",
             )
             assert r.status_code == 400
             assert r.get_json()["error"] == "invalid_level"
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_not_a_result_returns_400(self, auth_client, app, ids):
+        rid = _role_lie(app, ids["entity_id"], ids["activity_id"],
+                        "Rôle 57 pas-un-résultat")
         r = auth_client.post(
             "/mastery/evaluate",
             data=json.dumps({"user_id": ids["user_id"], "activity_id": ids["activity_id"],
-                              "data_id": 999999, "evaluator": "1", "mastery_level": 2}),
+                              "data_id": 999999, "evaluator": "1", "mastery_level": 2, "role_id": rid}),
             content_type="application/json",
         )
         assert r.status_code == 400
@@ -175,12 +197,13 @@ class TestEvaluate:
         """CDC 3.6 : l'auto-évaluation (evaluator=0) n'est pas VALIDATING — le niveau
         global de référence reste None tant que Garant/Manager n'a pas évalué."""
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid)
         try:
             r = auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                  "data_id": did, "evaluator": "0", "mastery_level": 3}),
+                                  "data_id": did, "evaluator": "0", "mastery_level": 3, "role_id": rid}),
                 content_type="application/json",
             )
             assert r.status_code == 200
@@ -189,17 +212,18 @@ class TestEvaluate:
             assert state["results"][0]["demonstrated_level"] is None
             assert state["global_level"] is None
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_garant_evaluation_sets_global_level_and_color(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid)
         try:
             r = auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
                                   "data_id": did, "evaluator": "1", "mastery_level": 2,
-                                  "evidence": "Observation directe"}),
+                                  "evidence": "Observation directe", "role_id": rid}),
                 content_type="application/json",
             )
             assert r.status_code == 200
@@ -215,28 +239,30 @@ class TestEvaluate:
                 assert ev.mastery_level == 2
                 assert ev.evidence == "Observation directe"
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_low_level_gives_red_color(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid)
         try:
             r = auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                  "data_id": did, "evaluator": "2", "mastery_level": 1}),
+                                  "data_id": did, "evaluator": "2", "mastery_level": 1, "role_id": rid}),
                 content_type="application/json",
             )
             assert r.get_json()["state"]["color"] == "red"
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_reevaluation_upserts_same_row(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid)
         try:
             payload = lambda lvl: json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                               "data_id": did, "evaluator": "1", "mastery_level": lvl})
+                                               "data_id": did, "evaluator": "1", "mastery_level": lvl, "role_id": rid})
             auth_client.post("/mastery/evaluate", data=payload(1), content_type="application/json")
             auth_client.post("/mastery/evaluate", data=payload(3), content_type="application/json")
             with app.app_context():
@@ -246,7 +272,7 @@ class TestEvaluate:
                 assert len(rows) == 1
                 assert rows[0].mastery_level == 3
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
 
 class TestRequired:
@@ -288,6 +314,7 @@ class TestRequired:
 
     def test_set_required_valid(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"])
+        rid = _role_lie(app, ids["entity_id"], aid)
         rid = _create_role(app, ids["entity_id"])
         _link_role_activity(app, aid, rid)
         try:
@@ -314,6 +341,7 @@ class TestDashboard:
 
     def test_dashboard_lists_linked_activity(self, auth_client, app, ids):
         aid = _create_activity(app, ids["entity_id"], name="Activité Dashboard Test 57")
+        rid = _role_lie(app, ids["entity_id"], aid)
         rid = _create_role(app, ids["entity_id"])
         _link_role_activity(app, aid, rid)
         try:
@@ -353,13 +381,14 @@ class TestPreuveEtAvancement:
         le texte par une chaîne vide. La preuve se perdait au deuxième passage
         sans que personne ne l'ait effacée."""
         aid = _create_activity(app, ids["entity_id"], name="Activité Preuve Test 57")
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid, name="Résultat Preuve Test 57")
         try:
             r = auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
                                  "data_id": did, "evaluator": "2", "mastery_level": 3,
-                                 "evidence": "Campagne EP-2026-14 conduite seul."}),
+                                 "evidence": "Campagne EP-2026-14 conduite seul.", "role_id": rid}),
                 content_type="application/json",
             )
             assert r.status_code == 200
@@ -369,24 +398,26 @@ class TestPreuveEtAvancement:
             res = next(x for x in r.get_json()["results"] if x["data_id"] == did)
             assert res["evidence"] == "Campagne EP-2026-14 conduite seul."
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_la_preuve_est_une_chaine_quand_il_n_y_en_a_pas(self, auth_client, app, ids):
         """Jamais None : l'écran pose la valeur dans un <textarea>."""
         aid = _create_activity(app, ids["entity_id"], name="Activité Sans Preuve Test 57")
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid, name="Résultat Sans Preuve Test 57")
         try:
             r = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}")
             res = next(x for x in r.get_json()["results"] if x["data_id"] == did)
             assert res["evidence"] == ""
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
 
     def test_n_evaluated_compte_les_resultats_deja_notes(self, auth_client, app, ids):
         """Un niveau global vide ne dit pas s'il reste UN résultat à évaluer ou
         si l'on n'a rien commencé. `n_evaluated` fait la différence, sur l'état
         d'une activité comme sur le tableau du rôle."""
         aid = _create_activity(app, ids["entity_id"], name="Activité Avancement Test 57")
+        rid = _role_lie(app, ids["entity_id"], aid)
         d1 = _create_result_data(app, ids["entity_id"], aid, name="Résultat A Test 57")
         d2 = _create_result_data(app, ids["entity_id"], aid, name="Résultat B Test 57")
         rid = _create_role(app, ids["entity_id"], name="Rôle Avancement Test 57")
@@ -398,7 +429,7 @@ class TestPreuveEtAvancement:
             auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                 "data_id": d1, "evaluator": "2", "mastery_level": 2}),
+                                 "data_id": d1, "evaluator": "2", "mastery_level": 2, "role_id": rid}),
                 content_type="application/json",
             )
             st = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}").get_json()
@@ -414,7 +445,7 @@ class TestPreuveEtAvancement:
             auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                 "data_id": d2, "evaluator": "2", "mastery_level": 4}),
+                                 "data_id": d2, "evaluator": "2", "mastery_level": 4, "role_id": rid}),
                 content_type="application/json",
             )
             st = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}").get_json()
@@ -427,12 +458,13 @@ class TestPreuveEtAvancement:
         """Seuls Garant et Manager valident (CDC 3.6) : une auto-évaluation
         laisse le résultat à évaluer."""
         aid = _create_activity(app, ids["entity_id"], name="Activité Auto Test 57")
+        rid = _role_lie(app, ids["entity_id"], aid)
         did = _create_result_data(app, ids["entity_id"], aid, name="Résultat Auto Test 57")
         try:
             auth_client.post(
                 "/mastery/evaluate",
                 data=json.dumps({"user_id": ids["user_id"], "activity_id": aid,
-                                 "data_id": did, "evaluator": "0", "mastery_level": 4}),
+                                 "data_id": did, "evaluator": "0", "mastery_level": 4, "role_id": rid}),
                 content_type="application/json",
             )
             st = auth_client.get(f"/mastery/activity/{ids['user_id']}/{aid}").get_json()
@@ -441,4 +473,4 @@ class TestPreuveEtAvancement:
             assert res["self_level"] == 4
             assert res["demonstrated_level"] is None
         finally:
-            _cleanup(app, activity_id=aid)
+            _cleanup(app, activity_id=aid, role_id=rid)
