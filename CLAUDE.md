@@ -4486,6 +4486,56 @@ sautés. Éprouvé au banc de 1280 à 1920 dans les deux langues : parcours
 complet, résultat en direct, zéro fuite française sur l'écran anglais, aucun
 débordement horizontal.
 
+
+#### L'accueil ouvre les quatre analyses, et dit ce qui manque (2026-10-13)
+
+Deux retours, deux défauts de la même nature — un écran qui compte sans dire
+quoi faire du compte.
+
+**« On pourrait retrouver nos 4 types via la page d'accueil, et pas
+obligatoirement en passant par la création d'une analyse. »** La seule porte
+était « + Nouvelle analyse » — un bouton qui annonce une CRÉATION, alors qu'on
+vient souvent relire. Un **rail de quatre tuiles** en tête de « Vos analyses »
+ouvre chaque type directement, et porte le nombre de ce qui y est enregistré.
+⚠️ Les écouteurs visent `.tm-porte, .tm-rail-t`, **pas `[data-analyse]`** :
+`#tm-travail` porte cet attribut (c'est lui qui teinte l'icône de la barre),
+on lui poserait un écouteur qui le rouvrirait sur lui-même.
+
+**« Je n'ai ni compris ce que c'était, ni ce qu'il fallait y faire une fois
+cliqué sur Chiffrer les suivantes. »** La carte annonçait « 12 activités sur
+12 » et « Le total ci-contre ne porte que sur **0 activités** » — un compte
+sans objet, un pluriel sur zéro, et une phrase qui désigne la carte voisine
+par sa POSITION, fausse dès que l'écran se replie en colonne (sous 1000 px).
+Puis le bouton ouvrait un formulaire générique dont la liste déroulante
+portait TOUTES les activités : rien ne disait lesquelles manquaient.
+
+Elle **nomme** désormais ce qui manque (`couverture.a_chiffrer`, plafonné à
+60 — une carto de six cents activités n'a pas à les envoyer toutes pour
+remplir une carte qui en montre trois) ; chaque nom ouvre SON activité, déjà
+choisie ; et le bouton dit laquelle : « Chiffrer « Archiver le dossier » ».
+⚠️ Ouvrir une activité depuis cette carte **remet le champ durée à l'état non
+saisi** (`delete dataset.saisi`) : `intact()` refuse sinon d'y poser la durée
+de la fiche, et on arriverait sur un zéro.
+⚠️ Trois phrases, pas une : tout chiffré / rien chiffré / partiellement. La
+version « ne porte que sur {n} » ne veut rien dire quand n vaut zéro.
+
+**`tools/db/seed_temps.py`** — remplir la page Temps d'une carto existante
+avec des données plausibles, bâties sur SES activités et SES rôles (jamais
+d'activités inventées). `--dry-run` par défaut, `--yes` pour écrire, `--purge`
+pour repartir à zéro. ⚠️ L'URL se passe en argument, **jamais dans un
+fichier**. ⚠️ Et **trois activités sur cinq seulement sont chiffrées** : si
+tout l'est, la carte « ce qui n'est pas chiffré » ne se voit jamais et on ne
+sait pas qu'elle existe.
+
+⚠️ **Un test supposait non chiffrée l'activité du décor commun** : vert seul,
+rouge en suite complète (un autre fichier l'avait mesurée entre-temps). Il
+crée la sienne — et la carto où la poser vient du tableau de bord lui-même,
+pas de `Entity.get_active_id()`, qui lit la session Flask et n'a pas de
+réponse hors requête.
+
+Tests : `test_105` passe de 25 à 40 cas. Suite : 3008 passés, `repet_image`
+2980 + 28 sautés.
+
 ---
 
 ## Notes importantes (suite)

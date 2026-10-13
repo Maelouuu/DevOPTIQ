@@ -386,3 +386,127 @@ class TestLAttenteNEstPasDuTravail:
         for w in TimeWeakness.query.filter_by(weakness="ATTENTE-TEST").all():
             db.session.delete(w)
         db.session.commit()
+
+
+class TestLesQuatreAnalysesSAtteignentDepuisLAccueil:
+    """« On pourrait peut-etre retrouver nos 4 types via la page d'accueil, et
+    pas obligatoirement en passant par la creation d'une analyse. »
+
+    La seule porte etait « + Nouvelle analyse » — un bouton qui annonce une
+    CREATION, alors qu'on vient souvent relire ce qui existe.
+    """
+
+    @pytest.mark.parametrize("quoi", ["projet", "activite", "role", "faiblesse"])
+    def test_une_tuile_par_analyse_sur_l_accueil(self, quoi):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        accueil = g[g.index('id="tm-accueil"'):g.index('id="tm-choix"')]
+        assert ('class="tm-rail-t tm-r-%s" data-analyse="%s"' % (quoi, quoi)) in accueil
+        assert ('id="tm-n-%s"' % quoi) in accueil, quoi
+
+    def test_les_tuiles_portent_le_nombre_de_ce_qui_est_enregistre(self):
+        js = _lire("static/js/time.js")
+        for ident in ("tm-n-projet", "tm-n-activite", "tm-n-role", "tm-n-faiblesse"):
+            assert ("'%s'" % ident) in js, ident
+
+    def test_le_rail_ET_les_portes_ouvrent_la_meme_chose(self):
+        """⚠️ Pas `[data-analyse]` tout court : `#tm-travail` porte cet
+        attribut (c'est lui qui teinte l'icone de la barre), on lui poserait
+        un ecouteur qui le rouvrirait sur lui-meme."""
+        js = _lire("static/js/time.js")
+        assert "$$('.tm-porte, .tm-rail-t')" in js
+        assert "$$('[data-analyse]')" not in js
+
+
+class TestLaCarteDiLeQuiManque:
+    """« Je n'ai ni compris ce que c'etait, ni ce qu'il fallait y faire une
+    fois clique sur Chiffrer les suivantes. »
+
+    Elle annoncait « 12 activites sur 12 », « Le total ci-contre ne porte que
+    sur 0 activites » — un compte sans objet, une phrase qui designe une carte
+    voisine par sa POSITION (fausse des que l'ecran se replie en colonne) et
+    un « 0 activites » au pluriel — puis ouvrait un formulaire generique dont
+    la liste deroulante portait TOUTES les activites.
+    """
+
+    def test_le_tableau_de_bord_NOMME_ce_qui_manque(self, auth_client, ids):
+        couv = _tdb(auth_client)["couverture"]
+        assert "a_chiffrer" in couv
+        manquent = couv["a_chiffrer"]
+        assert len(manquent) == couv["total"] - couv["chiffrees"], couv
+        for a in manquent:
+            assert a["nom"] and isinstance(a["id"], int), a
+
+    def test_une_activite_chiffree_quitte_la_liste(self, auth_client, ids):
+        """⚠️ Sur SON activite, creee pour l'occasion : la base est partagee,
+        et un autre fichier a pu chiffrer celle du decor commun entre-temps —
+        le test passait seul et tombait en suite complete."""
+        from Code.models.models import Activities
+        # ⚠️ La carto est celle que le SERVEUR considere active — pas
+        # `Entity.get_active_id()`, qui lit la session Flask et n'a pas de
+        # reponse hors requete. On la deduit de ce que le tableau de bord
+        # vient de rendre.
+        depart = _tdb(auth_client)
+        temoin = (depart["couverture"]["a_chiffrer"] or depart["par_activite"])
+        assert temoin, "la carto active n'a aucune activite"
+        modele = db.session.get(Activities, temoin[0].get("id") or temoin[0]["activity_id"])
+        neuve = Activities(name="TM-ACT-105-a-chiffrer", entity_id=modele.entity_id)
+        db.session.add(neuve)
+        db.session.commit()
+        wid = None
+        try:
+            avant = {a["id"] for a in _tdb(auth_client)["couverture"]["a_chiffrer"]}
+            assert neuve.id in avant, avant
+
+            r = auth_client.post("/temps/api/activity_workload", json={
+                "activity_id": neuve.id, "duration": 30,
+                "duration_unit": "minutes", "recurrence": "annuel",
+                "frequency": 1, "nb_people": 1})
+            wid = json.loads(r.data)["id"]
+            apres = {a["id"] for a in _tdb(auth_client)["couverture"]["a_chiffrer"]}
+            assert neuve.id not in apres, apres
+        finally:
+            if wid:
+                auth_client.delete("/temps/api/activity_workload/%d" % wid)
+            db.session.delete(db.session.get(Activities, neuve.id))
+            db.session.commit()
+
+    def test_la_liste_est_plafonnee(self):
+        """Une carto de six cents activites n'a pas a les envoyer toutes pour
+        remplir une carte qui en montre trois."""
+        src_js = _lire("static/js/time.js")
+        assert "manquent.slice(0, 3)" in src_js
+        assert "tm_couv_autres" in src_js
+
+    def test_le_bouton_NOMME_l_activite_qu_il_ouvre(self):
+        js = _lire("static/js/time.js")
+        assert "tm_couv_btn_nom" in js
+        assert "ouvrirAnalyse('activite', manquent[0].id)" in js
+
+    def test_et_l_ouvrir_la_pre_choisit(self):
+        """⚠️ Et remet le champ a l'etat NON SAISI : `intact()` refuse sinon
+        de poser la duree de la fiche, et on arrive sur un zero."""
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("function ouvrirAnalyse"):][:900]
+        assert "sel.value = String(activityId)" in bloc
+        assert "delete c.dataset.saisi" in bloc
+        assert "refreshActivityDefaults()" in bloc
+
+    @pytest.mark.parametrize("lang", ["fr", "en"])
+    def test_le_cas_ou_RIEN_n_est_chiffre_a_sa_propre_phrase(self, lang):
+        """« ne porte que sur 0 activites » ne veut rien dire, et au pluriel
+        en plus."""
+        from Code.translations import t
+        phrase = t("time.tm_couv_aucune", lang=lang)
+        assert phrase != "time.tm_couv_aucune"
+        assert "0" not in phrase, phrase
+        js = _lire("static/js/time.js")
+        assert "if (!couv.chiffrees) cbase.textContent = tl('tm_couv_aucune'" in js
+
+    @pytest.mark.parametrize("lang", ["fr", "en"])
+    def test_la_phrase_ne_designe_plus_une_carte_par_sa_POSITION(self, lang):
+        """« ci-contre » / « opposite » : faux des que l'ecran se replie en
+        une seule colonne — c'est-a-dire sous 1000 px."""
+        from Code.translations import t
+        for cle in ("time.tm_couv_base", "time.tm_couv_base_une"):
+            phrase = t(cle, lang=lang).lower()
+            assert "ci-contre" not in phrase and "opposite" not in phrase, (cle, phrase)

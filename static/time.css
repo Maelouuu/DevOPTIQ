@@ -776,6 +776,55 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   color: var(--tm-ambre-f); margin-bottom: 9px;
 }
 
+/* Ce qui n'est pas chiffre : les NOMS, pas seulement le compte. */
+.tm-couv-liste { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; }
+.tm-couv-l {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+  padding: 6px 9px; border-radius: 8px;
+  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
+}
+.tm-couv-l span {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-couv-l i { font-size: 10px; color: var(--tm-ambre); opacity: 0; transition: opacity .12s; }
+.tm-couv-l:hover { border-color: var(--tm-ambre-b); color: var(--tm-ambre-f); }
+.tm-couv-l:hover i { opacity: 1; }
+.tm-couv-plus { font-size: 11.5px; color: var(--muted); padding-left: 9px; }
+.btn-couv { gap: 7px; }
+
+/* Le rail des quatre analyses, en tete de « Vos analyses ». */
+.tm-rail {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px; padding: 14px 18px 4px;
+}
+.tm-rail-t {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  font-family: inherit; text-align: left;
+  padding: 10px 12px; border-radius: 11px;
+  background: var(--card-2); border: 1px solid var(--border);
+  transition: border-color .14s ease, transform .14s ease;
+}
+.tm-rail-t:hover { transform: translateY(-1px); }
+.tm-rail-ic {
+  width: 26px; height: 26px; flex: none; border-radius: 8px;
+  display: grid; place-items: center; color: #fff; font-size: 11px;
+}
+.tm-rail-nom { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.tm-rail-n {
+  flex: none; font-size: 15px; font-weight: 800;
+  font-variant-numeric: tabular-nums; color: var(--ink-2);
+}
+.tm-r-projet    .tm-rail-ic { background: var(--tm-projet); }
+.tm-r-projet:hover    { border-color: var(--tm-projet); }
+.tm-r-activite  .tm-rail-ic { background: var(--tm-activite); }
+.tm-r-activite:hover  { border-color: var(--tm-activite); }
+.tm-r-role      .tm-rail-ic { background: var(--tm-role); }
+.tm-r-role:hover      { border-color: var(--tm-role); }
+.tm-r-faiblesse .tm-rail-ic { background: var(--tm-faiblesse); }
+.tm-r-faiblesse:hover { border-color: var(--tm-faiblesse); }
+
 /* L'attente : lisible, mais jamais confondue avec le travail refait. */
 .tm-attente {
   display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
@@ -795,6 +844,7 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   .tm-chiffres { grid-template-columns: 1fr; }
   .tm-lectures { grid-template-columns: 1fr; }
   .tm-portes   { grid-template-columns: 1fr 1fr; }
+  .tm-rail     { grid-template-columns: 1fr 1fr; }
   .tm-porte-quand { min-height: 0; }
   /* Plus de place pour la saisie : a cette largeur, le panneau colle a droite
      volerait la moitie du formulaire. Il repasse au-dessus, non colle. */

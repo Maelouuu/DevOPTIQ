@@ -44,9 +44,25 @@
                        refreshActivityWorkloadList(), refreshRoleAnalyses()]);
   }
 
-  function ouvrirAnalyse(type){
+  function ouvrirAnalyse(type, activityId){
     const a = ANALYSES[type];
     if (!a) return;
+    // Arriver depuis « ce qui n'est pas chiffre » : l'activite est DEJA
+    // choisie. Sans cela on tombait sur une liste deroulante qui porte tout,
+    // y compris ce qui est deja mesure — et rien ne disait laquelle ouvrir.
+    if (type === 'activite' && activityId) {
+      const sel = $('#act-activity');
+      if (sel) {
+        sel.value = String(activityId);
+        currentActivityEditId = null;
+        $('#act-editing')?.classList.add('hidden');
+        // On repart d'une saisie vierge : la duree de la fiche doit pouvoir
+        // se poser, et `intact()` refuse d'ecraser un champ deja touche.
+        const c = $('#act-duration');
+        if (c) delete c.dataset.saisi;
+        refreshActivityDefaults();
+      }
+    }
     $$('.subtab-panel').forEach(p => p.classList.remove('active'));
     $('#subtab-' + type)?.classList.add('active');
     $$('.tm-res-bloc').forEach(b => b.classList.toggle('is-actif', b.dataset.pour === type));
@@ -65,9 +81,12 @@
   }
 
   $('#tm-btn-nouvelle')?.addEventListener('click', () => ouvrirEcran('choix'));
-  $('#tm-btn-couv')?.addEventListener('click', () => ouvrirAnalyse('activite'));
   $$('.tm-retour').forEach(b => b.addEventListener('click', () => ouvrirAccueil()));
-  $$('.tm-porte').forEach(b => b.addEventListener('click', () => ouvrirAnalyse(b.dataset.analyse)));
+  /* ⚠️ Les portes ET le rail de l'accueil, pas `[data-analyse]` tout court :
+     `#tm-travail` porte cet attribut (c'est lui qui teinte l'icone de la
+     barre), on lui poserait un ecouteur qui le rouvrirait sur lui-meme. */
+  $$('.tm-porte, .tm-rail-t').forEach(
+    b => b.addEventListener('click', () => ouvrirAnalyse(b.dataset.analyse)));
   // ---------- Utils ----------
   function toMinutes(qty, unit){
     const k={minutes:1, heures:60, jours:1440};
@@ -1155,17 +1174,52 @@
     // — Couverture
     const couv = d.couverture || { chiffrees: 0, total: 0 };
     const reste = Math.max(0, couv.total - couv.chiffrees);
+    const manquent = couv.a_chiffrer || [];
     updateKpi('tm-couv-nb', reste);
     const sur = $('#tm-couv-sur');
     if (sur) sur.textContent = ' ' + fmtPhrase('tm_couv_sur', '/ {t}', { t: couv.total });
     const cbase = $('#tm-couv-base');
-    if (cbase) cbase.textContent = reste === 0
-      ? tl('tm_couv_tout', '')
-      : fmtPhrase(couv.chiffrees === 1 ? 'tm_couv_base_une' : 'tm_couv_base', '{n}',
-                  { n: couv.chiffrees });
+    if (cbase) {
+      // ⚠️ Trois phrases, pas une : « ne porte que sur 0 activites » ne veut
+      // rien dire, et au pluriel en plus.
+      if (reste === 0) cbase.textContent = tl('tm_couv_tout', '');
+      else if (!couv.chiffrees) cbase.textContent = tl('tm_couv_aucune', '');
+      else cbase.textContent = fmtPhrase(
+        couv.chiffrees === 1 ? 'tm_couv_base_une' : 'tm_couv_base', '{n}',
+        { n: couv.chiffrees });
+    }
     const jauge = $('#tm-couv-jauge');
     if (jauge) jauge.style.width = (couv.total ? (couv.chiffrees / couv.total) * 100 : 0) + '%';
-    $('#tm-btn-couv')?.classList.toggle('hidden', reste === 0);
+
+    const liste = $('#tm-couv-liste');
+    if (liste) {
+      liste.innerHTML = manquent.slice(0, 3).map(a2 =>
+        `<button type="button" class="tm-couv-l" data-chiffrer="${a2.id}">
+           <span>${echap(a2.nom)}</span><i class="fa-solid fa-arrow-right"></i>
+         </button>`).join('')
+        + (manquent.length > 3
+           ? `<div class="tm-couv-plus">${echap(fmtPhrase('tm_couv_autres', '+ {n}',
+                { n: manquent.length - 3 }))}</div>` : '');
+      $$('#tm-couv-liste .tm-couv-l').forEach(b => {
+        b.onclick = () => ouvrirAnalyse('activite', parseInt(b.dataset.chiffrer, 10));
+      });
+    }
+
+    const bouton = $('#tm-btn-couv');
+    bouton?.classList.toggle('hidden', reste === 0);
+    if (bouton && manquent.length) {
+      // Le bouton NOMME ce qu'il va ouvrir : « les suivantes » ne disait pas
+      // lesquelles, ni ou on atterrissait.
+      updateKpi('tm-btn-couv-txt',
+                fmtPhrase('tm_couv_btn_nom', '{nom}', { nom: manquent[0].nom }));
+      bouton.onclick = () => ouvrirAnalyse('activite', manquent[0].id);
+    }
+
+    // — Ce que chaque analyse contient deja
+    updateKpi('tm-n-projet',    (d.projets || []).length);
+    updateKpi('tm-n-activite',  (d.par_activite || []).length);
+    updateKpi('tm-n-role',      (d.par_role || []).length);
+    updateKpi('tm-n-faiblesse', ((d.faiblesses || {}).items || []).length);
 
     // — Deux lectures
     barres($('#tm-role-liste'),

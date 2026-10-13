@@ -843,7 +843,13 @@ def api_tableau_de_bord():
             "duree_min": sum(float(ln.duration_minutes) for ln in p.lines),
         })
 
-    chiffrees = len({a["activity_id"] for a in par_activite})
+    mesurees = {a["activity_id"] for a in par_activite}
+    # ⚠️ Les NOMS, pas seulement le compte : « 12 sur 12 » ne dit pas quoi
+    # faire. Plafonné — une carto de six cents activités n'a pas a les
+    # envoyer toutes pour remplir une carte qui en montre trois.
+    a_chiffrer = [{"id": a.id, "nom": a.name}
+                  for a in activites if a.id not in mesurees][:60]
+    chiffrees = len(mesurees)
 
     return jsonify({
         "ok": True,
@@ -868,7 +874,8 @@ def api_tableau_de_bord():
             "part": (travail_faiblesses / charge_annuelle) if charge_annuelle else None,
             "items": faiblesses,
         },
-        "couverture": {"chiffrees": chiffrees, "total": len(ids)},
+        "couverture": {"chiffrees": chiffrees, "total": len(ids),
+                       "a_chiffrer": a_chiffrer},
         "par_role": par_role,
         "par_activite": par_activite,
         "projets": projets,

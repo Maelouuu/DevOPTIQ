@@ -59,6 +59,9 @@
                        tm_couv_base:  {{ t('time.tm_couv_base')|tojson }},
                        tm_couv_base_une: {{ t('time.tm_couv_base_une')|tojson }},
                        tm_couv_tout:  {{ t('time.tm_couv_tout')|tojson }},
+                       tm_couv_aucune: {{ t('time.tm_couv_aucune')|tojson }},
+                       tm_couv_autres: {{ t('time.tm_couv_autres')|tojson }},
+                       tm_couv_btn_nom: {{ t('time.tm_couv_btn_nom')|tojson }},
                        tm_repere_plein: {{ t('time.tm_repere_plein')|tojson }},
                        tm_vide_role:  {{ t('time.tm_vide_role')|tojson }},
                        tm_vide_act:   {{ t('time.tm_vide_act')|tojson }},
@@ -127,8 +130,12 @@
         <div class="tm-grand"><span id="tm-couv-nb">—</span><span class="tm-unite" id="tm-couv-sur"></span></div>
         <div class="tm-sous" id="tm-couv-base"></div>
         <div class="tm-jauge"><div class="tm-jauge-in" id="tm-couv-jauge"></div></div>
+        <!-- ⚠️ Les NOMS de ce qui manque : « 12 activités sur 12 » ne dit pas
+             quoi faire. Chaque ligne ouvre SON activité, déjà choisie. -->
+        <div class="tm-couv-liste" id="tm-couv-liste"></div>
         <button id="tm-btn-couv" class="btn btn-couv hidden">
-          {{ t('time.tm_couv_btn') }} <i class="fa-solid fa-arrow-right"></i>
+          <span id="tm-btn-couv-txt">{{ t('time.tm_couv_btn') }}</span>
+          <i class="fa-solid fa-arrow-right"></i>
         </button>
       </div>
     </div>
@@ -167,6 +174,32 @@
           <div class="tm-lecture-titre">{{ t('time.tm_analyses') }}</div>
           <div class="tm-lecture-sub">{{ t('time.tm_analyses_sub') }}</div>
         </div>
+      </div>
+
+      <!-- Les quatre analyses, atteignables sans passer par « + Nouvelle
+           analyse » : ce bouton-la annonce une creation, et on vient souvent
+           pour relire. Chaque tuile porte le nombre de ce qui est enregistre. -->
+      <div class="tm-rail">
+        <button type="button" class="tm-rail-t tm-r-projet" data-analyse="projet">
+          <span class="tm-rail-ic"><i class="fa-solid fa-diagram-project"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_project') }}</span>
+          <span class="tm-rail-n" id="tm-n-projet">—</span>
+        </button>
+        <button type="button" class="tm-rail-t tm-r-activite" data-analyse="activite">
+          <span class="tm-rail-ic"><i class="fa-solid fa-bolt"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_activity') }}</span>
+          <span class="tm-rail-n" id="tm-n-activite">—</span>
+        </button>
+        <button type="button" class="tm-rail-t tm-r-role" data-analyse="role">
+          <span class="tm-rail-ic"><i class="fa-solid fa-user-tie"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_role') }}</span>
+          <span class="tm-rail-n" id="tm-n-role">—</span>
+        </button>
+        <button type="button" class="tm-rail-t tm-r-faiblesse" data-analyse="faiblesse">
+          <span class="tm-rail-ic"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_weakness') }}</span>
+          <span class="tm-rail-n" id="tm-n-faiblesse">—</span>
+        </button>
       </div>
 
       <div class="tm-groupe">
