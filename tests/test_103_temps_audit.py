@@ -166,3 +166,39 @@ class TestLaDureeSaisieNEstPasEcrasee:
         bloc = js[js.index("function marqueSaisie"):][:420]
         assert "dataset.saisi" in bloc
         assert "addEventListener('input'" in bloc
+
+
+class TestUneLigneDeMessageNEstPasUneSaisie:
+    """Erreur relevee dans la console de staging le 13/10 :
+    « Cannot read properties of null (reading 'value') » — time.js:788,
+    dans `recalcRoleTotals`.
+
+    `loadRoleActivities` pose un <tr> d'un SEUL <td> quand le role n'a aucune
+    activite (ou que le chargement echoue) ; `recalcRoleTotals` bouclait sur
+    toutes les lignes de #role-rows et y lisait `.r-rec select`, absent de
+    celle-la. Consequence : les quatre compteurs du role ne se mettaient plus
+    jamais a jour, et la console se remplissait a chaque passage sur l'onglet.
+    """
+
+    def test_le_total_saute_les_lignes_sans_selecteur(self):
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("function recalcRoleTotals"):][:600]
+        assert "if (!recSel) return;" in bloc, bloc[:300]
+
+    def test_l_enregistrement_les_saute_AUSSI(self):
+        """Le meme piege, et celui-la part en BASE : une ligne de message n'a
+        pas d'activite a enregistrer."""
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("#btn-role-save"):][:400]
+        assert ".filter(tr=>tr.querySelector('.r-rec select'))" in bloc, bloc[:300]
+
+    def test_le_message_lui_meme_suit_la_langue(self):
+        """Il etait ecrit en dur en francais dans le JS — invisible pour
+        test_78, qui ne lit que les gabarits."""
+        from Code.translations import t
+        fr = t("time.role_no_activity", lang="fr")
+        en = t("time.role_no_activity", lang="en")
+        assert fr != "time.role_no_activity" and en != "time.role_no_activity"
+        assert fr != en, (fr, en)
+        js = _lire("static/js/time.js")
+        assert "Aucune activit\u00e9 pour ce r\u00f4le.</td>" not in js

@@ -783,9 +783,11 @@
   function recalcRoleTotals(){
     let sumD=0, sumW=0, sumM=0, sumA=0;
     $$('#role-rows tr').forEach(tr=>{
+      const recSel = tr.querySelector('.r-rec select');
+      if (!recSel) return;
       const wCell = tr.querySelector('.r-weight');
       const weight = parseFloat(wCell?.dataset?.minutes || wCell?.textContent || '0');
-      const rec = tr.querySelector('.r-rec select').value;
+      const rec = recSel.value;
       if (rec.startsWith('jour')) sumD += weight;
       else if (rec.startsWith('hebdo')) sumW += weight;
       else if (rec.startsWith('mens')) sumM += weight;
@@ -813,7 +815,7 @@
     if (!j.ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
     roleActivitiesOptions = j.activities || [];
     if (!roleActivitiesOptions.length) {
-      roleBody.innerHTML = '<tr><td colspan="6" class="muted">Aucune activité pour ce rôle.</td></tr>'; 
+      roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('role_no_activity', 'Aucune activité pour ce rôle.')}</td></tr>`;
       return;
     }
     // Pré-remplir une ligne par activité du rôle (comme avant)
@@ -827,7 +829,7 @@
   $('#btn-role-add-line')?.addEventListener('click', ()=> addRoleRow());
 
   $('#btn-role-save')?.addEventListener('click', async ()=>{
-    const lines = $$('#role-rows tr').map(tr=>({
+    const lines = $$('#role-rows tr').filter(tr=>tr.querySelector('.r-rec select')).map(tr=>({
       activity_id: parseInt(tr.querySelector('.r-act select').value,10),
       duration: parseFloat(tr.querySelector('.r-dur').value || '0'),
       duration_unit: 'minutes',
