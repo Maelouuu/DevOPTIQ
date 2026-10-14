@@ -93,13 +93,33 @@ def _cleanup(app, activity_id=None, role_id=None):
 
 class TestScale:
 
-    def test_scale_returns_five_levels(self, auth_client):
-        r = auth_client.get("/mastery/scale")
-        assert r.status_code == 200
-        data = r.get_json()
-        assert set(data["mastery"].keys()) == {"0", "1", "2", "3", "4"}
-        assert data["mastery"]["4"] == "Expertise"
-        assert data["not_assessed"] == "Non évalué"
+    @pytest.mark.parametrize("lang,quatre,non_evalue", [
+        ("fr", "Expertise", "Non évalué"),
+        ("en", "Expert", "Not assessed"),
+    ])
+    def test_scale_returns_five_levels(self, auth_client, lang, quatre, non_evalue):
+        """⚠️ Le test POSE sa langue et la rend comme il l'a trouvée.
+
+        Il la lisait de la session partagée : il passait dans la suite
+        complète (un autre fichier l'avait mise en français) et tombait lancé
+        seul. Un test qui ne passe que dans un certain ORDRE ne garde rien.
+        """
+        with auth_client.session_transaction() as sess:
+            avant = sess.get("lang")
+            sess["lang"] = lang
+        try:
+            r = auth_client.get("/mastery/scale")
+            assert r.status_code == 200
+            data = r.get_json()
+            assert set(data["mastery"].keys()) == {"0", "1", "2", "3", "4"}
+            assert data["mastery"]["4"] == quatre
+            assert data["not_assessed"] == non_evalue
+        finally:
+            with auth_client.session_transaction() as sess:
+                if avant is None:
+                    sess.pop("lang", None)
+                else:
+                    sess["lang"] = avant
 
 
 class TestGetActivity:

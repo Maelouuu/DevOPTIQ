@@ -78,6 +78,10 @@ TOUT_COMPTE = (
     # RATTACHEMENT (`users.manager_id`), pas par un statut. Un compte `user`
     # peut donc légitimement écrire ici, et `peut_lire` / `encadre` en décident.
     "/plan",
+    # Paliers de performance : poser une cible ou trancher une mesure passe par
+    #  avec le ROLE — bien plus fin qu un droit d ecriture unique,
+    # et c est le rattachement qui designe le developpeur de competences.
+    "/paliers",
     # Cartographie : `can_edit`, `can_propose`, `can_review`, `can_manage_access`
     # — et c'est `/api/save` qui distingue « proposez » (champion) de
     # « lecture seule » (user). La porte centrale écraserait cette nuance.

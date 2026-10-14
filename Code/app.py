@@ -363,6 +363,9 @@ def create_app(test_config=None):
     from Code.routes.mastery import mastery_bp
     app.register_blueprint(mastery_bp)
 
+    from Code.routes.paliers_routes import paliers_bp
+    app.register_blueprint(paliers_bp)
+
     from Code.routes.diagnostic import diagnostic_bp
     app.register_blueprint(diagnostic_bp)
 
@@ -655,6 +658,21 @@ def create_app(test_config=None):
             print("[DB] Table recent_events prête")
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
+
+        # ── Paliers de performance (CDC — progression d'un collaborateur).
+        # ⚠️ Les colonnes d'ABORD, les tables ensuite : `_safe_add_column` avale
+        # ses erreurs (il ne sait pas distinguer « colonne déjà là » d'un DDL
+        # invalide), et `_verifier_colonnes` doit pouvoir crier APRÈS.
+        _safe_add_column("data", "norme_valeur", "DOUBLE PRECISION")
+        _safe_add_column("data", "norme_unite", "VARCHAR(20)")
+        _safe_add_column("data", "norme_sens", "VARCHAR(10)")
+        try:
+            from Code.models.models import PalierPerformance, SessionEvaluation
+            for model in (SessionEvaluation, PalierPerformance):
+                model.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Tables paliers de performance prêtes")
+        except Exception as e:
+            print(f"[DB] paliers check: {e}")
 
         try:
             from Code.models.models import EntrepriseSettings

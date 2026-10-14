@@ -282,6 +282,16 @@ class Data(db.Model):
     # n'ont pas de shape_id → invisibles dans la carto, jamais touchées par la re-synchro.
     producer_activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=True, index=True)
 
+    # ── La NORME de l'entreprise pour cette sortie (paliers de performance).
+    # « Fournir la doc sous 48 h » : une valeur, une unité, et un SENS — une
+    # durée se bat à la baisse, un taux de conformité à la hausse. Sans le
+    # sens, « mieux » n'a pas de définition.
+    # ⚠️ NULL = sortie non mesurable (« Cahier des charges validé ») : elle
+    # reste jugée à la main sur l'échelle 0→4. Les deux cohabitent.
+    norme_valeur = db.Column(db.Float, nullable=True)
+    norme_unite = db.Column(db.String(20), nullable=True)
+    norme_sens = db.Column(db.String(10), nullable=True)      # 'moins' | 'plus'
+
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'shape_id', name='uq_entity_data_shape'),
     )
@@ -825,6 +835,69 @@ class TimeWeakness(db.Model):
     wait_added_unit = db.Column(db.String(16), nullable=False, default='minutes')
     prob_denom = db.Column(db.Integer, nullable=False, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SessionEvaluation(db.Model):
+    """Le rendez-vous d'évaluation : une date, un collaborateur, son
+    développeur de compétences.
+
+    Une session groupe les paliers évalués ce jour-là — on ne fait pas trois
+    rendez-vous pour trois sorties de la même activité. C'est elle qui nourrit
+    le calendrier.
+
+    ⚠️ `date_prevue` est une DATE, pas un horodatage : on fixe un jour, pas une
+    heure. `tenue_le` est l'horodatage du moment où l'on a réellement tranché.
+    """
+    __tablename__ = 'sessions_evaluation'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, index=True)
+    developpeur_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    date_prevue = db.Column(db.Date, nullable=False, index=True)
+    statut = db.Column(db.String(16), nullable=False, default='prevue')   # prevue|tenue|annulee
+    tenue_le = db.Column(db.DateTime, nullable=True)
+    objet = db.Column(db.String(200), nullable=True)
+    note = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    paliers = db.relationship('PalierPerformance', backref='session')
+
+
+class PalierPerformance(db.Model):
+    """Une marche de la progression d'un collaborateur sur UNE sortie.
+
+    96 h sous 30 jours, puis 72 h sous 15 jours, puis la norme. Le palier
+    porte la cible et l'échéance AVANT, la mesure et le verdict APRÈS : c'est
+    la même ligne, et c'est ce qui en fait un point d'historique.
+
+    ⚠️ `rang` ordonne la progression ; il ne se déduit PAS de la cible, car
+    rien n'oblige les cibles à décroître régulièrement, et deux paliers
+    peuvent viser la même valeur après un échec.
+    """
+    __tablename__ = 'paliers_performance'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, index=True)
+
+    rang = db.Column(db.Integer, nullable=False, default=1)
+    cible_valeur = db.Column(db.Float, nullable=False)
+    echeance = db.Column(db.Date, nullable=True)
+
+    # Après la session : ce qu'on a mesuré, et ce qu'on en conclut.
+    statut = db.Column(db.String(16), nullable=False, default='en_cours')  # en_cours|atteint|manque
+    mesure_valeur = db.Column(db.Float, nullable=True)
+    evalue_le = db.Column(db.DateTime, nullable=True)
+    evaluateur_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    preuve = db.Column(db.Text, nullable=True)
+
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions_evaluation.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 
 class CartoCalque(db.Model):

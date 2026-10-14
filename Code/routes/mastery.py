@@ -11,6 +11,7 @@ from Code.extensions import db
 from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
+from Code.paliers import etat_sortie, mesurable
 from Code.routes.qualify_outputs import get_activity_outputs
 from Code.role_i18n import nom_affiche
 
@@ -102,10 +103,19 @@ def activity_mastery(user_id, activity_id, role_id=None):
     for d in results:
         ev = _reference_eval(user_id, activity_id, d.id)
         ref = ev.mastery_level if ev else None
+        # ⚠️ Sur une sortie MESURABLE, le niveau se DÉDUIT de la performance
+        # mesurée — il ne se saisit pas à côté. Deux notes pour une même chose
+        # finiraient par se contredire, et c'est le chiffre qui fait foi. Une
+        # sortie sans norme chiffrée garde, elle, sa note à la main.
+        perf = etat_sortie(d, user_id, role_id) if mesurable(d) else None
+        if perf is not None and perf["niveau"] is not None:
+            ref = perf["niveau"]
         auto = _self_eval(user_id, activity_id, d.id)
         per_result.append({
             "data_id": d.id, "name": d.name,
             "minimum_performance_text": d.minimum_performance_text or "",
+            "mesurable": perf is not None,
+            "performance": perf,
             "self_level": auto.mastery_level if auto else None,
             "self_label": level_label(auto.mastery_level if auto else None),
             "self_evidence": (auto.evidence if auto else None) or "",
@@ -485,6 +495,12 @@ def evaluate():
     d = Data.query.get(did)
     if not d or did not in {x.id for x in get_activity_outputs(aid)}:
         return jsonify({"error": "not_an_output"}), 400
+    # ⚠️ Une sortie MESURABLE ne se note pas à la main : son niveau vient de la
+    # performance mesurée. Accepter les deux laisserait une note contredire le
+    # chiffre affiché juste à côté. L'auto-évaluation reste permise : c'est un
+    # repère que le collaborateur se donne, jamais le niveau qui fait foi.
+    if mesurable(d) and evaluator in VALIDATING:
+        return jsonify({"error": "measured_output"}), 400
     ev = CompetencyEvaluation.query.filter_by(
         user_id=uid, activity_id=aid, item_type=RESULT_ITEM_TYPE, item_id=did, eval_number=evaluator).first()
     now = datetime.utcnow()
