@@ -77,6 +77,7 @@ PAGE_LABELS = {
     "test_102_domain_status":            "Domaines de Technicité — Statut",
     "test_103_upload_vsdx_connexions":    "Upload Cartographie — Connexions VSDX",
     "test_104_vsdx_connection_parser_gaps": "Parseur Connexions VSDX — Compléments",
+    "test_107_vsdx_connection_parser_cli": "Parseur Connexions VSDX — CLI et erreurs",
     "test_105_roles_communs":              "Rôles Communs — Recherche, Usage, Fusion",
     "test_106_activities_data_defensif":  "Détails d'activité — Branches défensives",
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
