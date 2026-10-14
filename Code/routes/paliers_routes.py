@@ -406,6 +406,11 @@ def detail_session(sid):
             "statut": p.statut, "mesure": p.mesure_valeur,
             "preuve": p.preuve or "",
             "echeance": p.echeance.isoformat() if p.echeance else None,
+            # ⚠️ La progression ENTIÈRE de la sortie, pas seulement le palier
+            # du jour : l'écran de séance dessine le rail pour situer ce qu'on
+            # mesure. Sans lui, on pose un chiffre sans savoir d'où il vient.
+            "progression": (etat_sortie(d, s.user_id, p.role_id)
+                            if d is not None and mesurable(d) else None),
         })
     gens, roles, nom_affiche = _nommer([s], lang)
     qui = gens.get(s.user_id)

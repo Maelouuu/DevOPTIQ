@@ -90,6 +90,15 @@
         <div class="cv2-placeholder" id="cv2-placeholder" data-i18n="pick_collab2">Sélectionnez un collaborateur puis un rôle.</div>
       </main>
     </div>
+
+    {# ── Écrans 3 et 4 : des PAGES, pas des tiroirs ───────────────────
+       Évaluer demande une échelle de paliers, un graphe et un historique.
+       Le tiroir fait 720 px — et `body.pg` porte `zoom: .8`, donc 576 px
+       réels : tout y était comprimé. Ces deux sections vivent HORS de
+       `.cv2-layout` pour prendre toute la largeur, et la barre latérale
+       des collaborateurs s'efface quand elles s'ouvrent. #}
+    <section class="cv2-page hidden" id="cv2-ecran-eval"></section>
+    <section class="cv2-page hidden" id="cv2-ecran-seance"></section>
   </div>
 
   <div class="cv2-overlay" id="cv2-overlay"></div>

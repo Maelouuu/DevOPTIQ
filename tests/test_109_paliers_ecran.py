@@ -485,3 +485,197 @@ class TestLeSemisSQL:
         sql = _lire(SQL)
         assert "v_scenar := i_paire % 4;" in sql
         assert "i_paire := i_paire + 1;" in sql
+
+class TestEvaluerEstUnePage:
+    """⚠️ Le tiroir fait 720 px, et `body.pg` porte `zoom: .8` : **576 px
+    réels** pour une échelle de paliers, un graphe et un historique. Tout y
+    était comprimé. L'évaluation est une PAGE ; le tiroir garde les deux
+    dialogues courts — configurer, diagnostiquer."""
+
+    def test_le_gabarit_porte_les_deux_ecrans_pleine_largeur(self):
+        g = _lire(GABARIT)
+        assert 'id="cv2-ecran-eval"' in g
+        assert 'id="cv2-ecran-seance"' in g
+        # ⚠️ HORS de `.cv2-layout` : dedans, ils partageraient la largeur avec
+        # la barre des collaborateurs, et les trois colonnes n'y tiendraient pas.
+        avant, apres = g.split('id="cv2-ecran-eval"', 1)
+        assert avant.count("</div>") > avant.count('<div class="cv2-layout"'), \
+            "l'écran doit être sorti de .cv2-layout"
+
+    def test_le_bouton_evaluer_ouvre_la_page(self):
+        js = _lire(JS)
+        assert "function ouvrirEvaluation(" in js
+        # ⚠️ Le bouton de la LIGNE d'activité, pas n'importe quelle occurrence :
+        # la page se rouvre aussi depuis sa propre colonne de gauche, et un
+        # contrôle qui s'en contente ne garde rien.
+        ligne = js.split("function ligneActivite(a) {", 1)[1].split("\n  }", 1)[0]
+        assert "ouvrirEvaluation(a)" in ligne
+        assert "ouvrirDialogue" not in ligne
+        assert "function showEvaluation(" not in js, \
+            "l'évaluation dans le tiroir n'a plus lieu d'être"
+
+    def test_la_page_efface_la_barre_laterale_et_le_bandeau(self):
+        js = _lire(JS)
+        corps = js.split("function pleineLargeur(", 1)[1].split("\n  }", 1)[0]
+        assert ".cv2-layout" in corps and "page-banner" in corps
+        css = _lire(CSS)
+        assert "body.a-cv2-page .pg-container" in css, \
+            "le conteneur est plafonné à 1200 px — 960 réels au zoom .8"
+
+    def test_la_page_charge_l_etat_ET_l_historique_ensemble(self):
+        """Le graphe se déplie dans sa carte : il ne doit pas attendre un
+        aller-retour de plus au moment du clic."""
+        js = _lire(JS)
+        bloc = js.split("async function ouvrirEvaluation(", 1)[1][:900]
+        assert "Promise.all" in bloc
+        assert "/mastery/activity/" in bloc and "/paliers/historique/" in bloc
+
+    def test_le_tiroir_ne_porte_plus_que_les_dialogues(self):
+        js = _lire(JS)
+        assert "function ouvrirDialogue(" in js
+        # Le diagnostic l'ouvre lui-même, et son retour le REFERME : il n'y a
+        # plus d'évaluation à rebâtir derrière.
+        diag = js.split("async function showDiagnostic() {", 1)[1][:400]
+        assert "ouvrirDialogue(" in diag
+        assert "label: T('back'), on: closeDrawer" in js
+
+
+class TestUnSeulEndroitPoseUneMesure:
+    """Le calendrier dit QUAND et QUOI ; la séance TRANCHE. Deux écrans de
+    saisie finiraient par ne plus dire la même chose du même geste."""
+
+    def test_le_calendrier_ne_saisit_plus_rien(self):
+        js = _lire(JS)
+        detail = js.split("function rendreDetail(d) {", 1)[1].split("\n  }\n", 1)[0]
+        assert "data-m" not in detail, "plus de champ de mesure dans le calendrier"
+        assert "data-tenir" in detail, "il mène à la séance"
+        assert "function cloturer(sid, z)" not in js, "la clôture vit dans la séance"
+
+    def test_la_seance_recalcule_le_verdict_mais_ne_l_ecrit_pas(self):
+        """⚠️ UNE comparaison, pour montrer d'avance ce que le serveur dira —
+        pas une seconde règle. C'est `trancher()` qui écrit le verdict."""
+        js = _lire(JS)
+        corps = js.split("function verdictLocal(p) {", 1)[1].split("\n  }", 1)[0]
+        assert "SENS_MOINS ? v <= p.cible : v >= p.cible" in corps
+        # La clôture envoie les mesures, jamais un statut.
+        clore = js.split("async function cloturerSeance() {", 1)[1].split("\n  }", 1)[0]
+        assert "mesures" in clore and "statut" not in clore
+
+    def test_le_detail_porte_la_progression_entiere(self, auth_client, bob, comme_dev):
+        """Sans elle, l'écran de séance pose un chiffre sans montrer d'où il
+        vient ni s'il reste une marche après."""
+        sid = _session(auth_client, bob, 3)
+        _poser(auth_client, bob, 96, -20)
+        _poser(auth_client, bob, 72, 3, sid)
+        d = json.loads(auth_client.get("/paliers/session/%d/detail" % sid).data)
+        prog = d["paliers"][0]["progression"]
+        assert prog is not None
+        assert len(prog["paliers"]) == 2, "les DEUX marches, pas seulement celle du jour"
+        assert prog["norme"]["valeur"] == 48.0
+
+    def test_la_saisie_ne_rerend_pas_la_page_a_chaque_frappe(self):
+        """⚠️ Réécrire la page à chaque touche ferait perdre le curseur du
+        champ qu'on est en train de taper — le piège déjà rencontré sur les
+        cartes du plan de formation."""
+        js = _lire(JS)
+        corps = js.split("    const lire = () => {", 1)[1].split("    };", 1)[0]
+        assert "renderSeance()" not in corps
+        assert "rendreVerdict(p)" in corps and "rendreFile()" in corps
+
+
+class TestCeQuiEstEvalueNeDitPlusJamaisEvaluee:
+    """⚠️ Une sortie MESURÉE n'écrit aucune `CompetencyEvaluation` : son
+    niveau vient du palier tranché en séance. L'activité s'affichait donc
+    « jamais évaluée » juste à côté de son niveau tout neuf."""
+
+    def test_la_date_suit_le_dernier_palier_tranche(self, app, auth_client, bob, comme_dev):
+        # dashboard_rows lit session["lang"] : hors requete, il leve.
+        from Code.routes.mastery import dashboard_rows
+        ctx = app.test_request_context(); ctx.push()
+        sid = _session(auth_client, bob, 0)
+        pid = _poser(auth_client, bob, 96, 0, sid)
+        avant = [r for r in dashboard_rows(bob["bob_id"], bob["role_id"])
+                 if r["activity_id"] == bob["activity_id"]][0]
+        assert avant["last_evaluation"] is None
+        auth_client.post("/paliers/session/%d/cloturer" % sid,
+                         json={"mesures": [{"palier_id": pid, "mesure": 88}]})
+        apres = [r for r in dashboard_rows(bob["bob_id"], bob["role_id"])
+                 if r["activity_id"] == bob["activity_id"]][0]
+        ctx.pop()
+        assert apres["last_evaluation"] is not None
+        assert apres["demonstrated_level"] == 1
+
+    def test_le_cout_ne_grandit_pas_avec_le_nombre_d_activites(self, app, auth_client, bob, comme_dev):
+        """Une requête pour TOUTES les activités du rôle, pas une par activité."""
+        from sqlalchemy import event
+        from Code.models.models import Activities, activity_roles
+        from Code.routes.mastery import dashboard_rows
+        n = [0]
+
+        def compter(*a, **k):
+            n[0] += 1
+
+        ctx = app.test_request_context(); ctx.push()
+        dashboard_rows(bob["bob_id"], bob["role_id"])
+        event.listen(db.engine, "before_cursor_execute", compter)
+        try:
+            n[0] = 0
+            dashboard_rows(bob["bob_id"], bob["role_id"])
+            avec_une = n[0]
+        finally:
+            event.remove(db.engine, "before_cursor_execute", compter)
+        neuves = []
+        with app.app_context():
+            for i in range(3):
+                a = Activities(name="T109 extra %d-%d" % (_N[0], i),
+                               entity_id=db.session.get(Activities, bob["activity_id"]).entity_id)
+                db.session.add(a)
+                db.session.commit()
+                db.session.execute(activity_roles.insert().values(
+                    activity_id=a.id, role_id=bob["role_id"], status="Garant"))
+                neuves.append(a.id)
+            db.session.commit()
+        try:
+            event.listen(db.engine, "before_cursor_execute", compter)
+            n[0] = 0
+            dashboard_rows(bob["bob_id"], bob["role_id"])
+            avec_quatre = n[0]
+            event.remove(db.engine, "before_cursor_execute", compter)
+            # Trois activités de plus coûtent leurs propres lectures, mais la
+            # recherche des paliers, elle, reste à UNE requête.
+            assert avec_quatre - avec_une <= 3 * 12, (avec_une, avec_quatre)
+        finally:
+            ctx.pop()
+            with app.app_context():
+                db.session.execute(activity_roles.delete().where(
+                    activity_roles.c.activity_id.in_(neuves)))
+                for i in neuves:
+                    a = db.session.get(Activities, i)
+                    if a:
+                        db.session.delete(a)
+                db.session.commit()
+
+
+class TestLePlurielNeSeDevinePas:
+    """⚠️ Les clés de pluriel ne suivent pas toutes la même convention dans
+    ce catalogue — `_1`/`_n` ici, `_pl` là, la forme nue ailleurs. Une clé
+    absente ne lève RIEN : elle s'affiche telle quelle (« ev_nb_act_n »
+    relevé à l'écran)."""
+
+    def test_l_aide_essaie_les_trois_conventions(self):
+        js = _lire(JS)
+        corps = js.split("  function nf(c, n, u) {", 1)[1].split("\n  }", 1)[0]
+        assert "'_1'" in corps and "'_n'" in corps and "'_pl'" in corps
+        assert "T(x) !== x" in corps, "on ne retient que la clé qui EXISTE"
+
+    def test_toute_cle_construite_par_nf_existe(self):
+        import re as _re
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        cle = lambda b: set(_re.findall(r"(?:^\s+|,\s+)([a-z0-9_]+):\s*['\"]", b, _re.M))
+        cles = cle(fr)
+        bases = set(_re.findall(r"\bnf\('([a-z0-9_]+)'", js))
+        assert len(bases) >= 4, "on doit en relever plusieurs (%d)" % len(bases)
+        for b in bases:
+            formes = {b, b + "_1", b + "_n", b + "_pl"} & cles
+            assert len(formes) >= 2, (b, formes)

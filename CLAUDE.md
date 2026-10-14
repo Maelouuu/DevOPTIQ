@@ -4768,6 +4768,102 @@ sème les paliers — en cours, en retard, qualifié-et-au-delà, manqué, et tr
 sorties laissées sans norme. Éprouvé dans les deux langues (détecteur de
 fuites : zéro phrase française sur l'écran anglais).
 
+#### Évaluer n'est plus un TIROIR, c'est une page (2026-10-14)
+
+« On ne peut pas faire cela dans cette petite pop-up, il faut le faire sur la
+page directement. On a prévu des graphiques, de belles choses, et là tout est
+en petit compressé. » Le reproche était exact, et sa cause est une erreur
+d'implantation, pas de maquette : **les quatre maquettes validées étaient des
+pages de 1440 × 1240** ; je les ai implantées dans le tiroir existant, qui fait
+**720 px CSS — soit 576 px RÉELS** (`body.pg` porte `zoom: .8`). J'y avais
+comprimé une échelle de paliers, un graphe et un historique.
+
+**La page a été tranchée sur maquettes** — trois organisations à l'échelle
+(canvas « Compétences — la page d'évaluation ») : le pupitre (trois colonnes),
+le dossier (onglets + pleine largeur), la séance (une chose à la fois). Retenu :
+**le pupitre**, plus **la séance** comme écran séparé, ouvert par le calendrier.
+
+**Deux écrans nouveaux**, `#cv2-ecran-eval` et `#cv2-ecran-seance`, posés HORS
+de `.cv2-layout` : dedans, ils partageraient la largeur avec la barre des
+collaborateurs. `pleineLargeur()` efface cette barre ET le bandeau de page
+(qui redirait le nom écrit en grand dans l'en-tête), et `body.a-cv2-page`
+desserre `.pg-container` de 1200 à 1760 px — 960 réels, c'était trop étroit
+pour trois colonnes. Mesuré à 1280 px d'écran : **240 / 983 / 282**, aucun
+défilement horizontal.
+
+- **Colonne 1, les activités du rôle.** On passe de l'une à l'autre sans
+  revenir en arrière : évaluer six activités ne fait plus six allers-retours.
+  Chacune porte sa jauge fine et son niveau.
+- **Colonne 2, la sortie.** Le rail est le héros de la page : pastilles de
+  30 px avec leur ombre portée, chiffres en Fraunces 27 px, drapeau de norme
+  en noir. Le graphe se **déplie dans la carte** (`basculerGraphe`) — le rail
+  reste sous les yeux pendant qu'on le lit.
+- **Colonne 3, le contexte** : le niveau de l'activité en 36 px, la prochaine
+  échéance, la cible du rôle, la technicité en bleu plein, la légende.
+
+⚠️ **L'état ET l'historique partent ENSEMBLE** (`Promise.all`) : le graphe se
+déplie dans sa carte, il ne doit pas attendre un aller-retour de plus au clic.
+
+⚠️ **Le tiroir reste, pour les deux DIALOGUES courts** — configurer une
+activité, diagnostiquer un écart. C'est une division nette : la page sert à
+regarder et à mesurer, le tiroir à régler. `showEvaluation`, `renderResults` et
+`blocTechnicite` sont supprimés ; `ouvrirDialogue()` remplace `openDrawer()`,
+et le retour du diagnostic **referme** la fenêtre au lieu de rebâtir une
+évaluation qui vit désormais derrière.
+
+**La séance** (`#cv2-ecran-seance`, ouverte par « Tenir la séance » dans le
+calendrier) : une chose à faire à la fois. Le rail situe ce qu'on mesure, le
+champ **« Qu'a-t-on mesuré ? »** fait 36 px en Fraunces — c'est pour ça qu'on
+est là — et le verdict tombe en direct.
+
+- ⚠️ **UN seul endroit pose une mesure.** Le panneau du calendrier est passé
+  en LECTURE : deux écrans de saisie finiraient par ne plus dire la même chose
+  du même geste. `cloturer(sid, z)` a disparu avec lui.
+- ⚠️ **Le verdict affiché est UNE comparaison**, pour montrer d'avance ce que
+  le serveur dira. C'est `trancher()` qui l'écrit, à la clôture — on ne
+  reconstruit pas la règle côté navigateur.
+- ⚠️ **La saisie met à jour SUR PLACE** (`lire()` : le verdict, la file, la
+  liste, le compteur) : réécrire la page à chaque touche ferait perdre le
+  curseur du champ qu'on tape. Le piège déjà rencontré sur les cartes du plan
+  de formation, et sur l'autre sens de l'import.
+- ⚠️ `/paliers/session/<id>/detail` porte désormais la **progression entière**
+  de chaque sortie (`etat_sortie`), pas seulement le palier du jour : sans
+  elle, la moitié gauche de l'écran restait vide et on posait un chiffre sans
+  savoir d'où il venait ni s'il restait une marche après.
+- La clôture revient sur le RÔLE : la séance est tenue, il n'y a plus rien à y
+  faire, et les niveaux qu'elle vient de déplacer se lisent dans la liste.
+
+⚠️ **« Jamais évaluée » à côté d'un niveau tout neuf.** `last_evaluation` ne
+lisait que les `CompetencyEvaluation` — or une sortie MESURÉE n'en écrit
+aucune : son niveau vient du palier tranché en séance. `dashboard_rows` prend
+donc aussi la dernière date de palier, en **UNE** requête pour toutes les
+activités du rôle (pas une par activité).
+
+⚠️ **Les conventions de pluriel diffèrent dans ce catalogue** — `_1`/`_n` ici,
+`_pl` là, la forme nue ailleurs. `nf()` essaie dans l'ordre celle qui EXISTE :
+une clé absente ne lève rien, elle s'affiche telle quelle — « ev_nb_act_n » a
+été relevé à l'écran avant correction. Et « Les 1 mesures sont prêtes » a eu
+son singulier : il ne se devine pas d'une forme plurielle.
+
+**Le visuel est monté d'un cran**, parce que « le design visuel paraît un peu
+simplet » : en-tête d'identité en nuit profonde (`#1b2a4a → #0b1120`) avec son
+halo radial et son ombre portée, Fraunces sur tous les grands chiffres (nom,
+titre d'activité, valeurs du rail, niveau, date de séance, champ de mesure),
+cartes en couches avec une ombre colorée sur la sortie mesurée, et les deux
+boutons au rapport inversé déjà tranché sur la page Temps. Un troisième
+bouton apparaît — `.pal-b--verre`, pour le fond sombre uniquement.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 24 à **37 cas** ; six
+défauts remis un par un, six cliquets tombés (l'évaluation rendue au tiroir,
+la page qui partage la largeur, le graphe qui attend un appel de plus, la
+séance sans progression, la date qui ignore les paliers, le pluriel à une
+seule convention). ⚠️ Le premier ne mordait PAS au premier essai : il
+cherchait `ouvrirEvaluation(a);` n'importe où dans le fichier, et la colonne
+de gauche de la page l'appelle aussi — il vise maintenant le corps de
+`ligneActivite`. Suite : **3091 passés**, `repet_image` 3056 + 36 sautés.
+Éprouvé au banc à 1280 et 1600 px, dans les deux langues : zéro fuite
+française sur l'écran anglais, aucun débordement horizontal.
+
 ---
 
 ## Notes importantes (suite)

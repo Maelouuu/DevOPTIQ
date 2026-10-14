@@ -22,6 +22,54 @@
 
   const I18N = {
     fr: {
+      sq_prete_1: 'La mesure est prête.',
+      ev_retour_role: 'Retour au rôle',
+      ev_niv_role: 'Niveau du rôle',
+      ev_nb_act: '[[n]] activités',
+      ev_nb_act_1: '1 activité',
+      ev_suivi_par: 'suivi par [[x]]',
+      ev_evaluees: '[[n]] activités évaluées sur [[t]]',
+      ev_col_act: 'Les activités du rôle',
+      ev_col_act_d: "On passe de l'une à l'autre sans quitter la page.",
+      ev_sorties_n: '[[n]] sorties',
+      ev_sorties_1: '1 sortie',
+      ev_non_eval: 'non évaluée',
+      ev_a_config: 'à configurer',
+      ev_en_retard_n: '[[n]] en retard',
+      ev_niv_act: 'Niveau de cette activité',
+      ev_min_de: 'le [[b]]minimum[[/b]] de ses sorties, jamais la moyenne',
+      ev_attendu: 'Niveau attendu sur ce rôle',
+      ev_cible_dit: 'une cible se dessine, elle ne se remplit pas',
+      ev_tech: 'Technicité',
+      ev_tech_d: 'Un axe à part : le contexte technique, pas la maîtrise.',
+      ev_masquer_evo: "Masquer l'évolution",
+      ev_rien_eval: "Rien à évaluer tant que l'activité n'est pas configurée.",
+      ev_enregistrer: 'Enregistrer les notes',
+      sq_titre: "Séance d'évaluation",
+      sq_ouvrir: 'Tenir la séance',
+      sq_rouvrir: 'Revoir la séance',
+      sq_tranches: 'paliers tranchés',
+      sq_q: "Qu'a-t-on mesuré ?",
+      sq_observe: "Ce qu'on a observé",
+      sq_observe_ph: 'Deux relances du client, sinon le fond y est.',
+      sq_passer: 'Passer',
+      sq_suivant: 'Trancher et passer au suivant',
+      sq_dernier: 'Trancher le dernier',
+      sq_liste: 'Les paliers de la séance',
+      sq_liste_d: "on peut revenir sur n'importe lequel",
+      sq_en_cours: 'En cours de relevé',
+      sq_a_venir: 'à venir',
+      sq_bilan: 'Ce que la séance aura changé',
+      sq_rien_ecrit: "Rien n'est écrit tant que la séance n'est pas clôturée.",
+      sq_clore_t: 'Clôturer la séance',
+      sq_clore_d: "Les mesures seront enregistrées d'un bloc, et les verdicts calculés.",
+      sq_reste: 'Il reste [[n]] paliers à trancher.',
+      sq_reste_1: 'Il reste 1 palier à trancher.',
+      sq_prete: 'Les [[n]] mesures sont prêtes.',
+      sq_vide: 'Aucun palier rattaché à cette séance.',
+      sq_cible_de: 'cible [[v]]',
+      sq_deviendra: 'deviendra',
+      sq_tenue_le: 'Séance tenue le [[d]]',
       pal_norme: 'Norme',
       pal_norme_mod: "Modifier la norme de l'entreprise",
       pal_au_plus: 'au plus',
@@ -261,6 +309,54 @@
       plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
+      sq_prete_1: 'The measurement is ready.',
+      ev_retour_role: 'Back to the role',
+      ev_niv_role: 'Role level',
+      ev_nb_act: '[[n]] activities',
+      ev_nb_act_1: '1 activity',
+      ev_suivi_par: 'followed by [[x]]',
+      ev_evaluees: '[[n]] of [[t]] activities assessed',
+      ev_col_act: "The role's activities",
+      ev_col_act_d: 'Move between them without leaving the page.',
+      ev_sorties_n: '[[n]] outputs',
+      ev_sorties_1: '1 output',
+      ev_non_eval: 'not assessed',
+      ev_a_config: 'to configure',
+      ev_en_retard_n: '[[n]] overdue',
+      ev_niv_act: 'Level of this activity',
+      ev_min_de: 'the [[b]]lowest[[/b]] of its outputs, never the average',
+      ev_attendu: 'Expected level for this role',
+      ev_cible_dit: 'a target is outlined, never filled in',
+      ev_tech: 'Technicity',
+      ev_tech_d: 'A separate axis: the technical context, not mastery.',
+      ev_masquer_evo: 'Hide progress',
+      ev_rien_eval: 'Nothing to assess until the activity is configured.',
+      ev_enregistrer: 'Save the levels',
+      sq_titre: 'Evaluation session',
+      sq_ouvrir: 'Hold the session',
+      sq_rouvrir: 'Review the session',
+      sq_tranches: 'steps settled',
+      sq_q: 'What was measured?',
+      sq_observe: 'What was observed',
+      sq_observe_ph: 'Two client reminders, otherwise the substance is there.',
+      sq_passer: 'Skip',
+      sq_suivant: 'Settle and move on',
+      sq_dernier: 'Settle the last one',
+      sq_liste: "The session's steps",
+      sq_liste_d: 'you can go back to any of them',
+      sq_en_cours: 'Being recorded',
+      sq_a_venir: 'upcoming',
+      sq_bilan: 'What the session will change',
+      sq_rien_ecrit: 'Nothing is written until the session is closed.',
+      sq_clore_t: 'Close the session',
+      sq_clore_d: 'The measurements are saved together, and the verdicts computed.',
+      sq_reste: '[[n]] steps left to settle.',
+      sq_reste_1: '1 step left to settle.',
+      sq_prete: 'All [[n]] measurements are ready.',
+      sq_vide: 'No step attached to this session.',
+      sq_cible_de: 'target [[v]]',
+      sq_deviendra: 'will become',
+      sq_tenue_le: 'Session held on [[d]]',
       pal_norme: 'Standard',
       pal_norme_mod: 'Change the company standard',
       pal_au_plus: 'at most',
@@ -520,7 +616,7 @@
     cible: null, cibleNom: '',
     ecran: null, roleId: null, roleName: null,
     scale: {}, notAssessed: '', domScale: {},
-    rows: [], filtre: null, activity: null, lastState: null,
+    rows: [], filtre: null, activity: null, lastState: null, histo: {}, devNom: '',
     plan: null,
   };
 
@@ -581,6 +677,7 @@
 
     $('#cv2-mgr-lbl').textContent = state.estDev ? T('manager') : T('my_dev');
     $('#cv2-mgr-name').textContent = ctx.dev ? ctx.dev.name : T('no_dev');
+    state.devNom = ctx.dev ? ctx.dev.name : '';
     $('#cv2-mgr-av').textContent = ctx.dev ? (initials(...String(ctx.dev.name).split(' ')) || 'M') : '—';
 
     // Le collaborateur se voit LUI dans la liste : c'est son propre dossier
@@ -631,8 +728,12 @@
     });
   }
 
+  const ECRANS = ['#cv2-ecran-synthese', '#cv2-ecran-role',
+                  '#cv2-ecran-eval', '#cv2-ecran-seance'];
+
   function montrerVide(msg) {
-    ['#cv2-ecran-synthese', '#cv2-ecran-role'].forEach(s => $(s).classList.add('hidden'));
+    ECRANS.forEach(s => $(s).classList.add('hidden'));
+    pleineLargeur(false);
     const ph = $('#cv2-placeholder'); ph.classList.remove('hidden'); ph.textContent = msg;
   }
   function montrerEcran(nom) {
@@ -640,6 +741,20 @@
     $('#cv2-placeholder').classList.add('hidden');
     $('#cv2-ecran-synthese').classList.toggle('hidden', nom !== 'synthese');
     $('#cv2-ecran-role').classList.toggle('hidden', nom !== 'role');
+    $('#cv2-ecran-eval').classList.toggle('hidden', nom !== 'eval');
+    $('#cv2-ecran-seance').classList.toggle('hidden', nom !== 'seance');
+    pleineLargeur(nom === 'eval' || nom === 'seance');
+  }
+
+  // ⚠️ Une PAGE d'évaluation ne partage pas la largeur avec la barre des
+  // collaborateurs ni avec le bandeau : les trois colonnes en ont besoin, et
+  // le bandeau redirait le nom qu'on vient d'écrire en grand dans l'en-tête.
+  function pleineLargeur(oui) {
+    const l = document.querySelector('.cv2-layout');
+    if (l) l.classList.toggle('hidden', oui);
+    const b = document.querySelector('.page-banner');
+    if (b) b.classList.toggle('hidden', oui);
+    document.body.classList.toggle('a-cv2-page', oui);
   }
 
   // ══ ÉCRAN 1 — la synthèse ══════════════════════════════════════════
@@ -841,7 +956,7 @@
     // produit-elle ?), « Évaluer » parle d'une PERSONNE. Les mélanger faisait
     // passer l'IA de la configuration pour une IA de notation.
     el.querySelector('.cv2-cell-act button').onclick = () =>
-      openDrawer(a);
+      ouvrirEvaluation(a);
     const info = el.querySelector('[data-info]');
     if (info) brancherInfo(info, T('competence'), a.competence);
     return el;
@@ -1300,19 +1415,20 @@
       `<div class="cv2-busy"><span class="cv2-spin"></span><div>${esc(msg || T('loading'))}</div></div>`;
   }
 
-  function openDrawer(row) {
-    state.activity = row;
+  // Le tiroir ne porte plus que les deux DIALOGUES courts : configurer une
+  // activité, et diagnostiquer un écart. L'évaluation, elle, est une PAGE —
+  // il lui faut une échelle de paliers, un graphe et un historique, et 576 px
+  // réels n'y suffisaient pas.
+  function ouvrirDialogue(titre, avecLaPersonne) {
     const d = $('#cv2-drawer');
     d.dataset.mode = 'eval';
     d.dataset.vue = 'eval';
-    $('#cv2-drawer-title').textContent = row.activity_name;
-    // Le collaborateur et son rôle ne sont pas une légende du titre : ce sont
-    // deux informations de même rang. Côte à côte, les deux peuvent grossir.
-    $('#cv2-drawer-role').innerHTML =
-      `<span class="qui">${esc(state.cibleNom)}</span><span class="ou">${esc(state.roleName)}</span>`;
+    $('#cv2-drawer-title').textContent = titre;
+    $('#cv2-drawer-role').innerHTML = avecLaPersonne
+      ? `<span class="qui">${esc(state.cibleNom)}</span><span class="ou">${esc(state.roleName)}</span>`
+      : '';
     d.classList.add('open'); $('#cv2-overlay').classList.add('open');
     $('#cv2-drawer-body').scrollTop = 0;
-    showEvaluation();
   }
 
   // Configurer une activité ne regarde PERSONNE : ni le collaborateur choisi, ni
@@ -1330,14 +1446,6 @@
     showQualify();
   }
 
-  async function showEvaluation() {
-    showBusy();
-    setFooter([]);
-    const st = await api(`/mastery/activity/${state.cible}/${state.activity.activity_id}?role_id=${state.roleId}`);
-    if (st.__error) return;
-    state.lastState = st;
-    renderResults(st);
-  }
 
   function bloc(numero, titre, detail, variante, aDroite) {
     const b = document.createElement('div');
@@ -1351,78 +1459,6 @@
     return b;
   }
 
-  function renderResults(st) {
-    const body = $('#cv2-drawer-body'); body.innerHTML = '';
-    const aEvaluer = !!(st.results && st.results.length);
-
-    if (state.activity.competence) {
-      const c = document.createElement('div'); c.className = 'cv2-comp';
-      c.innerHTML = `<span class="tag"><i class="fa-solid fa-bullseye"></i>${esc(T('competence'))}</span>`
-        + esc(state.activity.competence);
-      body.appendChild(c);
-    }
-    // ── Bloc 1 : le niveau attendu ──────────────────────────────────
-    // Il n'y a plus de bandeau récapitulatif au-dessus : il répétait le niveau
-    // requis que ce bloc sert justement à régler, et deux affichages du même
-    // nombre finissent toujours par diverger.
-    const b1 = bloc(1, T('bloc_cible'), null);
-    b1.appendChild(cibleRequise(st));
-    body.appendChild(b1);
-
-    // ── Bloc 2 : l'évaluation ───────────────────────────────────────
-    // Le niveau qui fait foi se lit dans l'en-tête du bloc : c'est le résultat
-    // de ce qu'on y règle, il appartient à cette section.
-    const resume = aEvaluer ? `<div class="cv2-bloc-bilan">
-        <div class="k">${esc(T('n_official'))} <span class="cv2-officielle-tag">${esc(T('n_official_tag'))}</span></div>
-        ${blocJauge(st.global_level, estNul(st.required_level) ? null : st.required_level,
-                    st.color, st.gap, st.global_label)}
-      </div>` : '';
-    const b2 = bloc(2, T('bloc_eval'), null, 'eval', resume);
-    body.appendChild(b2);
-
-    if (!aEvaluer) {
-      // ⚠️ Plus une trace d'IA ici. Il n'y a rien à évaluer tant que l'activité
-      // n'a pas de résultat qualifié : on le dit, et on renvoie vers l'autre
-      // fenêtre — celle qui parle de l'activité.
-      const w = document.createElement('div'); w.className = 'cv2-warn';
-      w.textContent = jeSuisLeDev() ? T('rien_a_evaluer') : T('pas_configuree');
-      b2.appendChild(w);
-      if (jeSuisLeDev()) {
-        const b = document.createElement('button');
-        b.className = 'btn btn-primary'; b.textContent = T('conf_go');
-        b.onclick = () => ouvrirConfiguration(state.activity);
-        b2.appendChild(b);
-      }
-      body.appendChild(blocTechnicite());
-      setFooter([]);
-      return;
-    }
-
-    if (state.justConfigured) {
-      state.justConfigured = false;
-      const ok = document.createElement('div'); ok.className = 'cv2-ok';
-      ok.textContent = T('configured_go_eval'); b2.appendChild(ok);
-    }
-    st.results.forEach(r => b2.appendChild(carteSortie(r, st.required_level)));
-    body.appendChild(blocTechnicite());
-
-    // ⚠️ « Enregistrer » ne s'affiche que s'il y a quelque chose à SAISIR. Sur
-    // une activité dont toutes les sorties sont mesurées, le niveau vient du
-    // chiffre relevé en session : un bouton d'enregistrement n'y écrirait rien
-    // et laisserait croire qu'on a oublié de remplir une note.
-    const aSaisir = st.results.some(r => !r.mesurable);
-    if (!aSaisir) {
-      const q = document.createElement('p');
-      q.className = 'pal-quiet'; q.textContent = T('pal_pas_de_note');
-      b2.appendChild(q);
-    }
-    const pied = aSaisir ? [{
-      cls: 'btn-primary', id: 'cv2-save-btn',
-      label: jeSuisLeDev() ? T('save_eval') : T('save_self'), on: saveEvaluation,
-    }] : [];
-    if (jeSuisLeDev() && aUnEcart(st)) pied.unshift({ cls: 'btn-ghost', label: T('diagnose'), on: showDiagnostic });
-    setFooter(pied);
-  }
 
   // `demonstrated_level` porte DÉJÀ le niveau déduit d'une sortie mesurée
   // (`activity_mastery` l'écrase avec `etat_sortie`) : un palier manqué entre
@@ -1606,8 +1642,8 @@
       if (r.__error) { if (btn) btn.disabled = false; return; }
     }
     toast(T('saved'));
-    await showEvaluation();
     await refreshDashboard();
+    await ouvrirEvaluation(state.activity);
   }
 
   async function setRequired(lvl) {
@@ -1618,30 +1654,23 @@
     });
     if (r.__error) return;
     toast(T('req_set'));
-    await showEvaluation();
     await refreshDashboard();
+    await ouvrirEvaluation(state.activity);
   }
 
   async function refreshDashboard() {
     const d = await api(`/mastery/dashboard/${state.cible}/${state.roleId}`);
     if (d && d.activities) {
       renderDashboard(d);
-      const row = d.activities.find(a => a.activity_id === state.activity.activity_id);
+      const row = d.activities.find(a => a.activity_id === (state.activity || {}).activity_id);
       if (row) state.activity = row;
+      // La colonne de gauche de la page porte les niveaux : trancher un
+      // palier sans la rafraîchir laisserait l'ancien juste à côté du neuf.
+      if (state.ecran === 'eval' && $('#ev-acts-l')) remplirActivites();
     }
   }
 
   // ══ Technicité — axe SÉPARÉ de la maîtrise (CDC 4) ═════════════════
-  function blocTechnicite() {
-    // Plus de texte d'explication : il disait ce que le bandeau et les deux
-    // colonnes « Requis / Démontré » montrent déjà.
-    const b = bloc(3, T('bloc_tech'), null, 'tech');
-    const zone = document.createElement('div');
-    zone.innerHTML = `<div class="cv2-domlist"></div><div class="cv2-domadd"></div>`;
-    b.appendChild(zone);
-    loadTech(zone);
-    return b;
-  }
   function domSelect(val, onchange) {
     const s = document.createElement('select'); s.className = 'cv2-domsel';
     const opts = [['', '—']].concat(Object.keys(state.domScale).map(k => [k, `${k} · ${state.domScale[k]}`]));
@@ -1895,12 +1924,13 @@
       </div>`);
     setFooter([
       { cls: 'btn-quiet', label: T('conf_close'), on: () => { closeDrawer(); } },
-      { cls: 'btn-primary', label: T('conf_done_go'), on: () => openDrawer(state.activity) },
+      { cls: 'btn-primary', label: T('conf_done_go'), on: () => ouvrirEvaluation(state.activity) },
     ]);
   }
 
   // ══ Diagnostic de l'écart (CDC 6.5-6.9) ════════════════════════════
   async function showDiagnostic() {
+    ouvrirDialogue(state.activity.activity_name, true);
     showBusy();
     setFooter([]);
     const st = state.lastState
@@ -1917,7 +1947,7 @@
       b.appendChild(p);
     }
     for (const r of gapRes) b.appendChild(await diagBlock(r, (fams && fams.families) || []));
-    setFooter([{ cls: 'btn-quiet', label: T('back'), on: showEvaluation }]);
+    setFooter([{ cls: 'btn-quiet', label: T('back'), on: closeDrawer }]);
   }
 
   async function diagBlock(result, families) {
@@ -2581,7 +2611,7 @@
     const zone = card.querySelector('.pal-form');
     const q = s => card.querySelector(s);
     if (q('[data-norme]')) q('[data-norme]').onclick = () => formNorme(zone, r);
-    q('[data-evol]').onclick = () => showEvolution(r);
+    q('[data-evol]').onclick = () => basculerGraphe(card, r);
     if (q('[data-poser]')) q('[data-poser]').onclick = () => formPoser(zone, r);
     if (q('[data-trancher]')) q('[data-trancher]').onclick =
       () => formTrancher(zone, r, encours);
@@ -2635,8 +2665,8 @@
       { method: 'POST', body: JSON.stringify(corps) });
     if (res.__error) return;
     toast(estNul(corps.valeur) ? T('pal_norme_retiree') : T('pal_norme_ok'));
-    await showEvaluation();
     await refreshDashboard();
+    await ouvrirEvaluation(state.activity);
   }
 
   function formPoser(zone, r) {
@@ -2661,7 +2691,7 @@
           cible: c, echeance: jourISO(d) }) });
         if (res.__error) return;
         toast(T('pal_cree'));
-        await showEvaluation(); await refreshDashboard();
+        await refreshDashboard(); await ouvrirEvaluation(state.activity);
       });
   }
 
@@ -2685,7 +2715,7 @@
           body: JSON.stringify({ mesure: m, preuve: z.querySelector('[data-p]').value }) });
         if (res.__error) return;
         toast(res.statut === 'atteint' ? T('pal_tranche_ok') : T('pal_tranche_ko'));
-        await showEvaluation(); await refreshDashboard();
+        await refreshDashboard(); await ouvrirEvaluation(state.activity);
         // ⚠️ Un palier manqué n'ouvre PAS « reposez la même cible » : il ouvre
         // l'analyse des savoirs. Reposer la marche sans rien changer, c'est
         // attendre le même résultat (CDC 6.8).
@@ -2696,12 +2726,12 @@
       const res = await api(`/paliers/palier/${palier.id}`, { method: 'DELETE' });
       if (res.__error) return;
       toast(T('pal_supprime'));
-      await showEvaluation(); await refreshDashboard();
+      await refreshDashboard(); await ouvrirEvaluation(state.activity);
     };
   }
 
   function apresEchec() {
-    const b2 = $('#cv2-drawer-body').querySelector('.cv2-bloc--eval');
+    const b2 = $('#ev-centre');
     if (!b2) return;
     const w = document.createElement('div');
     w.className = 'pal-echec';
@@ -2711,6 +2741,7 @@
         <span class="pal-b-ic"><i class="fa-solid fa-magnifying-glass-chart"></i></span>${esc(T('pal_vers_diag'))}</button>`;
     w.querySelector('button').onclick = () => showDiagnostic();
     b2.insertBefore(w, b2.children[1] || null);
+    w.classList.add('pal-echec--page');
     w.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
@@ -2718,24 +2749,6 @@
   // ⚠️ Chaque sortie garde SON unité et son sens : une durée descend vers la
   // norme, un taux y monte. Un score normalisé lirait pareil des deux côtés,
   // mais on ne lit plus « 70 h » — or c'est ce chiffre qu'on vient voir.
-  async function showEvolution(r) {
-    const d = $('#cv2-drawer');
-    const avant = $('#cv2-drawer-title').textContent;
-    showBusy();
-    setFooter([{ cls: 'btn-ghost', label: T('ev_retour'), on: () => {
-      $('#cv2-drawer-title').textContent = avant;
-      d.dataset.vue = 'eval';
-      showEvaluation();
-    } }]);
-    d.dataset.vue = 'evol';
-    $('#cv2-drawer-title').textContent = Tv('ev_graphe_de', { x: r.name });
-    const h = await api(`/paliers/historique/${state.cible}/${state.activity.activity_id}?role_id=${state.roleId}`);
-    if (h.__error) return;
-    const serie = (h.series || []).find(s => s.data_id === r.data_id) || { points: [] };
-    const body = $('#cv2-drawer-body'); body.innerHTML = '';
-    body.appendChild(blocGraphe(r, serie));
-    body.appendChild(blocHistorique(r));
-  }
 
   function blocGraphe(r, serie) {
     const wrap = document.createElement('div');
@@ -3026,71 +3039,43 @@
 
   function rendreDetail(d) {
     const s = d.session, z = $('#cal-detail');
-    const peut = state.estDev && s.statut !== 'tenue';
+    const tenue = s.statut === 'tenue';
     let lignes = '';
     (d.paliers || []).forEach(p => {
-      const tranche = p.statut !== 'en_cours';
-      const cls = tranche ? (p.statut === 'atteint' ? 'ok' : 'ko') : 'att';
-      lignes += `<div class="cal-pal cal-pal--${cls}" data-pal="${p.palier_id}">
-          <div class="h">
-            <span class="so">${esc(p.sortie)}</span>
-            <span class="ac">${esc(p.activite)}</span>
-            <span class="sp"></span>
+      const cls = p.statut === 'en_cours' ? 'att' : (p.statut === 'atteint' ? 'ok' : 'ko');
+      lignes += `<div class="cal-pal cal-pal--${cls}">
+          <div class="h"><span class="so">${esc(p.sortie)}</span>
+            <span class="ac">${esc(p.activite)}</span><span class="sp"></span>
             <span class="ci">${esc(T('pal_cible'))}${DP}<b>${esc(fmtVal(p.cible, p.unite))}</b>
-              ${esc(p.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span>
-          </div>
-          <div class="m">
-            <label><span>${esc(T('pal_mesure_lbl'))}</span>
-              <input type="text" data-m value="${esc(estNul(p.mesure) ? '' : fmtNb(p.mesure))}"
-                     inputmode="decimal" ${peut ? '' : 'disabled'}></label>
-            <span class="u">${esc(p.unite || '')}</span>
-            ${tranche ? `<span class="v v--${cls}">
-              <i class="fa-solid ${p.statut === 'atteint' ? 'fa-check' : 'fa-xmark'}"></i>
-              ${esc(T(p.statut === 'atteint' ? 'pal_atteint' : 'pal_manque'))}</span>` : ''}
-          </div>
+              ${esc(p.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span></div>
+          ${p.statut === 'en_cours' ? '' : `<p class="m2">
+            ${esc(Tv('pal_mesure_de', { v: fmtVal(p.mesure, p.unite) }))}
+            <span class="v v--${cls}">${esc(T(p.statut === 'atteint' ? 'pal_atteint' : 'pal_manque'))}</span></p>`}
         </div>`;
     });
-    const ret = s.en_retard
-      ? `<span class="cal-d-retard">${esc(T('pal_retard'))}</span>` : '';
+    const ret = s.en_retard ? `<span class="cal-d-retard">${esc(T('pal_retard'))}</span>` : '';
     z.innerHTML = `
       <div class="cal-d-h">
         <p class="k">${esc(fmtDate(s.date_prevue))} · ${esc(quandDit(s.date_prevue))} ${ret}</p>
         <h3>${esc(s.nom)}</h3>
         <p class="r">${s.role ? `<span class="pastille">${esc(s.role)}</span>` : ''}
-          ${esc(s.statut === 'tenue' ? T('ses_tenue')
-            : (s.n_paliers ? Tv(s.n_paliers > 1 ? 'ses_a_trancher_pl' : 'ses_a_trancher', { n: s.n_paliers }) : ''))}</p>
+          ${esc(tenue ? T('ses_tenue')
+            : (s.n_paliers ? Tv(s.n_paliers > 1 ? 'ses_a_trancher_pl' : 'ses_a_trancher',
+                                { n: s.n_paliers }) : ''))}</p>
       </div>
-      <div class="cal-d-corps">
-        ${lignes || `<p class="pal-vide">${esc(T('ses_rien_a_trancher'))}</p>`}
-        ${(d.paliers || []).length ? `<label class="pal-champ-large"><span>${esc(T('ses_note'))}</span>
-          <textarea data-note rows="2" ${peut ? '' : 'disabled'}>${esc(s.note || '')}</textarea></label>` : ''}
-      </div>
+      <div class="cal-d-corps">${lignes || `<p class="pal-vide">${esc(T('ses_rien_a_trancher'))}</p>`}</div>
       <div class="cal-d-pied">
         <p class="d">${esc(T('ses_verdicts_calc'))}</p>
-        ${peut && (d.paliers || []).length ? `<button type="button" class="pal-b pal-b--prim" data-clore>
-            <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>${esc(T('ses_cloturer'))}</button>` : ''}
+        ${(d.paliers || []).length && state.estDev
+          ? `<button type="button" class="pal-b pal-b--prim" data-tenir>
+              <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>
+              ${esc(tenue ? T('sq_rouvrir') : T('sq_ouvrir'))}</button>` : ''}
       </div>`;
-    const b = z.querySelector('[data-clore]');
-    if (b) b.onclick = () => cloturer(s.id, z);
-  }
-
-  async function cloturer(sid, z) {
-    const mesures = [];
-    z.querySelectorAll('[data-pal]').forEach(l => {
-      const v = parseFloat((l.querySelector('[data-m]').value || '').replace(',', '.'));
-      if (isFinite(v)) mesures.push({ palier_id: +l.dataset.pal, mesure: v });
-    });
-    if (!mesures.length) { toast(T('pal_mesure_lbl')); return; }
-    const note = z.querySelector('[data-note]');
-    const res = await api(`/paliers/session/${sid}/cloturer`, {
-      method: 'POST',
-      body: JSON.stringify({ mesures: mesures, note: note ? note.value : '' }) });
-    if (res.__error) return;
-    toast(T('ses_close_ok'));
-    await ouvrirCalendrier(sid);
-    // La liste derrière le calendrier porte des niveaux que la clôture vient
-    // de déplacer : la laisser telle quelle afficherait l'état d'avant.
-    if (state.ecran === 'role') await refreshDashboard();
+    // ⚠️ UN seul endroit pose une mesure : la séance. Le calendrier dit
+    // QUAND et QUOI ; deux écrans de saisie finiraient par ne plus dire la
+    // même chose du même geste.
+    const b = z.querySelector('[data-tenir]');
+    if (b) b.onclick = () => ouvrirSeance(s.id);
   }
 
   // ⚠️ Pas de `window.prompt` : la fenêtre du navigateur arrive avec ses
@@ -3133,6 +3118,510 @@
       await ouvrirCalendrier(res.session && res.session.id);
     };
     z.querySelector('[data-d]').focus();
+  }
+
+
+  // ══ LA PAGE D'ÉVALUATION ═══════════════════════════════════════════
+  // ⚠️ Évaluer n'est plus un tiroir. Le tiroir fait 720 px, et `body.pg`
+  // porte `zoom: .8` : 576 px RÉELS pour une échelle de paliers, un graphe
+  // et un historique. Tout y était comprimé. La page prend les trois
+  // colonnes : les activités du rôle à gauche (on passe de l'une à l'autre
+  // sans revenir en arrière), la sortie au centre, le contexte à droite.
+  //
+  // Le tiroir reste — pour les deux DIALOGUES courts : configurer une
+  // activité, et le diagnostic d'un écart.
+
+  // ⚠️ Les clés de pluriel ne suivent pas toutes la même convention dans ce
+  // catalogue — `_1`/`_n` ici, `_pl` là, la forme nue ailleurs. On essaie
+  // dans l'ordre celle qui EXISTE : une clé absente ne lève rien, elle
+  // s'affiche telle quelle (« ev_nb_act_n » relevé à l'écran).
+  function nf(c, n, u) {
+    const essais = n === 1 ? [c + '_1', c] : [c + '_n', c + '_pl', c];
+    const k = essais.find(x => T(x) !== x) || c;
+    return Tv(k, { n: n, t: u });
+  }
+
+  async function ouvrirEvaluation(row) {
+    state.activity = row;
+    montrerEcran('eval');
+    showBusy(null, '#cv2-ecran-eval');
+    // Les deux appels partent ENSEMBLE : le graphe se déplie dans sa carte,
+    // il ne doit pas attendre un aller-retour de plus au moment du clic.
+    const [st, h] = await Promise.all([
+      api(`/mastery/activity/${state.cible}/${row.activity_id}?role_id=${state.roleId}`),
+      api(`/paliers/historique/${state.cible}/${row.activity_id}?role_id=${state.roleId}`, undefined, true),
+    ]);
+    if (st.__error) return;
+    state.lastState = st;
+    state.histo = {};
+    ((h && h.series) || []).forEach(s => { state.histo[s.data_id] = s; });
+    renderEval(st);
+  }
+
+  function renderEval(st) {
+    const z = $('#cv2-ecran-eval');
+    const dev = jeSuisLeDev();
+    const nAct = state.rows.length;
+    const nEval = state.rows.filter(a => !estNul(a.demonstrated_level)).length;
+    z.innerHTML = `
+      <header class="ev-tete">
+        <div class="ev-tete-in">
+          <button type="button" class="ev-retour" data-retour>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+            ${esc(state.roleName || T('ev_retour_role'))}</button>
+          <span class="ev-sep"></span>
+          <span class="ev-av">${esc(initials(...String(state.cibleNom).split(' ')))}</span>
+          <div class="ev-qui">
+            <p class="n">${esc(state.cibleNom)}</p>
+            <p class="s"><span class="pastille">${esc(nf('ev_nb_act', nAct))}</span>
+              ${state.devNom ? esc(Tv('ev_suivi_par', { x: state.devNom })) : ''}</p>
+          </div>
+          <span class="ev-pousse"></span>
+          <div class="ev-niv">
+            <p class="k">${esc(T('ev_niv_role'))}</p>
+            <p class="v">${esc(niveauRole())}</p>
+            <p class="d">${esc(Tv('ev_evaluees', { n: nEval, t: nAct }))}</p>
+          </div>
+          <span class="ev-sep"></span>
+          <div class="ev-actions">
+            <button type="button" class="pal-b pal-b--verre" data-cal>
+              <span class="pal-b-ic"><i class="fa-solid fa-calendar-days"></i></span>${esc(T('ses_cal'))}</button>
+            ${dev ? `<button type="button" class="pal-b pal-b--prim" data-plan>
+              <span class="pal-b-ic"><i class="fa-solid fa-file-lines"></i></span>${esc(T('plan_open'))}</button>` : ''}
+          </div>
+        </div>
+      </header>
+
+      <div class="ev-corps">
+        <aside class="ev-acts">
+          <div class="ev-acts-h">
+            <p class="k">${esc(T('ev_col_act'))}</p>
+            <p class="d">${esc(T('ev_col_act_d'))}</p>
+          </div>
+          <div class="ev-acts-l" id="ev-acts-l"></div>
+        </aside>
+        <main class="ev-centre" id="ev-centre"></main>
+        <aside class="ev-ctx" id="ev-ctx"></aside>
+      </div>`;
+
+    z.querySelector('[data-retour]').onclick = () => { montrerEcran('role'); refreshDashboard(); };
+    z.querySelector('[data-cal]').onclick = () => ouvrirCalendrier();
+    const bp = z.querySelector('[data-plan]');
+    if (bp) bp.onclick = () => ouvrirPlan();
+
+    remplirActivites();
+    remplirCentre(st);
+    remplirContexte(st);
+    z.scrollIntoView({ block: 'start' });
+  }
+
+  function niveauRole() {
+    const niv = state.rows.map(a => a.demonstrated_level).filter(v => !estNul(v));
+    if (!niv.length || niv.length < state.rows.length) return T('not_assessed');
+    const m = Math.min.apply(null, niv);
+    return m + ' · ' + levelName(m);
+  }
+
+  function remplirActivites() {
+    const box = $('#ev-acts-l'); box.innerHTML = '';
+    state.rows.forEach(a => {
+      const cat = categorie(a);
+      const ouverte = a.activity_id === state.activity.activity_id;
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'ev-act' + (ouverte ? ' est-ouverte' : '');
+      const niv = estNul(a.demonstrated_level) ? null : a.demonstrated_level;
+      const couleur = niv === null ? '#8b96a6'
+        : (niv >= 3 ? '#15803d' : (niv >= 2 ? '#1d4ed8' : '#b45309'));
+      let etat;
+      if (cat === 'setup') etat = `<span class="ev-act-e">${esc(T('ev_a_config'))}</span>`;
+      else if (niv === null) etat = `<span class="ev-act-e">${esc(T('ev_non_eval'))}</span>`;
+      else etat = `<span class="ev-act-n" style="color:${couleur}">${niv}</span>`;
+      el.innerHTML = `<span class="ev-act-h"><span class="ev-act-t">${esc(a.activity_name)}</span>${etat}</span>
+        ${niv === null ? '' : `<span class="ev-act-j">${jaugeFine(niv, a.required_level, couleur)}
+          <span class="ev-act-s">${esc(nf('ev_sorties', a.n_results || 0))}</span></span>`}`;
+      el.onclick = () => { if (!ouverte) ouvrirEvaluation(a); };
+      box.appendChild(el);
+    });
+  }
+
+  // La même jauge que la liste, en plus fin : quatre pas, un trait au requis.
+  function jaugeFine(niveau, requis, couleur) {
+    let h = '';
+    for (let lv = 1; lv <= 4; lv++) {
+      if (!estNul(requis) && lv === requis + 1) h += '<span class="ev-j-trait"></span>';
+      const plein = !estNul(niveau) && niveau >= lv;
+      h += `<span class="ev-j-pas"${plein ? ` style="background:${couleur}"` : ''}></span>`;
+    }
+    return h;
+  }
+
+  function remplirCentre(st) {
+    const box = $('#ev-centre'); box.innerHTML = '';
+    const tete = document.createElement('div');
+    tete.className = 'ev-sujet';
+    tete.innerHTML = `<h1>${esc(state.activity.activity_name)}</h1>
+      ${state.activity.competence
+        ? `<p class="comp"><span class="ico"><i class="fa-solid fa-bullseye"></i></span>${esc(state.activity.competence)}</p>`
+        : ''}`;
+    box.appendChild(tete);
+
+    if (!(st.results && st.results.length)) {
+      const w = document.createElement('div'); w.className = 'ev-vide';
+      w.innerHTML = `<p>${esc(jeSuisLeDev() ? T('rien_a_evaluer') : T('pas_configuree'))}</p>`;
+      if (jeSuisLeDev()) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'pal-b pal-b--prim';
+        b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-sliders"></i></span>${esc(T('conf_go'))}`;
+        b.onclick = () => ouvrirConfiguration(state.activity);
+        w.appendChild(b);
+      }
+      box.appendChild(w);
+      return;
+    }
+
+    st.results.forEach(r => box.appendChild(carteSortie(r, st.required_level)));
+
+    // ⚠️ « Enregistrer » n'apparaît que s'il y a quelque chose à SAISIR : sur
+    // une activité toute mesurée, le niveau vient du chiffre relevé en séance.
+    const aSaisir = st.results.some(r => !r.mesurable);
+    const pied = document.createElement('div');
+    pied.className = 'ev-pied';
+    pied.innerHTML = `<p>${esc(aSaisir ? '' : T('pal_pas_de_note'))}</p>`;
+    if (jeSuisLeDev() && aUnEcart(st)) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pal-b pal-b--doux';
+      b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-magnifying-glass-chart"></i></span>${esc(T('diagnose'))}`;
+      b.onclick = () => showDiagnostic();
+      pied.appendChild(b);
+    }
+    if (aSaisir) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pal-b pal-b--prim'; b.id = 'cv2-save-btn';
+      b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-check"></i></span>`
+        + esc(jeSuisLeDev() ? T('save_eval') : T('save_self'));
+      b.onclick = saveEvaluation;
+      pied.appendChild(b);
+    }
+    box.appendChild(pied);
+  }
+
+  function remplirContexte(st) {
+    const box = $('#ev-ctx'); box.innerHTML = '';
+    const niv = st.global_level;
+    const couleur = estNul(niv) ? '#5b6676'
+      : (niv >= 3 ? '#14532d' : (niv >= 2 ? '#1d4ed8' : '#78350f'));
+
+    let lignes = '';
+    (st.results || []).forEach(r => {
+      const n = r.demonstrated_level;
+      const c = estNul(n) ? '#8b96a6' : (n >= 3 ? '#15803d' : (n >= 2 ? '#2563eb' : '#b45309'));
+      lignes += `<div class="ev-ctx-l"><span class="b" style="background:${c}"></span>
+        <span class="t">${esc(r.name)}</span>
+        <span class="n" style="color:${c}">${estNul(n) ? '—' : n}</span></div>`;
+    });
+
+    const carte = document.createElement('section');
+    carte.className = 'ev-carte';
+    carte.innerHTML = `<p class="k">${esc(T('ev_niv_act'))}</p>
+      <p class="gros" style="color:${couleur}">${estNul(niv) ? '—' : niv}</p>
+      <p class="mot" style="color:${couleur}">${esc(estNul(niv) ? T('not_assessed') : levelName(niv))}</p>
+      <p class="d">${gras(T('ev_min_de'))}</p>
+      <div class="ev-ctx-ls">${lignes}</div>`;
+    box.appendChild(carte);
+
+    // La prochaine échéance se LIT dans les paliers déjà chargés : un appel de
+    // plus pour un chiffre qu'on a déjà serait une seconde source de vérité.
+    const ech = prochaineEcheance(st);
+    if (ech) {
+      const s = document.createElement('section');
+      s.className = 'ev-carte ev-carte--ses';
+      s.innerHTML = `<p class="k"><i class="fa-regular fa-calendar"></i>${esc(T('ses_prochaine'))}</p>
+        <p class="date">${esc(fmtDate(ech.quand))}</p>
+        <p class="d">${esc(quandDit(ech.quand))} · ${esc(nf('ses_a_trancher', ech.n))}</p>
+        <button type="button" class="pal-b pal-b--doux" data-cal2>
+          <span class="pal-b-ic"><i class="fa-solid fa-calendar-days"></i></span>${esc(T('ses_ouvrir'))}</button>`;
+      s.querySelector('[data-cal2]').onclick = () => ouvrirCalendrier();
+      box.appendChild(s);
+    }
+
+    const cible = document.createElement('section');
+    cible.className = 'ev-carte';
+    cible.innerHTML = `<p class="k">${esc(T('ev_attendu'))}</p>`;
+    cible.appendChild(cibleRequise(st));
+    box.appendChild(cible);
+
+    const tech = document.createElement('section');
+    tech.className = 'ev-carte ev-carte--tech';
+    tech.innerHTML = `<p class="k">${esc(T('ev_tech'))}</p>
+      <div class="cv2-domlist"></div><div class="cv2-domadd"></div>
+      <p class="d">${esc(T('ev_tech_d'))}</p>`;
+    box.appendChild(tech);
+    loadTech(tech);
+
+    const leg = document.createElement('section');
+    leg.className = 'ev-carte ev-carte--leg';
+    leg.innerHTML = `<p class="k">${esc(T('pal_comment'))}</p>
+      <div class="ev-leg">
+        <div><span>0</span>${esc(T('pal_comment_0'))}</div>
+        <div><span>1</span>${esc(T('pal_comment_1'))}</div>
+        <div><span class="ok">2</span><strong>${esc(T('pal_comment_2'))}</strong></div>
+        <div><span class="ok">3</span><strong>${esc(T('pal_comment_3'))}</strong></div>
+        <div><span class="off">4</span>${esc(T('pal_comment_4'))}</div>
+      </div>`;
+    box.appendChild(leg);
+  }
+
+  // Les libellés du catalogue portent [[b]]…[[/b]] pour un seul mot en gras :
+  // le reste de la phrase doit rester traduisible d'un bloc.
+  function gras(txt) {
+    return esc(txt).split('[[b]]').join('<strong>').split('[[/b]]').join('</strong>');
+  }
+
+  function prochaineEcheance(st) {
+    let quand = null, n = 0;
+    (st.results || []).forEach(r => {
+      const p = r.performance && r.performance.palier_en_cours;
+      if (!p || !p.echeance) return;
+      n += 1;
+      if (!quand || p.echeance < quand) quand = p.echeance;
+    });
+    return quand ? { quand: quand, n: n } : null;
+  }
+
+  // ── Le graphe se déplie DANS la carte : le rail reste sous les yeux ──
+  function basculerGraphe(card, r) {
+    const ouvert = card.querySelector('.pal-graphe');
+    if (ouvert) {
+      ouvert.remove();
+      const h = card.querySelector('.pal-histo');
+      if (h) h.remove();
+      card.dataset.evo = '';
+      majLibelleEvo(card, false);
+      return;
+    }
+    const serie = (state.histo && state.histo[r.data_id]) || { points: [] };
+    const pied = card.querySelector('.pal-pied');
+    pied.insertAdjacentElement('afterend', blocGraphe(r, serie));
+    card.querySelector('.pal-graphe').insertAdjacentElement('afterend', blocHistorique(r));
+    card.dataset.evo = '1';
+    majLibelleEvo(card, true);
+  }
+  function majLibelleEvo(card, ouvert) {
+    const b = card.querySelector('[data-evol]');
+    if (!b) return;
+    b.lastChild.textContent = ouvert ? T('ev_masquer_evo') : T('pal_evolution');
+  }
+
+  // ══ LA SÉANCE ══════════════════════════════════════════════════════
+  // La page est le RENDEZ-VOUS : une chose à faire à la fois, le champ de
+  // mesure en grand — c'est pour ça qu'on est là — et le verdict qui tombe.
+  const sq = { sid: null, session: null, paliers: [], saisie: {}, i: 0 };
+
+  async function ouvrirSeance(sid) {
+    const d = await api(`/paliers/session/${sid}/detail`);
+    if (d.__error) return;
+    sq.sid = sid; sq.session = d.session; sq.paliers = d.paliers || [];
+    sq.saisie = {};
+    sq.paliers.forEach(p => {
+      if (!estNul(p.mesure)) sq.saisie[p.palier_id] = { mesure: p.mesure, preuve: p.preuve || '' };
+    });
+    sq.i = sq.paliers.findIndex(p => !sq.saisie[p.palier_id]);
+    if (sq.i < 0) sq.i = 0;
+    fermerCal();
+    montrerEcran('seance');
+    renderSeance();
+  }
+
+  // ⚠️ UNE comparaison, et c'est tout : le verdict qui FAIT FOI est celui
+  // que le serveur calcule à la clôture (`Code/paliers.py::trancher`). Ici on
+  // montre d'avance ce qu'il va dire, pas une seconde règle.
+  function verdictLocal(p) {
+    const v = sq.saisie[p.palier_id] && sq.saisie[p.palier_id].mesure;
+    if (estNul(v) || !isFinite(v)) return null;
+    return (p.sens === SENS_MOINS ? v <= p.cible : v >= p.cible) ? 'atteint' : 'manque';
+  }
+  const sqFaits = () => sq.paliers.filter(p => verdictLocal(p)).length;
+
+  function renderSeance() {
+    const z = $('#cv2-ecran-seance');
+    const s = sq.session || {};
+    const n = sq.paliers.length;
+    z.innerHTML = `
+      <header class="sq-tete">
+        <div class="sq-tete-in">
+          <button type="button" class="ev-retour" data-cal>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+            ${esc(T('ses_cal'))}</button>
+          <div class="sq-quand">
+            <p class="k">${esc(T('sq_titre'))}</p>
+            <p class="v">${esc(fmtDate(s.date_prevue))}</p>
+          </div>
+          <span class="ev-sep"></span>
+          <span class="ev-av">${esc(initials(...String(s.nom || '').split(' ')))}</span>
+          <div class="ev-qui"><p class="n">${esc(s.nom || '')}</p><p class="s">${esc(s.role || '')}</p></div>
+          <span class="ev-pousse"></span>
+          <div class="sq-compte"><p class="v">${sqFaits()}<span>/ ${n}</span></p>
+            <p class="d">${esc(T('sq_tranches'))}</p></div>
+        </div>
+        <div class="sq-file" id="sq-file"></div>
+      </header>
+      <div class="sq-corps" id="sq-corps"></div>
+      <div class="sq-bas">
+        <section class="sq-liste" id="sq-liste"></section>
+        <section class="ev-carte sq-clore" id="sq-clore"></section>
+      </div>`;
+    z.querySelector('[data-cal]').onclick = () => { montrerEcran('role'); ouvrirCalendrier(sq.sid); };
+    rendreFile(); rendreCourant(); rendreListeSeance(); rendreClore();
+    z.scrollIntoView({ block: 'start' });
+  }
+
+  function rendreFile() {
+    const f = $('#sq-file'); f.innerHTML = '';
+    sq.paliers.forEach((p, i) => {
+      const v = verdictLocal(p);
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'sq-f' + (i === sq.i ? ' est-courant' : (v ? ' est-fait' : ''));
+      el.innerHTML = `<span class="h">
+          <span class="p">${v === 'atteint' ? '<i class="fa-solid fa-check"></i>'
+            : (v === 'manque' ? '<i class="fa-solid fa-xmark"></i>' : (i + 1))}</span>
+          <span class="t">${esc(p.sortie)}</span></span>
+        <span class="d">${v ? esc(fmtVal(sq.saisie[p.palier_id].mesure, p.unite) + ' · '
+              + T(v === 'atteint' ? 'pal_atteint' : 'pal_manque'))
+            : (i === sq.i ? esc(T('sq_en_cours')) : esc(p.activite))}</span>`;
+      el.onclick = () => { sq.i = i; rendreFile(); rendreCourant(); };
+      f.appendChild(el);
+    });
+  }
+
+  function rendreCourant() {
+    const box = $('#sq-corps'); box.innerHTML = '';
+    if (!sq.paliers.length) {
+      box.innerHTML = `<p class="pal-vide">${esc(T('sq_vide'))}</p>`;
+      return;
+    }
+    const p = sq.paliers[sq.i];
+    const saisi = sq.saisie[p.palier_id] || {};
+    box.innerHTML = `
+      <div class="sq-sujet">
+        <div class="t"><h1>${esc(p.sortie)}</h1>
+          <p>${esc(p.activite)}${p.norme ? ' · ' + esc(T('pal_norme')) + DP + esc(fmtVal(p.norme, p.unite))
+            + ' ' + esc(p.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins')) : ''}</p></div>
+        <div class="c"><span class="k">${esc(T('pal_cible'))}</span>
+          <span class="v">${esc(fmtVal(p.cible, p.unite))}</span></div>
+      </div>
+      ${p.progression ? `<div class="sq-rail">${railHtml(p.progression)}</div>`
+        : '<div class="sq-rail"></div>'}
+      <div class="sq-geste">
+        <label for="sq-m">${esc(T('sq_q'))}</label>
+        <div class="sq-champ">
+          <input id="sq-m" type="text" inputmode="decimal"
+                 value="${esc(estNul(saisi.mesure) ? '' : fmtNb(saisi.mesure))}">
+          <span class="u">${esc(p.unite || '')}</span>
+        </div>
+        <div class="sq-verdict" id="sq-verdict"></div>
+        <label for="sq-p">${esc(T('sq_observe'))}</label>
+        <textarea id="sq-p" rows="3" placeholder="${esc(T('sq_observe_ph'))}">${esc(saisi.preuve || '')}</textarea>
+        <div class="sq-boutons">
+          <button type="button" class="btn btn-ghost" data-passer>${esc(T('sq_passer'))}</button>
+          <button type="button" class="pal-b pal-b--prim" data-suivant>
+            <span class="pal-b-ic"><i class="fa-solid fa-arrow-right"></i></span>
+            ${esc(sq.i === sq.paliers.length - 1 ? T('sq_dernier') : T('sq_suivant'))}</button>
+        </div>
+      </div>`;
+
+    const inp = box.querySelector('#sq-m'), ta = box.querySelector('#sq-p');
+    // ⚠️ On met à jour SUR PLACE : réécrire la page à chaque frappe ferait
+    // perdre le curseur du champ qu'on est en train de taper.
+    const lire = () => {
+      const v = parseFloat((inp.value || '').replace(',', '.'));
+      if (isFinite(v)) sq.saisie[p.palier_id] = { mesure: v, preuve: ta.value };
+      else delete sq.saisie[p.palier_id];
+      rendreVerdict(p); rendreFile(); rendreListeSeance(); rendreClore();
+      const c = $('.sq-compte .v');
+      if (c) c.innerHTML = sqFaits() + '<span>/ ' + sq.paliers.length + '</span>';
+    };
+    inp.oninput = lire;
+    ta.oninput = () => { if (sq.saisie[p.palier_id]) sq.saisie[p.palier_id].preuve = ta.value; };
+    box.querySelector('[data-passer]').onclick = () => avancerSeance();
+    box.querySelector('[data-suivant]').onclick = () => { lire(); avancerSeance(); };
+    rendreVerdict(p);
+    inp.focus();
+  }
+
+  function rendreVerdict(p) {
+    const z = $('#sq-verdict'); if (!z) return;
+    const v = verdictLocal(p);
+    if (!v) { z.className = 'sq-verdict'; z.innerHTML = ''; return; }
+    const ok = v === 'atteint';
+    z.className = 'sq-verdict est-' + (ok ? 'ok' : 'ko');
+    z.innerHTML = `<span class="p"><i class="fa-solid fa-${ok ? 'check' : 'xmark'}"></i></span>
+      <div><p class="t">${esc(T(ok ? 'pal_atteint' : 'pal_manque'))}</p>
+      <p class="d">${esc(ok ? '' : T('pal_apres_echec'))}</p></div>`;
+  }
+
+  function avancerSeance() {
+    const suivant = sq.paliers.findIndex((p, i) => i > sq.i && !verdictLocal(p));
+    sq.i = suivant >= 0 ? suivant : Math.min(sq.i + 1, sq.paliers.length - 1);
+    rendreFile(); rendreCourant();
+  }
+
+  function rendreListeSeance() {
+    const z = $('#sq-liste'); if (!z) return;
+    let h = `<div class="sq-liste-h"><h2>${esc(T('sq_liste'))}</h2>
+      <span>${esc(T('sq_liste_d'))}</span></div>`;
+    sq.paliers.forEach((p, i) => {
+      const v = verdictLocal(p);
+      const cls = v === 'atteint' ? 'ok' : (v === 'manque' ? 'ko' : (i === sq.i ? 'cur' : ''));
+      h += `<button type="button" class="sq-l sq-l--${cls || 'att'}" data-i="${i}">
+          <span class="p">${v === 'atteint' ? '<i class="fa-solid fa-check"></i>'
+            : (v === 'manque' ? '<i class="fa-solid fa-xmark"></i>' : (i + 1))}</span>
+          <span class="t"><span class="n">${esc(p.sortie)}</span>
+            <span class="a">${esc(p.activite)} · ${esc(Tv('sq_cible_de', { v: fmtVal(p.cible, p.unite) }))}
+              ${esc(p.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span></span>
+          ${v ? `<span class="m">${esc(fmtVal(sq.saisie[p.palier_id].mesure, p.unite))}</span>
+                 <span class="v v--${v === 'atteint' ? 'ok' : 'ko'}">${esc(T(v === 'atteint' ? 'pal_atteint' : 'pal_manque'))}</span>`
+              : `<span class="e">${esc(i === sq.i ? T('sq_en_cours') : T('sq_a_venir'))}</span>`}
+        </button>`;
+    });
+    z.innerHTML = h;
+    z.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
+      sq.i = +b.dataset.i; rendreFile(); rendreCourant(); rendreListeSeance();
+    });
+  }
+
+  function rendreClore() {
+    const z = $('#sq-clore'); if (!z) return;
+    const faits = sqFaits(), reste = sq.paliers.length - faits;
+    const tenue = (sq.session || {}).statut === 'tenue';
+    z.innerHTML = `<p class="k">${esc(T('sq_clore_t'))}</p>
+      <p class="d">${esc(T('sq_clore_d'))}</p>
+      <button type="button" class="pal-b pal-b--prim sq-clore-b" data-clore ${faits ? '' : 'disabled'}>
+        <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>${esc(T('sq_clore_t'))}</button>
+      <p class="r">${esc(tenue ? Tv('sq_tenue_le', { d: fmtDate(sq.session.tenue_le) })
+        : (reste ? nf('sq_reste', reste) : nf('sq_prete', faits)))}</p>`;
+    const b = z.querySelector('[data-clore]');
+    if (b && faits) b.onclick = cloturerSeance;
+  }
+
+  async function cloturerSeance() {
+    const mesures = sq.paliers.filter(p => verdictLocal(p)).map(p => ({
+      palier_id: p.palier_id, mesure: sq.saisie[p.palier_id].mesure,
+      preuve: sq.saisie[p.palier_id].preuve || '' }));
+    if (!mesures.length) return;
+    const res = await api(`/paliers/session/${sq.sid}/cloturer`, {
+      method: 'POST', body: JSON.stringify({ mesures: mesures }) });
+    if (res.__error) return;
+    toast(T('ses_close_ok'));
+    // ⚠️ On revient sur le RÔLE, pas sur la séance : elle est tenue, il n'y a
+    // plus rien à y faire — et les niveaux qu'elle vient de déplacer se lisent
+    // dans la liste des activités.
+    montrerEcran('role');
+    await refreshDashboard();
+    if ((res.manques || []).length) toast(T('pal_tranche_ko'));
   }
 
 })();

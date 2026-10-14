@@ -177,8 +177,25 @@ def dashboard_rows(user_id, role_id):
     q = db.session.query(Activities).join(
         activity_roles, activity_roles.c.activity_id == Activities.id).filter(
         activity_roles.c.role_id == role_id)
+    actes = q.all()
+    # ⚠️ Une sortie MESURÉE n'écrit aucune `CompetencyEvaluation` : son niveau
+    # vient du palier tranché en séance. Sans ces dates, une activité qu'on
+    # vient d'évaluer s'affichait « jamais évaluée » à côté de son niveau tout
+    # neuf. Une seule requête pour toutes les activités du rôle.
+    from Code.models.models import PalierPerformance
+    dernier_palier = {}
+    if actes:
+        for p in PalierPerformance.query.filter(
+                PalierPerformance.user_id == user_id,
+                PalierPerformance.activity_id.in_([a.id for a in actes])).all():
+            if p.evalue_le is None:
+                continue
+            vu = dernier_palier.get(p.activity_id)
+            if vu is None or p.evalue_le > vu:
+                dernier_palier[p.activity_id] = p.evalue_le
+
     rows = []
-    for act in q.all():
+    for act in actes:
         st = activity_mastery(user_id, act.id, role_id)
         comp = Competency.query.filter_by(activity_id=act.id).first()
         # dernière validation Garant/Manager parmi les résultats de l'activité
@@ -187,6 +204,9 @@ def dashboard_rows(user_id, role_id):
                 user_id=user_id, activity_id=act.id, item_type=RESULT_ITEM_TYPE).all():
             if ev.eval_number in VALIDATING and ev.evaluated_at:
                 last = max(last, ev.evaluated_at) if last else ev.evaluated_at
+        pal = dernier_palier.get(act.id)
+        if pal and (last is None or pal > last):
+            last = pal
         try:
             from Code.routes.technical_domains import domain_status
             tech = domain_status(user_id, role_id, act.id)
