@@ -12,6 +12,10 @@
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- REQUÊTE 1 — OÙ SUIS-JE, ET QU'EST-CE QU'IL Y A DEDANS ? (lecture seule)
+--
+-- Relevez l'`id` de la carto à remplir : c'est lui qu'on donne au bloc, pas
+-- son nom. Deux cartos peuvent très bien s'appeler « test » et « TEST ADMIN
+-- Finance » — un fragment de nom ne les départage pas.
 -- ─────────────────────────────────────────────────────────────────────────
 SELECT current_database()                                   AS base,
        e.id                                                 AS carto_id,
@@ -21,6 +25,9 @@ SELECT current_database()                                   AS base,
        (SELECT count(*) FROM time_analysis t
           JOIN activities a ON a.id = t.activity_id
          WHERE a.entity_id = e.id AND t.type = 'activity')   AS deja_chiffrees,
+       (SELECT count(DISTINCT ar.role_id) FROM activity_roles ar
+          JOIN activities a ON a.id = ar.activity_id
+         WHERE a.entity_id = e.id)                          AS roles_lies,
        (SELECT count(*) FROM time_weakness w
           JOIN activities a ON a.id = w.activity_id
          WHERE a.entity_id = e.id)                          AS faiblesses,
@@ -33,9 +40,9 @@ ORDER BY e.id;
 -- ─────────────────────────────────────────────────────────────────────────
 -- REQUÊTE 2 — SEMER. Un seul bloc, atomique : s'il échoue, rien n'est écrit.
 --
---   • `carto_nom` : un fragment du nom suffit, mais il doit désigner UNE
---     seule carto — sinon le bloc s'arrête et vous le dit.
---   • `purger`    : à `true`, efface d'abord TOUTES les données Temps de
+--   • `carto_id` : l'identifiant relevé à la requête 1. Sans ambiguïté
+--     possible — c'est pour ça qu'on ne passe pas par le nom.
+--   • `purger`   : à `true`, efface d'abord TOUTES les données Temps de
 --     cette carto. À n'employer que sur une carto de mise au point.
 --
 -- ⚠️ Trois activités sur cinq seulement sont chiffrées, VOLONTAIREMENT : la
@@ -45,46 +52,45 @@ ORDER BY e.id;
 -- ─────────────────────────────────────────────────────────────────────────
 DO $$
 DECLARE
-  carto_nom  text    := 'test';     -- ←←← LE NOM DE LA CARTO
+  carto_id   int     := 2;          -- ←←← L'IDENTIFIANT DE LA CARTO
   purger     boolean := false;      -- ←←← true = on efface d'abord
-  eid        int;
-  combien    int;
+  carto_nom  text;
   n_act      int;
+  n_roles    int;
+  n_chif     int;
+  n_faib     int;
+  n_proj     int;
 BEGIN
-  -- 1. Retrouver la carto, et UNE SEULE.
-  SELECT count(*) INTO combien FROM entities e
-   WHERE lower(e.name) LIKE '%' || lower(carto_nom) || '%';
-  IF combien = 0 THEN
-    RAISE EXCEPTION 'Aucune carto ne contient « % » — lancez la requête 1.', carto_nom;
-  ELSIF combien > 1 THEN
-    RAISE EXCEPTION '% cartos contiennent « % » : précisez le nom.', combien, carto_nom;
+  -- 1. La carto existe-t-elle ?
+  SELECT e.name INTO carto_nom FROM entities e WHERE e.id = carto_id;
+  IF carto_nom IS NULL THEN
+    RAISE EXCEPTION 'Aucune carto #% dans cette base — lancez la requête 1.', carto_id;
   END IF;
-  SELECT e.id INTO eid FROM entities e
-   WHERE lower(e.name) LIKE '%' || lower(carto_nom) || '%';
 
-  SELECT count(*) INTO n_act FROM activities WHERE entity_id = eid;
+  SELECT count(*) INTO n_act FROM activities WHERE entity_id = carto_id;
   IF n_act = 0 THEN
-    RAISE EXCEPTION 'La carto #% n''a aucune activité : rien à semer.', eid;
+    RAISE EXCEPTION 'La carto #% (%) n''a aucune activité : rien à semer.',
+                    carto_id, carto_nom;
   END IF;
 
   -- 2. Purge éventuelle.
   IF purger THEN
     DELETE FROM time_weakness w USING activities a
-      WHERE a.id = w.activity_id AND a.entity_id = eid;
+      WHERE a.id = w.activity_id AND a.entity_id = carto_id;
     DELETE FROM time_analysis t USING activities a
-      WHERE a.id = t.activity_id AND a.entity_id = eid;
+      WHERE a.id = t.activity_id AND a.entity_id = carto_id;
     DELETE FROM time_role_analysis ra WHERE ra.id IN (
       SELECT DISTINCT rl.role_analysis_id FROM time_role_line rl
-        JOIN activities a ON a.id = rl.activity_id WHERE a.entity_id = eid);
-    DELETE FROM time_project WHERE entity_id = eid;
+        JOIN activities a ON a.id = rl.activity_id WHERE a.entity_id = carto_id);
+    DELETE FROM time_project WHERE entity_id = carto_id;
   END IF;
 
   -- 3. Le calendrier de travail. Sans lui la page lit son repli, et les
   --    heures annuelles ne correspondent à rien de réglé.
   INSERT INTO entreprise_settings
          (work_hours_per_day, work_days_per_week, work_weeks_per_year, entity_id)
-  SELECT 7, 5, 45, eid
-   WHERE NOT EXISTS (SELECT 1 FROM entreprise_settings s WHERE s.entity_id = eid);
+  SELECT 7, 5, 45, carto_id
+   WHERE NOT EXISTS (SELECT 1 FROM entreprise_settings s WHERE s.entity_id = carto_id);
 
   -- 4. Analyses d'activité : trois sur cinq, pas plus.
   INSERT INTO time_analysis
@@ -97,17 +103,18 @@ BEGIN
     FROM (SELECT a.id,
                  COALESCE(NULLIF(a.duration_minutes, 0), 60) AS duree,
                  (row_number() OVER (ORDER BY a.id))::int - 1 AS i
-            FROM activities a WHERE a.entity_id = eid) x
+            FROM activities a WHERE a.entity_id = carto_id) x
    WHERE x.i % 5 < 3;
 
-  -- 5. Analyses de rôle : les rôles qui portent vraiment des activités.
+  -- 5. Analyses de rôle. Seuil à UNE activité : sur une carto où chaque rôle
+  --    n'en porte qu'une, exiger deux ne produirait aucune barre « par rôle »
+  --    et la section resterait vide sans qu'on sache pourquoi.
   WITH vises AS (
     SELECT r.id, r.name
       FROM roles r
       JOIN activity_roles ar ON ar.role_id = r.id
-      JOIN activities a ON a.id = ar.activity_id AND a.entity_id = eid
+      JOIN activities a ON a.id = ar.activity_id AND a.entity_id = carto_id
      GROUP BY r.id, r.name
-    HAVING count(*) >= 2
      ORDER BY count(*) DESC
      LIMIT 4
   ), nouvelles AS (
@@ -121,7 +128,7 @@ BEGIN
            (row_number() OVER (PARTITION BY n.ra_id ORDER BY a.id))::int - 1 AS j
       FROM nouvelles n
       JOIN activity_roles ar ON ar.role_id = n.role_id
-      JOIN activities a ON a.id = ar.activity_id AND a.entity_id = eid
+      JOIN activities a ON a.id = ar.activity_id AND a.entity_id = carto_id
   )
   INSERT INTO time_role_line
          (role_analysis_id, activity_id, recurrence, frequency,
@@ -150,13 +157,13 @@ BEGIN
          ) AS p(k, libelle, rec, freq, denom, travail, attente)
     JOIN (SELECT a2.id, a2.duration_minutes, a2.delay_minutes,
                  (row_number() OVER (ORDER BY a2.id))::int AS rn
-            FROM activities a2 WHERE a2.entity_id = eid) a
+            FROM activities a2 WHERE a2.entity_id = carto_id) a
       ON a.rn = 1 + (p.k - 1) * GREATEST(1, n_act / 4);
 
   -- 7. Deux projets. Ponctuels : ils ne pèsent pas dans la charge annuelle.
   WITH projets AS (
     INSERT INTO time_project (name, entity_id, created_at)
-    SELECT v.titre, eid, now() - make_interval(days => v.k * 3)
+    SELECT v.titre, carto_id, now() - make_interval(days => v.k * 3)
       FROM (VALUES (1, 'Refonte du catalogue'),
                    (2, 'Campagne de renégociation')) AS v(k, titre)
     RETURNING id AS pid
@@ -171,14 +178,31 @@ BEGIN
     FROM ordonnes o
     JOIN (SELECT a2.id, a2.duration_minutes, a2.delay_minutes,
                  (row_number() OVER (ORDER BY a2.id))::int AS rn
-            FROM activities a2 WHERE a2.entity_id = eid) a
+            FROM activities a2 WHERE a2.entity_id = carto_id) a
       ON a.rn BETWEEN (o.k - 1) * 3 + 1 AND (o.k - 1) * 3 + 3;
 
-  RAISE NOTICE 'Carto #% (%) : semé sur % activités.', eid, carto_nom, n_act;
+  -- 8. Ce qui a vraiment été écrit — et non ce qu'on croit avoir écrit.
+  SELECT count(*) INTO n_chif FROM time_analysis t JOIN activities a
+    ON a.id = t.activity_id WHERE a.entity_id = carto_id AND t.type = 'activity';
+  SELECT count(DISTINCT ra.id) INTO n_roles FROM time_role_analysis ra
+    JOIN time_role_line rl ON rl.role_analysis_id = ra.id
+    JOIN activities a ON a.id = rl.activity_id WHERE a.entity_id = carto_id;
+  SELECT count(*) INTO n_faib FROM time_weakness w JOIN activities a
+    ON a.id = w.activity_id WHERE a.entity_id = carto_id;
+  SELECT count(*) INTO n_proj FROM time_project WHERE entity_id = carto_id;
+
+  RAISE NOTICE 'Carto #% « % » : % activités, dont % chiffrées (% laissées à '
+               'chiffrer, c''est voulu) · % analyses de rôle · % faiblesses · % projets.',
+               carto_id, carto_nom, n_act, n_chif, n_act - n_chif,
+               n_roles, n_faib, n_proj;
+  IF n_roles = 0 THEN
+    RAISE NOTICE 'Aucune analyse de rôle : cette carto n''a aucun rôle rattaché '
+                 'à ses activités. La section « Par rôle » restera vide.';
+  END IF;
 END $$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────
--- REQUÊTE 3 — contrôle : relancez la REQUÊTE 1, les compteurs doivent avoir
--- bougé sur la ligne de votre carto (et sur elle seule).
+-- REQUÊTE 3 — contrôle : relancez la REQUÊTE 1. Les compteurs doivent avoir
+-- bougé sur la ligne de VOTRE carto, et sur elle seule.
 -- ─────────────────────────────────────────────────────────────────────────
