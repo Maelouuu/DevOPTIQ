@@ -19,6 +19,10 @@
       danger: true });
 
   let currentActivityEditId = null;
+  /* Ce qu'on est en train de modifier : {type, id, nom}. Nul = on crée.
+     ⚠️ Sans ce repère, « Enregistrer » crée une analyse de plus au lieu de
+     remplacer celle qu'on vient d'ouvrir — et rien à l'écran ne le dit. */
+  let edition = null;
   let calendarParams = {hours_per_day:7, days_per_week:5, weeks_per_year:47};
 
   /* ─────────────────── Les trois ecrans de la page ───────────────────
@@ -40,8 +44,33 @@
   async function ouvrirAccueil(){
     ouvrirEcran('accueil');
     // On revient de la saisie : tout ce que l'accueil montre a pu bouger.
-    await Promise.all([chargerTableauDeBord(), refreshProjectList(),
-                       refreshActivityWorkloadList(), refreshRoleAnalyses()]);
+    await chargerTableauDeBord();
+  }
+
+  function majBandeauEdition(){
+    const b = $('#tm-mod');
+    if (!b) return;
+    b.classList.toggle('hidden', !edition);
+    if (edition) updateKpi('tm-mod-nom', edition.nom || tl('tm_mod', ''));
+  }
+
+  function sortirEdition(){
+    edition = null;
+    currentActivityEditId = null;
+    $('#act-editing')?.classList.add('hidden');
+    majBandeauEdition();
+  }
+
+  async function ouvrirPourModifier(type, id, nom){
+    edition = { type: type, id: id, nom: nom || '' };
+    ouvrirAnalyse(type);
+    let ok = false;
+    if (type === 'projet')    ok = await chargerProjet(id);
+    if (type === 'activite')  ok = await chargerActivite(id);
+    if (type === 'role')      ok = await chargerRole(id);
+    if (type === 'faiblesse') ok = await chargerFaiblesse(id);
+    if (!ok) { sortirEdition(); return; }
+    majBandeauEdition();
   }
 
   function ouvrirAnalyse(type, activityId){
@@ -72,6 +101,9 @@
     if (ic) ic.innerHTML = '<i class="fa-solid ' + a.ic + '"></i>';
     const ecran = $('#tm-travail');
     if (ecran) ecran.dataset.analyse = type;
+    // On n'hérite pas d'une modification commencée sur une AUTRE analyse.
+    if (edition && edition.type !== type) sortirEdition();
+    majBandeauEdition();
     ouvrirEcran('travail');
     // Le panneau de droite ne doit jamais s'ouvrir sur un chiffre perime.
     if (type === 'projet')    recalcProjectTotals();
@@ -86,7 +118,14 @@
      `#tm-travail` porte cet attribut (c'est lui qui teinte l'icone de la
      barre), on lui poserait un ecouteur qui le rouvrirait sur lui-meme. */
   $$('.tm-porte, .tm-rail-t').forEach(
-    b => b.addEventListener('click', () => ouvrirAnalyse(b.dataset.analyse)));
+    b => b.addEventListener('click', () => { sortirEdition(); ouvrirAnalyse(b.dataset.analyse); }));
+  $('#tm-mod-sortir')?.addEventListener('click', () => {
+    // Quitter la modification remet l'écran à neuf : garder la saisie
+    // laisserait croire qu'elle est encore rattachée à l'analyse ouverte.
+    const type = edition && edition.type;
+    sortirEdition();
+    if (type) viderSaisie(type);
+  });
   // ---------- Utils ----------
   function toMinutes(qty, unit){
     const k={minutes:1, heures:60, jours:1440};
@@ -293,7 +332,13 @@
       payload.duration_unit = v('#fw-dur-unit') || 'minutes';
     }
 
-    const r = await fetch('/temps/api/weakness', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    // ⚠️ Le calcul EN DIRECT (`discret`) ne modifie jamais : il interroge la
+    // route de création sans enregistrer. Seul « Enregistrer » met à jour.
+    const modif = save && edition && edition.type === 'faiblesse';
+    const r = await fetch(modif ? '/temps/api/weakness/' + edition.id : '/temps/api/weakness',
+                          {method: modif ? 'PUT' : 'POST',
+                           headers:{'Content-Type':'application/json'},
+                           body: JSON.stringify(payload)});
     const j = await r.json();
     if (!j.ok) { if (!discret) showFwFeedback(false, tl('error', 'Erreur')); return; }
 
@@ -325,7 +370,11 @@
     updateKpi('tm-fw-mois', fmtH((m['W'] || 0) + (m['X'] || 0)));
     updateKpi('tm-fw-occ',  m['AA'] != null ? Math.round(m['AA']) : '—');
 
-    if (save) showFwFeedback(true, 'Analyse faiblesse enregistrée avec succès');
+    if (save) {
+      if (modif) { edition.nom = payload.weakness; majBandeauEdition(); }
+      showFwFeedback(true, modif ? tl('tm_maj', '')
+                                 : 'Analyse faiblesse enregistrée avec succès');
+    }
   }
 
   $('#btn-fw-save')?.addEventListener('click', ()=> sendWeakness(true));
@@ -368,7 +417,7 @@
   }
   const intact = (champ) => !!champ && !champ.dataset.saisi;
 
-  function addProjectRow() {
+  function addProjectRow(pre) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="cell-act"></td>
@@ -378,7 +427,7 @@
       <td class="cell-deu"></td>
       <td><input type="number" min="1" step="1" class="input cell-nbp" value="1" /></td>
       <td class="cell-chg">0</td>
-      <td><button class="icon-btn danger btn-del" title="Supprimer">🗑</button></td>
+      <td><button class="icon-btn danger btn-del" title="${echap(tl('del_ok', 'Supprimer'))}">🗑</button></td>
     `;
     const act = activitySelectFromAll(); tr.querySelector('.cell-act').appendChild(act);
     const du = unitSelect(); tr.querySelector('.cell-du').appendChild(du);
@@ -398,7 +447,20 @@
     marqueSaisie(tr.querySelector('.cell-dur'));
     marqueSaisie(tr.querySelector('.cell-del'));
     act.onchange = prefillDefaults;
-    prefillDefaults();
+    if (pre) {
+      // Une ligne ENREGISTRÉE : ses valeurs priment sur celles de la fiche,
+      // donc on la marque saisie et on ne pré-remplit pas.
+      act.value = String(pre.activity_id);
+      const cD = tr.querySelector('.cell-dur'), cL = tr.querySelector('.cell-del');
+      cD.value = pre.duration_minutes; cD.dataset.saisi = '1'; du.value = 'minutes';
+      cL.value = pre.delay_minutes;    cL.dataset.saisi = '1'; deu.value = 'minutes';
+      tr.querySelector('.cell-nbp').value = pre.nb_people || 1;
+      // ⚠️ Le total lit `.cell-chg[data-minutes]`, que SEUL `recalc()` pose.
+      // Sans cet appel, un projet à 10,5 h se rouvre en affichant 0,0 h.
+      recalc();
+    } else {
+      prefillDefaults();
+    }
 
     function recalc(){
       const d = parseFloat(tr.querySelector('.cell-dur').value || '0');
@@ -450,156 +512,25 @@
       nb_people: parseInt(tr.querySelector('.cell-nbp').value || '1', 10)
     }));
     const payload = { name: $('#project-name').value || 'Projet', lines: rows };
-    const r = await fetch('/temps/api/project', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const modif = edition && edition.type === 'projet';
+    const r = await fetch(modif ? '/temps/api/project/' + edition.id : '/temps/api/project',
+                          {method: modif ? 'PUT' : 'POST',
+                           headers:{'Content-Type':'application/json'},
+                           body: JSON.stringify(payload)});
     const j = await r.json();
     if (j.ok) {
-      flashFeedback('proj-feedback', true, 'Projet enregistré avec succès');
-      projectBody.innerHTML = '';
-      $('#project-name').value = '';
-      await refreshProjectList();
-      addProjectRow(); recalcProjectTotals();
+      flashFeedback('proj-feedback', true,
+                    modif ? tl('tm_maj', '') : 'Projet enregistré avec succès');
+      if (modif) { edition.nom = payload.name; majBandeauEdition(); }
+      else {
+        projectBody.innerHTML = '';
+        $('#project-name').value = '';
+        addProjectRow(); recalcProjectTotals();
+      }
     } else {
       flashFeedback('proj-feedback', false, "Erreur d'enregistrement");
     }
   });
-
-  async function refreshProjectList(){
-    const list = $('#project-list');
-    if (!list) return;
-    list.innerHTML = `<div class="muted">${tl('loading', 'Chargement…')}</div>`;
-    const r = await fetch('/temps/api/projects');
-    const j = await r.json();
-    if (!j.ok) { list.innerHTML = `<div class="muted">${tl('load_error', 'Erreur de chargement')}</div>`; return; }
-    // L'API renvoie {items:[{line_count,total_*_minutes}]} ; l'ancien contrat
-    // ({projects:[{nb_activites,…}]}) est gardé en repli.
-    const projects = j.projects || j.items || [];
-    if (!projects.length) { list.innerHTML = `<div class="muted">${tl('no_project', 'Aucun projet enregistré.')}</div>`; return; }
-
-    list.innerHTML = projects.map(p => `
-      <div class="acc-item" data-id="${p.id}">
-        <div class="acc-head">
-          <div class="acc-title">
-            <b class="proj-name">${p.name || 'Sans titre'}</b>
-            <input class="proj-name-input hidden input" value="${(p.name || '').replace(/"/g,'&quot;')}" />
-            <span class="badge">${p.nb_activites ?? p.line_count ?? 0} ${tl('meta_acts', 'act.')}</span>
-            <span class="badge">${fmtH(p.charge_globale_minutes ?? p.total_charge_minutes ?? 0)}</span>
-          </div>
-          <div class="acc-meta">${tl('meta_duration', 'Durée')} ${fmtH(p.tot_duree_minutes ?? p.total_duration_minutes ?? 0)}</div>
-          <div class="acc-actions">
-            <button class="icon-btn edit-proj" title="Renommer">✎</button>
-            <button class="icon-btn success save-proj hidden" title="Enregistrer">✔</button>
-            <button class="icon-btn cancel-proj hidden" title="Annuler">✖</button>
-            <button class="icon-btn danger del-proj" title="Supprimer">🗑</button>
-          </div>
-          <div class="acc-toggle">▼</div>
-        </div>
-        <div class="acc-body"></div>
-      </div>
-    `).join('');
-
-    $$('#project-list .acc-item').forEach(item=>{
-      const id = item.dataset.id;
-      const head = item.querySelector('.acc-head');
-      const nameEl = item.querySelector('.proj-name');
-      const inputEl = item.querySelector('.proj-name-input');
-      const editBtn = item.querySelector('.edit-proj');
-      const saveBtn = item.querySelector('.save-proj');
-      const cancelBtn = item.querySelector('.cancel-proj');
-
-      function setEditing(on){
-        if (on){
-          inputEl.value = nameEl.textContent.trim();
-          nameEl.classList.add('hidden');
-          inputEl.classList.remove('hidden');
-          editBtn.classList.add('hidden');
-          saveBtn.classList.remove('hidden');
-          cancelBtn.classList.remove('hidden');
-          inputEl.focus(); inputEl.select();
-        } else {
-          nameEl.classList.remove('hidden');
-          inputEl.classList.add('hidden');
-          editBtn.classList.remove('hidden');
-          saveBtn.classList.add('hidden');
-          cancelBtn.classList.add('hidden');
-        }
-      }
-
-      editBtn.onclick = (e)=>{ e.stopPropagation(); setEditing(true); };
-      cancelBtn.onclick = (e)=>{ e.stopPropagation(); setEditing(false); };
-      saveBtn.onclick = async (e)=>{
-        e.stopPropagation();
-        const newName = inputEl.value.trim();
-        const r = await fetch(`/temps/api/project/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:newName})});
-        const j = await r.json();
-        if (j.ok) { nameEl.textContent = j.name; setEditing(false); }
-        else alert('Erreur de renommage');
-      };
-
-      head.onclick = async (ev)=>{
-        if (ev.target.closest('.acc-actions')) return;
-        const body = item.querySelector('.acc-body');
-        const opened = item.classList.toggle('open');
-        if (opened) {
-          const rr = await fetch(`/temps/api/project/${id}`);
-          const jj = await rr.json();
-          if (!jj.ok) { body.innerHTML = `<div class="muted">${tl('error', 'Erreur')}</div>`; return; }
-          const rows = jj.lines || [];
-          body.innerHTML = `
-            <div class="table-wrap">
-              <table class="grid">
-                <colgroup>
-                  <col class="col-activity"><col class="col-num"><col class="col-num"><col class="col-num-xs"><col class="col-num"><col class="col-actions">
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th>${tl('col_activity', 'Activité')}</th><th>${tl('col_duration_h', 'Durée (h)')}</th><th>${tl('col_delay_h', 'Délai (h)')}</th><th>${tl('col_count', 'Nb')}</th><th>${tl('col_load_h', 'Charge (h)')}</th><th>${tl('col_actions', 'Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows.map(r => `<tr data-line="${r.id}">
-                    <td>${r.activity}</td>
-                    <td>${fmtH(r.duration_minutes)}</td>
-                    <td>${fmtH(r.delay_minutes)}</td>
-                    <td>${r.nb_people}</td>
-                    <td>${fmtH(r.charge_minutes ?? r.charge ?? 0)}</td>
-                    <td><button class="icon-btn danger del-line" title="Supprimer la ligne">🗑</button></td>
-                  </tr>`).join('')}
-                </tbody>
-              </table>
-            </div>
-          `;
-          body.querySelectorAll('.del-line').forEach(btn=>{
-            btn.onclick = async ()=>{
-              const tr = btn.closest('tr');
-              const lineId = tr.dataset.line;
-              if (!(await confirmDel('del_project_line', 'Supprimer cette activité du projet ?'))) return;
-              const rr2 = await fetch(`/temps/api/project_line/${lineId}`, {method:'DELETE'});
-              const resp = await rr2.json();
-              if (resp.ok) {
-                if (resp.project_deleted) {
-                  item.remove();
-                  if (!$('#project-list').children.length) $('#project-list').innerHTML=`<div class="muted">${tl('no_project', 'Aucun projet enregistré.')}</div>`;
-                } else {
-                  item.classList.remove('open'); head.click();
-                }
-              } else alert('Suppression impossible');
-            };
-          });
-        }
-      };
-
-      item.querySelector('.del-proj').onclick = async (e)=>{
-        e.stopPropagation();
-        if (!(await confirmDel('del_project', 'Supprimer ce projet ?'))) return;
-        const r = await fetch(`/temps/api/project/${id}`, {method:'DELETE'});
-        const j = await r.json();
-        if (j.ok) {
-          item.remove();
-          if (!$('#project-list').children.length) $('#project-list').innerHTML=`<div class="muted">${tl('no_project', 'Aucun projet enregistré.')}</div>`;
-        } else alert('Erreur de suppression');
-      };
-    });
-  }
 
   // =====================================================
   // =================== CHARGES - ACTIVITÉ ==============
@@ -665,106 +596,13 @@
       flashFeedback('act-feedback', true, 'Analyse activité enregistrée.');
     }
 
-    $('#act-total').textContent = fmtH(j.total_minutes || 0);
-    currentActivityEditId = null;
-    $('#act-editing')?.classList.add('hidden');
-    await refreshActivityWorkloadList();
-    await refreshActivityDefaults();
+    majResultatActivite();
+    if (!(edition && edition.type === 'activite')) {
+      currentActivityEditId = null;
+      $('#act-editing')?.classList.add('hidden');
+      await refreshActivityDefaults();
+    }
   });
-
-  async function refreshActivityWorkloadList(){
-    const list = $('#activity-list');
-    if (!list) return;
-    list.innerHTML = `<div class="muted">${tl('loading', 'Chargement…')}</div>`;
-    const r = await fetch('/temps/api/activity_workloads');
-    const j = await r.json();
-    if (!j.ok) { list.innerHTML = `<div class="muted">${tl('load_error', 'Erreur de chargement')}</div>`; return; }
-    if (!j.items.length) { list.innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`; return; }
-
-    list.innerHTML = j.items.map(it => `
-      <div class="acc-item" data-id="${it.id}">
-        <div class="acc-head">
-          <div class="acc-title">
-            <b>${it.activity || 'Activité'}</b>
-            <span class="badge">${it.recurrence}</span>
-            <span class="badge">freq ${it.frequency}</span>
-            <span class="badge">nb ${it.nb_people}</span>
-          </div>
-          <div class="acc-meta">${tl('meta_duration', 'Durée')} ${fmtH(it.duration_minutes)} · ${tl('meta_total', 'Total')} ${fmtH(it.total_minutes)}</div>
-          <div class="acc-actions">
-            <button class="icon-btn edit-aw" title="Éditer">✎</button>
-            <button class="icon-btn danger del-aw" title="Supprimer">🗑</button>
-          </div>
-          <div class="acc-toggle">▼</div>
-        </div>
-        <div class="acc-body">
-          <div class="table-wrap">
-            <table class="grid">
-              <colgroup>
-                <col class="col-activity"><col class="col-num"><col class="col-rec"><col class="col-num-xs"><col class="col-num-xs"><col class="col-num"><col class="col-num">
-              </colgroup>
-              <thead>
-                <tr><th>${tl('col_activity', 'Activité')}</th><th>${tl('col_duration_h', 'Durée (h)')}</th><th>${tl('col_recurrence', 'Récurrence')}</th><th>${tl('col_frequency', 'Fréq.')}</th><th>${tl('col_count', 'Nb')}</th><th>${tl('col_total_h', 'Total (h)')}</th><th>${tl('col_delay_h', 'Délai (h)')}</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${it.activity || ''}</td>
-                  <td>${fmtH(it.duration_minutes)}</td>
-                  <td>${it.recurrence}</td>
-                  <td>${it.frequency}</td>
-                  <td>${it.nb_people}</td>
-                  <td>${fmtH(it.total_minutes)}</td>
-                  <td>${it.delay_minutes != null ? fmtH(it.delay_minutes) : '—'}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `).join('');
-
-    $$('#activity-list .acc-item').forEach(item=>{
-      const id = parseInt(item.dataset.id,10);
-
-      item.querySelector('.edit-aw').onclick = async (e)=>{
-        e.stopPropagation();
-        const r = await fetch(`/temps/api/activity_workload/${id}`);
-        const j = await r.json();
-        if (!j.ok) return alert('Erreur de chargement');
-        const it = j.item;
-        $('#act-activity').value = it.activity_id;
-        $('#act-duration').value = it.duration_minutes;
-        $('#act-duration-unit').value = 'minutes';
-        $('#act-recurrence').value = it.recurrence;
-        $('#act-frequency').value = it.frequency;
-        $('#act-people').value = it.nb_people;
-        $('#act-total').textContent = Math.round(it.total_minutes || 0);
-        currentActivityEditId = id;
-        $('#act-editing')?.classList.remove('hidden');
-        window.scrollTo({top: $('#subtab-activite').offsetTop - 60, behavior:'smooth'});
-      };
-
-      item.querySelector('.del-aw').onclick = async (e)=>{
-        e.stopPropagation();
-        if (!(await confirmDel('del_activity_analysis', 'Supprimer cette analyse activité ?'))) return;
-        const r = await fetch(`/temps/api/activity_workload/${id}`, {method:'DELETE'});
-        const j = await r.json();
-        if (j.ok) {
-          if (currentActivityEditId === id) {
-            currentActivityEditId = null;
-            $('#act-editing')?.classList.add('hidden');
-          }
-          await refreshActivityWorkloadList();
-        } else alert('Suppression impossible');
-      };
-
-      const head = item.querySelector('.acc-head');
-      head.onclick = (ev)=>{
-        if (ev.target.closest('.acc-actions')) return;
-        item.classList.toggle('open');
-      };
-    });
-  }
 
   // =====================================================
   // =================== CHARGES - RÔLE ==================
@@ -794,7 +632,7 @@
       <td class="r-rec"></td>
       <td><input type="number" min="1" step="1" class="input r-freq" value="1" /></td>
       <td class="r-weight">0</td>
-      <td class="r-actions"><button class="icon-btn danger r-del" title="Supprimer">🗑</button></td>
+      <td class="r-actions"><button class="icon-btn danger r-del" title="${echap(tl('del_ok', 'Supprimer'))}">🗑</button></td>
     `;
     const actSel = buildRoleActivitySelect();
     tr.querySelector('.r-act').appendChild(actSel);
@@ -819,7 +657,8 @@
     }
 
     marqueSaisie(tr.querySelector('.r-dur'));
-    if (!duration) prefillDuration();
+    // Même raison que pour le projet : la pesée vit dans `data-minutes`.
+    if (duration) recalc(); else prefillDuration();
 
     function recalc(){
       const durMin = parseFloat(tr.querySelector('.r-dur').value || '0');
@@ -862,13 +701,23 @@
     updateKpi('kpi-role-annual', fmtH(annual));
   }
 
+  /* Les OPTIONS du rôle, sans créer de ligne : rouvrir une analyse
+     enregistrée doit garder SES lignes, pas une par activité du rôle. */
+  async function chargerOptionsRole(roleId){
+    roleActivitiesOptions = [];
+    if (!roleId) return false;
+    try {
+      const j = await (await fetch(`/temps/api/role_activities/${roleId}`)).json();
+      if (!j.ok) return false;
+      roleActivitiesOptions = j.activities || [];
+      return true;
+    } catch (_) { return false; }
+  }
+
   async function loadRoleActivities(roleId){
     roleBody.innerHTML = '';
-    roleActivitiesOptions = [];
-    const r = await fetch(`/temps/api/role_activities/${roleId}`);
-    const j = await r.json();
-    if (!j.ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
-    roleActivitiesOptions = j.activities || [];
+    const ok = await chargerOptionsRole(roleId);
+    if (!ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
     if (!roleActivitiesOptions.length) {
       roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('role_no_activity', 'Aucune activité pour ce rôle.')}</td></tr>`;
       return;
@@ -896,149 +745,121 @@
       name: $('#role-name').value || 'Analyse rôle',
       lines
     };
-    const r = await fetch('/temps/api/role_analysis', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const modif = edition && edition.type === 'role';
+    const r = await fetch(modif ? '/temps/api/role_analysis/' + edition.id
+                                : '/temps/api/role_analysis',
+                          {method: modif ? 'PATCH' : 'POST',
+                           headers:{'Content-Type':'application/json'},
+                           body: JSON.stringify(payload)});
     const j = await r.json();
     if (j.ok){
-      flashFeedback('role-feedback', true, 'Analyse rôle enregistrée.');
-      $('#role-name').value='';
-      await refreshRoleAnalyses();
+      flashFeedback('role-feedback', true,
+                    modif ? tl('tm_maj', '') : 'Analyse rôle enregistrée.');
+      if (modif) { edition.nom = payload.name; majBandeauEdition(); }
+      else $('#role-name').value='';
     } else flashFeedback('role-feedback', false, "Erreur d'enregistrement");
   });
 
-  async function refreshRoleAnalyses(){
-    const list = $('#role-list');
-    if (!list) return;
-    list.innerHTML = `<div class="muted">${tl('loading', 'Chargement…')}</div>`;
-    const r = await fetch('/temps/api/role_analyses');
-    const j = await r.json();
-    if (!j.ok){ list.innerHTML = `<div class="muted">${tl('load_error', 'Erreur de chargement')}</div>`; return; }
-    if (!j.items.length){ list.innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`; return; }
+  // =====================================================
+  // =============== OUVRIR POUR MODIFIER ================
+  // =====================================================
+  function viderSaisie(type){
+    if (type === 'projet') {
+      $('#project-name').value = '';
+      if (projectBody) projectBody.innerHTML = '';
+      addProjectRow(); recalcProjectTotals();
+    }
+    if (type === 'activite') {
+      ['#act-duration'].forEach(x => { const c = $(x); if (c) delete c.dataset.saisi; });
+      $('#act-frequency').value = 1; $('#act-people').value = 1;
+      refreshActivityDefaults();
+    }
+    if (type === 'role') {
+      $('#role-name').value = '';
+      if ($('#role-select')?.value) loadRoleActivities($('#role-select').value);
+    }
+    if (type === 'faiblesse') {
+      $('#fw-k').value = '';
+      ['#fw-l', '#fw-m'].forEach(x => { const c = $(x); if (c) c.value = ''; });
+      $('#fw-n').value = 1; $('#fw-freq').value = 1;
+      ['#fw-dur', '#fw-del'].forEach(x => { const c = $(x); if (c) delete c.dataset.saisi; });
+      refreshWeaknessDefaults().then(() => calculFaiblesse());
+    }
+  }
 
-    list.innerHTML = j.items.map(it => `
-      <div class="acc-item" data-id="${it.id}">
-        <div class="acc-head">
-          <div class="acc-title">
-            <b class="role-name">${it.name || 'Analyse rôle'}</b>
-            <input class="role-name-input hidden input" value="${(it.name || '').replace(/"/g,'&quot;')}" />
-            <span class="badge">${echap(it.role)}</span>
-            <span class="badge">${tl('kpi_est_year', 'Annuel')} ${fmtH(it.annual_minutes)}</span>
-          </div>
-          <!-- ⚠️ Six chiffres bruts (« J:0.0h · H:1.13h · M:0.4h · A:0.0h ·
-               Mensuel:19.4h · Annuel:223.9h ») : le defaut meme que la refonte
-               corrige dans l'ecran de saisie. Le detail reste dans la fiche. -->
-          <div class="acc-meta">${tl('kpi_est_month', 'Mensuel')} ${fmtH(it.monthly_minutes)}</div>
-          <div class="acc-actions">
-            <button class="icon-btn edit-role" title="Renommer">✎</button>
-            <button class="icon-btn success save-role hidden" title="Enregistrer">✔</button>
-            <button class="icon-btn cancel-role hidden" title="Annuler">✖</button>
-            <button class="icon-btn danger del-role" title="Supprimer">🗑</button>
-          </div>
-          <div class="acc-toggle">▼</div>
-        </div>
-        <div class="acc-body"></div>
-      </div>
-    `).join('');
+  async function chargerProjet(id){
+    const j = await (await fetch('/temps/api/project/' + id)).json();
+    if (!j.ok) return false;
+    $('#project-name').value = (j.project || {}).name || '';
+    if (projectBody) projectBody.innerHTML = '';
+    (j.lines || []).forEach(l => addProjectRow(l));
+    recalcProjectTotals();
+    return true;
+  }
 
-    $$('#role-list .acc-item').forEach(item=>{
-      const id = item.dataset.id;
-      const head = item.querySelector('.acc-head');
-      const nameEl = item.querySelector('.role-name');
-      const inputEl = item.querySelector('.role-name-input');
-      const editBtn = item.querySelector('.edit-role');
-      const saveBtn = item.querySelector('.save-role');
-      const cancelBtn = item.querySelector('.cancel-role');
+  async function chargerActivite(id){
+    const j = await (await fetch('/temps/api/activity_workload/' + id)).json();
+    if (!j.ok) return false;
+    const it = j.item;
+    $('#act-activity').value = it.activity_id;
+    const d = $('#act-duration');
+    d.value = it.duration_minutes;
+    d.dataset.saisi = '1';          // la valeur enregistrée prime sur la fiche
+    $('#act-duration-unit').value = 'minutes';
+    $('#act-recurrence').value = it.recurrence;
+    $('#act-frequency').value = it.frequency;
+    $('#act-people').value = it.nb_people;
+    currentActivityEditId = id;
+    $('#act-editing')?.classList.remove('hidden');
+    majResultatActivite();
+    return true;
+  }
 
-      function setEditing(on){
-        if (on){
-          inputEl.value = nameEl.textContent.trim();
-          nameEl.classList.add('hidden');
-          inputEl.classList.remove('hidden');
-          editBtn.classList.add('hidden');
-          saveBtn.classList.remove('hidden');
-          cancelBtn.classList.remove('hidden');
-          inputEl.focus(); inputEl.select();
-        } else {
-          nameEl.classList.remove('hidden');
-          inputEl.classList.add('hidden');
-          editBtn.classList.remove('hidden');
-          saveBtn.classList.add('hidden');
-          cancelBtn.classList.add('hidden');
-        }
-      }
+  async function chargerRole(id){
+    const j = await (await fetch('/temps/api/role_analysis/' + id)).json();
+    if (!j.ok) return false;
+    const r = j.role || {};
+    if ($('#role-select') && r.role_id) $('#role-select').value = String(r.role_id);
+    $('#role-name').value = r.name || '';
+    // ⚠️ Les OPTIONS du rôle seulement : `loadRoleActivities` crée aussi une
+    // ligne par activité, ce qui écraserait les lignes enregistrées.
+    await chargerOptionsRole(r.role_id);
+    if (roleBody) roleBody.innerHTML = '';
+    (j.lines || []).forEach(l => addRoleRow(l.activity_id, l.duration_minutes,
+                                            'minutes', l.recurrence, l.frequency));
+    setTimeout(recalcRoleTotals, 0);
+    return true;
+  }
 
-      editBtn.onclick = (e)=>{ e.stopPropagation(); setEditing(true); };
-      cancelBtn.onclick = (e)=>{ e.stopPropagation(); setEditing(false); };
-      saveBtn.onclick = async (e)=>{
-        e.stopPropagation();
-        const newName = inputEl.value.trim();
-        const r = await fetch(`/temps/api/role_analysis/${id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name:newName})});
-        const j = await r.json();
-        if (j.ok) { nameEl.textContent = j.name; setEditing(false); }
-        else alert('Erreur de renommage');
-      };
-
-      head.onclick = async (ev)=>{
-        if (ev.target.closest('.acc-actions')) return;
-        const body = item.querySelector('.acc-body');
-        const opened = item.classList.toggle('open');
-        if (opened){
-          const rr = await fetch(`/temps/api/role_analysis/${id}`);
-          const jj = await rr.json();
-          if (!jj.ok){ body.innerHTML = `<div class="muted">${tl('error', 'Erreur')}</div>`; return; }
-          const rows = jj.lines || [];
-          body.innerHTML = `
-            <div class="table-wrap">
-              <table class="grid">
-                <colgroup>
-                  <col class="col-activity"><col class="col-num"><col class="col-rec"><col class="col-num-xs"><col class="col-num"><col class="col-actions">
-                </colgroup>
-                <thead>
-                  <tr><th>${tl('col_activity', 'Activité')}</th><th>${tl('col_duration_h', 'Durée (h)')}</th><th>${tl('col_recurrence', 'Récurrence')}</th><th>${tl('col_frequency', 'Fréq.')}</th><th>${tl('col_weighed_h', 'Pesée (h)')}</th><th>${tl('col_actions', 'Actions')}</th></tr>
-                </thead>
-                <tbody>
-                  ${rows.map(r => `<tr data-line="${r.id}">
-                    <td>${r.activity}</td>
-                    <td>${fmtH(r.duration_minutes)}</td>
-                    <td>${r.recurrence}</td>
-                    <td>${r.frequency}</td>
-                    <td>${fmtH(r.weight_minutes)}</td>
-                    <td><button class="icon-btn danger del-role-line" title="Supprimer la ligne">🗑</button></td>
-                  </tr>`).join('')}
-                </tbody>
-              </table>
-            </div>
-          `;
-          body.querySelectorAll('.del-role-line').forEach(btn=>{
-            btn.onclick = async ()=>{
-              const tr = btn.closest('tr');
-              const lineId = tr.dataset.line;
-              if (!(await confirmDel('del_role_line', "Supprimer cette activité de l'analyse ?"))) return;
-              const rr2 = await fetch(`/temps/api/role_line/${lineId}`, {method:'DELETE'});
-              const resp = await rr2.json();
-              if (resp.ok){
-                if (resp.analysis_deleted){
-                  item.remove();
-                  if (!$('#role-list').children.length) $('#role-list').innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`;
-                }else{
-                  item.classList.remove('open'); head.click();
-                }
-              }else alert('Suppression impossible');
-            };
-          });
-        }
-      };
-
-      item.querySelector('.del-role').onclick = async (e)=>{
-        e.stopPropagation();
-        if (!(await confirmDel('del_role_analysis', 'Supprimer cette analyse rôle ?'))) return;
-        const r = await fetch(`/temps/api/role_analysis/${id}`, {method:'DELETE'});
-        const j = await r.json();
-        if (j.ok){
-          item.remove();
-          if (!$('#role-list').children.length) $('#role-list').innerHTML = `<div class="muted">${tl('no_analysis', 'Aucune analyse enregistrée.')}</div>`;
-        }else alert('Suppression impossible');
-      };
+  async function chargerFaiblesse(id){
+    const j = await (await fetch('/temps/api/weakness/' + id)).json();
+    if (!j.ok) return false;
+    const it = j.item;
+    if ($('#fw-activity')) $('#fw-activity').value = String(it.activity_id);
+    const mode = $$('input[name="fw-mode"]').find(r => r.value === it.mode);
+    if (mode) { mode.checked = true; toggleFwMode(); }
+    await refreshWeaknessDefaults();
+    // APRÈS le pré-remplissage : c'est la valeur ENREGISTRÉE qui fait foi.
+    const poser = (sel, v) => { const c = $(sel); if (c) { c.value = v; c.dataset.saisi = '1'; } };
+    poser('#fw-dur', it.duration_std);
+    poser('#fw-del', it.delay_std);
+    if ($('#fw-dur-unit')) $('#fw-dur-unit').value = 'minutes';
+    if ($('#fw-del-unit')) $('#fw-del-unit').value = 'minutes';
+    $('#fw-rec').value = it.recurrence;
+    $('#fw-freq').value = it.frequency;
+    $('#fw-k').value = it.weakness;
+    $('#fw-n').value = it.N_prob_denom;
+    $('#fw-l').value = it.L_work_added; $('#fw-l-unit').value = 'minutes';
+    $('#fw-m').value = it.M_wait_added; $('#fw-m-unit').value = 'minutes';
+    (it.tasks || []).forEach(t => {
+      const tr = $('#fw-task-rows tr[data-task="' + t.task_id + '"]');
+      if (!tr) return;
+      tr.querySelector('.t-dur').value = t.duration_std;
+      tr.querySelector('.t-del').value = t.delay_std;
     });
+    recalcTaskSum();
+    calculFaiblesse();
+    return true;
   }
 
   // =====================================================
@@ -1075,7 +896,6 @@
   }
 
   function rendreFaiblesses(d){
-    const liste = $('#tm-faiblesse-list');
     const items = (d.faiblesses || {}).items || [];
     updateKpi('tm-faib', items.length ? Math.round((d.faiblesses.travail_min || 0) / 60) : '—');
 
@@ -1111,32 +931,113 @@
         </div>`).join('');
     }
 
-    if (!liste) return;
-    if (!items.length) { liste.innerHTML = `<div class="muted">${tl('tm_faib_aucune', '')}</div>`; return; }
-    liste.innerHTML = items.map(f => `
-      <div class="acc-item" data-id="${f.id}">
-        <div class="acc-head">
-          <div class="acc-title">
-            <b>${echap(f.nom || f.activite)}</b>
-            <span class="badge">${echap(f.activite)}</span>
-            <span class="badge">${fmtH(f.travail_annuel_min)}</span>
-          </div>
-          <div class="acc-meta">${Math.round(f.occurrences)} × ${echap(f.recurrence)}
-            · ${echap(tl('tm_faib_attente', ''))} ${fmtH(f.attente_annuelle_min)}</div>
-          <div class="acc-actions">
-            <button class="icon-btn danger del-fw" title="${echap(tl('del_ok', 'Supprimer'))}">🗑</button>
-          </div>
-        </div>
-      </div>`).join('');
-    $$('#tm-faiblesse-list .del-fw').forEach(b => {
-      b.onclick = async (e) => {
-        e.stopPropagation();
-        if (!(await confirmDel('del_faiblesse', 'Supprimer cette faiblesse ?'))) return;
-        const id = b.closest('.acc-item').dataset.id;
-        const r = await fetch(`/temps/api/weakness/${id}`, { method: 'DELETE' });
-        if ((await r.json()).ok) await chargerTableauDeBord();
-      };
+  }
+
+  /* ─────────────────── « Vos analyses » ───────────────────
+     Trois rendus séparés, chacun avec son accordéon, son renommage en place
+     et sa suppression ligne à ligne — et pourtant « on ne peut pas modifier
+     une analyse ». Un seul rendu désormais : des lignes denses, et un clic
+     qui ouvre l'analyse dans l'écran de saisie, où tout est modifiable par
+     construction. */
+  const LISTES = {
+    projet:    { cible: '#tm-l-projet',    suppr: (id) => '/temps/api/project/' + id,
+                 cle: 'del_project', defaut: 'Supprimer ce projet ?' },
+    activite:  { cible: '#tm-l-activite',  suppr: (id) => '/temps/api/activity_workload/' + id,
+                 cle: 'del_activity_analysis', defaut: 'Supprimer cette analyse ?' },
+    role:      { cible: '#tm-l-role',      suppr: (id) => '/temps/api/role_analysis/' + id,
+                 cle: 'del_role_analysis', defaut: 'Supprimer cette analyse ?' },
+    faiblesse: { cible: '#tm-l-faiblesse', suppr: (id) => '/temps/api/weakness/' + id,
+                 cle: 'del_faiblesse', defaut: 'Supprimer cette faiblesse ?' }
+  };
+
+  const MEMO_GRP = 'optiq.temps.groupes';
+
+  function groupesOuverts(){
+    try { return JSON.parse(localStorage.getItem(MEMO_GRP) || '[]'); }
+    catch (_) { return []; }   // navigateur qui refuse le stockage
+  }
+  function memoriserGroupes(ouverts){
+    try { localStorage.setItem(MEMO_GRP, JSON.stringify(ouverts)); } catch (_) {}
+  }
+  function appliquerGroupes(){
+    const ouverts = groupesOuverts();
+    $$('.tm-grp').forEach(g => g.classList.toggle('is-ouvert',
+                                                  ouverts.indexOf(g.dataset.grp) >= 0));
+  }
+  $$('.tm-grp-tete').forEach(b => b.addEventListener('click', () => {
+    const g = b.closest('.tm-grp');
+    const ouvert = g.classList.toggle('is-ouvert');
+    const liste = groupesOuverts().filter(x => x !== g.dataset.grp);
+    if (ouvert) liste.push(g.dataset.grp);
+    memoriserGroupes(liste);
+  }));
+
+  function lignesDepuis(d){
+    const acts = (n) => fmtPhrase('tm_acts', '{n} act.', { n: n });
+    return {
+      projet: (d.projets || []).map(p => ({
+        id: p.id, nom: p.nom || tl('tab_project', 'Projet'),
+        chips: [acts(p.n_activites)], val: fmtH(p.charge_min) })),
+      activite: (d.par_activite || []).map(a => ({
+        id: a.id, nom: a.activite,
+        chips: [a.recurrence, '× ' + a.frequence], val: fmtH(a.annuel_min) })),
+      role: (d.par_role || []).map(r => ({
+        id: r.id, nom: r.nom || r.role,
+        chips: [r.role, acts(r.n_activites)], val: fmtH(r.annuel_min) })),
+      faiblesse: ((d.faiblesses || {}).items || []).map(f => ({
+        id: f.id, nom: f.nom || f.activite,
+        chips: [f.activite], val: fmtH(f.travail_annuel_min) }))
+    };
+  }
+
+  function rendreAnalyses(d){
+    const paquets = lignesDepuis(d);
+    Object.keys(LISTES).forEach(type => {
+      const items = paquets[type] || [];
+      updateKpi('tm-g-n-' + type, items.length);
+      const cible = $(LISTES[type].cible);
+      if (!cible) return;
+      cible.innerHTML = items.length
+        ? items.map(it => `
+            <div class="tm-ligne" tabindex="0" role="button"
+                 data-type="${type}" data-id="${it.id}" title="${echap(it.nom)}">
+              <span class="tm-ligne-nom">${echap(it.nom)}</span>
+              <span class="tm-ligne-chips">${it.chips.filter(Boolean)
+                  .map(c => `<em>${echap(c)}</em>`).join('')}</span>
+              <span class="tm-ligne-val">${it.val}</span>
+              <button type="button" class="tm-ligne-x"
+                      title="${echap(tl('del_ok', 'Supprimer'))}">
+                <i class="fa-solid fa-trash"></i></button>
+            </div>`).join('')
+        : `<div class="tm-grp-vide">${echap(tl('tm_vide_grp', ''))}</div>`;
+
+      $$('.tm-ligne', cible).forEach(l => {
+        const ouvrir = () => ouvrirPourModifier(l.dataset.type,
+                                                parseInt(l.dataset.id, 10),
+                                                l.querySelector('.tm-ligne-nom').textContent);
+        l.addEventListener('click', (e) => {
+          if (e.target.closest('.tm-ligne-x')) return;
+          ouvrir();
+        });
+        // Au clavier : une ligne qui s'ouvre au clic doit s'ouvrir à Entrée.
+        l.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrir(); }
+        });
+        l.querySelector('.tm-ligne-x').onclick = async (e) => {
+          e.stopPropagation();
+          const cfg = LISTES[l.dataset.type];
+          if (!(await confirmDel(cfg.cle, cfg.defaut))) return;
+          const r = await fetch(cfg.suppr(l.dataset.id), { method: 'DELETE' });
+          if ((await r.json()).ok) {
+            // On quitte la modification si c'est CELLE-LÀ qu'on supprimait.
+            if (edition && edition.type === l.dataset.type
+                && String(edition.id) === l.dataset.id) sortirEdition();
+            await chargerTableauDeBord();
+          }
+        };
+      });
     });
+    appliquerGroupes();
   }
 
   async function chargerTableauDeBord(){
@@ -1170,6 +1071,7 @@
     }
 
     rendreFaiblesses(d);
+    rendreAnalyses(d);
 
     // — Couverture
     const couv = d.couverture || { chiffrees: 0, total: 0 };
@@ -1255,8 +1157,6 @@
     }
 
     await chargerTableauDeBord();
-    await refreshProjectList();
-    await refreshActivityWorkloadList();
 
     // Prefill bloc Activité
     if ($('#act-activity') && $('#act-activity').value) {
@@ -1277,7 +1177,6 @@
       await loadRoleActivities($('#role-select').value);
       setTimeout(recalcRoleTotals, 0);
     }
-    await refreshRoleAnalyses();
   })();
 
 })();

@@ -10,33 +10,15 @@
                        minutes: {{ t('time.unit_minutes')|tojson }},
                        hours:   {{ t('time.unit_hours')|tojson }},
                        days:    {{ t('time.unit_days')|tojson }},
-                       col_activity:  {{ t('time.col_activity')|tojson }},
-                       col_duration_h: {{ t('time.col_duration_h')|tojson }},
-                       col_delay_h:   {{ t('time.col_delay_h')|tojson }},
-                       col_count:     {{ t('time.col_count')|tojson }},
-                       col_load_h:    {{ t('time.col_load_h')|tojson }},
-                       col_actions:   {{ t('time.col_actions')|tojson }},
-                       col_recurrence: {{ t('time.col_recurrence')|tojson }},
-                       col_frequency: {{ t('time.col_frequency')|tojson }},
-                       col_total_h:   {{ t('time.col_total_h')|tojson }},
-                       col_weighed_h: {{ t('time.col_weighed_h')|tojson }},
-                       loading:       {{ t('time.loading')|tojson }},
                        load_error:    {{ t('time.load_error')|tojson }},
                        role_no_activity: {{ t('time.role_no_activity')|tojson }},
                        error:         {{ t('time.error')|tojson }},
-                       no_project:    {{ t('time.no_project')|tojson }},
-                       no_analysis:   {{ t('time.no_analysis')|tojson }},
-                       meta_duration: {{ t('time.meta_duration')|tojson }},
-                       meta_total:    {{ t('time.meta_total')|tojson }},
-                       meta_acts:     {{ t('time.meta_acts')|tojson }},
                        del_title:     {{ t('time.del_title')|tojson }},
                        del_ok:        {{ t('time.del_ok')|tojson }},
                        del_cancel:    {{ t('btn.cancel')|tojson }},
                        del_project:   {{ t('time.del_project')|tojson }},
-                       del_project_line: {{ t('time.del_project_line')|tojson }},
                        del_activity_analysis: {{ t('time.del_activity_analysis')|tojson }},
                        del_role_analysis: {{ t('time.del_role_analysis')|tojson }},
-                       del_role_line: {{ t('time.del_role_line')|tojson }},
                        del_faiblesse: {{ t('time.tm_del_faiblesse')|tojson }},
                        fw_base_mois:  {{ t('time.fw_base_mois')|tojson }},
                        tab_project:   {{ t('time.tab_project')|tojson }},
@@ -44,18 +26,21 @@
                        tab_role:      {{ t('time.tab_role')|tojson }},
                        tab_weakness:  {{ t('time.tab_weakness')|tojson }},
                        tm_base:       {{ t('time.tm_base')|tojson }},
-                       tm_etp:        {{ t('time.tm_etp')|tojson }},
-                       tm_etp_pl:     {{ t('time.tm_etp_pl')|tojson }},
                        tm_rien_mesure: {{ t('time.tm_rien_mesure')|tojson }},
                        tm_faib_part:  {{ t('time.tm_faib_part')|tojson }},
-                       tm_faib_n:     {{ t('time.tm_faib_n')|tojson }},
-                       tm_faib_n_pl:  {{ t('time.tm_faib_n_pl')|tojson }},
                        tm_faib_aucune: {{ t('time.tm_faib_aucune')|tojson }},
                        tm_faib_attente: {{ t('time.tm_faib_attente')|tojson }},
                        tm_faib_attente_dit: {{ t('time.tm_faib_attente_dit')|tojson }},
-                       kpi_est_year:  {{ t('time.kpi_est_year')|tojson }},
-                       kpi_est_month: {{ t('time.kpi_est_month')|tojson }},
                        tm_couv_sur:   {{ t('time.tm_couv_sur')|tojson }},
+                       {# ⚠️ Ces six-là sont choisies par un TERNAIRE dans le
+                          JS (singulier / pluriel, « rien » / « une » / « n ») :
+                          un nettoyage qui ne cherche que `fmtPhrase('cle'` les
+                          croit mortes et les retire. L'écran afficherait alors
+                          la clé brute, sans la moindre erreur. #}
+                       tm_etp:        {{ t('time.tm_etp')|tojson }},
+                       tm_etp_pl:     {{ t('time.tm_etp_pl')|tojson }},
+                       tm_faib_n:     {{ t('time.tm_faib_n')|tojson }},
+                       tm_faib_n_pl:  {{ t('time.tm_faib_n_pl')|tojson }},
                        tm_couv_base:  {{ t('time.tm_couv_base')|tojson }},
                        tm_couv_base_une: {{ t('time.tm_couv_base_une')|tojson }},
                        tm_couv_tout:  {{ t('time.tm_couv_tout')|tojson }},
@@ -65,7 +50,10 @@
                        tm_repere_plein: {{ t('time.tm_repere_plein')|tojson }},
                        tm_vide_role:  {{ t('time.tm_vide_role')|tojson }},
                        tm_vide_act:   {{ t('time.tm_vide_act')|tojson }},
-                       tm_res_vide:   {{ t('time.tm_res_vide')|tojson }} };
+                       tm_mod:        {{ t('time.tm_mod')|tojson }},
+                       tm_maj:        {{ t('time.tm_maj')|tojson }},
+                       tm_vide_grp:   {{ t('time.tm_vide_grp')|tojson }},
+                       tm_acts:       {{ t('time.tm_acts')|tojson }}};
 </script>
 <!-- ⚠️ AVANT time.js : c'est lui qui fournit optiqConfirm. `header_buttons`
      ne charge pas ce script, d'où les pop-up du navigateur sur cette page. -->
@@ -92,11 +80,13 @@
         <div class="tm-base" id="tm-base"></div>
       </div>
       <div class="tm-entete-actions">
-        <a class="btn" href="/gestion_rh/">
-          <i class="fa-solid fa-calendar-days"></i> {{ t('time.tm_calendrier') }}
+        <a class="tm-b tm-b--doux" href="/gestion_rh/">
+          <span class="tm-b-ic"><i class="fa-solid fa-calendar-days"></i></span>
+          {{ t('time.tm_calendrier') }}
         </a>
-        <button id="tm-btn-nouvelle" class="btn success">
-          <i class="fa-solid fa-plus"></i> {{ t('time.tm_nouvelle') }}
+        <button id="tm-btn-nouvelle" type="button" class="tm-b tm-b--prim">
+          <span class="tm-b-ic"><i class="fa-solid fa-plus"></i></span>
+          {{ t('time.tm_nouvelle') }}
         </button>
       </div>
     </div>
@@ -202,21 +192,48 @@
         </button>
       </div>
 
-      <div class="tm-groupe">
-        <div class="tm-groupe-titre tm-g-projet">{{ t('time.tm_grp_projets') }}</div>
-        <div id="project-list" class="accordion"></div>
+      <!-- ⚠️ REPLIABLES, et fermées au départ. Avec de vraies données la
+           liste atteignait dix-huit lignes empilées : on défilait sur neuf
+           cents pixels pour trouver une analyse. Le compte dans l'en-tête
+           suffit à savoir s'il y a quelque chose à ouvrir. -->
+      <div class="tm-grp" data-grp="projet">
+        <button type="button" class="tm-grp-tete" data-plier="projet">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-projet"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_projets') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-projet">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-projet"></div>
       </div>
-      <div class="tm-groupe">
-        <div class="tm-groupe-titre tm-g-activite">{{ t('time.tm_grp_activites') }}</div>
-        <div id="activity-list" class="accordion"></div>
+
+      <div class="tm-grp" data-grp="activite">
+        <button type="button" class="tm-grp-tete" data-plier="activite">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-activite"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_activites') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-activite">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-activite"></div>
       </div>
-      <div class="tm-groupe">
-        <div class="tm-groupe-titre tm-g-role">{{ t('time.tm_grp_roles') }}</div>
-        <div id="role-list" class="accordion"></div>
+
+      <div class="tm-grp" data-grp="role">
+        <button type="button" class="tm-grp-tete" data-plier="role">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-role"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_roles') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-role">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-role"></div>
       </div>
-      <div class="tm-groupe">
-        <div class="tm-groupe-titre tm-g-faiblesse">{{ t('time.tm_grp_faiblesses') }}</div>
-        <div id="tm-faiblesse-list" class="accordion"></div>
+
+      <div class="tm-grp" data-grp="faiblesse">
+        <button type="button" class="tm-grp-tete" data-plier="faiblesse">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-faiblesse"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_faiblesses') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-faiblesse">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-faiblesse"></div>
       </div>
     </div>
   </section>
@@ -272,6 +289,15 @@
       </button>
       <span class="tm-barre-ic" id="tm-barre-ic"></span>
       <h2 class="tm-barre-titre" id="tm-barre-titre"></h2>
+      <!-- ⚠️ Sans ce repère on ne sait pas si « Enregistrer » va créer une
+           analyse de plus ou remplacer celle qu'on vient d'ouvrir. -->
+      <span class="tm-mod hidden" id="tm-mod">
+        <i class="fa-solid fa-pen"></i>
+        <span id="tm-mod-nom"></span>
+        <button type="button" id="tm-mod-sortir" title="{{ t('time.tm_mod_sortir') }}">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </span>
     </div>
 
     <div class="tm-cols">

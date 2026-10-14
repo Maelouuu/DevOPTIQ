@@ -6,6 +6,8 @@ import sys
 import tempfile
 import zipfile
 
+import pytest
+
 NS = "http://schemas.microsoft.com/office/visio/2012/main"
 MODULE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -23,6 +25,14 @@ PAGE_OK = f"""<PageContents xmlns="{NS}">
     <Connect FromSheet="3" FromCell="EndX" ToSheet="2"/>
   </Connects>
 </PageContents>"""
+
+
+# ⚠️ Le CLI s'exécute depuis la SOURCE (`runpy.run_path`), et l'arbre d'image
+# est compilé en bytecode : les `.py` y sont supprimés. Sans cette garde les
+# trois cas rougissaient à chaque exécution sur l'instance.
+pytestmark = pytest.mark.skipif(
+    not os.path.exists(MODULE_PATH),
+    reason="source Python absente (arbre bytecode-only) : le CLI n'y est pas lançable")
 
 
 def _vsdx(pages):

@@ -56,8 +56,8 @@ class TestLaPageOuvreSurCeQuOnSait:
         voyait qu'en entrant dans la saisie."""
         g = _lire("Code/routes/templates/time_dashboard.html")
         accueil = g[g.index('id="tm-accueil"'):g.index('id="tm-choix"')]
-        for cible in ('id="project-list"', 'id="activity-list"',
-                      'id="role-list"', 'id="tm-faiblesse-list"'):
+        for cible in ('id="tm-l-projet"', 'id="tm-l-activite"',
+                      'id="tm-l-role"', 'id="tm-l-faiblesse"'):
             assert cible in accueil, cible
 
 
@@ -510,3 +510,257 @@ class TestLaCarteDiLeQuiManque:
         for cle in ("time.tm_couv_base", "time.tm_couv_base_une"):
             phrase = t(cle, lang=lang).lower()
             assert "ci-contre" not in phrase and "opposite" not in phrase, (cle, phrase)
+
+
+_N_ROLE_105 = [0]
+
+
+@pytest.fixture
+def role_jetable():
+    """Un rôle à soi. ⚠️ Les rôles sont COMMUNS à l'entreprise : un nom fixe
+    entre en collision avec celui d'un autre fichier de tests."""
+    from Code.models.models import Entity, Role
+    _N_ROLE_105[0] += 1
+    r = Role(name="TM-105-role-%d" % _N_ROLE_105[0],
+             entity_id=Entity.query.first().id)
+    db.session.add(r)
+    db.session.commit()
+    rid = r.id
+    yield rid
+    obj = db.session.get(Role, rid)
+    if obj is not None:
+        db.session.delete(obj)
+        db.session.commit()
+
+
+class TestOuvrirUneAnalysePourLaModifier:
+    """« Lorsque l'on clique sur une analyse, on ne peut y apporter de
+    modifications, il faut pouvoir. De plus on peut supprimer une analyse mais
+    pas à l'intérieur de celle-ci un élément : cela oblige, si erreur, à
+    supprimer l'analyse et refaire au complet. »
+
+    Exact, et pour trois des quatre types : seule l'analyse d'ACTIVITÉ avait
+    un `PATCH`. Le projet ne savait que se renommer, le rôle non plus, et la
+    faiblesse ne se relisait même pas.
+    """
+
+    def test_un_projet_se_modifie_SANS_se_dupliquer(self, auth_client, ids):
+        r = auth_client.post("/temps/api/project", json={
+            "name": "TM-PROJ-105", "lines": [
+                {"activity_id": ids["activity_id"], "duration": 30,
+                 "duration_unit": "minutes", "delay": 0, "delay_unit": "minutes",
+                 "nb_people": 1}]})
+        pid = json.loads(r.data)["project_id"]
+        combien = lambda: len(json.loads(
+            auth_client.get("/temps/api/projects").data)["items"])
+        avant = combien()
+        try:
+            r = auth_client.put("/temps/api/project/%d" % pid, json={
+                "name": "TM-PROJ-105 corrigé", "lines": [
+                    {"activity_id": ids["activity_id"], "duration": 120,
+                     "duration_unit": "minutes", "delay": 0,
+                     "delay_unit": "minutes", "nb_people": 2}]})
+            assert r.status_code == 200, r.data
+            d = json.loads(auth_client.get("/temps/api/project/%d" % pid).data)
+            assert d["project"]["name"] == "TM-PROJ-105 corrigé"
+            assert len(d["lines"]) == 1
+            assert d["lines"][0]["duration_minutes"] == 120
+            assert d["lines"][0]["nb_people"] == 2
+            assert combien() == avant, "le projet a été dupliqué"
+        finally:
+            auth_client.delete("/temps/api/project/%d" % pid)
+
+    def test_retirer_une_ligne_ne_supprime_pas_l_analyse(self, auth_client, ids):
+        """Le cœur du reproche : corriger une erreur ne doit pas obliger à
+        tout refaire."""
+        r = auth_client.post("/temps/api/project", json={
+            "name": "TM-PROJ-105b", "lines": [
+                {"activity_id": ids["activity_id"], "duration": 30,
+                 "duration_unit": "minutes", "nb_people": 1},
+                {"activity_id": ids["activity_id"], "duration": 60,
+                 "duration_unit": "minutes", "nb_people": 1}]})
+        pid = json.loads(r.data)["project_id"]
+        try:
+            auth_client.put("/temps/api/project/%d" % pid, json={
+                "name": "TM-PROJ-105b", "lines": [
+                    {"activity_id": ids["activity_id"], "duration": 30,
+                     "duration_unit": "minutes", "nb_people": 1}]})
+            d = json.loads(auth_client.get("/temps/api/project/%d" % pid).data)
+            assert d["ok"] and len(d["lines"]) == 1
+        finally:
+            auth_client.delete("/temps/api/project/%d" % pid)
+
+    def test_un_role_se_modifie_lignes_comprises(self, auth_client, ids, role_jetable):
+        r = auth_client.post("/temps/api/role_analysis", json={
+            "role_id": role_jetable, "name": "TM-ROLE-105",
+            "lines": [{"activity_id": ids["activity_id"], "duration": 30,
+                       "recurrence": "journalier", "frequency": 1}]})
+        rid = json.loads(r.data)["id"]
+        try:
+            r = auth_client.patch("/temps/api/role_analysis/%d" % rid, json={
+                "name": "TM-ROLE-105 corrigé",
+                "lines": [{"activity_id": ids["activity_id"], "duration": 90,
+                           "recurrence": "mensuel", "frequency": 2}]})
+            assert r.status_code == 200, r.data
+            d = json.loads(auth_client.get("/temps/api/role_analysis/%d" % rid).data)
+            assert d["role"]["name"] == "TM-ROLE-105 corrigé"
+            assert len(d["lines"]) == 1
+            assert d["lines"][0]["duration_minutes"] == 90
+            assert d["lines"][0]["recurrence"] == "mensuel"
+            assert d["lines"][0]["frequency"] == 2
+        finally:
+            auth_client.delete("/temps/api/role_analysis/%d" % rid)
+
+    def test_renommer_un_role_SANS_toucher_a_ses_lignes(self, auth_client, ids,
+                                                        role_jetable):
+        """⚠️ `lines` absent ne doit RIEN toucher : le renommage en place
+        existait avant, il ne doit pas se mettre à vider l'analyse."""
+        r = auth_client.post("/temps/api/role_analysis", json={
+            "role_id": role_jetable, "name": "TM-ROLE-105c",
+            "lines": [{"activity_id": ids["activity_id"], "duration": 30,
+                       "recurrence": "journalier", "frequency": 1}]})
+        rid = json.loads(r.data)["id"]
+        try:
+            auth_client.patch("/temps/api/role_analysis/%d" % rid,
+                              json={"name": "TM-ROLE-105c bis"})
+            d = json.loads(auth_client.get("/temps/api/role_analysis/%d" % rid).data)
+            assert d["role"]["name"] == "TM-ROLE-105c bis"
+            assert len(d["lines"]) == 1, d["lines"]
+        finally:
+            auth_client.delete("/temps/api/role_analysis/%d" % rid)
+
+    def test_une_faiblesse_se_relit_avec_ses_parametres(self, auth_client, ids):
+        """Elle ne se relisait pas du tout : aucune route ne la rendait."""
+        auth_client.post("/temps/api/weakness", json={
+            "mode": "activity", "activity_id": ids["activity_id"],
+            "recurrence": "hebdomadaire", "frequency": 2,
+            "duration_std": 60, "duration_unit": "minutes",
+            "delay_std": 30, "delay_unit": "minutes",
+            "L_work_added": 45, "L_unit": "minutes",
+            "M_wait_added": 120, "M_unit": "minutes",
+            "N_prob_denom": 3, "weakness": "TM-FW-105", "save": True})
+        from Code.models.models import TimeWeakness
+        w = TimeWeakness.query.filter_by(weakness="TM-FW-105").first()
+        try:
+            d = json.loads(auth_client.get("/temps/api/weakness/%d" % w.id).data)
+            it = d["item"]
+            assert it["weakness"] == "TM-FW-105"
+            assert it["recurrence"] == "hebdomadaire" and it["frequency"] == 2
+            assert it["duration_std"] == 60 and it["delay_std"] == 30
+            assert it["L_work_added"] == 45 and it["M_wait_added"] == 120
+            assert it["N_prob_denom"] == 3
+            assert it["mode"] == "activity"
+            assert "calc" in d and d["calc"]["U"] > 0
+        finally:
+            auth_client.delete("/temps/api/weakness/%d" % w.id)
+
+    def test_une_faiblesse_se_modifie_et_garde_son_identifiant(self, auth_client, ids):
+        """⚠️ Son id ne bouge pas : l'écran qui vient de l'ouvrir la retrouve
+        au même endroit, et la liste ne se met pas à montrer un doublon."""
+        from Code.models.models import TimeWeakness
+        auth_client.post("/temps/api/weakness", json={
+            "mode": "activity", "activity_id": ids["activity_id"],
+            "recurrence": "hebdomadaire", "frequency": 1,
+            "duration_std": 60, "duration_unit": "minutes",
+            "delay_std": 0, "delay_unit": "minutes",
+            "L_work_added": 30, "L_unit": "minutes",
+            "M_wait_added": 0, "M_unit": "minutes",
+            "N_prob_denom": 2, "weakness": "TM-FW-105b", "save": True})
+        w = TimeWeakness.query.filter_by(weakness="TM-FW-105b").first()
+        wid = w.id
+        try:
+            r = auth_client.put("/temps/api/weakness/%d" % wid, json={
+                "mode": "activity", "activity_id": ids["activity_id"],
+                "recurrence": "mensuel", "frequency": 1,
+                "duration_std": 60, "duration_unit": "minutes",
+                "delay_std": 0, "delay_unit": "minutes",
+                "L_work_added": 90, "L_unit": "minutes",
+                "M_wait_added": 0, "M_unit": "minutes",
+                "N_prob_denom": 2, "weakness": "TM-FW-105b corrigé"})
+            assert r.status_code == 200, r.data
+            assert json.loads(r.data)["id"] == wid
+            d = json.loads(auth_client.get("/temps/api/weakness/%d" % wid).data)["item"]
+            assert d["weakness"] == "TM-FW-105b corrigé"
+            assert d["L_work_added"] == 90 and d["recurrence"] == "mensuel"
+            assert TimeWeakness.query.filter(
+                TimeWeakness.weakness.like("TM-FW-105b%")).count() == 1
+        finally:
+            for x in TimeWeakness.query.filter(
+                    TimeWeakness.weakness.like("TM-FW-105b%")).all():
+                db.session.delete(x)
+            db.session.commit()
+
+    def test_l_ecran_sait_qu_il_MODIFIE(self):
+        """Sans ce repère on ne sait pas si « Enregistrer » crée une analyse
+        de plus ou remplace celle qu'on vient d'ouvrir."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert 'id="tm-mod"' in g and 'id="tm-mod-sortir"' in g
+        js = _lire("static/js/time.js")
+        assert "let edition = null;" in js
+        assert "function ouvrirPourModifier" in js
+        for appel in ("chargerProjet", "chargerActivite", "chargerRole", "chargerFaiblesse"):
+            assert ("function %s" % appel) in js, appel
+
+    def test_une_ligne_CHARGEE_est_recalculee(self):
+        """⚠️ Relevé au banc : un projet enregistré à 10,5 h se rouvrait en
+        affichant « 0.0h ». Les durées étaient justes — mais le total lit
+        `.cell-chg[data-minutes]`, que SEUL `recalc()` renseigne, et il
+        n'était appelé que par le pré-remplissage."""
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("function addProjectRow"):][:2600]
+        assert "recalc();\n    } else {" in bloc, bloc[-700:]
+        role = js[js.index("function addRoleRow"):][:2200]
+        assert "if (duration) recalc(); else prefillDuration();" in role
+
+
+class TestLaListeTientALEcran:
+    """« Avec des données les listes deviennent vite très verbeuses et pas du
+    tout agréables. » Mesuré : dix-huit lignes empilées, chacune avec son
+    accordéon, ses badges et sa ligne de méta — neuf cents pixels de
+    défilement pour retrouver une analyse.
+    """
+
+    @pytest.mark.parametrize("quoi", ["projet", "activite", "role", "faiblesse"])
+    def test_une_section_repliable_par_type(self, quoi):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert ('data-grp="%s"' % quoi) in g
+        assert ('data-plier="%s"' % quoi) in g
+        assert ('id="tm-l-%s"' % quoi) in g
+        assert ('id="tm-g-n-%s"' % quoi) in g
+
+    def test_elles_sont_FERMEES_au_depart(self):
+        """Le compte dans l'en-tête suffit à savoir s'il y a quelque chose à
+        ouvrir ; les dix-huit lignes, non."""
+        css = _lire("static/time.css")
+        assert ".tm-grp-corps { display: none;" in css
+        assert ".tm-grp.is-ouvert .tm-grp-corps { display: block; }" in css
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert 'class="tm-grp is-ouvert"' not in g
+
+    def test_l_etat_des_sections_survit_au_rechargement(self):
+        js = _lire("static/js/time.js")
+        assert "optiq.temps.groupes" in js
+        # ⚠️ Un navigateur peut refuser le stockage : chaque accès en try/catch.
+        bloc = js[js.index("function groupesOuverts"):][:460]
+        assert "catch" in bloc
+
+    def test_une_ligne_OUVRE_son_analyse(self):
+        js = _lire("static/js/time.js")
+        assert "ouvrirPourModifier(l.dataset.type" in js
+        # Et au clavier : ce qui s'ouvre au clic s'ouvre à Entrée.
+        assert "e.key === 'Enter'" in js
+
+    def test_les_trois_anciens_rendus_ont_disparu(self):
+        """Trois listes, trois accordéons, trois renommages en place — et
+        pourtant « on ne peut pas modifier une analyse »."""
+        js = _lire("static/js/time.js")
+        for mort in ("refreshProjectList", "refreshActivityWorkloadList",
+                     "refreshRoleAnalyses", "acc-item", "proj-name-input"):
+            assert mort not in js, mort
+
+    def test_les_deux_boutons_de_l_entete_ne_sont_plus_des_btn_nus(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        entete = g[g.index('class="tm-entete-actions"'):][:600]
+        assert 'class="tm-b tm-b--doux"' in entete
+        assert 'class="tm-b tm-b--prim"' in entete
+        assert 'class="btn' not in entete, entete

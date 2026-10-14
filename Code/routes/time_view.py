@@ -336,6 +336,36 @@ def api_project_rename(project_id):
         db.session.commit()
     return jsonify({"ok": True, "id": proj.id, "name": proj.name})
 
+@time_bp.route('/api/project/<int:project_id>', methods=['PUT'])
+def api_project_update(project_id):
+    """Remplace le nom ET les lignes. Même forme que la création : on ne
+    modifie pas avec un vocabulaire différent de celui qui a servi à créer."""
+    proj = TimeProject.query.get_or_404(project_id)
+    d = request.get_json(force=True) or {}
+    nom = (d.get('name') or '').strip()
+    if nom:
+        proj.name = nom
+
+    lignes = d.get('lines')
+    if lignes is not None:
+        # ⚠️ Objet par objet, PAS `delete(synchronize_session=False)` : ce
+        # dernier laisse les lignes supprimées vivantes dans la session, et
+        # le prochain flush tombe sur une ligne qui n'existe plus.
+        for ancienne in TimeProjectLine.query.filter_by(project_id=proj.id).all():
+            db.session.delete(ancienne)
+        db.session.flush()
+        for ln in lignes:
+            db.session.add(TimeProjectLine(
+                project_id=proj.id,
+                activity_id=int(ln['activity_id']),
+                duration_minutes=to_minutes(ln.get('duration', 0), ln.get('duration_unit')),
+                delay_minutes=to_minutes(ln.get('delay', 0), ln.get('delay_unit')),
+                nb_people=int(ln.get('nb_people') or 1)
+            ))
+    db.session.commit()
+    return jsonify({"ok": True, "id": proj.id, "name": proj.name})
+
+
 @time_bp.route('/api/project/<int:project_id>', methods=['DELETE'])
 def api_project_delete(project_id):
     proj = TimeProject.query.get_or_404(project_id)
@@ -584,7 +614,22 @@ def api_role_analysis_read_patch_delete(rid):
         new_name = (data.get('name') or '').strip()
         if new_name:
             R.name = new_name
-            db.session.commit()
+        if data.get('role_id'):
+            R.role_id = int(data['role_id'])
+        # Le renommage seul reste possible : `lines` absent ne touche à rien.
+        lignes = data.get('lines')
+        if lignes is not None:
+            for ancienne in TimeRoleLine.query.filter_by(role_analysis_id=R.id).all():
+                db.session.delete(ancienne)
+            db.session.flush()
+            for ln in lignes:
+                db.session.add(TimeRoleLine(
+                    role_analysis_id=R.id,
+                    activity_id=int(ln['activity_id']),
+                    recurrence=(ln.get('recurrence') or 'journalier').strip().lower(),
+                    frequency=int(ln.get('frequency') or 1),
+                    duration_minutes=float(ln.get('duration') or 0)))
+        db.session.commit()
         return jsonify({"ok": True, "id": R.id, "name": R.name})
     if request.method == 'DELETE':
         db.session.delete(R)
@@ -714,6 +759,114 @@ def api_weakness():
         "calc": {"O": O, "P": P, "Q": Q, "R": Rv, "S": S, "T": T, "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA},
         "B_minutes": B, "C_minutes": C,
         "params": get_calendar_params()
+    })
+
+
+@time_bp.route('/api/weakness/<int:wid>', methods=['GET'])
+def api_weakness_read(wid):
+    """Tout ce qu'il faut pour rouvrir l'écran tel qu'il a été enregistré.
+
+    ⚠️ Les quantités sont rendues EN MINUTES, avec leur unité à 'minutes' :
+    c'est ainsi qu'elles sont stockées (`api_weakness` convertit avant
+    d'écrire). Les rendre dans l'unité saisie demanderait de la stocker, ce
+    que la table ne fait pas.
+    """
+    w = TimeWeakness.query.get_or_404(wid)
+    act = Activities.query.get(w.activity_id)
+    taches = []
+    if w.task_id is None:
+        for t in (TimeWeakness.query
+                  .filter_by(activity_id=w.activity_id, weakness=w.weakness)
+                  .filter(TimeWeakness.task_id.isnot(None))
+                  .order_by(TimeWeakness.id).all()):
+            tache = Task.query.get(t.task_id)
+            taches.append({"task_id": t.task_id,
+                           "task": tache.name if tache else "",
+                           "duration_std": float(t.duration_std_minutes or 0),
+                           "delay_std": float(t.delay_std_minutes or 0)})
+    return jsonify({
+        "ok": True,
+        "item": {
+            "id": w.id,
+            "activity_id": w.activity_id,
+            "activity": act.name if act else "",
+            "mode": "tasks" if taches else "activity",
+            "weakness": w.weakness or "",
+            "recurrence": w.recurrence,
+            "frequency": int(w.frequency or 1),
+            "duration_std": float(w.duration_std_minutes or 0),
+            "delay_std": float(w.delay_std_minutes or 0),
+            "L_work_added": to_minutes(w.work_added_qty, w.work_added_unit),
+            "M_wait_added": to_minutes(w.wait_added_qty, w.wait_added_unit),
+            "N_prob_denom": int(w.prob_denom or 1),
+            "tasks": taches,
+        },
+        "calc": cout_faiblesse(w.duration_std_minutes, w.delay_std_minutes,
+                               w.recurrence, w.frequency,
+                               to_minutes(w.work_added_qty, w.work_added_unit),
+                               to_minutes(w.wait_added_qty, w.wait_added_unit),
+                               w.prob_denom),
+        "params": get_calendar_params(),
+    })
+
+
+@time_bp.route('/api/weakness/<int:wid>', methods=['PUT'])
+def api_weakness_update(wid):
+    """Modifie la faiblesse SANS changer son identifiant : l'écran qui vient
+    de l'ouvrir la retrouve au même endroit."""
+    w = TimeWeakness.query.get_or_404(wid)
+    d = request.get_json(force=True) or {}
+    mode = (d.get('mode') or 'activity').strip().lower()
+    taches = d.get('tasks') or []
+
+    L = to_minutes(d.get('L_work_added', 0), d.get('L_unit') or 'minutes')
+    M = to_minutes(d.get('M_wait_added', 0), d.get('M_unit') or 'minutes')
+    C = to_minutes(d.get('delay_std', 0), d.get('delay_unit') or 'minutes')
+    if mode == 'tasks':
+        B = sum(to_minutes(t.get('duration_std', 0),
+                           t.get('duration_unit') or 'minutes') for t in taches)
+    else:
+        B = to_minutes(d.get('duration_std', 0), d.get('duration_unit') or 'minutes')
+
+    # Les lignes par tâche de l'ANCIENNE version s'en vont : le libellé a pu
+    # changer, et c'est lui qui les rattachait.
+    for ligne in (TimeWeakness.query
+                  .filter_by(activity_id=w.activity_id, weakness=w.weakness)
+                  .filter(TimeWeakness.task_id.isnot(None)).all()):
+        db.session.delete(ligne)
+    db.session.flush()
+
+    if d.get('activity_id'):
+        w.activity_id = int(d['activity_id'])
+    w.duration_std_minutes = B
+    w.delay_std_minutes = C
+    w.recurrence = (d.get('recurrence') or 'journalier').strip().lower()
+    w.frequency = int(d.get('frequency') or 1)
+    w.weakness = (d.get('weakness') or '').strip()
+    w.work_added_qty = L
+    w.work_added_unit = 'minutes'
+    w.wait_added_qty = M
+    w.wait_added_unit = 'minutes'
+    w.prob_denom = max(1, int(d.get('N_prob_denom') or 1))
+
+    if mode == 'tasks':
+        for t in taches:
+            db.session.add(TimeWeakness(
+                activity_id=w.activity_id, task_id=int(t.get('task_id')),
+                duration_std_minutes=to_minutes(t.get('duration_std', 0),
+                                                t.get('duration_unit') or 'minutes'),
+                delay_std_minutes=to_minutes(t.get('delay_std', 0),
+                                             t.get('delay_unit') or 'minutes'),
+                recurrence=w.recurrence, frequency=w.frequency, weakness=w.weakness,
+                work_added_qty=L, work_added_unit='minutes',
+                wait_added_qty=M, wait_added_unit='minutes',
+                prob_denom=w.prob_denom, created_at=datetime.utcnow()))
+
+    db.session.commit()
+    return jsonify({
+        "ok": True, "id": w.id,
+        "calc": cout_faiblesse(B, C, w.recurrence, w.frequency, L, M, w.prob_denom),
+        "params": get_calendar_params(),
     })
 
 

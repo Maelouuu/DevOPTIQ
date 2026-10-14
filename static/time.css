@@ -667,18 +667,145 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 }
 .tm-barre-plus { padding: 8px 18px; font-size: 12px; color: var(--muted); }
 
-/* ── Vos analyses ── */
+/* ── Vos analyses ──
+   ⚠️ REPLIABLES, fermées au départ : avec de vraies données les quatre
+   listes atteignaient dix-huit lignes empilées, soit neuf cents pixels de
+   défilement pour retrouver une analyse. Le compte dans l'en-tête suffit à
+   savoir s'il y a quelque chose à ouvrir. */
 .tm-analyses { margin-top: 14px; padding: 0; overflow: hidden; }
-.tm-groupe { padding: 12px 18px 14px; border-top: 1px solid var(--border); }
-.tm-groupe-titre {
-  font-size: 12px; font-weight: 800; letter-spacing: .08em;
-  text-transform: uppercase; margin-bottom: 9px;
-  padding-left: 9px; border-left: 3px solid var(--border);
+.tm-grp { border-top: 1px solid var(--border); }
+.tm-grp-tete {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  font-family: inherit; text-align: left; cursor: pointer;
+  padding: 12px 18px; background: none; border: 0;
 }
-.tm-g-projet    { border-left-color: var(--tm-projet);    color: var(--tm-projet); }
-.tm-g-activite  { border-left-color: var(--tm-activite);  color: var(--tm-activite); }
-.tm-g-role      { border-left-color: var(--tm-role);      color: var(--tm-ambre-f); }
-.tm-g-faiblesse { border-left-color: var(--tm-faiblesse); color: var(--tm-faiblesse); }
+.tm-grp-tete:hover { background: var(--card-2); }
+.tm-grp-fleche {
+  font-size: 10px; color: var(--muted);
+  transition: transform .16s ease;
+}
+.tm-grp.is-ouvert .tm-grp-fleche { transform: rotate(90deg); }
+.tm-grp-pastille { width: 8px; height: 18px; border-radius: 3px; flex: none; }
+.tm-grp-titre {
+  flex: 1; font-size: 12.5px; font-weight: 800;
+  letter-spacing: .07em; text-transform: uppercase;
+}
+.tm-grp-n {
+  flex: none; min-width: 26px; text-align: center;
+  font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
+}
+.tm-grp-corps { display: none; padding: 0 18px 12px; }
+.tm-grp.is-ouvert .tm-grp-corps { display: block; }
+.tm-grp-vide { font-size: 12.5px; color: var(--muted); padding: 2px 0 6px; }
+
+.tm-g-projet    { background: var(--tm-projet); }
+.tm-g-activite  { background: var(--tm-activite); }
+.tm-g-role      { background: var(--tm-role); }
+.tm-g-faiblesse { background: var(--tm-faiblesse); }
+.tm-grp[data-grp="projet"]    .tm-grp-titre { color: var(--tm-projet); }
+.tm-grp[data-grp="activite"]  .tm-grp-titre { color: var(--tm-activite); }
+.tm-grp[data-grp="role"]      .tm-grp-titre { color: var(--tm-ambre-f); }
+.tm-grp[data-grp="faiblesse"] .tm-grp-titre { color: var(--tm-faiblesse); }
+
+/* Une LIGNE, pas une carte : on en lit dix d'un coup d'œil. Elle s'ouvre
+   d'un clic — c'est la porte vers la modification, qui n'existait pas. */
+.tm-ligne {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 9px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.tm-ligne + .tm-ligne { margin-top: 2px; }
+.tm-ligne:hover, .tm-ligne:focus-visible {
+  background: var(--card-2); border-color: var(--border); outline: none;
+}
+.tm-ligne-nom {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-ligne-chips { display: flex; gap: 5px; flex: none; }
+.tm-ligne-chips em {
+  font-style: normal; font-size: 11px; color: var(--muted);
+  padding: 2px 7px; border-radius: 999px; background: var(--card-2);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.tm-ligne-val {
+  flex: none; width: 66px; text-align: right;
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.tm-ligne-x {
+  flex: none; width: 26px; height: 26px; border-radius: 7px; cursor: pointer;
+  background: none; border: 1px solid transparent; color: var(--faint, var(--muted));
+  font-size: 11px; opacity: 0; transition: opacity .12s;
+}
+.tm-ligne:hover .tm-ligne-x, .tm-ligne:focus-within .tm-ligne-x { opacity: 1; }
+.tm-ligne-x:hover { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+
+/* ── Le repère de modification, dans la barre de saisie ──
+   Sans lui on ne sait pas si « Enregistrer » va créer une analyse de plus ou
+   remplacer celle qu'on vient d'ouvrir. */
+.tm-mod {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600;
+  padding: 5px 6px 5px 11px; border-radius: 999px;
+  background: var(--tm-ambre-p); border: 1px solid var(--tm-ambre-b);
+  color: #92400e; max-width: 320px;
+}
+.tm-mod > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-mod > i { font-size: 10px; }
+.tm-mod button {
+  flex: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  background: rgba(146, 64, 14, .12); border: 0; color: #92400e; font-size: 10px;
+}
+.tm-mod button:hover { background: rgba(146, 64, 14, .24); }
+
+/* ── Les deux boutons de l'en-tête ──
+   ⚠️ Ils reprennent le vocabulaire de la page Carte, qui s'est décidé sur
+   maquettes : rapport INVERSÉ entre les deux. L'action principale pose une
+   pastille PASTEL sur un fond vif ; le réglage pose une pastille VIVE sur un
+   fond clair. Deux formes qui se distinguent sans se disputer le regard. */
+.tm-b {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--pg-font); font-size: 13.5px; font-weight: 700;
+  padding: 7px 16px 7px 7px; border-radius: 999px;
+  text-decoration: none; cursor: pointer; border: 1px solid transparent;
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.tm-b:active { transform: translateY(1px); }
+.tm-b-ic {
+  width: 28px; height: 28px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px;
+}
+
+.tm-b--doux {
+  background: var(--card); border-color: var(--border-strong, var(--border));
+  color: var(--ink-2); box-shadow: 0 1px 2px rgba(20,27,46,.05);
+}
+.tm-b--doux .tm-b-ic { background: var(--tm-ambre); color: #fff; }
+.tm-b--doux:hover { border-color: var(--tm-ambre); color: var(--tm-ambre-f); }
+
+.tm-b--prim {
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b 0%, var(--tm-ambre) 46%,
+                                      var(--tm-ambre-f) 78%, #78350f 100%);
+  box-shadow: 0 6px 16px -5px rgba(180, 83, 9, .55);
+  position: relative; overflow: hidden;
+}
+.tm-b--prim .tm-b-ic { background: rgba(255,255,255,.22); color: #fff; }
+.tm-b--prim:hover { box-shadow: 0 9px 22px -6px rgba(180, 83, 9, .6); }
+/* Un éclat qui traverse au survol — la seule fantaisie, et elle ne dure que
+   le temps du geste. */
+.tm-b--prim::after {
+  content: ''; position: absolute; inset: 0 auto 0 -60%; width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent);
+  transform: skewX(-18deg); transition: left .5s ease;
+}
+.tm-b--prim:hover::after { left: 115%; }
+@media (prefers-reduced-motion: reduce) {
+  .tm-b--prim::after { display: none; }
+  .tm-grp-fleche { transition: none; }
+}
 
 /* ───────────────────────────── 2 · CHOISIR ───────────────────────────── */
 .tm-retour {
@@ -856,4 +983,7 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   .tm-h1 { font-size: 25px; }
   .tm-grand { font-size: 36px; }
   .tm-barre-piste { width: 92px; }
+  .tm-ligne-chips { display: none; }
+  .tm-entete-actions { width: 100%; }
+  .tm-b { flex: 1; justify-content: center; }
 }

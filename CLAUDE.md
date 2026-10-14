@@ -4536,6 +4536,97 @@ réponse hors requête.
 Tests : `test_105` passe de 25 à 40 cas. Suite : 3008 passés, `repet_image`
 2980 + 28 sautés.
 
+
+#### Ouvrir une analyse pour la MODIFIER, et une liste qui tient (2026-10-14)
+
+Trois retours, une fois la page remplie de vraies données.
+
+**« On ne peut pas modifier une analyse, quel que soit son type. De plus on
+peut supprimer une analyse mais pas, à l'intérieur, un élément : cela oblige,
+si erreur, à supprimer et refaire au complet. »** Exact, et pour **trois des
+quatre types** : seule l'analyse d'ACTIVITÉ avait un `PATCH`. Le projet ne
+savait que se renommer, le rôle non plus, et la faiblesse ne se relisait même
+pas — aucune route ne la rendait.
+
+Ajouté : `PUT /api/project/<id>` (nom + lignes), `PATCH /api/role_analysis/<id>`
+qui accepte désormais `lines`, `GET` et `PUT /api/weakness/<id>`. Tous
+reprennent EXACTEMENT la forme de leur route de création — un écran qui
+enregistre et un écran qui modifie ne doivent pas parler deux langages.
+⚠️ `lines` ABSENT ne touche à rien : le renommage en place existait, il ne
+doit pas se mettre à vider l'analyse.
+⚠️ La faiblesse **garde son identifiant** : l'écran qui vient de l'ouvrir la
+retrouve au même endroit, et la liste ne montre pas un doublon.
+⚠️ Le calcul EN DIRECT de la faiblesse interroge la route de CRÉATION sans
+enregistrer ; seul « Enregistrer » met à jour. Sans cette distinction, taper
+une valeur écraserait l'analyse ouverte à chaque frappe.
+
+Côté écran : **cliquer une ligne ouvre l'analyse dans l'écran de saisie**, où
+tout est modifiable par construction — y compris retirer une ligne, qui était
+le reproche. Un repère « Modification · <nom> ✕ » dans la barre dit ce que va
+faire « Enregistrer » ; sans lui on ne sait pas s'il crée une analyse de plus
+ou remplace celle qu'on a ouverte.
+
+⚠️⚠️ **Une ligne POSÉE n'est pas une ligne CALCULÉE.** Relevé au banc : un
+projet enregistré à 10,5 h se rouvrait en affichant **« 0.0h »**. Les
+activités et les durées étaient justes — mais le total lit
+`.cell-chg[data-minutes]`, que SEUL `recalc()` renseigne, et il n'était appelé
+que par le pré-remplissage. Le même piège dormait côté rôle :
+`loadRoleActivities` passe toujours une durée NULLE, donc le pré-remplissage
+courait ; rouvrir une analyse enregistrée est le premier cas qui passe une
+durée.
+
+**« Avec des données, les listes deviennent vite très verbeuses. »** Mesuré :
+dix-huit lignes empilées, chacune avec son accordéon, ses badges et sa ligne
+de méta — **neuf cents pixels** de défilement pour retrouver une analyse.
+Quatre sections **repliables, fermées au départ** (le compte dans l'en-tête
+suffit à savoir s'il y a quelque chose à ouvrir ; les dix-huit lignes, non),
+et des lignes d'une seule ligne : nom, deux pastilles, le chiffre. Mesuré
+après : **255 px**. L'état des sections vit dans `localStorage`, chaque accès
+en try/catch.
+
+**Trois rendus de liste disparaissent** (`refreshProjectList`,
+`refreshActivityWorkloadList`, `refreshRoleAnalyses` — environ trois cents
+lignes, leurs accordéons, leurs renommages en place et leurs suppressions
+ligne à ligne) au profit d'UN rendu nourri par le tableau de bord. C'est ce
+qui rend la modification possible : la liste n'est plus une vue de détail,
+c'est une porte.
+
+**Les deux boutons de l'en-tête** reprennent le vocabulaire décidé sur
+maquettes pour la page Carte : rapport INVERSÉ entre les deux. L'action
+principale (« Nouvelle analyse ») pose une pastille PASTEL sur un fond vif et
+un éclat la traverse au survol ; le réglage (« Calendrier de travail ») pose
+une pastille VIVE sur un fond clair. Deux formes qui se distinguent sans se
+disputer le regard.
+
+⚠️ **Deux info-bulles écrites en dur, en français, dans le JS** (`title=
+"Supprimer"` des lignes de saisie) : elles s'affichaient telles quelles sur
+l'écran anglais. `test_78` ne les voit pas — il ne lit que les gabarits.
+
+⚠️ **Un nettoyage d'injection a failli couper six clés vivantes.** En retirant
+les 29 clés `TIME_I18N` devenues mortes avec les anciennes listes, le script
+cherchait `fmtPhrase('cle', …)` — or six sont choisies par un TERNAIRE
+(`fmtPhrase(n > 1 ? 'tm_etp_pl' : 'tm_etp', …)`). Elles auraient disparu, et
+l'écran aurait affiché la CLÉ BRUTE : l'accesseur rend la clé quand elle
+manque, il ne lève rien. Vérifiées une par une dans le JS avant d'être
+remises, et le gabarit porte la mise en garde.
+
+⚠️ **`test_103::test_les_tableaux_de_LECTURE_gardent_les_heures` visait du
+code supprimé** (les tableaux des accordéons). Réécrit sur ce qui reste vrai
+et utile : `recalc()` du rôle lit son champ TEL QUEL, sans conversion — c'est
+ce qui rend l'en-tête « Durée (min) » juste.
+
+⚠️ **Au passage, `test_107` (arrivé de staging) relisait une SOURCE Python**
+via `runpy.run_path` : ses trois cas rougissaient à CHAQUE exécution sur
+l'instance, l'arbre d'image étant compilé en bytecode. Garde de saut posée,
+comme pour la fixture `pulse_app`.
+
+Tests : `test_105` passe de 40 à 57 cas ; **sept défauts remis un par un,
+sept cliquets tombés**. Suite : 3029 passés, `repet_image` 2997 + 32 sautés.
+Éprouvé au banc dans les deux langues : les quatre types ouverts, modifiés,
+enregistrés et relus EN BASE (projet 10,5 → 19,0 h sans doublon ; rôle 223,8 →
+216,8 h après retrait d'une ligne ; activité fréquence 1 → 5 sur 6 analyses
+toujours ; faiblesse 50,6 → 101,3 h sur 3 faiblesses toujours).
+
 ---
 
 ## Notes importantes (suite)

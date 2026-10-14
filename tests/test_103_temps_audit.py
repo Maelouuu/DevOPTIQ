@@ -33,14 +33,22 @@ class TestLUniteDeLaDureeDuRole:
         assert "time.col_duration_min" in entete
         assert "time.col_duration_h" not in entete
 
-    def test_les_tableaux_de_LECTURE_gardent_les_heures(self):
-        """⚠️ La même clé servait à quatre tableaux, et trois étaient JUSTES :
-        ils affichent `fmtH(duration_minutes)`, donc des heures. Renommer la
-        clé partout aurait cassé ce qui marchait."""
+    def test_le_champ_est_lu_TEL_QUEL_donc_en_minutes(self):
+        """⚠️ C'est ce qui rend l'en-tête juste : `recalc()` ne convertit
+        rien, il multiplie la valeur du champ par la fréquence. Le jour où
+        quelqu'un y glisse un `toMinutes(...)`, l'en-tête devra redire des
+        heures.
+
+        ⚠️ La version d'avant visait les tableaux de LECTURE des accordéons
+        (« Durée (h) », « Pesée (h) »). Ils ont disparu avec la refonte du
+        13/10 : l'écran de saisie, qui les remplace, est modifiable et porte
+        ses propres en-têtes. Un test qui vise du code supprimé ne garde rien.
+        """
         js = _lire("static/js/time.js")
-        assert js.count("fmtH(it.duration_minutes)") >= 1
-        assert js.count("fmtH(r.duration_minutes)") >= 1
-        assert "col_duration_h" in js
+        bloc = js[js.index("function addRoleRow"):][:2200]
+        recalc = bloc[bloc.index("function recalc()"):][:420]
+        assert "parseFloat(tr.querySelector('.r-dur').value" in recalc, recalc
+        assert "toMinutes(" not in recalc, recalc
 
     @pytest.mark.parametrize("lang,attendu", [("fr", "Durée (min)"),
                                               ("en", "Duration (min)")])
