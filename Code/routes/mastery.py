@@ -93,7 +93,11 @@ def color_for(demonstrated, required):
 
 def activity_mastery(user_id, activity_id, role_id=None):
     """État complet d'évaluation d'une activité pour un individu (base de l'écran P6)."""
-    results = [d for d in get_activity_outputs(activity_id) if d.semantic_nature == "RESULT"]
+    # ⚠️ TOUTES les sorties, sans filtre de nature. La nature `RESULT` servait
+    # de porte : une sortie non marquée n'entrait dans aucun calcul et
+    # l'activité restait « à configurer ». Rien n'est mis de côté — on est
+    # libre de ne pas tout évaluer d'un coup, pas d'exclure une sortie.
+    results = get_activity_outputs(activity_id)
     per_result, levels, autos, complete = [], [], [], True
     for d in results:
         ev = _reference_eval(user_id, activity_id, d.id)
@@ -237,7 +241,12 @@ def couverture(rows):
 def categorie_activite(row):
     """Les quatre états d'une activité, tels que l'écran les compte. Écrits ICI
     et pas dans le JS : la synthèse par rôle et la liste détaillée doivent
-    trancher pareil, sinon les chiffres du haut contredisent les lignes du bas."""
+    trancher pareil, sinon les chiffres du haut contredisent les lignes du bas.
+
+    ⚠️ `setup` ne veut plus dire « pas encore configurée » — toute sortie est
+    évaluable — mais « cette activité ne produit RIEN dans la carto ». C'est un
+    état de la cartographie, pas une étape qui resterait à franchir ici.
+    """
     if not row["n_results"]:
         return "setup"
     dem = row["demonstrated_level"]
@@ -470,9 +479,12 @@ def evaluate():
         (activity_roles.c.activity_id == aid) & (activity_roles.c.role_id == rid))).first()
     if not lien:
         return jsonify({"error": "association_not_found"}), 404
+    # ⚠️ Le contrôle porte sur l'APPARTENANCE, plus sur la nature : la donnée
+    # doit être une sortie de CETTE activité. Sans lui, un `data_id` venu du
+    # navigateur permettrait de noter la sortie d'une autre activité.
     d = Data.query.get(did)
-    if not d or d.semantic_nature != "RESULT":
-        return jsonify({"error": "not_a_result"}), 400
+    if not d or did not in {x.id for x in get_activity_outputs(aid)}:
+        return jsonify({"error": "not_an_output"}), 400
     ev = CompetencyEvaluation.query.filter_by(
         user_id=uid, activity_id=aid, item_type=RESULT_ITEM_TYPE, item_id=did, eval_number=evaluator).first()
     now = datetime.utcnow()

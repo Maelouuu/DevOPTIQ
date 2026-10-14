@@ -35,35 +35,15 @@ ETATS = ("held", "gap", "todo", "setup")
 
 
 def _resultats(act_ids):
-    """{activity_id: {data_id, …}} — les RÉSULTATS tels que `activity_mastery`
-    les voit, sans rien écrire.
+    """{activity_id: {data_id, …}} — les SORTIES telles qu'`activity_mastery`
+    les voit, sans rien écrire. Toutes, sans filtre de nature.
 
-    `materialize_activity_outputs` indexe les `Data` d'une activité par nom
-    normalisé (le dernier l'emporte) et garde toujours celles qui sont
-    qualifiées ; `get_activity_outputs` y ajoute les `Data` visées par un lien
-    sortant (`Link.target_data_id`) qui n'y sont pas déjà. Même lecture ici.
+    ⚠️ La règle vit dans `qualify_outputs.output_ids_en_bloc`, PAS ici : elle
+    était recopiée, les deux versions ont divergé, et le filtre `RESULT` a
+    masqué l'écart jusqu'à ce qu'on le retire.
     """
-    if not act_ids:
-        return {}
-    index = defaultdict(dict)
-    for d in (Data.query.filter(Data.producer_activity_id.in_(act_ids))
-              .order_by(Data.id).all()):
-        index[d.producer_activity_id][_norm(d.name)] = d
-    out = {a: {d.id for d in index[a].values() if d.semantic_nature == "RESULT"}
-           for a in act_ids}
-
-    vises = defaultdict(set)
-    for lk in Link.query.filter(Link.source_activity_id.in_(act_ids),
-                                Link.target_data_id.isnot(None)).all():
-        vises[lk.source_activity_id].add(lk.target_data_id)
-    tous = set().union(*vises.values()) if vises else set()
-    if tous:
-        nature = {d.id: d.semantic_nature
-                  for d in Data.query.filter(Data.id.in_(tous)).all()}
-        for a, ids in vises.items():
-            deja = {d.id for d in index[a].values()}
-            out[a] |= {i for i in ids if i not in deja and nature.get(i) == "RESULT"}
-    return out
+    from Code.routes.qualify_outputs import output_ids_en_bloc
+    return output_ids_en_bloc(act_ids)
 
 
 def _references(user_ids, act_ids):

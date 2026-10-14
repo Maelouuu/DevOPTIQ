@@ -63,7 +63,7 @@
       conf_done_comp: 'Compétence', conf_done_on: 'Elle sera évaluée sur',
       conf_go: "Configurer cette activité",
       conf_close: 'Fermer', conf_done_go: 'Évaluer maintenant',
-      rien_a_evaluer: "Cette activité n'est pas encore configurée : on ne sait pas encore sur quoi la juger. Configurez-la d'abord — une fois pour l'activité, pas pour chaque collaborateur.",
+      rien_a_evaluer: "Cette activité ne produit rien dans la cartographie : aucune flèche n'en part. Il n'y a donc rien à évaluer tant qu'elle n'a pas de sortie.",
       conf_done_t: 'Activité configurée',
       evidence_ph: 'Preuve / commentaire (facultatif)', add_evidence: '+ Ajouter une preuve',
       diagnose: "Diagnostiquer l'écart",
@@ -73,12 +73,12 @@
       forbidden: "Vous n'avez pas le droit de noter ce collaborateur.",
       pick_level: 'À évaluer', roles_label: 'Rôles du collaborateur',
       self_assess: "S'auto-évaluer",
-      pas_configuree: "Cette activité n'est pas encore configurée : son développeur de compétences doit d'abord dire sur quoi la juger.",
-      b_held: 'Niveau tenu', b_gap: 'En écart', b_todo: 'À évaluer', b_setup: 'À configurer',
+      pas_configuree: "Cette activité ne produit rien dans la cartographie : aucune flèche n'en part. Il n'y a donc rien à évaluer.",
+      b_held: 'Niveau tenu', b_gap: 'En écart', b_todo: 'À évaluer', b_setup: 'Sans sortie',
       filter_off: 'Tout afficher', no_match: 'Aucune activité dans cette catégorie.',
       m_result_one: 'résultat', m_result_many: 'résultats', m_partial: 'sur',
       m_eval_one: 'évalué', m_eval_many: 'évalués',
-      m_last: 'évalué le', m_never: 'jamais évaluée', m_toqualify: 'pas encore configurée',
+      m_last: 'évalué le', m_never: 'jamais évaluée', m_toqualify: 'aucune sortie dans la carto',
       target_short: 'requis',
       // Synthèse
       r_open: 'Ouvrir', r_activity_one: 'activité', r_activity_many: 'activités', r_level: 'Niveau du rôle',
@@ -180,7 +180,7 @@
       conf_done_comp: 'Competency', conf_done_on: 'It will be assessed on',
       conf_go: 'Configure this activity',
       conf_close: 'Close', conf_done_go: 'Assess now',
-      rien_a_evaluer: 'This activity is not configured yet: nothing says what to judge it on. Configure it first — once for the activity, not for each team member.',
+      rien_a_evaluer: 'This activity produces nothing on the map: no arrow leaves it. There is nothing to assess until it has an output.',
       conf_done_t: 'Activity configured',
       evidence_ph: 'Evidence / comment (optional)', add_evidence: '+ Add evidence',
       diagnose: 'Diagnose the gap',
@@ -190,12 +190,12 @@
       forbidden: 'You are not allowed to assess this team member.',
       pick_level: 'To assess', roles_label: "Team member's roles",
       self_assess: 'Self-assess',
-      pas_configuree: 'This activity is not configured yet: its competency developer must first say what to judge it on.',
-      b_held: 'Level met', b_gap: 'Below target', b_todo: 'To assess', b_setup: 'To configure',
+      pas_configuree: 'This activity produces nothing on the map: no arrow leaves it. There is nothing to assess.',
+      b_held: 'Level met', b_gap: 'Below target', b_todo: 'To assess', b_setup: 'No output',
       filter_off: 'Show all', no_match: 'No activity in this category.',
       m_result_one: 'result', m_result_many: 'results', m_partial: 'of',
       m_eval_one: 'assessed', m_eval_many: 'assessed',
-      m_last: 'assessed on', m_never: 'never assessed', m_toqualify: 'not configured yet',
+      m_last: 'assessed on', m_never: 'never assessed', m_toqualify: 'no output on the map',
       target_short: 'required',
       r_open: 'Open', r_activity_one: 'activity', r_activity_many: 'activities', r_level: 'Role level',
       p_title: 'Competency profile', p_role_one: 'role', p_role_many: 'roles',
@@ -574,8 +574,11 @@
     const cat = categorie(a);
     const el = document.createElement('div');
     el.className = 'cv2-ligne';
+    // ⚠️ Une activité sans sortie n'a rien à configurer : le bouton ouvre le
+    // tiroir, qui explique pourquoi il n'y a rien à évaluer. L'y envoyer
+    // « configurer » promettait un écran qui n'aurait rien à montrer.
     const libelleBtn = cat === 'setup'
-      ? (jeSuisLeDev() ? T('configure_short') : T('consult'))
+      ? T('consult')
       : (jeSuisLeDev() ? T('evaluate') : T('self_assess'));
     el.innerHTML = `
       <div>
@@ -588,14 +591,14 @@
       <div>${blocJauge(a.demonstrated_level, a.required_level, a.color || 'grey', a.gap, a.demonstrated_label)}</div>
       <div class="cv2-cell-tech">${celluleTech(a.technicity)}</div>
       <div class="cv2-cell-act">
-        <button class="btn btn-sm ${cat === 'setup' && jeSuisLeDev() ? 'btn-todo' : 'btn-primary'}">
+        <button class="btn btn-sm ${cat === 'setup' ? 'btn-todo' : 'btn-primary'}">
           ${esc(libelleBtn)}</button>
       </div>`;
     // ⚠️ Deux boutons, deux fenêtres. « Configurer » parle de l'ACTIVITÉ (que
     // produit-elle ?), « Évaluer » parle d'une PERSONNE. Les mélanger faisait
     // passer l'IA de la configuration pour une IA de notation.
     el.querySelector('.cv2-cell-act button').onclick = () =>
-      (cat === 'setup' && jeSuisLeDev()) ? ouvrirConfiguration(a) : openDrawer(a);
+      openDrawer(a);
     const info = el.querySelector('[data-info]');
     if (info) brancherInfo(info, T('competence'), a.competence);
     return el;

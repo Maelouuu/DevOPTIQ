@@ -181,17 +181,54 @@ class TestEvaluate:
         finally:
             _cleanup(app, activity_id=aid, role_id=rid)
 
-    def test_not_a_result_returns_400(self, auth_client, app, ids):
+    def test_une_donnee_inconnue_est_refusee(self, auth_client, app, ids):
+        """⚠️ Le contrôle portait sur la NATURE (`semantic_nature == RESULT`) :
+        c'était la porte qui mettait des sorties hors évaluation, et elle est
+        tombée — toute sortie est évaluable. Reste le contrôle qui compte : le
+        `data_id` vient du navigateur."""
         rid = _role_lie(app, ids["entity_id"], ids["activity_id"],
-                        "Rôle 57 pas-un-résultat")
+                        "Rôle 57 donnée inconnue")
         r = auth_client.post(
             "/mastery/evaluate",
             data=json.dumps({"user_id": ids["user_id"], "activity_id": ids["activity_id"],
-                              "data_id": 999999, "evaluator": "1", "mastery_level": 2, "role_id": rid}),
+                              "data_id": 999999, "evaluator": "1", "mastery_level": 2,
+                              "role_id": rid}),
             content_type="application/json",
         )
         assert r.status_code == 400
-        assert r.get_json()["error"] == "not_a_result"
+        assert r.get_json()["error"] == "not_an_output"
+
+    def test_la_sortie_d_une_AUTRE_activite_est_refusee(self, auth_client, app, ids):
+        """Le cas réel : la donnée existe bel et bien, mais elle est produite
+        ailleurs. Son identifiant ne doit pas suffire à la noter ici."""
+        from Code.extensions import db
+        from Code.models.models import Activities, Data
+        rid = _role_lie(app, ids["entity_id"], ids["activity_id"],
+                        "Rôle 57 sortie d'ailleurs")
+        with app.app_context():
+            ailleurs = Activities(name="T57 activité d'à côté", entity_id=ids["entity_id"])
+            db.session.add(ailleurs)
+            db.session.commit()
+            etrangere = Data(entity_id=ids["entity_id"], name="T57 sortie d'ailleurs",
+                             type="flux", producer_activity_id=ailleurs.id)
+            db.session.add(etrangere)
+            db.session.commit()
+            did, autre = etrangere.id, ailleurs.id
+        try:
+            r = auth_client.post(
+                "/mastery/evaluate",
+                data=json.dumps({"user_id": ids["user_id"], "activity_id": ids["activity_id"],
+                                  "data_id": did, "evaluator": "1", "mastery_level": 2,
+                                  "role_id": rid}),
+                content_type="application/json",
+            )
+            assert r.status_code == 400, r.data
+            assert r.get_json()["error"] == "not_an_output"
+        finally:
+            with app.app_context():
+                db.session.delete(db.session.get(Data, did))
+                db.session.delete(db.session.get(Activities, autre))
+                db.session.commit()
 
     def test_self_evaluation_does_not_validate_global_level(self, auth_client, app, ids):
         """CDC 3.6 : l'auto-évaluation (evaluator=0) n'est pas VALIDATING — le niveau
