@@ -66,6 +66,10 @@
             </button>
             <span class="cv2-fil-sep">/</span>
             <span class="cv2-fil-role" id="cv2-fil-role"></span>
+            {# Les sessions se tiennent PAR RÔLE : leur porte est ici, à côté du
+               plan, pas dans la fenêtre d'évaluation d'une activité. #}
+            <button type="button" class="btn btn-ghost btn-sm cv2-fil-cal" id="cv2-btn-cal"
+                    data-i18n="ses_cal">Calendrier</button>
             <button type="button" class="btn btn-ghost btn-sm cv2-fil-plan hidden" id="cv2-btn-plan"
                     data-i18n="plan_open">Plan de formation</button>
           </div>
@@ -111,6 +115,19 @@
     </div>
     <div class="cv2-pb" id="cv2-plan-body"></div>
     <div class="cv2-df" id="cv2-plan-footer"></div>
+  </aside>
+
+  {# Le calendrier des sessions d'évaluation — fenêtre à part, et TOUS
+     collaborateurs : celui qui tient les rendez-vous les tient pour tout le
+     monde. Cadré sur une personne, un rendez-vous ne se verrait qu'en ayant
+     d'abord choisi la bonne. #}
+  <aside class="cv2-cal-win" id="cv2-cal-win" role="dialog" aria-modal="true">
+    <div class="cv2-ch">
+      <button class="x" id="cv2-cal-close" aria-label="{{ t('btn.close') }}">&times;</button>
+      <h2 data-i18n="ses_titre">Sessions d'évaluation</h2>
+      <div class="cv2-sub" id="cv2-cal-sub"></div>
+    </div>
+    <div class="cv2-cb" id="cv2-cal-body"></div>
   </aside>
 
   <div class="cv2-toast" id="cv2-toast"></div>

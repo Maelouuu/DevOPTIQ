@@ -1717,3 +1717,504 @@ header { position: sticky; top: 0; z-index: 30; }
   background: linear-gradient(135deg, #475569, #334155);
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LES PALIERS DE PERFORMANCE — l'échelle, le calendrier, le graphe
+
+   ⚠️ Section posée à la FIN de la feuille : elle écrase par l'ordre de
+   déclaration ce que les règles de résultat plus haut posent sur `.cv2-res`,
+   sans les toucher — elles servent encore aux sorties jugées à la main.
+
+   ⚠️ Aucune de ces règles n'emploie `--pg-accent-soft` / `-border` / `-glow` :
+   ces quatre dérivés sont déclarés sur `:root`, où `--pg-accent` vaut encore
+   le gris par défaut, et rendent donc du GRIS sur toute l'application (c'est
+   écrit dans CLAUDE.md). Les mélanges sont écrits DANS la règle.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --pal-vert: #15803d; --pal-vert-f: #14532d; --pal-vert-p: #dcfce7; --pal-vert-b: #a7e3bc;
+  --pal-ambre: #b45309; --pal-ambre-f: #78350f; --pal-ambre-p: #fef3c7; --pal-ambre-b: #e0b64c;
+  --pal-rouge: #b91c1c; --pal-rouge-f: #7f1d1d; --pal-rouge-p: #fee2e2; --pal-rouge-b: #e7a0a0;
+}
+
+/* ───────────────── Les deux boutons : rapport INVERSÉ ─────────────────
+   Le même vocabulaire que la page Temps. Deux différences de FORME, pas
+   seulement de couleur : l'action pose une pastille PASTEL sur un fond vif,
+   le réglage une pastille VIVE sur un fond clair. On les distingue sans
+   qu'ils se disputent le regard. */
+.pal-b {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--pg-font); font-size: 13.5px; font-weight: 700;
+  padding: 6px 15px 6px 6px; border-radius: 999px;
+  text-decoration: none; cursor: pointer; border: 1px solid transparent;
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.pal-b:active { transform: translateY(1px); }
+.pal-b-ic {
+  width: 26px; height: 26px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11.5px;
+}
+.pal-b--doux {
+  background: var(--card); border-color: var(--border-strong, var(--border));
+  color: var(--ink-2); box-shadow: 0 1px 2px rgba(20, 27, 46, .05);
+}
+.pal-b--doux .pal-b-ic { background: var(--pg-accent); color: #fff; }
+.pal-b--doux:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.pal-b--prim {
+  color: #fff; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, #3b82f6 0%, var(--pg-accent) 46%,
+                                      var(--pg-accent-deep) 78%, #1e3a8a 100%);
+  box-shadow: 0 6px 16px -5px rgba(29, 78, 216, .55);
+}
+.pal-b--prim .pal-b-ic { background: rgba(255, 255, 255, .22); color: #fff; }
+.pal-b--prim:hover { box-shadow: 0 9px 22px -6px rgba(29, 78, 216, .6); }
+/* Un éclat qui traverse au survol — la seule fantaisie, et elle ne dure que
+   le temps du geste. */
+.pal-b--prim::after {
+  content: ""; position: absolute; inset: 0 auto 0 -60%; width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .3), transparent);
+  transform: skewX(-18deg); transition: left .5s ease;
+}
+.pal-b--prim:hover::after { left: 115%; }
+@media (prefers-reduced-motion: reduce) { .pal-b--prim::after { display: none; } }
+
+/* ───────────────── La carte d'une sortie MESURÉE ───────────────── */
+.cv2-res.pal-res {
+  border: 1px solid color-mix(in srgb, var(--pg-accent) 26%, #fff);
+  border-radius: var(--r-card, 14px); background: var(--card);
+  padding: 0; overflow: hidden;
+}
+.cv2-res.pal-res.est-qualifie { border-color: var(--pal-vert-b); }
+
+.pal-tete {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 13px 16px; border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--pg-accent) 4%, #fff);
+}
+.pal-res.est-qualifie .pal-tete {
+  background: color-mix(in srgb, var(--pal-vert) 5%, #fff);
+  border-bottom-color: var(--pal-vert-b);
+}
+.pal-tete-txt { flex: 1; min-width: 160px; }
+.pal-tete .rname { font-size: 16px; font-weight: 700; color: var(--ink); }
+
+.pal-badge {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b);
+  color: var(--pal-vert-f); border-radius: 999px;
+  padding: 4px 12px; font-size: 12.5px; font-weight: 700;
+}
+
+/* La norme : ce que l'ENTREPRISE attend. Elle ne regarde personne — d'où sa
+   forme d'étiquette posée, et non de champ à remplir. */
+.pal-norme {
+  display: flex; align-items: center; gap: 7px; flex: none;
+  background: var(--card); border: 1px solid var(--border-strong, var(--border));
+  border-radius: 11px; padding: 5px 7px 5px 11px;
+}
+.pal-norme .k {
+  font-size: 11px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.pal-norme .v { font-size: 17px; font-weight: 700; color: var(--ink); }
+.pal-norme .s { font-size: 12.5px; color: var(--ink-2); }
+.pal-ic {
+  width: 27px; height: 27px; flex: none; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--card-2); color: var(--ink-2);
+  display: grid; place-items: center; cursor: pointer; font-size: 11.5px;
+}
+.pal-ic:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+
+/* ───────────────── Le RAIL des paliers ─────────────────
+   96 ● ─── 72 ● ─── 48 ◉ NORME ┄┄ 24 ○. L'écart entre deux marches est une
+   distance : elle se regarde, elle ne se lit pas. */
+.pal-corps { padding: 16px 14px 12px; }
+.pal-rail { display: flex; align-items: flex-start; }
+.pal-pas { flex: 1 1 0; min-width: 0; text-align: center; }
+
+.pal-drapeau {
+  display: inline-block; margin-bottom: 5px;
+  background: var(--ink); color: #fff; border-radius: 999px;
+  padding: 2px 10px; font-size: 10px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase; white-space: nowrap;
+}
+/* ⚠️ Un bloc vide de la MÊME hauteur sous les marches sans drapeau : sans
+   lui, la marche qui porte la norme descendrait de 22 px et le rail ne
+   serait plus une ligne. */
+.pal-drapeau-vide { display: block; height: 22px; }
+
+.pal-ligne { display: flex; align-items: center; }
+.pal-fil { flex: 1; height: 3px; border-radius: 2px; }
+.pal-fil--ok { background: var(--pal-vert); }
+.pal-fil--tirets { height: 0; border-top: 3px dashed #c2cbd8; }
+.pal-fil--vide { background: transparent; }
+
+.pal-dot {
+  width: 22px; height: 22px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px; color: #fff;
+  background: var(--card); border: 3px dashed #94a3b8;
+}
+.pal-pas--atteint .pal-dot { background: var(--pal-vert); border: none; }
+.pal-pas--manque .pal-dot { background: var(--pal-rouge); border: none; }
+.pal-pas--en_cours .pal-dot {
+  background: var(--card); border: 4px solid var(--pg-accent);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--pg-accent) 18%, transparent);
+}
+.pal-pas--cible .pal-dot { border: 3px solid var(--pg-accent); }
+
+.pal-pas .pal-v { margin: 10px 0 0; font-size: 19px; font-weight: 700; color: var(--ink); }
+.pal-pas .pal-s {
+  margin: 2px 0 0; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .6px; text-transform: uppercase; color: var(--muted);
+}
+.pal-pas--atteint .pal-v, .pal-pas--atteint .pal-s { color: var(--pal-vert-f); }
+.pal-pas--atteint .pal-s { color: var(--pal-vert); }
+.pal-pas--manque .pal-v { color: var(--pal-rouge-f); }
+.pal-pas--manque .pal-s { color: var(--pal-rouge); }
+.pal-pas--en_cours .pal-v, .pal-pas--en_cours .pal-s { color: var(--pg-accent-deep); }
+.pal-pas--cible .pal-v { color: var(--pg-accent-deep); }
+.pal-pas .pal-m { margin: 5px 0 0; font-size: 12.5px; color: var(--ink-2); }
+.pal-pas .pal-q { margin: 1px 0 0; font-size: 12px; color: var(--muted); }
+.pal-pas .pal-ech {
+  display: inline-flex; align-items: center; gap: 5px; margin: 5px 0 0;
+  background: var(--pal-ambre-p); border: 1px solid var(--pal-ambre-b);
+  color: var(--pal-ambre-f); border-radius: 999px;
+  padding: 3px 10px; font-size: 12px; font-weight: 700;
+}
+.pal-pas .pal-ech.est-tard {
+  background: var(--pal-rouge-p); border-color: var(--pal-rouge-b); color: var(--pal-rouge-f);
+}
+
+.pal-vide { margin: 10px 0; text-align: center; font-size: 13.5px; color: var(--muted); }
+.pal-quiet { margin: 14px 16px 2px; font-size: 13px; color: var(--muted); }
+
+/* ───────────────── Le pied de carte ───────────────── */
+.pal-pied {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 11px 16px; background: var(--card-2); border-top: 1px solid var(--border);
+}
+.pal-pied-k { font-size: 12.5px; color: var(--ink-2); }
+.pal-pied-sp { flex: 1; }
+.pal-niv { border-radius: 8px; padding: 4px 11px; font-size: 13px; font-weight: 700; }
+.pal-niv--ok { background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); color: var(--pal-vert-f); }
+.pal-niv--bas { background: var(--pal-ambre-p); border: 1px solid var(--pal-ambre-b); color: var(--pal-ambre-f); }
+.pal-niv--off {
+  background: var(--card); border: 1px dashed var(--border-strong, var(--border));
+  color: var(--muted); font-weight: 600;
+}
+
+/* ───────────────── Les formulaires, DANS la carte ─────────────────
+   ⚠️ Jamais en fenêtre : une modale par-dessus une modale cache le chiffre
+   qu'on vient justement lire pour décider. */
+.pal-form {
+  padding: 15px 16px; border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--pg-accent) 4%, #fff);
+}
+.pal-form.hidden { display: none; }
+.pal-form-h { font-size: 15px; font-weight: 700; color: var(--ink); }
+.pal-form-d { margin: 4px 0 11px; font-size: 13px; color: var(--ink-2); }
+.pal-champs { display: flex; gap: 13px; flex-wrap: wrap; }
+.pal-champs label, .pal-champ-large {
+  display: flex; flex-direction: column; gap: 5px; min-width: 0;
+}
+.pal-champ-large { margin-top: 11px; }
+.pal-champs label > span, .pal-champ-large > span {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.pal-champs input, .pal-champs select,
+.pal-champ-large input, .pal-champ-large textarea {
+  font-family: inherit; font-size: 14.5px; font-weight: 600; color: var(--ink);
+  background: var(--card); border: 1px solid var(--border-strong, var(--border));
+  border-radius: var(--r-btn, 9px); padding: 8px 11px; width: 130px;
+}
+.pal-champ-large input, .pal-champ-large textarea { width: 100%; font-weight: 400; resize: vertical; }
+.pal-champs input:focus, .pal-champs select:focus,
+.pal-champ-large input:focus, .pal-champ-large textarea:focus {
+  outline: none; border-color: var(--pg-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 16%, transparent);
+}
+.pal-form-pied { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.pal-retirer {
+  margin-top: 11px; background: none; border: none; cursor: pointer; padding: 0;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--pal-rouge);
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.pal-retirer:hover { color: var(--pal-rouge-f); }
+
+/* Un palier manqué n'est pas une sanction : il ouvre l'analyse. */
+.pal-echec {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  margin: 0 16px 14px; padding: 12px 14px;
+  background: var(--pal-rouge-p); border: 1px solid var(--pal-rouge-b);
+  border-radius: var(--r-card, 14px); font-size: 13.5px; color: var(--pal-rouge-f);
+}
+.pal-echec > i { font-size: 15px; }
+.pal-echec > span { flex: 1; min-width: 180px; }
+
+/* ───────────────── Le graphe, et l'historique ───────────────── */
+.pal-graphe { padding: 16px 22px 8px; }
+.pal-graphe-d { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); }
+.pal-graphe svg { width: 100%; height: auto; display: block; font-family: var(--pg-font); }
+.pal-leg {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--ink-2);
+}
+.pal-leg span { display: inline-flex; align-items: center; gap: 7px; }
+.pal-leg .t { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
+.pal-leg .t--bleu { background: var(--pg-accent); }
+.pal-leg .t--noir { background: var(--ink); }
+.pal-leg .t--tirets { height: 0; border-top: 3px dashed #94a3b8; }
+.pal-leg .t--vert { height: 12px; border-radius: 3px; background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); }
+
+.pal-histo { padding: 4px 22px 20px; }
+.pal-histo-h { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 14px; }
+.pal-h-l { display: flex; gap: 13px; }
+.pal-h-l > div { flex: 1; padding-bottom: 16px; }
+.pal-h-l .d { margin: 0; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.pal-h-l .t { margin: 2px 0 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.pal-h-l .s { margin: 1px 0 0; font-size: 12.5px; color: var(--ink-2); }
+/* Le point et son filet : le filet descend DU point, pas à côté. */
+.pal-h-pt {
+  width: 11px; height: 11px; flex: none; border-radius: 50%; margin-top: 4px;
+  position: relative; background: var(--muted);
+}
+.pal-h-l:not(:last-child) .pal-h-pt::after {
+  content: ""; position: absolute; left: 50%; top: 13px; bottom: -22px;
+  width: 2px; margin-left: -1px; background: var(--border);
+}
+.pal-h-pt--ok { background: var(--pal-vert); box-shadow: 0 0 0 2px var(--pal-vert-p); }
+.pal-h-pt--ko { background: var(--pal-rouge); box-shadow: 0 0 0 2px var(--pal-rouge-p); }
+.pal-h-pt--norme { background: var(--ink); box-shadow: 0 0 0 2px #d4d9e2; }
+.pal-h-pt--venir { background: var(--card); border: 2.5px solid var(--pg-accent); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE CALENDRIER DES SESSIONS — même coquille que la fenêtre du plan, plus
+   large : le mois et la session choisie se lisent côte à côte.
+   ══════════════════════════════════════════════════════════════════════════ */
+.cv2-cal-win {
+  position: fixed; top: 50%; left: 50%; z-index: 51;
+  transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
+  width: min(1180px, 96vw); max-height: 92vh;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--sh-pop);
+  transition: transform .26s cubic-bezier(.34, 1.2, .4, 1), opacity .22s;
+}
+.cv2-cal-win.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+/* ⚠️ `flex: none` : l'en-tête est un élément FLEX d'une colonne plafonnée à
+   92vh — sans lui, un contenu long l'écrase et le sous-titre se retrouve
+   tranché. Le symptôme trompe : on cherche un overflow. */
+.cv2-ch {
+  flex: none; position: relative; overflow: hidden; color: #fff;
+  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
+  padding: 17px 60px 16px 24px;
+  background: linear-gradient(135deg, #1d4ed8, #0f172a);
+}
+.cv2-ch::after {
+  content: ""; position: absolute; right: -60px; top: -70px; width: 200px; height: 200px;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 70%);
+}
+.cv2-ch h2 {
+  margin: 0; font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; line-height: 1.2;
+}
+.cv2-ch .cv2-sub {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding-left: 13px; border-left: 1px solid rgba(255, 255, 255, .32);
+  font-size: 13.5px; font-weight: 500; color: rgba(255, 255, 255, .9);
+}
+@media (max-width: 760px) { .cv2-ch .cv2-sub { padding-left: 0; border-left: none; } }
+.cv2-ch .x {
+  position: absolute; top: 14px; right: 16px; width: 32px; height: 32px;
+  border: 1px solid rgba(255, 255, 255, .34); border-radius: 9px;
+  background: rgba(255, 255, 255, .16); color: #fff;
+  font-size: 19px; line-height: 1; cursor: pointer;
+}
+.cv2-ch .x:hover { background: rgba(255, 255, 255, .3); }
+.cv2-cb { flex: 1; overflow-y: auto; padding: 18px 22px 20px; }
+
+/* Les quatre compteurs, et le bouton qui pose un rendez-vous. */
+.cal-tuiles { display: flex; gap: 11px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.cal-tuile {
+  flex: 1 1 130px; min-width: 120px;
+  border-radius: 13px; padding: 11px 14px; border: 1px solid var(--border);
+}
+.cal-tuile .n {
+  display: block; font-family: var(--pg-font-display);
+  font-size: 26px; font-weight: 700; line-height: 1.1;
+}
+.cal-tuile .l { display: block; margin-top: 1px; font-size: 13px; font-weight: 600; }
+.cal-tuile--rouge { background: var(--pal-rouge-p); border-color: var(--pal-rouge-b); }
+.cal-tuile--rouge .n, .cal-tuile--rouge .l { color: var(--pal-rouge-f); }
+.cal-tuile--ambre { background: var(--pal-ambre-p); border-color: var(--pal-ambre-b); }
+.cal-tuile--ambre .n, .cal-tuile--ambre .l { color: var(--pal-ambre-f); }
+.cal-tuile--bleu {
+  background: color-mix(in srgb, var(--pg-accent) 7%, #fff);
+  border-color: color-mix(in srgb, var(--pg-accent) 32%, #fff);
+}
+.cal-tuile--bleu .n, .cal-tuile--bleu .l { color: var(--pg-accent-deep); }
+.cal-tuile--vert { background: var(--pal-vert-p); border-color: var(--pal-vert-b); }
+.cal-tuile--vert .n, .cal-tuile--vert .l { color: var(--pal-vert-f); }
+.cal-planif { flex: none; }
+
+.cal-duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .cal-duo { grid-template-columns: minmax(0, 1fr); } }
+
+.cal-mois, .cal-detail {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px); box-shadow: var(--sh-card);
+}
+.cal-mois { padding: 15px 16px 14px; }
+.cal-mois-h { display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
+.cal-mois-h h3 { margin: 0; font-family: var(--pg-font-display); font-size: 19px; font-weight: 700; }
+.cal-mois-h .sp { flex: 1; }
+.cal-nav {
+  width: 30px; height: 30px; border: 1px solid var(--border-strong, var(--border));
+  border-radius: 9px; background: var(--card); color: var(--ink-2);
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+.cal-nav:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+
+.cal-grille { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+.cal-jn {
+  text-align: center; padding-bottom: 3px;
+  font-size: 11px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.cal-jn.est-we { color: #98a2b3; }
+.cal-case {
+  min-height: 58px; text-align: left; font-family: inherit;
+  border: 1px solid #eef1f6; border-radius: 10px; padding: 5px 7px;
+  background: var(--card); color: var(--ink-2); display: block; width: 100%;
+}
+.cal-case.est-we { background: #fafbfd; border-color: #f4f6fa; }
+.cal-case--hors { border: none; background: none; min-height: 0; }
+.cal-case .n { display: block; font-size: 13px; font-weight: 600; }
+.cal-case.est-auj .n {
+  display: inline-grid; place-items: center; width: 21px; height: 21px;
+  border-radius: 50%; background: var(--ink); color: #fff; font-weight: 700;
+}
+.cal-case .qui {
+  display: flex; align-items: center; gap: 4px; margin-top: 3px;
+  font-size: 10.5px; font-weight: 700; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.cal-case .qui .pt { width: 7px; height: 7px; flex: none; border-radius: 50%; }
+.cal-case .sub {
+  display: block; margin-top: 1px; font-size: 10px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.cal-case .plus { display: block; margin-top: 1px; font-size: 10px; font-weight: 700; opacity: .75; }
+button.cal-case { cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+button.cal-case:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(20, 27, 46, .1); }
+
+.cal-case--prevue {
+  background: color-mix(in srgb, var(--pg-accent) 7%, #fff);
+  border-color: color-mix(in srgb, var(--pg-accent) 34%, #fff);
+}
+.cal-case--prevue .n, .cal-case--prevue .qui, .cal-case--prevue .sub { color: var(--pg-accent-deep); }
+.cal-case--prevue .qui .pt { background: var(--pg-accent); }
+.cal-case--retard { background: var(--pal-rouge-p); border: 1.5px solid #dc2626; }
+.cal-case--retard .n, .cal-case--retard .qui, .cal-case--retard .sub { color: var(--pal-rouge-f); }
+.cal-case--retard .qui .pt { background: #dc2626; }
+.cal-case--tenue { background: var(--pal-vert-p); border-color: var(--pal-vert-b); }
+.cal-case--tenue .n, .cal-case--tenue .qui, .cal-case--tenue .sub { color: var(--pal-vert-f); }
+.cal-case--tenue .qui .pt { background: var(--pal-vert); }
+.cal-case.est-choisie {
+  box-shadow: 0 0 0 2px var(--pg-accent-deep), 0 8px 18px rgba(29, 78, 216, .22);
+}
+
+.cal-leg {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--ink-2);
+}
+.cal-leg span { display: inline-flex; align-items: center; gap: 7px; }
+.cal-leg .p { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.cal-leg .p--prevue { background: var(--pg-accent); }
+.cal-leg .p--retard { background: #dc2626; }
+.cal-leg .p--tenue { background: var(--pal-vert); }
+
+/* La session choisie : ce qu'il y a à trancher. */
+.cal-detail { display: flex; flex-direction: column; overflow: hidden; }
+.cal-d-h {
+  padding: 15px 18px 13px; border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--pg-accent) 4%, #fff);
+}
+.cal-d-h .k {
+  margin: 0 0 3px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .7px; text-transform: uppercase; color: var(--pg-accent-deep);
+}
+.cal-d-h h3 { margin: 0 0 5px; font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; }
+.cal-d-h .r { margin: 0; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+.cal-d-h .pastille {
+  background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); color: var(--pal-vert-f);
+  border-radius: 999px; padding: 3px 10px; font-weight: 600;
+}
+.cal-d-retard {
+  background: var(--pal-rouge-p); border: 1px solid var(--pal-rouge-b); color: var(--pal-rouge-f);
+  border-radius: 999px; padding: 1px 9px; font-size: 11px; font-weight: 700;
+  letter-spacing: .5px; text-transform: uppercase;
+}
+.cal-d-corps { flex: 1; overflow-y: auto; padding: 14px 18px; display: flex; flex-direction: column; gap: 11px; }
+
+.cal-pal { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.cal-pal--att { background: var(--card); }
+.cal-pal--ok { background: color-mix(in srgb, var(--pal-vert) 5%, #fff); border-color: var(--pal-vert-b); }
+.cal-pal--ko { background: var(--pal-rouge-p); border: 1.5px solid #dc2626; }
+.cal-pal .h { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
+.cal-pal .so { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.cal-pal .ac { font-size: 12.5px; color: var(--muted); }
+.cal-pal .h .sp { flex: 1; }
+.cal-pal .ci { font-size: 12.5px; color: var(--ink-2); }
+.cal-pal .m { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.cal-pal .m label { display: flex; flex-direction: column; gap: 5px; }
+.cal-pal .m label > span {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.cal-pal .m input {
+  width: 88px; font-family: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
+  background: var(--card); border: 1px solid var(--border-strong, var(--border));
+  border-radius: var(--r-btn, 9px); padding: 8px 11px;
+}
+.cal-pal .m input:focus {
+  outline: none; border-color: var(--pg-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 16%, transparent);
+}
+.cal-pal--ko .m input { border: 1.5px solid #dc2626; color: var(--pal-rouge-f); }
+.cal-pal .m .u { font-size: 13px; color: var(--ink-2); padding-bottom: 9px; }
+.cal-pal .m .v {
+  display: inline-flex; align-items: center; gap: 7px; margin-bottom: 7px;
+  border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 700;
+}
+.cal-pal .m .v--ok { background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); color: var(--pal-vert-f); }
+.cal-pal .m .v--ko { background: #fff; border: 1px solid #dc2626; color: var(--pal-rouge-f); }
+
+.cal-d-pied {
+  flex: none; display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 13px 18px; background: var(--card-2); border-top: 1px solid var(--border);
+}
+.cal-d-pied .d { margin: 0; flex: 1; min-width: 150px; font-size: 12.5px; color: var(--muted); }
+
+/* Le fil d'Ariane du rôle porte deux portes : le calendrier et le plan.
+   ⚠️ C'est le PREMIER des deux qui pousse le groupe à droite — `margin-left:
+   auto` sur le second (la règle d'avant, quand il était seul) les séparerait
+   aux deux bouts de la ligne. */
+.cv2-fil-cal { margin-left: auto; }
+.cv2-fil-cal ~ .cv2-fil-plan { margin-left: 0; }
+
+@media (max-width: 980px) {
+  .pal-rail { flex-wrap: wrap; gap: 14px 0; }
+  .pal-pas { flex: 1 1 42%; }
+  .pal-pied { gap: 9px; }
+  .pal-pied-sp { flex: 1 1 100%; height: 0; }
+}
+
+/* ⚠️ Le graphe mérite la place. Dans les 720 px de la fenêtre d'évaluation,
+   un SVG de 820 px de viewBox est rendu à 0,82 — et `body.pg` porte en plus
+   `zoom: .8`, donc un libellé écrit en 11,5 px arrive à **7,6 px réels**,
+   sous le plancher de l'échelle typographique. La fenêtre s'élargit pour
+   cette vue, et pour elle seule. */
+.cv2-drawer[data-vue="evol"] { width: min(1060px, 96vw); }

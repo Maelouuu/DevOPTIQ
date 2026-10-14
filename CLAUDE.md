@@ -4629,6 +4629,147 @@ toujours ; faiblesse 50,6 → 101,3 h sur 3 faiblesses toujours).
 
 ---
 
+### Les PALIERS DE PERFORMANCE à l'écran (2026-10-14)
+
+Le moteur était écrit et testé (`Code/paliers.py`, 10 routes, `test_108` — le
+parcours de Bob aux chiffres exacts : 96 h → 72 h → 48 h, puis 24 h). Il ne se
+voyait nulle part. Les quatre écrans ont été **tranchés sur maquettes avant
+d'écrire une ligne de code** (canvas « Compétences — paliers de performance ») :
+c'est la méthode retenue pour tout ce qui se juge en trois secondes, et qui
+coûte une demi-journée à écrire.
+
+**La règle, inchangée** : la norme atteinte = niveau 2 (qualifié), dépassée
+d'un palier = niveau 3 (avancé), le niveau 4 n'est **jamais déduit**. Une
+sortie sans norme chiffrée garde sa note 0→4 posée à la main.
+
+#### Ce que l'écran montre
+
+- **L'échelle des paliers** (`carteMesuree`, `railHtml`) remplace l'échelle
+  0→4 **pour les sorties mesurées seulement** : `96 ● ─── 72 ● ─── 48 ◉ NORME
+  ┄┄ 24 ○`. Chaque marche porte sa cible, son verdict et ce qui a été mesuré ;
+  la norme est marquée d'un drapeau noir ; l'échéance du palier en cours est
+  une pastille ambre, rouge dès qu'elle est dépassée.
+  ⚠️ **Le dispatch se fait sur la NORME, pas sur la nature de la sortie**
+  (`carteSortie`) : c'est le seul critère, et les deux régimes cohabitent dans
+  la même fenêtre — c'est ce qui rend la règle lisible.
+- **Le calendrier** (`cv2-cal-win`, bouton du fil d'Ariane du rôle) : les
+  compteurs, le mois, et la session choisie à droite — où l'on relève les
+  chiffres et où les verdicts tombent.
+- **L'évolution** (`showEvolution`, sous-vue de la fenêtre d'évaluation) : le
+  graphe d'une sortie **dans son unité**, les zones « qualifié » et « avancé »,
+  et l'historique complet (palier posé → session tenue → mesure → verdict).
+- **Un palier manqué ouvre l'analyse des savoirs** (`apresEchec`), jamais
+  « reposez la même cible » : reposer la marche sans rien changer, c'est
+  attendre le même résultat (CDC 6.8).
+
+#### Les décisions qui ont coûté quelque chose
+
+- ⚠️ **Le graphe garde l'unité réelle**, pas un score normalisé : une durée
+  descend vers la norme, un taux y monte. Conséquence assumée — deux sorties
+  se lisent dans des sens opposés, et chaque carte le dit (`ev_descend` /
+  `ev_monte`). Un score normalisé lirait pareil des deux côtés, mais on ne
+  lirait plus « 70 h » — or c'est ce chiffre qu'on vient voir.
+- ⚠️ **« Enregistrer » disparaît quand toutes les sorties sont mesurées.** Le
+  niveau vient du chiffre relevé en session : un bouton d'enregistrement
+  n'écrirait rien et laisserait croire qu'on a oublié une note.
+- ⚠️ **Le pas « au-delà » peut tomber HORS de la grandeur** — une norme de 2 j
+  avec un pas de 4 donne « −2 j », un taux de 100 % donne « 120 % ». Relevé au
+  banc sur les deux cas. `plausible()` ne le dessine pas alors, et **n'invente
+  pas un autre seuil** pour le remplacer : la marge est celle que le
+  développeur a posée, ou il n'y en a pas. C'est un garde-fou d'AFFICHAGE — le
+  niveau reste celui du serveur.
+- ⚠️ **La marche « au-delà » se REMPLIT quand la mesure la dépasse.** Elle
+  restait creuse alors que la pastille annonçait « Qualifié · avancé » : la
+  carte disait une chose, son échelle en disait une autre juste en dessous.
+- ⚠️ **Le calendrier ne se cadre PAS sur un collaborateur** : celui qui tient
+  les rendez-vous les tient pour tout le monde. Cadré sur une personne, une
+  session ne se voit qu'en ayant d'abord choisi la bonne — c'est exactement ce
+  qui faisait manquer les propositions de carto dans la page RH. Il est
+  **large, pas ouvert** : un développeur voit les rendez-vous de SES
+  collaborateurs (lien global ou lien par rôle), un coordinateur voit tout.
+- ⚠️ **Il s'ouvre sur une session**, la plus urgente d'abord. Sans cela la
+  moitié droite de la fenêtre s'ouvre vide — elle occupe la place de ce qu'on
+  vient faire sans rien en dire.
+- ⚠️ **`_sessions_lisibles` charge en DEUX requêtes** ce que l'acteur encadre,
+  puis filtre en mémoire : `peut_lire` dans une boucle relit l'utilisateur et
+  compte ses rattachements à chaque appel — cinquante sessions feraient cent
+  requêtes pour une page qui s'ouvre à chaque visite.
+- ⚠️ **Une session se clôt en UNE transaction** (`POST /paliers/session/<id>/
+  cloturer`) : en trois appels, un refus au milieu laisserait une session
+  « prévue » dont la moitié des paliers sont tranchés, et plus personne ne
+  saurait ce qui reste à faire. Les identifiants venant du navigateur, on ne
+  tranche QUE des paliers de cette session.
+- ⚠️ **Les formulaires s'ouvrent DANS la carte**, jamais en fenêtre : une
+  modale par-dessus une modale cache le chiffre qu'on vient lire pour décider.
+  Et pas de `window.prompt` pour planifier une session — la fenêtre du
+  navigateur arrive avec ses styles système et son texte en dur, c'est ce
+  qu'on a retiré de la page Temps.
+- ⚠️ **La fenêtre s'élargit à 1060 px pour le graphe, et pour lui seul.** Dans
+  les 720 px de la fenêtre d'évaluation, un SVG de 820 px de viewBox est rendu
+  à 0,82 — et `body.pg` porte en plus `zoom: .8`, donc un libellé écrit en
+  11,5 px arrive à **7,6 px réels**, sous le plancher de l'échelle
+  typographique. `data-vue` est remis à `eval` à chaque ouverture : sinon
+  rouvrir après le graphe gardait une fiche deux fois trop large.
+- **Les deux boutons** reprennent le vocabulaire tranché sur la page Temps :
+  rapport INVERSÉ — l'action pose une pastille PASTEL sur un fond vif avec un
+  éclat qui traverse au survol, le réglage une pastille VIVE sur un fond clair.
+  Une sortie déjà qualifiée passe son bouton en discret : poser une marche de
+  plus reste possible, ce n'est plus ce qu'on vient faire.
+- ⚠️ **Aucune règle neuve ne lit `--pg-accent-soft`** ni ses trois frères :
+  déclarés sur `:root`, où `--pg-accent` vaut encore le gris par défaut, ils
+  rendent du GRIS sur toute l'application. Les mélanges sont écrits DANS la
+  règle (`color-mix` sur place). Tenu par `test_109`.
+- ⚠️ **Un verdict masqué par `.hidden` dans une classe qui pose un `display`** :
+  quatrième fois que ce piège se présente. Ici il ne mordait pas (`.hidden`
+  porte `!important`), mais la ligne n'est plus rendue du tout quand il n'y a
+  rien à dire.
+
+#### Le semis — `tools/db/seed_competences.sql`
+
+À coller dans l'éditeur SQL de Neon, sur la **même carto** que
+`seed_temps.sql` (le même `carto_id`). Trois requêtes : inventaire (lecture
+seule), semis (un bloc atomique), relecture.
+
+- Il **matérialise les sorties exactement comme l'application** (nom = libellé
+  de la flèche, à défaut l'activité visée ; une flèche qui vise une donnée
+  n'a rien à matérialiser) : un semis qui nommerait autrement ferait naître
+  des doublons au premier passage de `materialize_activity_outputs`.
+- ⚠️ **Il REFUSE de rejouer** sur une carto qui porte déjà des paliers.
+  Mesuré : un second passage empilait 76 paliers là où il en faut 38 — six
+  marches au lieu de trois, un historique qui ne veut plus rien dire. Et
+  fusionner silencieusement serait pire : des paliers fictifs se mêleraient à
+  de vraies évaluations. `purger := true` pour recommencer.
+- ⚠️ **Il s'arrête si personne ne tient de rôle** sur la carto : sans
+  titulaire il n'y a personne à évaluer, et on ne fabrique pas de
+  collaborateurs pour remplir un écran.
+- ⚠️ **Deux activités sur cinq restent SANS norme**, volontairement — même
+  principe que `seed_temps.sql` : une carto où tout est mesuré ne montre
+  jamais la moitié de l'écran.
+- ⚠️ **Les quatre parcours tournent sur un compteur de PAIRES** (personne ×
+  sortie), pas sur la somme des deux rangs : avec deux personnes et deux
+  sorties, cette somme ne prend que trois valeurs sur quatre — et c'est
+  « qualifié · avancé », la fin heureuse de l'histoire, qui n'apparaissait
+  jamais. Relevé à l'essai, pas deviné.
+- ⚠️ La requête de relecture rend la **dernière** mesure, pas la plus grande :
+  sur une durée, la plus grande est la PIRE — on lirait l'inverse de la
+  progression.
+- **Éprouvé sur un vrai PostgreSQL 16** (conteneur jetable), schéma monté par
+  le démarrage NORMAL de l'application : un SQL que SQLite accepte et que
+  PostgreSQL refuse ne se verrait qu'une fois sous les yeux du client.
+  Mesuré : 38 paliers, 0 sur la carto voisine, 2 sorties laissées à la main,
+  et les quatre états présents.
+
+Tests : `tests/test_109_paliers_ecran.py` (24 cas ; **cinq défauts remis un
+par un, cinq cliquets tombés** — le garde-fou de l'au-delà, le calendrier
+cadré sur tout le monde, la clôture acceptant n'importe quel palier, les
+parcours du semis, la note redemandée sur une sortie mesurée). Suite : 3078
+passés, `repet_image` 3043 + 36 sautés. Banc : `tools/devrun_competences.py`
+sème les paliers — en cours, en retard, qualifié-et-au-delà, manqué, et trois
+sorties laissées sans norme. Éprouvé dans les deux langues (détecteur de
+fuites : zéro phrase française sur l'écran anglais).
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

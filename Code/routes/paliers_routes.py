@@ -9,6 +9,7 @@ masquage dans l'écran n'est jamais une sécurité.
 from datetime import date, datetime
 
 from flask import Blueprint, jsonify, request
+from flask import session as flask_session
 
 from Code.competences_acces import peut_lire, peut_noter
 from Code.extensions import db
@@ -286,3 +287,176 @@ def supprimer_session(sid):
     db.session.delete(s)
     db.session.commit()
     return jsonify({"ok": True, "deleted": True}), 200
+
+
+# ═══════════════════ LE CALENDRIER, TOUS COLLABORATEURS ═══════════════════
+def _sessions_lisibles(acteur):
+    """Les sessions que l'acteur a le droit de voir, en DEUX requêtes.
+
+    ⚠️ Pas `peut_lire` dans une boucle : il relit l'utilisateur et compte ses
+    rattachements à chaque appel — cinquante sessions feraient cent requêtes
+    pour une page qui s'ouvre à chaque visite. On charge une fois ce que
+    l'acteur encadre, puis on filtre en mémoire.
+    """
+    from Code.competences_acces import _statut_eleve
+    from Code.models.models import User, UserRole
+    if _statut_eleve(acteur):
+        return SessionEvaluation.query.all()
+    # Lien GLOBAL : couvre tous les rôles de ces personnes, présents et à venir.
+    globaux = {u.id for u in User.query.filter_by(manager_id=acteur.id).all()}
+    globaux.add(acteur.id)
+    # Lien PAR RÔLE : ne couvre que la paire.
+    paires = {(ur.user_id, ur.role_id)
+              for ur in UserRole.query.filter_by(manager_id=acteur.id).all()}
+    return [s for s in SessionEvaluation.query.all()
+            if s.user_id in globaux or (s.user_id, s.role_id) in paires]
+
+
+def _nommer(sessions, lang):
+    """Qui, et sur quel rôle — en deux requêtes pour toute la liste."""
+    from Code.models.models import Role, User
+    from Code.role_i18n import nom_affiche
+    gens = {u.id: u for u in User.query.filter(
+        User.id.in_({s.user_id for s in sessions} or {0})).all()}
+    roles = {r.id: r for r in Role.query.filter(
+        Role.id.in_({s.role_id for s in sessions if s.role_id} or {0})).all()}
+    return gens, roles, nom_affiche
+
+
+@paliers_bp.route("/calendrier", methods=["GET"])
+def calendrier():
+    """Toutes les sessions visibles, avec de quoi dessiner un mois.
+
+    ⚠️ Le calendrier ne se cadre PAS sur un collaborateur : celui qui tient
+    les rendez-vous les tient pour tout le monde, et une session ne se voit
+    pas si l'on doit d'abord choisir la bonne personne — c'est exactement ce
+    qui faisait manquer les propositions de carto dans la page RH.
+    """
+    acteur = current_user()
+    if acteur is None:
+        return jsonify({"error": "not_logged_in"}), 401
+    lang = flask_session.get("lang", "en")
+    sessions = _sessions_lisibles(acteur)
+    ids = [s.id for s in sessions]
+    compte, a_trancher = {}, {}
+    if ids:
+        for pal in PalierPerformance.query.filter(
+                PalierPerformance.session_id.in_(ids)).all():
+            compte[pal.session_id] = compte.get(pal.session_id, 0) + 1
+            if pal.statut == "en_cours":
+                a_trancher[pal.session_id] = a_trancher.get(pal.session_id, 0) + 1
+    gens, roles, nom_affiche = _nommer(sessions, lang)
+
+    today = date.today()
+    lundi = date.fromordinal(today.toordinal() - today.weekday())
+    dimanche = date.fromordinal(lundi.toordinal() + 6)
+    out, n_retard, n_sem, n_mois, n_tenues = [], 0, 0, 0, 0
+    for s in sessions:
+        j = json_session(s, compte.get(s.id, 0))
+        qui = gens.get(s.user_id)
+        j["nom"] = ("%s %s" % (qui.first_name, qui.last_name)) if qui else ""
+        r = roles.get(s.role_id)
+        j["role"] = nom_affiche(r, lang) if r else ""
+        j["a_trancher"] = a_trancher.get(s.id, 0)
+        out.append(j)
+        if s.statut == "tenue":
+            if s.date_prevue and s.date_prevue.year == today.year:
+                n_tenues += 1
+            continue
+        if s.statut != "prevue" or not s.date_prevue:
+            continue
+        if j["en_retard"]:
+            n_retard += 1
+        if lundi <= s.date_prevue <= dimanche:
+            n_sem += 1
+        if s.date_prevue.year == today.year and s.date_prevue.month == today.month:
+            n_mois += 1
+    out.sort(key=lambda j: (j["date_prevue"] or "", j["id"]))
+    return jsonify({"ok": True, "aujourdhui": today.isoformat(), "sessions": out,
+                    "compteurs": {"en_retard": n_retard, "semaine": n_sem,
+                                  "mois": n_mois, "tenues_annee": n_tenues}}), 200
+
+
+@paliers_bp.route("/session/<int:sid>/detail", methods=["GET"])
+def detail_session(sid):
+    """Ce qu'il y a À TRANCHER dans cette session : un palier par ligne, avec
+    la sortie qu'il mesure et l'activité dont elle sort."""
+    s = db.session.get(SessionEvaluation, sid)
+    if s is None:
+        return jsonify({"error": "unknown"}), 404
+    if not peut_lire(current_user(), s.user_id, role_id=s.role_id):
+        return jsonify({"error": "forbidden"}), 403
+    lang = flask_session.get("lang", "en")
+    paliers = PalierPerformance.query.filter_by(session_id=sid).order_by(
+        PalierPerformance.activity_id, PalierPerformance.rang).all()
+    sorties = {d.id: d for d in Data.query.filter(
+        Data.id.in_({p.data_id for p in paliers} or {0})).all()}
+    actes = {a.id: a for a in Activities.query.filter(
+        Activities.id.in_({p.activity_id for p in paliers} or {0})).all()}
+    lignes = []
+    for p in paliers:
+        d, a = sorties.get(p.data_id), actes.get(p.activity_id)
+        lignes.append({
+            "palier_id": p.id, "data_id": p.data_id, "activity_id": p.activity_id,
+            "sortie": d.name if d else "", "activite": a.name if a else "",
+            "cible": p.cible_valeur, "rang": p.rang,
+            "unite": (d.norme_unite or "") if d else "",
+            "sens": (d.norme_sens or "moins") if d else "moins",
+            "norme": d.norme_valeur if d else None,
+            "statut": p.statut, "mesure": p.mesure_valeur,
+            "preuve": p.preuve or "",
+            "echeance": p.echeance.isoformat() if p.echeance else None,
+        })
+    gens, roles, nom_affiche = _nommer([s], lang)
+    qui = gens.get(s.user_id)
+    j = json_session(s, len(paliers))
+    j["nom"] = ("%s %s" % (qui.first_name, qui.last_name)) if qui else ""
+    j["role"] = nom_affiche(roles.get(s.role_id), lang) if s.role_id else ""
+    return jsonify({"ok": True, "session": j, "paliers": lignes,
+                    "aujourdhui": date.today().isoformat()}), 200
+
+
+@paliers_bp.route("/session/<int:sid>/cloturer", methods=["POST"])
+def cloturer_session(sid):
+    """La session a eu lieu : on pose toutes ses mesures, et on la clôt.
+
+    ⚠️ UNE transaction. En trois appels — trancher, trancher, clore — un refus
+    au milieu laisserait une session « prévue » dont la moitié des paliers
+    sont tranchés : plus personne ne saurait ce qui reste à faire.
+    """
+    s = db.session.get(SessionEvaluation, sid)
+    if s is None:
+        return jsonify({"error": "unknown"}), 404
+    ok, motif = peut_noter(current_user(), s.user_id, "2", role_id=s.role_id)
+    if not ok:
+        return jsonify({"error": "forbidden", "reason": motif}), 403
+    p = request.get_json(force=True) or {}
+    acteur = current_user()
+    # ⚠️ Les identifiants viennent du navigateur : on ne tranche que des
+    # paliers de CETTE session, jamais ceux d'une autre personne.
+    miens = {pal.id: pal for pal in PalierPerformance.query.filter_by(session_id=sid).all()}
+    verdicts = []
+    for m in (p.get("mesures") or []):
+        pal = miens.get(m.get("palier_id"))
+        if pal is None:
+            continue
+        try:
+            mesure = float(m["mesure"])
+        except (TypeError, ValueError, KeyError):
+            return jsonify({"error": "invalid_value", "palier_id": m.get("palier_id")}), 400
+        statut = trancher(pal, mesure, evaluateur_id=acteur.id if acteur else None,
+                          preuve=m.get("preuve"))
+        d = db.session.get(Data, pal.data_id)
+        verdicts.append({"palier_id": pal.id, "statut": statut,
+                         "activity_id": pal.activity_id, "data_id": pal.data_id,
+                         "sortie": d.name if d else "",
+                         "niveau": (etat_sortie(d, pal.user_id, pal.role_id)["niveau"]
+                                    if d is not None and mesurable(d) else None)})
+    if "note" in p:
+        s.note = (p.get("note") or "").strip() or None
+    s.statut = "tenue"
+    s.tenue_le = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"ok": True, "session": json_session(s, len(miens)),
+                    "verdicts": verdicts,
+                    "manques": [v for v in verdicts if v["statut"] == "manque"]}), 200

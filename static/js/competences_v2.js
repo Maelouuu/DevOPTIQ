@@ -22,6 +22,127 @@
 
   const I18N = {
     fr: {
+      pal_norme: 'Norme',
+      pal_norme_mod: "Modifier la norme de l'entreprise",
+      pal_au_plus: 'au plus',
+      pal_au_moins: 'au moins',
+      pal_norme_titre: "La norme de l'entreprise",
+      pal_norme_d: 'Ce qui est attendu de cette sortie, pour tout le monde — elle ne dépend pas de qui fait le travail.',
+      pal_valeur: 'Valeur',
+      pal_unite: 'Unité',
+      pal_unite_ph: 'h, jours, %…',
+      pal_sens: "Mieux, c'est",
+      pal_moins: 'moins',
+      pal_plus: 'plus',
+      pal_norme_off: 'Pas de norme chiffrée',
+      pal_norme_off_d: 'Ce résultat se juge, il ne se mesure pas.',
+      pal_poser_norme: 'Poser une norme',
+      pal_effacer_norme: 'Retirer la norme',
+      pal_norme_ok: 'Norme enregistrée',
+      pal_norme_retiree: 'Norme retirée — ce résultat se note à la main',
+      pal_atteint: 'Atteint',
+      pal_manque: 'Manqué',
+      pal_encours: 'En cours',
+      pal_audela: 'Au-delà',
+      pal_audela_d: "un palier de mieux que l'attendu",
+      pal_norme_tag: "Norme de l'entreprise",
+      pal_mesure_de: 'mesuré [[v]]',
+      pal_echeance: 'échéance [[d]]',
+      pal_retard: 'en retard',
+      pal_niveau_deduit: 'Niveau déduit de la dernière mesure',
+      pal_qualifie: 'Qualifié',
+      pal_qualifie_av: 'Qualifié · avancé',
+      pal_rien: 'Aucun palier posé',
+      pal_rien_d: 'Posez la première marche : une cible, une échéance.',
+      pal_poser: 'Poser un palier',
+      pal_poser_suivant: 'Poser la marche suivante',
+      pal_trancher: 'Trancher ce palier',
+      pal_evolution: "Voir l'évolution",
+      pal_cible: 'Cible',
+      pal_delai: 'Délai',
+      pal_jours: 'jours',
+      pal_propose: 'Proposé : [[v]]',
+      pal_cree: 'Palier posé',
+      pal_supprime: 'Palier retiré',
+      pal_tranche_ok: 'Palier atteint',
+      pal_tranche_ko: 'Palier manqué',
+      pal_mesure_lbl: 'Mesuré',
+      pal_preuve_ph: "Ce qu'on a observé",
+      pal_retirer: 'Retirer ce palier',
+      pal_annuler: 'Annuler',
+      pal_valider: 'Valider',
+      pal_comment: 'Comment le niveau se déduit',
+      pal_comment_0: 'sous le premier palier',
+      pal_comment_1: 'un palier franchi, pas la norme',
+      pal_comment_2: 'la norme atteinte',
+      pal_comment_3: 'un palier au-delà',
+      pal_comment_4: 'jamais déduite, elle se pose',
+      pal_pas_de_note: "Une sortie mesurée n'a pas de note à saisir : le niveau vient du chiffre relevé en session.",
+      pal_apres_echec: 'Ce palier est manqué. Analysez les savoirs plutôt que de reposer la même cible.',
+      pal_vers_diag: 'Analyser les savoirs',
+      ses_titre: "Sessions d'évaluation",
+      ses_sub: 'Chaque échéance de palier pose une session. On y relève les chiffres, et les verdicts tombent.',
+      ses_cal: 'Calendrier',
+      ses_ouvrir: 'Ouvrir le calendrier',
+      ses_prochaine: 'Prochaine session',
+      ses_aucune: 'Aucune session prévue',
+      ses_planifier: 'Planifier une session',
+      ses_en_retard: 'en retard',
+      ses_semaine: 'cette semaine',
+      ses_mois: 'ce mois',
+      ses_tenues: 'tenues cette année',
+      ses_dans: 'dans [[n]] jours',
+      ses_demain: 'demain',
+      ses_aujourdhui: "aujourd'hui",
+      ses_passe: 'il y a [[n]] jours',
+      ses_a_trancher: '[[n]] palier à trancher',
+      ses_a_trancher_pl: '[[n]] paliers à trancher',
+      ses_tenue: 'Tenue',
+      ses_annulee: 'Annulée',
+      ses_prevue: 'Prévue',
+      ses_rien_a_trancher: 'Aucun palier rattaché à cette session.',
+      ses_cloturer: 'Clôturer la session',
+      ses_reporter: 'Reporter',
+      ses_note: "Ce qu'on a observé",
+      ses_verdicts_calc: 'Les verdicts se calculent, ils ne se cochent pas.',
+      ses_close_ok: 'Session clôturée',
+      ses_cree: 'Session planifiée',
+      ses_suppr: 'Session retirée',
+      ses_legend_palier: 'palier à trancher',
+      ses_legend_retard: 'échéance dépassée',
+      ses_legend_tenue: 'session tenue',
+      ses_vide_mois: 'Aucune session ce mois-ci.',
+      ses_choisir_une: 'Choisissez une session dans le calendrier.',
+      ses_objet_ph: 'Objet de la session (facultatif)',
+      ses_date: 'Date',
+      ses_lun: 'lun',
+      ses_mar: 'mar',
+      ses_mer: 'mer',
+      ses_jeu: 'jeu',
+      ses_ven: 'ven',
+      ses_sam: 'sam',
+      ses_dim: 'dim',
+      ses_mois_prec: 'Mois précédent',
+      ses_mois_suiv: 'Mois suivant',
+      ev_titre: 'Évolution',
+      ev_retour: '← Évaluation',
+      ev_descend: "Une durée se bat à la baisse : la courbe doit descendre jusqu'à la ligne noire.",
+      ev_monte: "La courbe doit monter jusqu'à la ligne noire.",
+      ev_zone_q: 'zone « qualifié »',
+      ev_zone_a: 'zone « avancé »',
+      ev_leg_mesure: 'mesuré en session',
+      ev_leg_encours: 'palier en cours',
+      ev_leg_norme: 'la norme',
+      ev_leg_audela: 'un palier au-delà',
+      ev_histo: "Tout ce qui s'est passé",
+      ev_rien: 'Aucune mesure encore : le graphe apparaîtra après la première session tenue.',
+      ev_pose: 'Palier posé : [[v]]',
+      ev_aligne: 'Aligné sur la norme : [[v]]',
+      ev_atteindre: "L'atteindre rendra qualifié.",
+      ev_a_venir: 'à venir',
+      ev_session_prevue: "Session d'évaluation",
+      ev_session_tenue: 'Session tenue',
+      ev_graphe_de: "L'évolution de « [[x]] »",
       manager: 'Développeur de compétences', my_dev: 'Votre développeur de compétences',
       collaborators: 'Collaborateurs', me: 'Vous', no_collab: 'Aucun collaborateur.',
       no_dev: 'Aucun',
@@ -140,6 +261,127 @@
       plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
+      pal_norme: 'Standard',
+      pal_norme_mod: 'Change the company standard',
+      pal_au_plus: 'at most',
+      pal_au_moins: 'at least',
+      pal_norme_titre: 'The company standard',
+      pal_norme_d: 'What is expected of this output, for everyone — it does not depend on who does the work.',
+      pal_valeur: 'Value',
+      pal_unite: 'Unit',
+      pal_unite_ph: 'h, days, %…',
+      pal_sens: 'Better means',
+      pal_moins: 'less',
+      pal_plus: 'more',
+      pal_norme_off: 'No numeric standard',
+      pal_norme_off_d: 'This result is judged, not measured.',
+      pal_poser_norme: 'Set a standard',
+      pal_effacer_norme: 'Remove the standard',
+      pal_norme_ok: 'Standard saved',
+      pal_norme_retiree: 'Standard removed — this result is now graded by hand',
+      pal_atteint: 'Met',
+      pal_manque: 'Missed',
+      pal_encours: 'Under way',
+      pal_audela: 'Beyond',
+      pal_audela_d: 'one step better than expected',
+      pal_norme_tag: 'Company standard',
+      pal_mesure_de: 'measured [[v]]',
+      pal_echeance: 'due [[d]]',
+      pal_retard: 'overdue',
+      pal_niveau_deduit: 'Level derived from the last measurement',
+      pal_qualifie: 'Qualified',
+      pal_qualifie_av: 'Qualified · advanced',
+      pal_rien: 'No step set',
+      pal_rien_d: 'Set the first step: a target and a deadline.',
+      pal_poser: 'Set a step',
+      pal_poser_suivant: 'Set the next step',
+      pal_trancher: 'Settle this step',
+      pal_evolution: 'See progress',
+      pal_cible: 'Target',
+      pal_delai: 'Deadline',
+      pal_jours: 'days',
+      pal_propose: 'Suggested: [[v]]',
+      pal_cree: 'Step set',
+      pal_supprime: 'Step removed',
+      pal_tranche_ok: 'Step met',
+      pal_tranche_ko: 'Step missed',
+      pal_mesure_lbl: 'Measured',
+      pal_preuve_ph: 'What was observed',
+      pal_retirer: 'Remove this step',
+      pal_annuler: 'Cancel',
+      pal_valider: 'Confirm',
+      pal_comment: 'How the level is derived',
+      pal_comment_0: 'below the first step',
+      pal_comment_1: 'a step cleared, not the standard',
+      pal_comment_2: 'the standard met',
+      pal_comment_3: 'one step beyond',
+      pal_comment_4: 'never derived, it is set by hand',
+      pal_pas_de_note: 'A measured output has no level to type: it comes from the figure recorded in the session.',
+      pal_apres_echec: 'This step was missed. Analyse the underlying knowledge rather than setting the same target again.',
+      pal_vers_diag: 'Analyse knowledge',
+      ses_titre: 'Evaluation sessions',
+      ses_sub: 'Each step deadline sets a session. You record the figures there, and the verdicts follow.',
+      ses_cal: 'Calendar',
+      ses_ouvrir: 'Open the calendar',
+      ses_prochaine: 'Next session',
+      ses_aucune: 'No session scheduled',
+      ses_planifier: 'Schedule a session',
+      ses_en_retard: 'late',
+      ses_semaine: 'this week',
+      ses_mois: 'this month',
+      ses_tenues: 'held this year',
+      ses_dans: 'in [[n]] days',
+      ses_demain: 'tomorrow',
+      ses_aujourdhui: 'today',
+      ses_passe: '[[n]] days ago',
+      ses_a_trancher: '[[n]] step to settle',
+      ses_a_trancher_pl: '[[n]] steps to settle',
+      ses_tenue: 'Held',
+      ses_annulee: 'Cancelled',
+      ses_prevue: 'Scheduled',
+      ses_rien_a_trancher: 'No step attached to this session.',
+      ses_cloturer: 'Close the session',
+      ses_reporter: 'Postpone',
+      ses_note: 'What was observed',
+      ses_verdicts_calc: 'Verdicts are computed, not ticked.',
+      ses_close_ok: 'Session closed',
+      ses_cree: 'Session scheduled',
+      ses_suppr: 'Session removed',
+      ses_legend_palier: 'step to settle',
+      ses_legend_retard: 'deadline passed',
+      ses_legend_tenue: 'session held',
+      ses_vide_mois: 'No session this month.',
+      ses_choisir_une: 'Pick a session from the calendar.',
+      ses_objet_ph: 'Session purpose (optional)',
+      ses_date: 'Date',
+      ses_lun: 'Mon',
+      ses_mar: 'Tue',
+      ses_mer: 'Wed',
+      ses_jeu: 'Thu',
+      ses_ven: 'Fri',
+      ses_sam: 'Sat',
+      ses_dim: 'Sun',
+      ses_mois_prec: 'Previous month',
+      ses_mois_suiv: 'Next month',
+      ev_titre: 'Progress',
+      ev_retour: '← Evaluation',
+      ev_descend: 'A duration is fought downwards: the curve must come down to the black line.',
+      ev_monte: 'The curve must rise to the black line.',
+      ev_zone_q: '“qualified” zone',
+      ev_zone_a: '“advanced” zone',
+      ev_leg_mesure: 'measured in session',
+      ev_leg_encours: 'step under way',
+      ev_leg_norme: 'the standard',
+      ev_leg_audela: 'one step beyond',
+      ev_histo: 'Everything that happened',
+      ev_rien: 'No measurement yet: the chart appears after the first session held.',
+      ev_pose: 'Step set: [[v]]',
+      ev_aligne: 'Aligned on the standard: [[v]]',
+      ev_atteindre: 'Reaching it brings qualification.',
+      ev_a_venir: 'upcoming',
+      ev_session_prevue: 'Evaluation session',
+      ev_session_tenue: 'Session held',
+      ev_graphe_de: 'Progress on “[[x]]”',
       manager: 'Competency developer', my_dev: 'Your competency developer',
       collaborators: 'Team members', me: 'You', no_collab: 'No team member.',
       no_dev: 'None',
@@ -328,6 +570,7 @@
     applyStaticI18n();
     bindDrawer();
     bindPlan();
+    bindCal();
     const [sc, ds] = await Promise.all([api('/mastery/scale'), api('/domains/scale')]);
     state.scale = sc.mastery || {}; state.notAssessed = sc.not_assessed || T('not_assessed');
     state.domScale = (ds && ds.scale) || {};
@@ -1030,6 +1273,7 @@
     $('#cv2-overlay').onclick = () => { closeDrawer(); fermerPlan(); };
     $('#cv2-retour').onclick = () => chargerSynthese();
     $('#cv2-btn-plan').onclick = () => ouvrirPlan();
+    $('#cv2-btn-cal').onclick = () => ouvrirCalendrier();
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
       if ($('#cv2-plan-win').classList.contains('open')) fermerPlan();
@@ -1060,6 +1304,7 @@
     state.activity = row;
     const d = $('#cv2-drawer');
     d.dataset.mode = 'eval';
+    d.dataset.vue = 'eval';
     $('#cv2-drawer-title').textContent = row.activity_name;
     // Le collaborateur et son rôle ne sont pas une légende du titre : ce sont
     // deux informations de même rang. Côte à côte, les deux peuvent grossir.
@@ -1077,6 +1322,7 @@
     state.activity = row;
     const d = $('#cv2-drawer');
     d.dataset.mode = 'config';
+    d.dataset.vue = 'eval';
     $('#cv2-drawer-title').textContent = T('conf_title');
     $('#cv2-drawer-role').innerHTML = `<span class="qui">${esc(row.activity_name)}</span>`;
     d.classList.add('open'); $('#cv2-overlay').classList.add('open');
@@ -1157,17 +1403,30 @@
       const ok = document.createElement('div'); ok.className = 'cv2-ok';
       ok.textContent = T('configured_go_eval'); b2.appendChild(ok);
     }
-    st.results.forEach(r => b2.appendChild(resultCard(r, st.required_level)));
+    st.results.forEach(r => b2.appendChild(carteSortie(r, st.required_level)));
     body.appendChild(blocTechnicite());
 
-    const pied = [{
+    // ⚠️ « Enregistrer » ne s'affiche que s'il y a quelque chose à SAISIR. Sur
+    // une activité dont toutes les sorties sont mesurées, le niveau vient du
+    // chiffre relevé en session : un bouton d'enregistrement n'y écrirait rien
+    // et laisserait croire qu'on a oublié de remplir une note.
+    const aSaisir = st.results.some(r => !r.mesurable);
+    if (!aSaisir) {
+      const q = document.createElement('p');
+      q.className = 'pal-quiet'; q.textContent = T('pal_pas_de_note');
+      b2.appendChild(q);
+    }
+    const pied = aSaisir ? [{
       cls: 'btn-primary', id: 'cv2-save-btn',
       label: jeSuisLeDev() ? T('save_eval') : T('save_self'), on: saveEvaluation,
-    }];
+    }] : [];
     if (jeSuisLeDev() && aUnEcart(st)) pied.unshift({ cls: 'btn-ghost', label: T('diagnose'), on: showDiagnostic });
     setFooter(pied);
   }
 
+  // `demonstrated_level` porte DÉJÀ le niveau déduit d'une sortie mesurée
+  // (`activity_mastery` l'écrase avec `etat_sortie`) : un palier manqué entre
+  // donc dans l'écart sans traitement à part.
   function aUnEcart(st) {
     const req = st.required_level;
     return (st.results || []).some(r => !estNul(r.demonstrated_level)
@@ -1241,6 +1500,13 @@
         </div>
         ${o.accord || ''}
       </div>`;
+  }
+
+  // Une sortie porte une NORME chiffrée, ou elle n'en porte pas. C'est le seul
+  // critère, et il décide de tout ce qui suit : l'échelle des paliers d'un
+  // côté, la note 0→4 à la main de l'autre.
+  function carteSortie(r, requis) {
+    return (r.mesurable && r.performance) ? carteMesuree(r) : resultCard(r, requis);
   }
 
   function resultCard(r, requis) {
@@ -2126,4 +2392,747 @@
   }
 
   document.addEventListener('DOMContentLoaded', boot);
+
+  // ══ LES PALIERS DE PERFORMANCE ═════════════════════════════════════
+  // Une sortie MESURABLE ne se note pas à la main : on lui pose des marches
+  // — 96 h sous 30 jours, puis 72 h, puis la norme — et le niveau 0→4 se
+  // DÉDUIT du chiffre relevé en session (Code/paliers.py).
+  //
+  // ⚠️ Les deux régimes cohabitent dans la même fenêtre, et c'est voulu :
+  // « Cahier des charges validé » n'a pas de durée, il garde son échelle 0→4.
+  // Ce qui les distingue à l'écran, c'est la NORME — présente ou absente.
+
+  const SENS_MOINS = 'moins';
+  const mieux = (a, b, sens) => (sens === SENS_MOINS ? a <= b : a >= b);
+
+  // Un nombre se lit sans sa queue décimale inutile : « 48 h », pas « 48.0 h ».
+  function fmtNb(v) {
+    if (estNul(v)) return '—';
+    const n = Math.round(v * 100) / 100;
+    return String(n % 1 === 0 ? n : n.toFixed(2).replace(/0$/, ''));
+  }
+  function fmtVal(v, unite) {
+    if (estNul(v)) return '—';
+    return fmtNb(v) + (unite ? ' ' + unite : '');
+  }
+  function jourISO(d) {
+    const z = n => (n < 10 ? '0' : '') + n;
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+  }
+  // ⚠️ Une date du serveur est un JOUR (`date_prevue` est un DATE, pas un
+  // horodatage) : `new Date('2026-04-17')` le lit en UTC et recule d'un jour
+  // à l'ouest de Greenwich. On découpe la chaîne.
+  function dateJour(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+  }
+  function ecartJours(iso) {
+    const d = dateJour(iso); if (!d) return null;
+    const a = new Date(); a.setHours(0, 0, 0, 0);
+    return Math.round((d - a) / 86400000);
+  }
+  function quandDit(iso) {
+    const n = ecartJours(iso);
+    if (n === null) return '';
+    if (n === 0) return T('ses_aujourdhui');
+    if (n === 1) return T('ses_demain');
+    if (n > 1) return Tv('ses_dans', { n: n });
+    return Tv('ses_passe', { n: -n });
+  }
+
+  // ⚠️ L'« au-delà » est un pas de plus que la norme — et ce pas peut tomber
+  // HORS de ce que la grandeur permet : une norme de 2 jours avec un pas de
+  // 4 donne « −2 j », un taux de 100 % donne « 120 % ». On ne l'affiche pas
+  // alors, et on n'invente pas non plus un autre seuil pour le remplacer :
+  // la marge est celle que le développeur a posée, ou il n'y en a pas.
+  // C'est un garde-fou d'AFFICHAGE — le niveau, lui, reste celui du serveur.
+  function plausible(v, sens, unite) {
+    if (!isFinite(v)) return false;
+    if (sens === SENS_MOINS) return v > 0;
+    return !/%/.test(unite || '') || v <= 100;
+  }
+
+  // ── Le rail : les marches, la norme, et l'au-delà ─────────────────
+  // ⚠️ La norme n'est PAS une marche de plus : c'est l'arrivée. Quand aucun
+  // palier ne l'atteint encore, on la dessine quand même — sinon on ne voit
+  // pas où mène la progression. Et l'« au-delà » n'existe que s'il y a un pas
+  // de progression connu : on n'invente pas un seuil pour pouvoir en montrer
+  // un (même règle que `pas_de_progression`, côté serveur).
+  function construireRail(perf) {
+    const n = perf.norme || {}, sens = n.sens || SENS_MOINS;
+    const rail = (perf.paliers || []).map(p => ({
+      id: p.id, cible: p.cible, statut: p.statut, mesure: p.mesure,
+      quand: p.evalue_le, echeance: p.echeance,
+      estNorme: mieux(p.cible, n.valeur, sens),
+    }));
+    if (!rail.some(s => s.estNorme)) {
+      rail.push({ cible: n.valeur, statut: 'cible', estNorme: true, fantome: true });
+    }
+    if (perf.marge && plausible(sens === SENS_MOINS ? n.valeur - perf.marge : n.valeur + perf.marge,
+                                sens, n.unite)) {
+      const au = sens === SENS_MOINS ? n.valeur - perf.marge : n.valeur + perf.marge;
+      // ⚠️ Cette marche se REMPLIT quand la dernière mesure la dépasse. Elle
+      // restait creuse alors que la pastille annonçait « avancé » : la carte
+      // disait une chose, son échelle en disait une autre juste en dessous.
+      const franchie = !estNul(perf.mesure) && mieux(perf.mesure, au, sens);
+      rail.push({ cible: au, statut: franchie ? 'atteint' : 'audela',
+                  mesure: franchie ? perf.mesure : null,
+                  quand: franchie ? perf.mesure_le : null, fantome: true });
+    }
+    return rail;
+  }
+
+  function railHtml(perf) {
+    const u = (perf.norme || {}).unite || '';
+    const rail = construireRail(perf);
+    const atteintAvant = i => i > 0 && rail[i - 1].statut === 'atteint';
+    let html = '<div class="pal-rail">';
+    rail.forEach((s, i) => {
+      const dernier = i === rail.length - 1;
+      const plein = s.statut === 'atteint';
+      const gauche = i === 0 ? 'vide' : (atteintAvant(i) ? 'ok' : 'tirets');
+      const droite = dernier ? 'vide' : (plein ? 'ok' : 'tirets');
+      let ico = '', sous = '';
+      if (plein) ico = '<i class="fa-solid fa-check"></i>';
+      else if (s.statut === 'manque') ico = '<i class="fa-solid fa-xmark"></i>';
+      if (s.statut === 'atteint' || s.statut === 'manque') {
+        sous = `<p class="pal-m">${esc(Tv('pal_mesure_de', { v: fmtVal(s.mesure, u) }))}</p>`
+          + `<p class="pal-q">${esc(fmtDate(s.quand))}</p>`;
+      } else if (s.statut === 'en_cours') {
+        const n = ecartJours(s.echeance);
+        sous = s.echeance
+          ? `<p class="pal-ech${n !== null && n < 0 ? ' est-tard' : ''}">
+               <i class="fa-regular fa-clock"></i>${esc(Tv('pal_echeance', { d: fmtDate(s.echeance) }))}</p>
+             <p class="pal-q">${esc(quandDit(s.echeance))}</p>`
+          : '';
+      } else if (s.statut === 'audela') {
+        sous = `<p class="pal-q">${esc(T('pal_audela_d'))}</p>`;
+      }
+      const mot = { atteint: 'pal_atteint', manque: 'pal_manque', en_cours: 'pal_encours',
+                    audela: 'pal_audela', cible: 'pal_cible' }[s.statut];
+      html += `<div class="pal-pas pal-pas--${s.statut}">
+          ${s.estNorme ? `<span class="pal-drapeau">${esc(T('pal_norme_tag'))}</span>` : '<span class="pal-drapeau-vide"></span>'}
+          <div class="pal-ligne">
+            <span class="pal-fil pal-fil--${gauche}"></span>
+            <span class="pal-dot">${ico}</span>
+            <span class="pal-fil pal-fil--${droite}"></span>
+          </div>
+          <p class="pal-v">${esc(fmtVal(s.cible, u))}</p>
+          <p class="pal-s">${esc(T(mot))}</p>
+          ${sous}
+        </div>`;
+    });
+    return html + '</div>';
+  }
+
+  // ── La carte d'une sortie MESURÉE ─────────────────────────────────
+  function carteMesuree(r) {
+    const perf = r.performance, n = perf.norme || {}, dev = jeSuisLeDev();
+    const card = document.createElement('div');
+    const niv = perf.niveau;
+    card.className = 'cv2-res pal-res' + (perf.qualifie ? ' est-qualifie' : '')
+      + (estNul(niv) ? '' : ' est-note');
+    card.dataset.dataId = r.data_id;
+    card.dataset.mesurable = '1';
+
+    const encours = perf.palier_en_cours;
+    const badge = perf.qualifie
+      ? `<span class="pal-badge"><i class="fa-solid fa-check"></i>${esc(niv >= 3 ? T('pal_qualifie_av') : T('pal_qualifie'))}</span>`
+      : '';
+    card.innerHTML = `
+      <div class="pal-tete">
+        <div class="pal-tete-txt">
+          <div class="rname"${r.minimum_performance_text
+            ? ` title="${esc(T('std'))}${DP}${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
+            ${r.minimum_performance_text ? '<i class="fa-regular fa-circle-question cv2-astuce"></i>' : ''}
+          </div>
+        </div>
+        ${badge}
+        <div class="pal-norme">
+          <span class="k">${esc(T('pal_norme'))}</span>
+          <span class="v">${esc(fmtVal(n.valeur, n.unite))}</span>
+          <span class="s">${esc(n.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span>
+          ${dev ? `<button type="button" class="pal-ic" data-norme aria-label="${esc(T('pal_norme_mod'))}"
+                    title="${esc(T('pal_norme_mod'))}"><i class="fa-solid fa-pen"></i></button>` : ''}
+        </div>
+      </div>
+      <div class="pal-corps">${(perf.paliers || []).length || perf.norme
+        ? railHtml(perf)
+        : `<p class="pal-vide">${esc(T('pal_rien_d'))}</p>`}</div>
+      <div class="pal-pied">
+        <span class="pal-pied-k">${esc(T('pal_niveau_deduit'))}</span>
+        ${estNul(niv)
+          ? `<span class="pal-niv pal-niv--off">${esc(T('not_assessed'))}</span>`
+          : `<span class="pal-niv pal-niv--${niv >= 2 ? 'ok' : 'bas'}"><b>${niv}</b> · ${esc(levelName(niv))}</span>`}
+        <span class="pal-pied-sp"></span>
+        <button type="button" class="pal-b pal-b--doux" data-evol>
+          <span class="pal-b-ic"><i class="fa-solid fa-chart-line"></i></span>${esc(T('pal_evolution'))}</button>
+        <!-- Une sortie déjà qualifiée n'appelle plus d'action : poser une
+             marche de plus reste possible, mais ce n'est pas ce qu'on vient
+             faire. Le bouton passe donc en discret. -->
+        ${dev && encours
+          ? `<button type="button" class="pal-b pal-b--prim" data-trancher="${encours.id}">
+               <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>${esc(T('pal_trancher'))}</button>`
+          : (dev ? `<button type="button" class="pal-b pal-b--${perf.qualifie ? 'doux' : 'prim'}" data-poser>
+               <span class="pal-b-ic"><i class="fa-solid fa-plus"></i></span>${esc((perf.paliers || []).length ? T('pal_poser_suivant') : T('pal_poser'))}</button>` : '')}
+      </div>
+      <div class="pal-form hidden"></div>`;
+
+    const zone = card.querySelector('.pal-form');
+    const q = s => card.querySelector(s);
+    if (q('[data-norme]')) q('[data-norme]').onclick = () => formNorme(zone, r);
+    q('[data-evol]').onclick = () => showEvolution(r);
+    if (q('[data-poser]')) q('[data-poser]').onclick = () => formPoser(zone, r);
+    if (q('[data-trancher]')) q('[data-trancher]').onclick =
+      () => formTrancher(zone, r, encours);
+    return card;
+  }
+
+  // ⚠️ Les formulaires s'ouvrent DANS la carte, jamais en fenêtre : une modale
+  // par-dessus une modale cache le chiffre qu'on vient lire pour décider.
+  function ouvrirForm(zone, html, surValider) {
+    zone.innerHTML = html + `<div class="pal-form-pied">
+        <button type="button" class="btn btn-ghost" data-ko>${esc(T('pal_annuler'))}</button>
+        <button type="button" class="btn btn-primary" data-ok>${esc(T('pal_valider'))}</button>
+      </div>`;
+    zone.classList.remove('hidden');
+    zone.querySelector('[data-ko]').onclick = () => { zone.classList.add('hidden'); zone.innerHTML = ''; };
+    zone.querySelector('[data-ok]').onclick = () => surValider(zone);
+    const p = zone.querySelector('input, select, textarea');
+    if (p) p.focus();
+  }
+
+  function formNorme(zone, r) {
+    const n = (r.performance && r.performance.norme) || {};
+    ouvrirForm(zone, `
+      <div class="pal-form-h">${esc(T('pal_norme_titre'))}</div>
+      <p class="pal-form-d">${esc(T('pal_norme_d'))}</p>
+      <div class="pal-champs">
+        <label><span>${esc(T('pal_valeur'))}</span>
+          <input type="text" data-v value="${esc(estNul(n.valeur) ? '' : fmtNb(n.valeur))}" inputmode="decimal"></label>
+        <label><span>${esc(T('pal_unite'))}</span>
+          <input type="text" data-u value="${esc(n.unite || '')}" placeholder="${esc(T('pal_unite_ph'))}"></label>
+        <label><span>${esc(T('pal_sens'))}</span>
+          <select data-s>
+            <option value="moins"${n.sens !== 'plus' ? ' selected' : ''}>${esc(T('pal_moins'))}</option>
+            <option value="plus"${n.sens === 'plus' ? ' selected' : ''}>${esc(T('pal_plus'))}</option>
+          </select></label>
+      </div>
+      ${estNul(n.valeur) ? '' : `<button type="button" class="pal-retirer" data-off>${esc(T('pal_effacer_norme'))}</button>`}`,
+      async z => {
+        const brut = (z.querySelector('[data-v]').value || '').replace(',', '.').trim();
+        const v = parseFloat(brut);
+        if (!isFinite(v)) { toast(T('pal_valeur')); return; }
+        await poserNorme(r, { valeur: v, unite: z.querySelector('[data-u]').value,
+                              sens: z.querySelector('[data-s]').value });
+      });
+    const off = zone.querySelector('[data-off]');
+    if (off) off.onclick = () => poserNorme(r, { valeur: null });
+  }
+
+  async function poserNorme(r, corps) {
+    const res = await api(`/paliers/norme/${r.data_id}`,
+      { method: 'POST', body: JSON.stringify(corps) });
+    if (res.__error) return;
+    toast(estNul(corps.valeur) ? T('pal_norme_retiree') : T('pal_norme_ok'));
+    await showEvaluation();
+    await refreshDashboard();
+  }
+
+  function formPoser(zone, r) {
+    const perf = r.performance, u = (perf.norme || {}).unite || '';
+    const prop = perf.proposition;
+    ouvrirForm(zone, `
+      <div class="pal-form-h">${esc(T('pal_poser_suivant'))}</div>
+      <div class="pal-champs">
+        <label><span>${esc(T('pal_cible'))}${u ? ' (' + esc(u) + ')' : ''}</span>
+          <input type="text" data-c value="${esc(estNul(prop) ? '' : fmtNb(prop))}" inputmode="decimal"></label>
+        <label><span>${esc(T('pal_delai'))} (${esc(T('pal_jours'))})</span>
+          <input type="text" data-j value="30" inputmode="numeric"></label>
+      </div>
+      ${estNul(prop) ? '' : `<p class="pal-form-d">${esc(Tv('pal_propose', { v: fmtVal(prop, u) }))}</p>`}`,
+      async z => {
+        const c = parseFloat((z.querySelector('[data-c]').value || '').replace(',', '.'));
+        if (!isFinite(c)) { toast(T('pal_cible')); return; }
+        const j = parseInt(z.querySelector('[data-j]').value, 10);
+        const d = new Date(); d.setDate(d.getDate() + (isFinite(j) ? j : 30));
+        const res = await api('/paliers/palier', { method: 'POST', body: JSON.stringify({
+          user_id: state.cible, data_id: r.data_id, role_id: state.roleId,
+          cible: c, echeance: jourISO(d) }) });
+        if (res.__error) return;
+        toast(T('pal_cree'));
+        await showEvaluation(); await refreshDashboard();
+      });
+  }
+
+  function formTrancher(zone, r, palier) {
+    const u = (r.performance.norme || {}).unite || '';
+    ouvrirForm(zone, `
+      <div class="pal-form-h">${esc(T('pal_trancher'))}</div>
+      <p class="pal-form-d">${esc(T('pal_cible'))}${DP}<b>${esc(fmtVal(palier.cible, u))}</b></p>
+      <div class="pal-champs">
+        <label><span>${esc(T('pal_mesure_lbl'))}${u ? ' (' + esc(u) + ')' : ''}</span>
+          <input type="text" data-m inputmode="decimal"></label>
+      </div>
+      <label class="pal-champ-large"><span>${esc(T('ses_note'))}</span>
+        <textarea data-p rows="2" placeholder="${esc(T('pal_preuve_ph'))}"></textarea></label>
+      <button type="button" class="pal-retirer" data-del>${esc(T('pal_retirer'))}</button>`,
+      async z => {
+        const m = parseFloat((z.querySelector('[data-m]').value || '').replace(',', '.'));
+        if (!isFinite(m)) { toast(T('pal_mesure_lbl')); return; }
+        const res = await api(`/paliers/palier/${palier.id}/trancher`, {
+          method: 'POST',
+          body: JSON.stringify({ mesure: m, preuve: z.querySelector('[data-p]').value }) });
+        if (res.__error) return;
+        toast(res.statut === 'atteint' ? T('pal_tranche_ok') : T('pal_tranche_ko'));
+        await showEvaluation(); await refreshDashboard();
+        // ⚠️ Un palier manqué n'ouvre PAS « reposez la même cible » : il ouvre
+        // l'analyse des savoirs. Reposer la marche sans rien changer, c'est
+        // attendre le même résultat (CDC 6.8).
+        if (res.statut === 'manque') apresEchec();
+      });
+    const del = zone.querySelector('[data-del]');
+    if (del) del.onclick = async () => {
+      const res = await api(`/paliers/palier/${palier.id}`, { method: 'DELETE' });
+      if (res.__error) return;
+      toast(T('pal_supprime'));
+      await showEvaluation(); await refreshDashboard();
+    };
+  }
+
+  function apresEchec() {
+    const b2 = $('#cv2-drawer-body').querySelector('.cv2-bloc--eval');
+    if (!b2) return;
+    const w = document.createElement('div');
+    w.className = 'pal-echec';
+    w.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>
+      <span>${esc(T('pal_apres_echec'))}</span>
+      <button type="button" class="pal-b pal-b--doux">
+        <span class="pal-b-ic"><i class="fa-solid fa-magnifying-glass-chart"></i></span>${esc(T('pal_vers_diag'))}</button>`;
+    w.querySelector('button').onclick = () => showDiagnostic();
+    b2.insertBefore(w, b2.children[1] || null);
+    w.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  // ── Le graphe : une sortie, dans le temps ─────────────────────────
+  // ⚠️ Chaque sortie garde SON unité et son sens : une durée descend vers la
+  // norme, un taux y monte. Un score normalisé lirait pareil des deux côtés,
+  // mais on ne lit plus « 70 h » — or c'est ce chiffre qu'on vient voir.
+  async function showEvolution(r) {
+    const d = $('#cv2-drawer');
+    const avant = $('#cv2-drawer-title').textContent;
+    showBusy();
+    setFooter([{ cls: 'btn-ghost', label: T('ev_retour'), on: () => {
+      $('#cv2-drawer-title').textContent = avant;
+      d.dataset.vue = 'eval';
+      showEvaluation();
+    } }]);
+    d.dataset.vue = 'evol';
+    $('#cv2-drawer-title').textContent = Tv('ev_graphe_de', { x: r.name });
+    const h = await api(`/paliers/historique/${state.cible}/${state.activity.activity_id}?role_id=${state.roleId}`);
+    if (h.__error) return;
+    const serie = (h.series || []).find(s => s.data_id === r.data_id) || { points: [] };
+    const body = $('#cv2-drawer-body'); body.innerHTML = '';
+    body.appendChild(blocGraphe(r, serie));
+    body.appendChild(blocHistorique(r));
+  }
+
+  function blocGraphe(r, serie) {
+    const wrap = document.createElement('div');
+    wrap.className = 'pal-graphe';
+    const perf = r.performance, n = perf.norme || {}, sens = n.sens || SENS_MOINS;
+    const u = n.unite || '';
+    const pts = serie.points || [];
+    const encours = perf.palier_en_cours;
+
+    if (!pts.length && !encours) {
+      wrap.innerHTML = `<p class="pal-vide">${esc(T('ev_rien'))}</p>`;
+      return wrap;
+    }
+
+    // L'échelle couvre tout ce qui est dessiné, norme et cibles comprises.
+    const tous = pts.map(p => p.mesure).concat(pts.map(p => p.cible))
+      .concat([n.valeur], encours ? [encours.cible] : [])
+      .filter(v => !estNul(v) && isFinite(v));
+    let vmax = Math.max.apply(null, tous) * 1.2 || 1;
+    if (sens !== SENS_MOINS && /%/.test(u) && vmax > 100) vmax = 100;
+    const X0 = 56, X1 = 780, Y0 = 16, Y1 = 254;
+    const y = v => Y1 - (v / vmax) * (Y1 - Y0);
+    const colonnes = pts.length + (encours ? 1 : 0);
+    const x = i => (colonnes <= 1 ? (X0 + X1) / 2
+      : X0 + 70 + ((X1 - X0 - 120) * i) / (colonnes - 1));
+
+    const yN = y(n.valeur);
+    const yA = perf.marge
+      ? y(sens === SENS_MOINS ? Math.max(n.valeur - perf.marge, 0) : n.valeur + perf.marge)
+      : null;
+    // La zone « qualifié » est du bon côté de la norme — en bas pour une
+    // durée, en haut pour un taux.
+    const zoneQ = sens === SENS_MOINS
+      ? `<rect x="${X0}" y="${yN}" width="${X1 - X0}" height="${Math.max(Y1 - yN, 0)}" fill="#f0fdf4"></rect>`
+      : `<rect x="${X0}" y="${Y0}" width="${X1 - X0}" height="${Math.max(yN - Y0, 0)}" fill="#f0fdf4"></rect>`;
+    const zoneA = yA === null ? '' : (sens === SENS_MOINS
+      ? `<rect x="${X0}" y="${yA}" width="${X1 - X0}" height="${Math.max(Y1 - yA, 0)}" fill="#dcfce7"></rect>`
+      : `<rect x="${X0}" y="${Y0}" width="${X1 - X0}" height="${Math.max(yA - Y0, 0)}" fill="#dcfce7"></rect>`);
+
+    let g = zoneQ + zoneA;
+    // Quatre repères horizontaux, plus la norme en trait plein.
+    for (let k = 1; k <= 4; k++) {
+      const v = (vmax * k) / 5, yy = y(v);
+      g += `<line x1="${X0}" y1="${yy}" x2="${X1}" y2="${yy}" stroke="#eef1f6"></line>
+            <text x="${X0 - 10}" y="${yy + 4}" text-anchor="end" font-size="11.5" fill="#5b6676">${esc(fmtNb(v))}</text>`;
+    }
+    g += `<line x1="${X0}" y1="${Y1}" x2="${X1}" y2="${Y1}" stroke="#cbd5e1" stroke-width="1.5"></line>`;
+    g += `<line x1="${X0}" y1="${yN}" x2="${X1}" y2="${yN}" stroke="#0f172a" stroke-width="2.5"></line>
+          <text x="${X1}" y="${yN - 8}" text-anchor="end" font-size="11" font-weight="700"
+                fill="#0f172a">${esc(T('pal_norme_tag') + ' · ' + fmtVal(n.valeur, u))}</text>`;
+    if (yA !== null) {
+      g += `<text x="${X1}" y="${sens === SENS_MOINS ? yA + 16 : yA - 8}" text-anchor="end"
+                  font-size="11.5" font-weight="700" fill="#15803d">${esc(T('ev_zone_a'))}</text>`;
+    }
+
+    // Le tracé des mesures, puis le palier en cours en pointillés.
+    const coords = pts.map((p, i) => [x(i), y(p.mesure)]);
+    if (coords.length > 1) {
+      g += `<path d="M${coords.map(c => c[0] + ' ' + c[1]).join(' L')}"
+                  stroke="#2563eb" stroke-width="3.5" fill="none" stroke-linecap="round"></path>`;
+    }
+    if (encours && coords.length) {
+      const last = coords[coords.length - 1], cx = x(colonnes - 1), cy = y(encours.cible);
+      g += `<path d="M${last[0]} ${last[1]} L${cx} ${cy}" stroke="#94a3b8" stroke-width="3"
+                  stroke-dasharray="8 6" fill="none" stroke-linecap="round"></path>`;
+    }
+    pts.forEach((p, i) => {
+      const [cx, cy] = coords[i];
+      const col = p.statut === 'manque' ? '#dc2626' : '#2563eb';
+      g += `<circle cx="${cx}" cy="${cy}" r="8" fill="${col}" stroke="#fff" stroke-width="3"></circle>
+            <text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="12.5" font-weight="700"
+                  fill="${col}">${esc(fmtVal(p.mesure, u))}</text>
+            <text x="${cx}" y="276" text-anchor="middle" font-size="12.5" font-weight="600"
+                  fill="#334155">${esc(fmtDate(p.date))}</text>
+            <text x="${cx}" y="291" text-anchor="middle" font-size="11.5"
+                  fill="${p.statut === 'manque' ? '#b91c1c' : '#15803d'}">${esc(T(p.statut === 'manque' ? 'pal_manque' : 'pal_atteint'))}</text>`;
+    });
+    if (encours) {
+      const cx = x(colonnes - 1), cy = y(encours.cible);
+      g += `<circle cx="${cx}" cy="${cy}" r="9" fill="#fff" stroke="#2563eb" stroke-width="3.5"
+                    stroke-dasharray="4 3"></circle>
+            <text x="${cx}" y="276" text-anchor="middle" font-size="12.5" font-weight="600"
+                  fill="#334155">${esc(encours.echeance ? fmtDate(encours.echeance) : '')}</text>
+            <text x="${cx}" y="291" text-anchor="middle" font-size="11.5" fill="#1d4ed8">${esc(T('ev_a_venir'))}</text>`;
+    }
+
+    wrap.innerHTML = `
+      <p class="pal-graphe-d">${esc(sens === SENS_MOINS ? T('ev_descend') : T('ev_monte'))}</p>
+      <svg viewBox="0 0 820 300" role="img" aria-label="${esc(Tv('ev_graphe_de', { x: r.name }))}">${g}</svg>
+      <div class="pal-leg">
+        <span><i class="t t--bleu"></i>${esc(T('ev_leg_mesure'))}</span>
+        <span><i class="t t--tirets"></i>${esc(T('ev_leg_encours'))}</span>
+        <span><i class="t t--noir"></i>${esc(T('ev_leg_norme'))}</span>
+        ${perf.marge ? `<span><i class="t t--vert"></i>${esc(T('ev_leg_audela'))}</span>` : ''}
+      </div>`;
+    return wrap;
+  }
+
+  function blocHistorique(r) {
+    const perf = r.performance, u = (perf.norme || {}).unite || '';
+    const sens = (perf.norme || {}).sens || SENS_MOINS;
+    const box = document.createElement('div');
+    box.className = 'pal-histo';
+    let items = '';
+    (perf.paliers || []).forEach(p => {
+      const estNorme = mieux(p.cible, perf.norme.valeur, sens);
+      items += `<div class="pal-h-l">
+          <span class="pal-h-pt pal-h-pt--${estNorme ? 'norme' : 'pose'}"></span>
+          <div><p class="d">${esc(fmtDate(p.echeance || p.evalue_le))}</p>
+          <p class="t">${esc(Tv(estNorme ? 'ev_aligne' : 'ev_pose', { v: fmtVal(p.cible, u) }))}</p>
+          ${estNorme && p.statut !== 'atteint' ? `<p class="s">${esc(T('ev_atteindre'))}</p>` : ''}</div>
+        </div>`;
+      if (p.evalue_le) {
+        items += `<div class="pal-h-l">
+            <span class="pal-h-pt pal-h-pt--${p.statut === 'atteint' ? 'ok' : 'ko'}"></span>
+            <div><p class="d">${esc(fmtDate(p.evalue_le))} · ${esc(T('ev_session_tenue'))}</p>
+            <p class="t">${esc(fmtVal(p.mesure, u))} — ${esc(T(p.statut === 'atteint' ? 'pal_atteint' : 'pal_manque'))}</p>
+            ${p.preuve ? `<p class="s">${esc(p.preuve)}</p>` : ''}</div>
+          </div>`;
+      }
+    });
+    if (perf.palier_en_cours && perf.palier_en_cours.echeance) {
+      items += `<div class="pal-h-l">
+          <span class="pal-h-pt pal-h-pt--venir"></span>
+          <div><p class="d">${esc(fmtDate(perf.palier_en_cours.echeance))} · ${esc(T('ev_a_venir'))}</p>
+          <p class="t">${esc(T('ev_session_prevue'))}</p></div>
+        </div>`;
+    }
+    box.innerHTML = `<div class="pal-histo-h">${esc(T('ev_histo'))}</div>`
+      + (items || `<p class="pal-vide">${esc(T('ev_rien'))}</p>`);
+    return box;
+  }
+
+  // ══ LE CALENDRIER DES SESSIONS ═════════════════════════════════════
+  // ⚠️ Il ne se cadre PAS sur un collaborateur : celui qui tient les
+  // rendez-vous les tient pour tout le monde. Cadré sur une personne, une
+  // session ne se voit qu'en ayant d'abord choisi la bonne — c'est ce qui
+  // faisait manquer les propositions de carto dans la page RH.
+  const cal = { mois: null, sessions: [], compteurs: {}, choisie: null, detail: null };
+
+  function bindCal() {
+    $('#cv2-cal-close').onclick = fermerCal;
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && $('#cv2-cal-win').classList.contains('open')) fermerCal();
+    });
+  }
+  function fermerCal() {
+    $('#cv2-cal-win').classList.remove('open');
+    if (!$('#cv2-drawer').classList.contains('open')
+        && !$('#cv2-plan-win').classList.contains('open')) {
+      $('#cv2-overlay').classList.remove('open');
+    }
+  }
+
+  async function ouvrirCalendrier(sessionId) {
+    $('#cv2-cal-win').classList.add('open');
+    $('#cv2-overlay').classList.add('open');
+    $('#cv2-cal-sub').textContent = T('ses_sub');
+    showBusy(null, '#cv2-cal-body');
+    const d = await api('/paliers/calendrier');
+    if (d.__error) return;
+    cal.sessions = d.sessions || [];
+    cal.compteurs = d.compteurs || {};
+    // ⚠️ On OUVRE une session d'emblée : la plus urgente d'abord (en retard),
+    // sinon la prochaine. Sans cela la moitié droite de la fenêtre s'ouvre
+    // vide — elle occupe la place de ce qu'on vient faire sans rien en dire,
+    // et il faut deviner qu'il y a quelque chose à cliquer.
+    const urgente = cal.sessions.find(s => s.en_retard)
+      || cal.sessions.find(s => s.statut === 'prevue')
+      || cal.sessions[cal.sessions.length - 1];
+    cal.choisie = sessionId || (urgente && urgente.id) || null;
+    if (!cal.mois) {
+      const ref = cal.sessions.find(s => s.id === cal.choisie) || urgente;
+      const j = dateJour((ref && ref.date_prevue) || d.aujourdhui) || new Date();
+      cal.mois = new Date(j.getFullYear(), j.getMonth(), 1);
+    }
+    rendreCal();
+    if (cal.choisie) await chargerSession(cal.choisie);
+  }
+
+  function rendreCal() {
+    const body = $('#cv2-cal-body');
+    // ⚠️ « Planifier » n'apparaît QUE si un rôle est ouvert : une session se
+    // pose sur un couple (collaborateur, rôle), et le calendrier, lui, les
+    // montre tous. Un bouton qui demanderait ensuite « pour qui ? » ferait
+    // deux écrans d'une seule décision.
+    const peut = state.estDev && state.roleId && state.cible;
+    body.innerHTML = `
+      <div class="cal-tuiles">
+        ${tuileCal('en_retard', 'ses_en_retard', 'rouge')}
+        ${tuileCal('semaine', 'ses_semaine', 'ambre')}
+        ${tuileCal('mois', 'ses_mois', 'bleu')}
+        ${tuileCal('tenues_annee', 'ses_tenues', 'vert')}
+        ${peut ? `<button type="button" class="pal-b pal-b--prim cal-planif" data-planif>
+            <span class="pal-b-ic"><i class="fa-solid fa-calendar-plus"></i></span>${esc(T('ses_planifier'))}</button>` : ''}
+      </div>
+      <div class="cal-duo">
+        <div class="cal-mois" id="cal-mois"></div>
+        <div class="cal-detail" id="cal-detail">
+          <p class="pal-vide">${esc(T('ses_choisir_une'))}</p>
+        </div>
+      </div>`;
+    const bp = body.querySelector('[data-planif]');
+    if (bp) bp.onclick = formSession;
+    rendreMois();
+  }
+  function tuileCal(cle, lbl, teinte) {
+    return `<div class="cal-tuile cal-tuile--${teinte}">
+        <span class="n">${cal.compteurs[cle] || 0}</span>
+        <span class="l">${esc(T(lbl))}</span></div>`;
+  }
+
+  function rendreMois() {
+    const z = $('#cal-mois');
+    const m = cal.mois, an = m.getFullYear(), mo = m.getMonth();
+    const premier = new Date(an, mo, 1);
+    const decal = (premier.getDay() + 6) % 7;            // la semaine part du lundi
+    const nJours = new Date(an, mo + 1, 0).getDate();
+    const titre = m.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'fr-FR',
+                                       { month: 'long', year: 'numeric' });
+    const parJour = {};
+    cal.sessions.forEach(s => {
+      const d = dateJour(s.date_prevue);
+      if (d && d.getFullYear() === an && d.getMonth() === mo) {
+        (parJour[d.getDate()] = parJour[d.getDate()] || []).push(s);
+      }
+    });
+    const jours = ['ses_lun', 'ses_mar', 'ses_mer', 'ses_jeu', 'ses_ven', 'ses_sam', 'ses_dim'];
+    let g = '';
+    jours.forEach((k, i) => {
+      g += `<span class="cal-jn${i > 4 ? ' est-we' : ''}">${esc(T(k))}</span>`;
+    });
+    for (let i = 0; i < decal; i++) g += '<span class="cal-case cal-case--hors"></span>';
+    const auj = new Date(); auj.setHours(0, 0, 0, 0);
+    for (let j = 1; j <= nJours; j++) {
+      const dj = new Date(an, mo, j), we = dj.getDay() === 0 || dj.getDay() === 6;
+      const ses = parJour[j] || [];
+      if (!ses.length) {
+        g += `<div class="cal-case${we ? ' est-we' : ''}${+dj === +auj ? ' est-auj' : ''}">
+                <span class="n">${j}</span></div>`;
+        continue;
+      }
+      const s = ses[0];
+      const teinte = s.statut === 'tenue' ? 'tenue' : (s.en_retard ? 'retard' : 'prevue');
+      const n = s.a_trancher || s.n_paliers || 0;
+      g += `<button type="button" class="cal-case cal-case--${teinte}${cal.choisie === s.id ? ' est-choisie' : ''}"
+              data-ses="${s.id}">
+          <span class="n">${j}</span>
+          <span class="qui"><i class="pt"></i>${esc(s.nom)}</span>
+          <span class="sub">${esc(n ? Tv(n > 1 ? 'ses_a_trancher_pl' : 'ses_a_trancher', { n: n })
+                                    : T('ses_' + (s.statut === 'tenue' ? 'tenue' : 'prevue')))}</span>
+          ${ses.length > 1 ? `<span class="plus">+${ses.length - 1}</span>` : ''}
+        </button>`;
+    }
+    z.innerHTML = `
+      <div class="cal-mois-h">
+        <h3>${esc(titre.charAt(0).toUpperCase() + titre.slice(1))}</h3>
+        <span class="sp"></span>
+        <button type="button" class="cal-nav" data-dm="-1" aria-label="${esc(T('ses_mois_prec'))}">‹</button>
+        <button type="button" class="cal-nav" data-dm="1" aria-label="${esc(T('ses_mois_suiv'))}">›</button>
+      </div>
+      <div class="cal-grille">${g}</div>
+      <div class="cal-leg">
+        <span><i class="p p--prevue"></i>${esc(T('ses_legend_palier'))}</span>
+        <span><i class="p p--retard"></i>${esc(T('ses_legend_retard'))}</span>
+        <span><i class="p p--tenue"></i>${esc(T('ses_legend_tenue'))}</span>
+      </div>`;
+    z.querySelectorAll('[data-dm]').forEach(b => b.onclick = () => {
+      cal.mois = new Date(cal.mois.getFullYear(), cal.mois.getMonth() + (+b.dataset.dm), 1);
+      rendreMois();
+    });
+    z.querySelectorAll('[data-ses]').forEach(b => b.onclick = () => chargerSession(+b.dataset.ses));
+    if (!Object.keys(parJour).length) {
+      z.querySelector('.cal-grille').insertAdjacentHTML('afterend',
+        `<p class="pal-vide">${esc(T('ses_vide_mois'))}</p>`);
+    }
+  }
+
+  async function chargerSession(sid) {
+    cal.choisie = sid;
+    showBusy(null, '#cal-detail');
+    const d = await api(`/paliers/session/${sid}/detail`);
+    if (d.__error) return;
+    cal.detail = d;
+    rendreMois();
+    rendreDetail(d);
+  }
+
+  function rendreDetail(d) {
+    const s = d.session, z = $('#cal-detail');
+    const peut = state.estDev && s.statut !== 'tenue';
+    let lignes = '';
+    (d.paliers || []).forEach(p => {
+      const tranche = p.statut !== 'en_cours';
+      const cls = tranche ? (p.statut === 'atteint' ? 'ok' : 'ko') : 'att';
+      lignes += `<div class="cal-pal cal-pal--${cls}" data-pal="${p.palier_id}">
+          <div class="h">
+            <span class="so">${esc(p.sortie)}</span>
+            <span class="ac">${esc(p.activite)}</span>
+            <span class="sp"></span>
+            <span class="ci">${esc(T('pal_cible'))}${DP}<b>${esc(fmtVal(p.cible, p.unite))}</b>
+              ${esc(p.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span>
+          </div>
+          <div class="m">
+            <label><span>${esc(T('pal_mesure_lbl'))}</span>
+              <input type="text" data-m value="${esc(estNul(p.mesure) ? '' : fmtNb(p.mesure))}"
+                     inputmode="decimal" ${peut ? '' : 'disabled'}></label>
+            <span class="u">${esc(p.unite || '')}</span>
+            ${tranche ? `<span class="v v--${cls}">
+              <i class="fa-solid ${p.statut === 'atteint' ? 'fa-check' : 'fa-xmark'}"></i>
+              ${esc(T(p.statut === 'atteint' ? 'pal_atteint' : 'pal_manque'))}</span>` : ''}
+          </div>
+        </div>`;
+    });
+    const ret = s.en_retard
+      ? `<span class="cal-d-retard">${esc(T('pal_retard'))}</span>` : '';
+    z.innerHTML = `
+      <div class="cal-d-h">
+        <p class="k">${esc(fmtDate(s.date_prevue))} · ${esc(quandDit(s.date_prevue))} ${ret}</p>
+        <h3>${esc(s.nom)}</h3>
+        <p class="r">${s.role ? `<span class="pastille">${esc(s.role)}</span>` : ''}
+          ${esc(s.statut === 'tenue' ? T('ses_tenue')
+            : (s.n_paliers ? Tv(s.n_paliers > 1 ? 'ses_a_trancher_pl' : 'ses_a_trancher', { n: s.n_paliers }) : ''))}</p>
+      </div>
+      <div class="cal-d-corps">
+        ${lignes || `<p class="pal-vide">${esc(T('ses_rien_a_trancher'))}</p>`}
+        ${(d.paliers || []).length ? `<label class="pal-champ-large"><span>${esc(T('ses_note'))}</span>
+          <textarea data-note rows="2" ${peut ? '' : 'disabled'}>${esc(s.note || '')}</textarea></label>` : ''}
+      </div>
+      <div class="cal-d-pied">
+        <p class="d">${esc(T('ses_verdicts_calc'))}</p>
+        ${peut && (d.paliers || []).length ? `<button type="button" class="pal-b pal-b--prim" data-clore>
+            <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>${esc(T('ses_cloturer'))}</button>` : ''}
+      </div>`;
+    const b = z.querySelector('[data-clore]');
+    if (b) b.onclick = () => cloturer(s.id, z);
+  }
+
+  async function cloturer(sid, z) {
+    const mesures = [];
+    z.querySelectorAll('[data-pal]').forEach(l => {
+      const v = parseFloat((l.querySelector('[data-m]').value || '').replace(',', '.'));
+      if (isFinite(v)) mesures.push({ palier_id: +l.dataset.pal, mesure: v });
+    });
+    if (!mesures.length) { toast(T('pal_mesure_lbl')); return; }
+    const note = z.querySelector('[data-note]');
+    const res = await api(`/paliers/session/${sid}/cloturer`, {
+      method: 'POST',
+      body: JSON.stringify({ mesures: mesures, note: note ? note.value : '' }) });
+    if (res.__error) return;
+    toast(T('ses_close_ok'));
+    await ouvrirCalendrier(sid);
+    // La liste derrière le calendrier porte des niveaux que la clôture vient
+    // de déplacer : la laisser telle quelle afficherait l'état d'avant.
+    if (state.ecran === 'role') await refreshDashboard();
+  }
+
+  // ⚠️ Pas de `window.prompt` : la fenêtre du navigateur arrive avec ses
+  // styles système et son texte en dur — c'est exactement ce qu'on a retiré
+  // de la page Temps. Le formulaire s'ouvre DANS le panneau de droite.
+  function formSession() {
+    const z = $('#cal-detail');
+    const d = new Date(); d.setDate(d.getDate() + 15);
+    z.innerHTML = `
+      <div class="cal-d-h"><h3>${esc(T('ses_planifier'))}</h3>
+        <p class="r"><span class="pastille">${esc(state.roleName || '')}</span>${esc(state.cibleNom || '')}</p></div>
+      <div class="cal-d-corps">
+        <div class="pal-champs">
+          <label><span>${esc(T('ses_date'))}</span>
+            <input type="date" data-d value="${jourISO(d)}"></label>
+        </div>
+        <label class="pal-champ-large"><span>${esc(T('ses_objet_ph'))}</span>
+          <input type="text" data-o></label>
+      </div>
+      <div class="cal-d-pied">
+        <p class="d"></p>
+        <button type="button" class="btn btn-ghost" data-ko>${esc(T('pal_annuler'))}</button>
+        <button type="button" class="pal-b pal-b--prim" data-ok>
+          <span class="pal-b-ic"><i class="fa-solid fa-calendar-plus"></i></span>${esc(T('ses_planifier'))}</button>
+      </div>`;
+    z.querySelector('[data-ko]').onclick = () => {
+      if (cal.choisie) chargerSession(cal.choisie);
+      else z.innerHTML = `<p class="pal-vide">${esc(T('ses_choisir_une'))}</p>`;
+    };
+    z.querySelector('[data-ok]').onclick = async () => {
+      const quand = z.querySelector('[data-d]').value;
+      if (!quand) { toast(T('ses_date')); return; }
+      const res = await api('/paliers/session', { method: 'POST', body: JSON.stringify({
+        user_id: state.cible, role_id: state.roleId, date_prevue: quand,
+        objet: z.querySelector('[data-o]').value }) });
+      if (res.__error) return;
+      toast(T('ses_cree'));
+      cal.mois = dateJour(quand);
+      cal.mois = new Date(cal.mois.getFullYear(), cal.mois.getMonth(), 1);
+      await ouvrirCalendrier(res.session && res.session.id);
+    };
+    z.querySelector('[data-d]').focus();
+  }
+
 })();
