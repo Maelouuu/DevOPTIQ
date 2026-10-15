@@ -418,15 +418,6 @@ class TestLesLibellesExistentDansLesDeuxLangues:
         assert len(lues) > 60, "on doit en relever beaucoup (%d)" % len(lues)
         assert lues - cles_fr == set(), "lues mais jamais déclarées"
 
-    def test_le_gabarit_ouvre_la_fenetre_du_calendrier(self):
-        g = _lire(GABARIT)
-        for ident in ("cv2-cal-win", "cv2-cal-close", "cv2-cal-body", "cv2-btn-cal"):
-            assert ident in g, ident
-        js = _lire(JS)
-        # ⚠️ `editor.js` a montré ce que coûte un id câblé sans garde : une
-        # TypeError interrompt TOUTE la suite de l'init.
-        for ident in ("#cv2-cal-close", "#cv2-cal-body", "#cv2-btn-cal"):
-            assert ident in js, ident
 
 
 class TestLeStyleSuitLaPageEtPasLaRacine:
@@ -502,17 +493,19 @@ class TestEvaluerEstUnePage:
         assert avant.count("</div>") > avant.count('<div class="cv2-layout"'), \
             "l'écran doit être sorti de .cv2-layout"
 
-    def test_le_bouton_evaluer_ouvre_la_page(self):
+    def test_un_role_ouvre_DIRECTEMENT_la_page(self):
+        """⚠️ L'écran « liste des activités du rôle » ne décidait de rien : on
+        y cliquait « Évaluer » sur une ligne, et c'est tout. La colonne de
+        gauche de la page fait la même chose sans aller-retour."""
         js = _lire(JS)
         assert "function ouvrirEvaluation(" in js
-        # ⚠️ Le bouton de la LIGNE d'activité, pas n'importe quelle occurrence :
-        # la page se rouvre aussi depuis sa propre colonne de gauche, et un
-        # contrôle qui s'en contente ne garde rien.
-        ligne = js.split("function ligneActivite(a) {", 1)[1].split("\n  }", 1)[0]
-        assert "ouvrirEvaluation(a)" in ligne
-        assert "ouvrirDialogue" not in ligne
-        assert "function showEvaluation(" not in js, \
-            "l'évaluation dans le tiroir n'a plus lieu d'être"
+        assert "function showEvaluation(" not in js
+        corps = js.split("async function ouvrirRole(r) {", 1)[1].split("\n  }", 1)[0]
+        assert "ouvrirEvaluation(" in corps, "le rôle ouvre la page"
+        assert "montrerEcran('role')" not in js
+        for mort in ("function ligneActivite(", "function metaActivite(",
+                     "function celluleTech("):
+            assert mort not in js, mort
 
     def test_la_page_efface_la_barre_laterale_et_le_bandeau(self):
         js = _lire(JS)
@@ -679,3 +672,153 @@ class TestLePlurielNeSeDevinePas:
         for b in bases:
             formes = {b, b + "_1", b + "_n", b + "_pl"} & cles
             assert len(formes) >= 2, (b, formes)
+
+class TestLeCalendrierEstUnePage:
+
+    def test_le_gabarit_porte_les_quatre_ecrans(self):
+        """⚠️ Enfermé dans une pop-up, le calendrier avait 1180 px — 944
+        réels au zoom .8 — pour un mois ET la séance choisie. C'est une vue,
+        pas un dialogue."""
+        g = _lire(GABARIT)
+        for ident in ("cv2-ecran-synthese", "cv2-ecran-eval",
+                      "cv2-ecran-seance", "cv2-ecran-cal"):
+            assert 'id="%s"' % ident in g, ident
+        for parti in ("cv2-cal-win", "cv2-ecran-role", "cv2-btn-cal",
+                      "cv2-btn-plan", "cv2-fil-role", "cv2-lignes"):
+            assert parti not in g, parti
+        js = _lire(JS)
+        # ⚠️ `editor.js` a montré ce que coûte un id câblé sans garde : une
+        # TypeError interrompt TOUTE la suite de l'init. `#cv2-retour` a
+        # justement survécu une version de trop et cassé le démarrage.
+        for mort in ("#cv2-retour", "#cv2-btn-cal", "#cv2-btn-plan",
+                     "#cv2-fil-role", "#cv2-cal-close"):
+            assert mort not in js, mort
+
+    def test_il_se_rend_dans_son_ecran_et_pas_dans_une_fenetre(self):
+        js = _lire(JS)
+        corps = js.split("function rendreCal() {", 1)[1].split("\n  }", 1)[0]
+        assert "#cv2-ecran-cal" in corps
+        assert "cv2-cal-body" not in corps
+        # Il sait d'où l'on vient : le retour ne doit pas tomber au hasard.
+        assert "cal.retour" in js
+
+    def test_une_seule_porte_mene_a_la_seance(self):
+        js = _lire(JS)
+        detail = js.split("function rendreDetail(d) {", 1)[1].split("\n  }\n", 1)[0]
+        assert "data-tenir" in detail
+        assert "data-m" not in detail
+
+
+class TestLeProfilSeDessineDesQuUneCibleExiste:
+    """⚠️ Le radar ne traçait QUE les activités évaluées : un collaborateur
+    qu'on vient d'affecter n'avait aucun profil. On trace le REQUIS de toutes
+    celles qui en portent un, et le démontré se remplit par-dessus."""
+
+    def test_les_axes_ne_sont_plus_filtres_sur_le_demontre(self):
+        js = _lire(JS)
+        assert "const axes = avecCible;" in js
+        assert "avecCible.filter(a => !estNul(a.demonstrated_level))" not in js
+
+    def test_la_surface_demontree_ne_se_ferme_que_si_tout_est_mesure(self):
+        """Là où il n'y a pas de mesure, il n'y a pas de trait : fermer le
+        polygone sur un sommet absent le ferait passer par zéro, c'est-à-dire
+        par « non démontré » — ce que tout le module distingue."""
+        js = _lire(JS)
+        corps = js.split("const tout = axes.every(", 1)[1][:900]
+        assert "cv2-r-dem-part" in corps, "les morceaux de polyligne"
+        assert "polyline" in corps
+        css = _lire(CSS)
+        assert ".cv2-r-dem-part" in css
+
+    def test_un_axe_sans_mesure_n_a_pas_de_point(self):
+        js = _lire(JS)
+        corps = js.split("const points = axes.map((a, i) => {", 1)[1][:300]
+        assert "estNul(a.demonstrated_level)) return ''" in corps
+
+
+class TestLesExplicationsSontDerriereUnI:
+    """Écrites en clair, elles occupaient la place de ce qu'on vient lire."""
+
+    def test_les_deux_paves_ont_disparu_de_la_page(self):
+        js = _lire(JS)
+        assert "gras(T('ev_min_de'))" not in js, "la règle du minimum passe en « i »"
+        assert "ev-carte--leg" not in js, "le pavé de l'échelle 0→4 aussi"
+        assert "function boutonInfo(" in js
+        assert "boutonInfo(T('ev_min_t')" in js
+        assert "boutonInfo(T('pal_echelle_t')" in js
+
+    def test_le_quatre_s_explique_enfin(self):
+        """« jamais déduite, elle se pose » ne voulait rien dire."""
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        ligne = [l for l in fr.splitlines() if "pal_comment_4:" in l][0]
+        assert "Expertise" in ligne and "main" in ligne
+
+    def test_la_bulle_se_pose_sur_son_bouton_malgre_le_zoom(self):
+        """⚠️ `body.pg` porte `zoom: .8` : un enfant du body en
+        `position: fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors
+        que `getBoundingClientRect()` les rend déjà en pixels d'écran.
+        Quatrième fois que ce piège mord dans cette application."""
+        js = _lire(JS)
+        corps = js.split("  function brancherInfo(", 1)[1].split("\n  }", 1)[0]
+        assert "getComputedStyle(document.body).zoom" in corps
+        assert "/ z + 'px'" in corps
+
+
+class TestLEnTeteNeCouvrePlusLaNavigation:
+
+    def test_il_sort_du_sticky_global(self):
+        """⚠️ `header { position: sticky; top: 0; z-index: 30 }` vaut pour
+        TOUTE la feuille. Mes en-têtes de page SONT des `<header>` : même
+        z-index que la barre de navigation, et comme ils viennent après dans
+        le document, ils passaient par-dessus elle."""
+        css = _lire(CSS)
+        assert "header { position: sticky; top: 0; z-index: 30; }" in css
+        # ⚠️ La règle de dégagement est celle qui porte la DÉCLARATION sur une
+        # ligne, pas l'ouverture multi-lignes de la première passe de style.
+        regle = [l for l in css.splitlines()
+                 if l.startswith(".ev-tete, .sq-tete {") and "z-index" in l]
+        assert regle, "les deux en-têtes doivent se dégager de cette règle"
+        assert "position: relative" in regle[0] and "z-index: 1;" in regle[0]
+
+    def test_une_seule_largeur_pour_toute_la_page(self):
+        css = _lire(CSS)
+        assert "body.pg.page--competences .pg-container { max-width: 1760px; }" in css
+
+
+class TestLAccueilNEstPlusNu:
+
+    def test_les_quatre_compteurs_s_affichent_meme_a_zero(self):
+        """Trois compteurs absents sur quatre laissaient la page nue, et
+        « 0 en écart » est une information, pas un vide."""
+        js = _lire(JS)
+        assert "if (onFiltre && !compte[cle] && state.filtre !== cle) return;" in js
+
+    def test_la_vue_d_ensemble_porte_les_prochaines_seances(self):
+        js = _lire(JS)
+        g = _lire(GABARIT)
+        assert 'id="cv2-seances"' in g
+        assert "function rendreSeances(" in js
+        corps = js.split("async function rendreSeances() {", 1)[1].split("\n  }", 1)[0]
+        assert "x.user_id === state.cible" in corps, "les siennes, pas celles de tous"
+        assert "x.statut === 'prevue'" in corps
+
+
+class TestLeMotEvaluerRemplaceTrancher:
+    """« Trancher » est un mot de métier ; le bouton doit dire ce qu'il fait."""
+
+    def test_aucun_libelle_visible_ne_dit_plus_trancher(self):
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
+        # ⚠️ On ne lit que la VALEUR — le nom de clé `pal_trancher` reste, seul
+        # le libellé affiché devait changer — et on cherche le MOT entier :
+        # « un palier franchi » contient « ranch ».
+        import re as _re
+        motifs = {"fr": _re.compile(r"[Tt]ranch(er|é|és|e|ez)\b"),
+                  "en": _re.compile(r"[Ss]ettl(e|ed|ing)\b")}
+        for bloc, langue in ((fr, "fr"), (en, "en")):
+            fautifs = [l.strip() for l in bloc.splitlines()
+                       if ":" in l and motifs[langue].search(l.split(":", 1)[1])]
+            assert fautifs == [], fautifs
+        assert "pal_trancher: 'Évaluer ce palier'" in js

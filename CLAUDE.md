@@ -4864,6 +4864,98 @@ de gauche de la page l'appelle aussi — il vise maintenant le corps de
 Éprouvé au banc à 1280 et 1600 px, dans les deux langues : zéro fuite
 française sur l'écran anglais, aucun débordement horizontal.
 
+#### La page reprise sur huit points, et deux pièges pour la quatrième fois (2026-10-15)
+
+Huit reproches sur la première implantation du pupitre, tous mesurés avant
+d'être corrigés.
+
+**« Quand on clique sur un rôle, cela doit nous amener DIRECTEMENT sur
+l'évaluation. »** L'écran intermédiaire — la liste des activités du rôle — ne
+décidait de rien : on y cliquait « Évaluer » sur une ligne, et c'est tout. La
+colonne de gauche de la page fait exactement la même chose, sans aller-retour.
+`ouvrirRole` ouvre donc l'activité la plus urgente (en écart, sinon à évaluer,
+sinon la première). Partis avec l'écran : `#cv2-ecran-role`, `#cv2-fil-role`,
+`#cv2-lignes`, `ligneActivite`, `metaActivite`, `celluleTech`, et les boutons
+`#cv2-btn-cal` / `#cv2-btn-plan` qu'il portait.
+⚠️ **Le bandeau de situation le suit** : il disait ce qui reste à faire, et il
+FILTRE — il se pose donc en tête de la colonne des activités, le seul endroit
+où le chiffre et la liste qu'il résume se regardent ensemble. ⚠️ La ligne
+OUVERTE reste visible quel que soit le filtre : la page parlerait sinon d'une
+activité absente de sa propre liste.
+
+**« La page d'accueil est vraiment pas ouf, trop vide. »** Trois causes
+distinctes, chacune corrigée :
+- ⚠️ **Le radar ne traçait QUE les activités évaluées.** Un collaborateur qu'on
+  vient d'affecter n'avait donc aucun profil — l'écran le plus vide est celui
+  qu'on ouvre en premier. On trace le REQUIS de toutes celles qui en portent un
+  (mesuré : **8 axes** là où il n'y en avait aucun), et le démontré se remplit
+  par-dessus. ⚠️ La surface démontrée ne se FERME que si tout est mesuré :
+  ailleurs ce sont des morceaux de polyligne (`.cv2-r-dem-part`) — fermer le
+  polygone sur un sommet absent le ferait passer par zéro, c'est-à-dire par
+  « non démontré », la distinction que tout le module tient. Un axe sans mesure
+  n'a pas de point.
+- **Les quatre compteurs s'affichent même à zéro** : « 0 en écart » est une
+  information. Ils ne disparaissent que quand un filtre est actif — là, une
+  tuile vide ne mène nulle part.
+- **« Prochaines séances »** sur la vue d'ensemble (`#cv2-seances`) : les
+  siennes, pas celles de tout le monde, et un accès au calendrier.
+
+**« La page est vachement rétrécie, ça crée un décalage. »** Mesuré :
+`.pg-container` plafonnait à 1200 px pour la vue d'ensemble et sautait à
+1760 px dès qu'on ouvrait une activité — **deux pages d'un même écran**. Une
+seule largeur désormais, et les blocs de l'accueil (profil, rôles, bilan) la
+suivent au lieu de garder leur ancien plafond.
+
+⚠️⚠️ **L'en-tête de la page passait PAR-DESSUS la barre de navigation.**
+`competences.css` déclare `header { position: sticky; top: 0; z-index: 30 }`
+pour TOUTE la feuille — et mes en-têtes de page SONT des `<header>` : même
+z-index que la nav, et comme ils viennent après dans le document, ils
+gagnaient au défilement. En mise en page il n'y avait pourtant aucun
+chevauchement (nav à 78,1 px, en-tête à 81,3 px) : c'est ce qui rend le
+symptôme trompeur. `.ev-tete, .sq-tete { position: relative; top: auto;
+z-index: 1; }`. **Quatrième fois que cette règle globale mord.**
+
+**« Trancher ce palier » devient « Évaluer ce palier »** — le mot de métier ne
+dit pas au lecteur ce que fait le bouton. Un cliquet interdit désormais tout
+libellé visible qui le redirait. ⚠️ Il cherche le MOT ENTIER : « un palier
+franchi » contient « ranch ».
+
+**Deux pavés d'explication passent derrière un « i ».** La règle du minimum
+(« le minimum de ses sorties, jamais la moyenne ») et l'échelle 0→4 occupaient
+la place de ce qu'on vient lire. ⚠️ Et le 4 a été RÉÉCRIT : « jamais déduite,
+elle se pose » ne voulait rien dire — c'est « Expertise — aucun chiffre ne la
+définit : elle se pose à la main. »
+⚠️ **La bulle se posait 20 % trop haut et trop à gauche de son bouton** :
+`body.pg` porte `zoom: .8`, donc un enfant du body en `position: fixed` voit
+ses coordonnées MULTIPLIÉES par ce zoom, alors que `getBoundingClientRect()`
+les rend déjà en pixels d'écran. On divise par le zoom avant d'écrire
+`left`/`top`, et on multiplie la taille de la carte pour la comparer à
+`window.innerWidth`. Mesuré après : **0 px d'écart**. **Quatrième fois que ce
+piège mord dans cette application** — tout élément posé sur le body en `fixed`
+doit faire cette conversion.
+
+**Le calendrier devient une PAGE** (`#cv2-ecran-cal`). Enfermé dans une
+pop-up, il avait 1180 px — 944 réels au zoom .8 — pour un mois ET la séance
+choisie. C'est une vue, pas un dialogue. Il sait d'où l'on vient (`cal.retour`)
+et garde sa porte unique vers la séance : `data-tenir`, rien qui saisisse.
+
+**Les quatre sections de contexte étaient dépareillées** — une bleu plein, une
+marron, une blanche fade. Même silhouette, même en-tête, et des fonds PASTEL
+tirés de la couleur que chacune porte déjà : le niveau en bleu très pâle (la
+couleur de la page), la prochaine séance en ambre, la technicité en teal — un
+AUTRE axe, donc une autre teinte, mais de la même famille claire. Les tuiles
+du calendrier et le filtre des activités reprennent la même palette.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 37 à **50 cas** ; **dix
+défauts remis un par un, dix cliquets tombés** (l'écran intermédiaire, le
+calendrier en fenêtre, le radar refiltré, la règle du minimum en clair, la
+bulle sans le zoom, l'en-tête sous le sticky global, les deux largeurs, les
+compteurs à zéro effacés, le bouton qui redit « trancher », les écrans morts
+revenus au gabarit). Suite : **3104 passés**, `repet_image` 3069 + 36 sautés
+(les 4 cas du semis SQL sautent : `tools/` est retiré de l'arbre d'image).
+Éprouvé au banc à 1600 px dans les deux langues : accueil, rôle → page,
+calendrier, séance et retour ; zéro fuite française sur l'écran anglais.
+
 ---
 
 ## Notes importantes (suite)

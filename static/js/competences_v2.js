@@ -22,6 +22,14 @@
 
   const I18N = {
     fr: {
+      p_profil_peu: 'Le profil se dessine à partir de trois activités. En attendant, les voici une par une.',
+      cal_voir_tout: 'Voir le calendrier',
+      cal_aucune_a_venir: 'Aucune séance prévue pour le moment.',
+      cal_seances: 'Prochaines séances',
+      ev_filtres: 'Filtrer',
+      ev_min_t: 'Comment se calcule ce niveau',
+      pal_echelle_t: "L'échelle 0 → 4",
+      ev_min_i: "Le niveau d'une activité est le PLUS BAS de ses sorties, jamais leur moyenne : on ne tient une activité que si on tient tout ce qu'elle produit. Une sortie non évaluée ne compte pas pour zéro — elle laisse le niveau en attente.",
       sq_prete_1: 'La mesure est prête.',
       ev_retour_role: 'Retour au rôle',
       ev_niv_role: 'Niveau du rôle',
@@ -48,13 +56,13 @@
       sq_titre: "Séance d'évaluation",
       sq_ouvrir: 'Tenir la séance',
       sq_rouvrir: 'Revoir la séance',
-      sq_tranches: 'paliers tranchés',
+      sq_tranches: 'paliers évalués',
       sq_q: "Qu'a-t-on mesuré ?",
       sq_observe: "Ce qu'on a observé",
       sq_observe_ph: 'Deux relances du client, sinon le fond y est.',
       sq_passer: 'Passer',
-      sq_suivant: 'Trancher et passer au suivant',
-      sq_dernier: 'Trancher le dernier',
+      sq_suivant: 'Évaluer et passer au suivant',
+      sq_dernier: 'Évaluer le dernier',
       sq_liste: 'Les paliers de la séance',
       sq_liste_d: "on peut revenir sur n'importe lequel",
       sq_en_cours: 'En cours de relevé',
@@ -63,8 +71,8 @@
       sq_rien_ecrit: "Rien n'est écrit tant que la séance n'est pas clôturée.",
       sq_clore_t: 'Clôturer la séance',
       sq_clore_d: "Les mesures seront enregistrées d'un bloc, et les verdicts calculés.",
-      sq_reste: 'Il reste [[n]] paliers à trancher.',
-      sq_reste_1: 'Il reste 1 palier à trancher.',
+      sq_reste: 'Il reste [[n]] paliers à évaluer.',
+      sq_reste_1: 'Il reste 1 palier à évaluer.',
       sq_prete: 'Les [[n]] mesures sont prêtes.',
       sq_vide: 'Aucun palier rattaché à cette séance.',
       sq_cible_de: 'cible [[v]]',
@@ -104,7 +112,7 @@
       pal_rien_d: 'Posez la première marche : une cible, une échéance.',
       pal_poser: 'Poser un palier',
       pal_poser_suivant: 'Poser la marche suivante',
-      pal_trancher: 'Trancher ce palier',
+      pal_trancher: 'Évaluer ce palier',
       pal_evolution: "Voir l'évolution",
       pal_cible: 'Cible',
       pal_delai: 'Délai',
@@ -122,9 +130,9 @@
       pal_comment: 'Comment le niveau se déduit',
       pal_comment_0: 'sous le premier palier',
       pal_comment_1: 'un palier franchi, pas la norme',
-      pal_comment_2: 'la norme atteinte',
-      pal_comment_3: 'un palier au-delà',
-      pal_comment_4: 'jamais déduite, elle se pose',
+      pal_comment_2: 'la norme atteinte — qualifié',
+      pal_comment_3: 'un palier au-delà — avancé',
+      pal_comment_4: "Expertise — aucun chiffre ne la définit : elle se pose à la main.",
       pal_pas_de_note: "Une sortie mesurée n'a pas de note à saisir : le niveau vient du chiffre relevé en session.",
       pal_apres_echec: 'Ce palier est manqué. Analysez les savoirs plutôt que de reposer la même cible.',
       pal_vers_diag: 'Analyser les savoirs',
@@ -143,8 +151,8 @@
       ses_demain: 'demain',
       ses_aujourdhui: "aujourd'hui",
       ses_passe: 'il y a [[n]] jours',
-      ses_a_trancher: '[[n]] palier à trancher',
-      ses_a_trancher_pl: '[[n]] paliers à trancher',
+      ses_a_trancher: '[[n]] palier à évaluer',
+      ses_a_trancher_pl: '[[n]] paliers à évaluer',
       ses_tenue: 'Tenue',
       ses_annulee: 'Annulée',
       ses_prevue: 'Prévue',
@@ -156,7 +164,7 @@
       ses_close_ok: 'Session clôturée',
       ses_cree: 'Session planifiée',
       ses_suppr: 'Session retirée',
-      ses_legend_palier: 'palier à trancher',
+      ses_legend_palier: 'palier à évaluer',
       ses_legend_retard: 'échéance dépassée',
       ses_legend_tenue: 'session tenue',
       ses_vide_mois: 'Aucune session ce mois-ci.',
@@ -309,6 +317,14 @@
       plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
+      p_profil_peu: 'The profile takes shape from three activities on. In the meantime, here they are one by one.',
+      cal_voir_tout: 'Open the calendar',
+      cal_aucune_a_venir: 'No session scheduled at the moment.',
+      cal_seances: 'Upcoming sessions',
+      ev_filtres: 'Filter',
+      ev_min_t: 'How this level is worked out',
+      pal_echelle_t: 'The 0 → 4 scale',
+      ev_min_i: "An activity's level is the LOWEST of its outputs, never their average: you only hold an activity if you hold everything it produces. An output that has not been assessed does not count as zero — it leaves the level pending.",
       sq_prete_1: 'The measurement is ready.',
       ev_retour_role: 'Back to the role',
       ev_niv_role: 'Role level',
@@ -335,13 +351,13 @@
       sq_titre: 'Evaluation session',
       sq_ouvrir: 'Hold the session',
       sq_rouvrir: 'Review the session',
-      sq_tranches: 'steps settled',
+      sq_tranches: 'steps assessed',
       sq_q: 'What was measured?',
       sq_observe: 'What was observed',
       sq_observe_ph: 'Two client reminders, otherwise the substance is there.',
       sq_passer: 'Skip',
-      sq_suivant: 'Settle and move on',
-      sq_dernier: 'Settle the last one',
+      sq_suivant: 'Assess and move on',
+      sq_dernier: 'Assess the last one',
       sq_liste: "The session's steps",
       sq_liste_d: 'you can go back to any of them',
       sq_en_cours: 'Being recorded',
@@ -350,8 +366,8 @@
       sq_rien_ecrit: 'Nothing is written until the session is closed.',
       sq_clore_t: 'Close the session',
       sq_clore_d: 'The measurements are saved together, and the verdicts computed.',
-      sq_reste: '[[n]] steps left to settle.',
-      sq_reste_1: '1 step left to settle.',
+      sq_reste: '[[n]] steps left to assess.',
+      sq_reste_1: '1 step left to assess.',
       sq_prete: 'All [[n]] measurements are ready.',
       sq_vide: 'No step attached to this session.',
       sq_cible_de: 'target [[v]]',
@@ -391,7 +407,7 @@
       pal_rien_d: 'Set the first step: a target and a deadline.',
       pal_poser: 'Set a step',
       pal_poser_suivant: 'Set the next step',
-      pal_trancher: 'Settle this step',
+      pal_trancher: 'Assess this step',
       pal_evolution: 'See progress',
       pal_cible: 'Target',
       pal_delai: 'Deadline',
@@ -409,9 +425,9 @@
       pal_comment: 'How the level is derived',
       pal_comment_0: 'below the first step',
       pal_comment_1: 'a step cleared, not the standard',
-      pal_comment_2: 'the standard met',
-      pal_comment_3: 'one step beyond',
-      pal_comment_4: 'never derived, it is set by hand',
+      pal_comment_2: 'the standard met — qualified',
+      pal_comment_3: 'one step beyond — advanced',
+      pal_comment_4: 'Expert — no figure defines it: it is set by hand.',
       pal_pas_de_note: 'A measured output has no level to type: it comes from the figure recorded in the session.',
       pal_apres_echec: 'This step was missed. Analyse the underlying knowledge rather than setting the same target again.',
       pal_vers_diag: 'Analyse knowledge',
@@ -430,8 +446,8 @@
       ses_demain: 'tomorrow',
       ses_aujourdhui: 'today',
       ses_passe: '[[n]] days ago',
-      ses_a_trancher: '[[n]] step to settle',
-      ses_a_trancher_pl: '[[n]] steps to settle',
+      ses_a_trancher: '[[n]] step to assess',
+      ses_a_trancher_pl: '[[n]] steps to assess',
       ses_tenue: 'Held',
       ses_annulee: 'Cancelled',
       ses_prevue: 'Scheduled',
@@ -443,7 +459,7 @@
       ses_close_ok: 'Session closed',
       ses_cree: 'Session scheduled',
       ses_suppr: 'Session removed',
-      ses_legend_palier: 'step to settle',
+      ses_legend_palier: 'step to assess',
       ses_legend_retard: 'deadline passed',
       ses_legend_tenue: 'session held',
       ses_vide_mois: 'No session this month.',
@@ -666,7 +682,6 @@
     applyStaticI18n();
     bindDrawer();
     bindPlan();
-    bindCal();
     const [sc, ds] = await Promise.all([api('/mastery/scale'), api('/domains/scale')]);
     state.scale = sc.mastery || {}; state.notAssessed = sc.not_assessed || T('not_assessed');
     state.domScale = (ds && ds.scale) || {};
@@ -728,8 +743,8 @@
     });
   }
 
-  const ECRANS = ['#cv2-ecran-synthese', '#cv2-ecran-role',
-                  '#cv2-ecran-eval', '#cv2-ecran-seance'];
+  const ECRANS = ['#cv2-ecran-synthese', '#cv2-ecran-eval',
+                  '#cv2-ecran-seance', '#cv2-ecran-cal'];
 
   function montrerVide(msg) {
     ECRANS.forEach(s => $(s).classList.add('hidden'));
@@ -740,10 +755,10 @@
     state.ecran = nom;
     $('#cv2-placeholder').classList.add('hidden');
     $('#cv2-ecran-synthese').classList.toggle('hidden', nom !== 'synthese');
-    $('#cv2-ecran-role').classList.toggle('hidden', nom !== 'role');
     $('#cv2-ecran-eval').classList.toggle('hidden', nom !== 'eval');
     $('#cv2-ecran-seance').classList.toggle('hidden', nom !== 'seance');
-    pleineLargeur(nom === 'eval' || nom === 'seance');
+    $('#cv2-ecran-cal').classList.toggle('hidden', nom !== 'cal');
+    pleineLargeur(nom !== 'synthese');
   }
 
   // ⚠️ Une PAGE d'évaluation ne partage pas la largeur avec la barre des
@@ -773,6 +788,7 @@
     montrerEcran('synthese');
     renderBilan($('#cv2-bilan'), d.totals, null);
     renderProfil(d);
+    rendreSeances();
     const box = $('#cv2-rolecards'); box.innerHTML = '';
     if (!d.roles.length) { box.innerHTML = `<div class="cv2-vide">${esc(T('no_roles'))}</div>`; return; }
     d.roles.forEach((r, i) => box.appendChild(carteRole(r, i)));
@@ -886,7 +902,10 @@
       ['todo', T('b_todo'), 'blue'], ['setup', T('b_setup'), 'grey'],
     ];
     tuiles.forEach(([cle, libelle, teinte]) => {
-      if (!compte[cle] && state.filtre !== cle) return;
+      // ⚠️ Sur la vue d'ensemble on les montre TOUS, même à zéro : trois
+      // compteurs absents sur quatre laissaient la page nue, et « 0 en
+      // écart » est une information, pas un vide.
+      if (onFiltre && !compte[cle] && state.filtre !== cle) return;
       const b = document.createElement('button');
       b.type = 'button';
       b.className = `cv2-tuile cv2-tuile--${teinte}` + (onFiltre && state.filtre === cle ? ' is-on' : '');
@@ -901,91 +920,29 @@
   }
 
   // ══ ÉCRAN 2 — le détail d'un rôle ══════════════════════════════════
+  // Un rôle ouvre DIRECTEMENT son premier chantier : la liste seule ne
+  // décidait de rien, et la colonne de gauche de la page la remplace.
   async function ouvrirRole(r) {
     state.roleId = r.role_id || r.id; state.roleName = r.role_name || r.name; state.filtre = null;
     const d = await api(`/mastery/dashboard/${state.cible}/${state.roleId}`);
     if (d.__error) return;
-    montrerEcran('role');
-    $('#cv2-fil-role').textContent = state.roleName;
-    renderDashboard(d);
+    state.rows = (d && d.activities) || [];
+    if (!state.rows.length) { montrerVide(T('no_activities')); return; }
+    // Celle qui appelle : le plus grand écart d'abord, sinon la première.
+    const urgente = state.rows.find(a => categorie(a) === 'gap')
+      || state.rows.find(a => categorie(a) === 'todo') || state.rows[0];
+    await ouvrirEvaluation(urgente);
   }
 
   function renderDashboard(d, reutiliser) {
     if (!reutiliser) state.rows = (d && d.activities) || [];
-    const rows = state.rows;
-    const compte = { held: 0, gap: 0, todo: 0, setup: 0 };
-    rows.forEach(a => { compte[categorie(a)] += 1; });
-    renderBilan($('#cv2-bilan-role'), compte, cle => {
-      state.filtre = state.filtre === cle ? null : cle; renderDashboard(null, true);
-    });
-    // Le plan n'a de sens que s'il y a un écart à combler.
-    $('#cv2-btn-plan').classList.toggle('hidden', !compte.gap || !jeSuisLeDev());
-
-    const box = $('#cv2-lignes'); box.innerHTML = '';
-    if (!rows.length) { box.innerHTML = `<div class="cv2-vide">${esc(T('no_activities'))}</div>`; return; }
-    const visibles = state.filtre ? rows.filter(a => categorie(a) === state.filtre) : rows;
-    if (!visibles.length) { box.innerHTML = `<div class="cv2-vide">${esc(T('no_match'))}</div>`; return; }
-    visibles.forEach(a => box.appendChild(ligneActivite(a)));
+    if (state.ecran === 'eval' && $('#ev-acts-l')) remplirActivites();
   }
 
-  function ligneActivite(a) {
-    const cat = categorie(a);
-    const el = document.createElement('div');
-    el.className = 'cv2-ligne';
-    // ⚠️ Une activité sans sortie n'a rien à configurer : le bouton ouvre le
-    // tiroir, qui explique pourquoi il n'y a rien à évaluer. L'y envoyer
-    // « configurer » promettait un écran qui n'aurait rien à montrer.
-    const libelleBtn = cat === 'setup'
-      ? T('consult')
-      : (jeSuisLeDev() ? T('evaluate') : T('self_assess'));
-    el.innerHTML = `
-      <div>
-        <div class="cv2-nom">${esc(a.activity_name)}
-          ${a.competence ? `<button type="button" class="cv2-i" data-info="1"
-            aria-label="${esc(T('competence'))}"><i class="fa-solid fa-info"></i></button>` : ''}
-        </div>
-        <div class="cv2-meta">${metaActivite(a)}</div>
-      </div>
-      <div>${blocJauge(a.demonstrated_level, a.required_level, a.color || 'grey', a.gap, a.demonstrated_label)}</div>
-      <div class="cv2-cell-tech">${celluleTech(a.technicity)}</div>
-      <div class="cv2-cell-act">
-        <button class="btn btn-sm ${cat === 'setup' ? 'btn-todo' : 'btn-primary'}">
-          ${esc(libelleBtn)}</button>
-      </div>`;
-    // ⚠️ Deux boutons, deux fenêtres. « Configurer » parle de l'ACTIVITÉ (que
-    // produit-elle ?), « Évaluer » parle d'une PERSONNE. Les mélanger faisait
-    // passer l'IA de la configuration pour une IA de notation.
-    el.querySelector('.cv2-cell-act button').onclick = () =>
-      ouvrirEvaluation(a);
-    const info = el.querySelector('[data-info]');
-    if (info) brancherInfo(info, T('competence'), a.competence);
-    return el;
-  }
 
-  function metaActivite(a) {
-    if (!a.n_results) return `<span>${esc(T('m_toqualify'))}</span>`;
-    const bouts = [];
-    const nEval = estNul(a.n_evaluated) ? null : a.n_evaluated;
-    const mot = n => (n === 1 ? T('m_result_one') : T('m_result_many'));
-    const part = n => (n === 1 ? T('m_eval_one') : T('m_eval_many'));
-    if (nEval !== null && nEval < a.n_results) {
-      bouts.push(`<span>${nEval} ${esc(T('m_partial'))} ${a.n_results} ${esc(mot(a.n_results))} ${esc(part(a.n_results))}</span>`);
-    } else {
-      bouts.push(`<span>${a.n_results} ${esc(mot(a.n_results))}</span>`);
-    }
-    bouts.push(a.last_evaluation
-      ? `<span>${esc(T('m_last'))} ${esc(fmtDate(a.last_evaluation))}</span>`
-      : `<span>${esc(T('m_never'))}</span>`);
-    return bouts.join('<span class="sep">·</span>');
-  }
 
   function chip(color, label) { return `<span class="chip ${esc(color)}"><span class="lv"></span>${esc(label)}</span>`; }
   const dash = () => `<span class="cv2-dash">${T('none')}</span>`;
-  function celluleTech(status) {
-    if (status === 'gap') return chip('orange', T('tech_gap'));
-    if (status === 'ok') return chip('green', T('tech_ok'));
-    return dash();
-  }
 
 
   // ══════════════════════════════════════════════════════════════════
@@ -1007,8 +964,8 @@
     // démontré » là où la vérité est « pas encore regardé » — la distinction
     // que tout le module tient par ailleurs (NULL ≠ 0).
     const avecCible = (d.profil || []).filter(a => !estNul(a.required_level) && a.required_level > 0);
-    const axes = avecCible.filter(a => !estNul(a.demonstrated_level));
-    const horsGraphe = avecCible.length - axes.length;
+    const axes = avecCible;
+    const horsGraphe = axes.filter(a => estNul(a.demonstrated_level)).length;
     if (!d.roles.length) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
 
@@ -1049,7 +1006,7 @@
               <i class="cv2-leg cv2-leg--dem"></i>${esc(T('p_demonstrated'))}</button>
           </div>
           ${trop ? `<div class="cv2-radar-note">${esc(Tv('p_capped', { n: RADAR_MAX_AXES }))}</div>` : ''}
-          ${vus.length < 3 ? `<div class="cv2-radar-note">${esc(T('p_too_few'))}</div>` : ''}
+          ${vus.length < 3 ? `<div class="cv2-radar-note">${esc(T('p_profil_peu'))}</div>` : ''}
         </div>
         <div class="cv2-parrole">
           <div class="cv2-parrole-h">${esc(T('p_by_role'))}</div>
@@ -1280,9 +1237,25 @@
 
     // Une activité non évaluée n'a pas de point : la laisser à 0 la ferait
     // passer pour « non démontrée », ce qu'on distingue partout ailleurs.
-    const dem = axes.map(a => a.demonstrated_level);
     const req = axes.map(a => a.required_level);
+    const tout = axes.every(a => !estNul(a.demonstrated_level));
+    let couche;
+    if (tout) {
+      couche = `<polygon class="cv2-r-dem" points="${poly(axes.map(a => a.demonstrated_level))}"></polygon>`;
+    } else {
+      // Les suites d'axes mesurés qui se touchent, chacune en polyligne.
+      const suites = [];
+      let courante = [];
+      axes.forEach((a, i) => {
+        if (estNul(a.demonstrated_level)) { if (courante.length > 1) suites.push(courante); courante = []; }
+        else courante.push(pt(i, a.demonstrated_level));
+      });
+      if (courante.length > 1) suites.push(courante);
+      couche = suites.map(p => `<polyline class="cv2-r-dem-part"
+          points="${p.map(c => c.map(x => x.toFixed(1)).join(',')).join(' ')}"></polyline>`).join('');
+    }
     const points = axes.map((a, i) => {
+      if (estNul(a.demonstrated_level)) return '';
       const [x, y] = pt(i, a.demonstrated_level);
       const sous = a.demonstrated_level < a.required_level ? ' cv2-r-pt--sous' : '';
       return `<circle class="cv2-r-pt${sous}" data-axe="${i}" data-role="${a.role_id}"
@@ -1308,7 +1281,7 @@
                  aria-label="${esc(T('p_title'))}">
         ${toile}
         <polygon class="cv2-r-req" points="${poly(req)}"></polygon>
-        <polygon class="cv2-r-dem" points="${poly(dem)}"></polygon>
+        ${couche}
         ${points}${etiquettes}
       </svg>`;
   }
@@ -1337,14 +1310,17 @@
       fermerInfos();
       carte = document.createElement('div');
       carte.className = 'cv2-info';
-      carte.innerHTML = `<div class="t">${esc(titre)}</div><div class="d">${esc(texte)}</div>`;
+      carte.innerHTML = `<div class="t">${esc(titre)}</div>
+        <div class="d" style="white-space:pre-line">${esc(texte)}</div>`;
       document.body.appendChild(carte);
       // En `position: fixed` sur le body : la liste des activités a son propre
       // défilement, une carte posée dedans serait tronquée.
       const r = bouton.getBoundingClientRect(), b = carte.getBoundingClientRect();
-      carte.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) + 'px';
-      const dessus = r.top - b.height - 8;
-      carte.style.top = (dessus > 8 ? dessus : r.bottom + 8) + 'px';
+      const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+      const large = b.width * z;
+      carte.style.left = Math.max(8, Math.min(r.left, window.innerWidth - large - 8)) / z + 'px';
+      const dessus = r.top - b.height * z - 8;
+      carte.style.top = (dessus > 8 ? dessus : r.bottom + 8) / z + 'px';
     };
     bouton.addEventListener('mouseenter', ouvrir);
     bouton.addEventListener('mouseleave', fermer);
@@ -1386,9 +1362,7 @@
   function bindDrawer() {
     $('#cv2-drawer-close').onclick = closeDrawer;
     $('#cv2-overlay').onclick = () => { closeDrawer(); fermerPlan(); };
-    $('#cv2-retour').onclick = () => chargerSynthese();
-    $('#cv2-btn-plan').onclick = () => ouvrirPlan();
-    $('#cv2-btn-cal').onclick = () => ouvrirCalendrier();
+
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
       if ($('#cv2-plan-win').classList.contains('open')) fermerPlan();
@@ -2590,7 +2564,7 @@
         ? railHtml(perf)
         : `<p class="pal-vide">${esc(T('pal_rien_d'))}</p>`}</div>
       <div class="pal-pied">
-        <span class="pal-pied-k">${esc(T('pal_niveau_deduit'))}</span>
+        <span class="pal-pied-k">${esc(T('pal_niveau_deduit'))}<span data-echelle></span></span>
         ${estNul(niv)
           ? `<span class="pal-niv pal-niv--off">${esc(T('not_assessed'))}</span>`
           : `<span class="pal-niv pal-niv--${niv >= 2 ? 'ok' : 'bas'}"><b>${niv}</b> · ${esc(levelName(niv))}</span>`}
@@ -2612,6 +2586,8 @@
     const q = s => card.querySelector(s);
     if (q('[data-norme]')) q('[data-norme]').onclick = () => formNorme(zone, r);
     q('[data-evol]').onclick = () => basculerGraphe(card, r);
+    const ech = q('[data-echelle]');
+    if (ech) ech.appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
     if (q('[data-poser]')) q('[data-poser]').onclick = () => formPoser(zone, r);
     if (q('[data-trancher]')) q('[data-trancher]').onclick =
       () => formTrancher(zone, r, encours);
@@ -2887,74 +2863,11 @@
   // rendez-vous les tient pour tout le monde. Cadré sur une personne, une
   // session ne se voit qu'en ayant d'abord choisi la bonne — c'est ce qui
   // faisait manquer les propositions de carto dans la page RH.
-  const cal = { mois: null, sessions: [], compteurs: {}, choisie: null, detail: null };
+  const cal = { mois: null, sessions: [], compteurs: {}, choisie: null,
+                detail: null, retour: 'synthese' };
 
-  function bindCal() {
-    $('#cv2-cal-close').onclick = fermerCal;
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && $('#cv2-cal-win').classList.contains('open')) fermerCal();
-    });
-  }
-  function fermerCal() {
-    $('#cv2-cal-win').classList.remove('open');
-    if (!$('#cv2-drawer').classList.contains('open')
-        && !$('#cv2-plan-win').classList.contains('open')) {
-      $('#cv2-overlay').classList.remove('open');
-    }
-  }
 
-  async function ouvrirCalendrier(sessionId) {
-    $('#cv2-cal-win').classList.add('open');
-    $('#cv2-overlay').classList.add('open');
-    $('#cv2-cal-sub').textContent = T('ses_sub');
-    showBusy(null, '#cv2-cal-body');
-    const d = await api('/paliers/calendrier');
-    if (d.__error) return;
-    cal.sessions = d.sessions || [];
-    cal.compteurs = d.compteurs || {};
-    // ⚠️ On OUVRE une session d'emblée : la plus urgente d'abord (en retard),
-    // sinon la prochaine. Sans cela la moitié droite de la fenêtre s'ouvre
-    // vide — elle occupe la place de ce qu'on vient faire sans rien en dire,
-    // et il faut deviner qu'il y a quelque chose à cliquer.
-    const urgente = cal.sessions.find(s => s.en_retard)
-      || cal.sessions.find(s => s.statut === 'prevue')
-      || cal.sessions[cal.sessions.length - 1];
-    cal.choisie = sessionId || (urgente && urgente.id) || null;
-    if (!cal.mois) {
-      const ref = cal.sessions.find(s => s.id === cal.choisie) || urgente;
-      const j = dateJour((ref && ref.date_prevue) || d.aujourdhui) || new Date();
-      cal.mois = new Date(j.getFullYear(), j.getMonth(), 1);
-    }
-    rendreCal();
-    if (cal.choisie) await chargerSession(cal.choisie);
-  }
 
-  function rendreCal() {
-    const body = $('#cv2-cal-body');
-    // ⚠️ « Planifier » n'apparaît QUE si un rôle est ouvert : une session se
-    // pose sur un couple (collaborateur, rôle), et le calendrier, lui, les
-    // montre tous. Un bouton qui demanderait ensuite « pour qui ? » ferait
-    // deux écrans d'une seule décision.
-    const peut = state.estDev && state.roleId && state.cible;
-    body.innerHTML = `
-      <div class="cal-tuiles">
-        ${tuileCal('en_retard', 'ses_en_retard', 'rouge')}
-        ${tuileCal('semaine', 'ses_semaine', 'ambre')}
-        ${tuileCal('mois', 'ses_mois', 'bleu')}
-        ${tuileCal('tenues_annee', 'ses_tenues', 'vert')}
-        ${peut ? `<button type="button" class="pal-b pal-b--prim cal-planif" data-planif>
-            <span class="pal-b-ic"><i class="fa-solid fa-calendar-plus"></i></span>${esc(T('ses_planifier'))}</button>` : ''}
-      </div>
-      <div class="cal-duo">
-        <div class="cal-mois" id="cal-mois"></div>
-        <div class="cal-detail" id="cal-detail">
-          <p class="pal-vide">${esc(T('ses_choisir_une'))}</p>
-        </div>
-      </div>`;
-    const bp = body.querySelector('[data-planif]');
-    if (bp) bp.onclick = formSession;
-    rendreMois();
-  }
   function tuileCal(cle, lbl, teinte) {
     return `<div class="cal-tuile cal-tuile--${teinte}">
         <span class="n">${cal.compteurs[cle] || 0}</span>
@@ -3198,6 +3111,7 @@
           <div class="ev-acts-h">
             <p class="k">${esc(T('ev_col_act'))}</p>
             <p class="d">${esc(T('ev_col_act_d'))}</p>
+            <div class="ev-acts-f" id="ev-acts-f"></div>
           </div>
           <div class="ev-acts-l" id="ev-acts-l"></div>
         </aside>
@@ -3205,7 +3119,7 @@
         <aside class="ev-ctx" id="ev-ctx"></aside>
       </div>`;
 
-    z.querySelector('[data-retour]').onclick = () => { montrerEcran('role'); refreshDashboard(); };
+    z.querySelector('[data-retour]').onclick = () => chargerSynthese();
     z.querySelector('[data-cal]').onclick = () => ouvrirCalendrier();
     const bp = z.querySelector('[data-plan]');
     if (bp) bp.onclick = () => ouvrirPlan();
@@ -3224,8 +3138,15 @@
   }
 
   function remplirActivites() {
+    rendreFiltres();
     const box = $('#ev-acts-l'); box.innerHTML = '';
-    state.rows.forEach(a => {
+    const vues = state.filtre
+      ? state.rows.filter(a => categorie(a) === state.filtre) : state.rows;
+    if (!vues.length) {
+      box.innerHTML = `<p class="pal-vide">${esc(T('no_match'))}</p>`;
+      return;
+    }
+    vues.forEach(a => {
       const cat = categorie(a);
       const ouverte = a.activity_id === state.activity.activity_id;
       const el = document.createElement('button');
@@ -3243,6 +3164,23 @@
           <span class="ev-act-s">${esc(nf('ev_sorties', a.n_results || 0))}</span></span>`}`;
       el.onclick = () => { if (!ouverte) ouvrirEvaluation(a); };
       box.appendChild(el);
+    });
+  }
+
+  function rendreFiltres() {
+    const z = $('#ev-acts-f'); if (!z) return;
+    const compte = { held: 0, gap: 0, todo: 0, setup: 0 };
+    state.rows.forEach(a => { compte[categorie(a)] += 1; });
+    const tuiles = [['held', T('b_held'), 'green'], ['gap', T('b_gap'), 'orange'],
+                    ['todo', T('b_todo'), 'blue'], ['setup', T('b_setup'), 'grey']];
+    z.innerHTML = tuiles.filter(([c]) => compte[c] || state.filtre === c)
+      .map(([c, lbl, teinte]) => `<button type="button"
+          class="ev-f ev-f--${teinte}${state.filtre === c ? ' is-on' : ''}"
+          data-f="${c}" title="${esc(state.filtre === c ? T('filter_off') : lbl)}">
+          <span class="n">${compte[c]}</span><span class="k">${esc(lbl)}</span></button>`).join('');
+    z.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
+      state.filtre = state.filtre === b.dataset.f ? null : b.dataset.f;
+      remplirActivites();
     });
   }
 
@@ -3327,8 +3265,9 @@
     carte.innerHTML = `<p class="k">${esc(T('ev_niv_act'))}</p>
       <p class="gros" style="color:${couleur}">${estNul(niv) ? '—' : niv}</p>
       <p class="mot" style="color:${couleur}">${esc(estNul(niv) ? T('not_assessed') : levelName(niv))}</p>
-      <p class="d">${gras(T('ev_min_de'))}</p>
       <div class="ev-ctx-ls">${lignes}</div>`;
+    // La règle du MINIMUM : utile une fois, encombrante à chaque regard.
+    carte.querySelector('.k').appendChild(boutonInfo(T('ev_min_t'), texteMinimum()));
     box.appendChild(carte);
 
     // La prochaine échéance se LIT dans les paliers déjà chargés : un appel de
@@ -3360,17 +3299,6 @@
     box.appendChild(tech);
     loadTech(tech);
 
-    const leg = document.createElement('section');
-    leg.className = 'ev-carte ev-carte--leg';
-    leg.innerHTML = `<p class="k">${esc(T('pal_comment'))}</p>
-      <div class="ev-leg">
-        <div><span>0</span>${esc(T('pal_comment_0'))}</div>
-        <div><span>1</span>${esc(T('pal_comment_1'))}</div>
-        <div><span class="ok">2</span><strong>${esc(T('pal_comment_2'))}</strong></div>
-        <div><span class="ok">3</span><strong>${esc(T('pal_comment_3'))}</strong></div>
-        <div><span class="off">4</span>${esc(T('pal_comment_4'))}</div>
-      </div>`;
-    box.appendChild(leg);
   }
 
   // Les libellés du catalogue portent [[b]]…[[/b]] pour un seul mot en gras :
@@ -3473,7 +3401,7 @@
         <section class="sq-liste" id="sq-liste"></section>
         <section class="ev-carte sq-clore" id="sq-clore"></section>
       </div>`;
-    z.querySelector('[data-cal]').onclick = () => { montrerEcran('role'); ouvrirCalendrier(sq.sid); };
+    z.querySelector('[data-cal]').onclick = () => ouvrirCalendrier(sq.sid);
     rendreFile(); rendreCourant(); rendreListeSeance(); rendreClore();
     z.scrollIntoView({ block: 'start' });
   }
@@ -3619,9 +3547,136 @@
     // ⚠️ On revient sur le RÔLE, pas sur la séance : elle est tenue, il n'y a
     // plus rien à y faire — et les niveaux qu'elle vient de déplacer se lisent
     // dans la liste des activités.
-    montrerEcran('role');
     await refreshDashboard();
+    if (state.activity) await ouvrirEvaluation(state.activity);
+    else chargerSynthese();
     if ((res.manques || []).length) toast(T('pal_tranche_ko'));
   }
+
+
+  // ══ LE CALENDRIER : une PAGE, plus une fenêtre ═════════════════════
+  // ⚠️ Enfermé dans une pop-up, le mois et la séance choisie se disputaient
+  // 1180 px — 944 réels au zoom .8. Le calendrier est une vue, pas un
+  // dialogue : il prend la page, comme l'évaluation et la séance.
+
+  function enteteSombre(retour, bloc, droite) {
+    return `<div class="ev-tete-in">
+        <button type="button" class="ev-retour" data-retour>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+          ${esc(retour)}</button>
+        <span class="ev-sep"></span>
+        ${bloc}
+        <span class="ev-pousse"></span>
+        ${droite || ''}
+      </div>`;
+  }
+
+  async function ouvrirCalendrier(sessionId) {
+    if (state.ecran !== 'cal') cal.retour = state.ecran || 'synthese';
+    montrerEcran('cal');
+    showBusy(null, '#cv2-ecran-cal');
+    const d = await api('/paliers/calendrier');
+    if (d.__error) return;
+    cal.sessions = d.sessions || [];
+    cal.compteurs = d.compteurs || {};
+    const urgente = cal.sessions.find(s => s.en_retard)
+      || cal.sessions.find(s => s.statut === 'prevue')
+      || cal.sessions[cal.sessions.length - 1];
+    cal.choisie = sessionId || (urgente && urgente.id) || null;
+    if (!cal.mois) {
+      const ref = cal.sessions.find(s => s.id === cal.choisie) || urgente;
+      const j = dateJour((ref && ref.date_prevue) || d.aujourdhui) || new Date();
+      cal.mois = new Date(j.getFullYear(), j.getMonth(), 1);
+    }
+    rendreCal();
+    if (cal.choisie) await chargerSession(cal.choisie);
+  }
+
+  function fermerCal() {
+    if (state.ecran !== 'cal') return;
+    if (cal.retour === 'eval' && state.activity) ouvrirEvaluation(state.activity);
+    else chargerSynthese();
+  }
+
+  function rendreCal() {
+    const z = $('#cv2-ecran-cal');
+    const peut = state.estDev && state.roleId && state.cible;
+    z.innerHTML = `
+      <header class="ev-tete">
+        ${enteteSombre(T('back_synthese'),
+          `<div class="sq-quand"><p class="k">${esc(T('ses_titre'))}</p>
+             <p class="v">${esc(T('ses_cal'))}</p></div>`,
+          peut ? `<button type="button" class="pal-b pal-b--prim" data-planif>
+              <span class="pal-b-ic"><i class="fa-solid fa-calendar-plus"></i></span>${esc(T('ses_planifier'))}</button>` : '')}
+      </header>
+      <div class="cal-tuiles">
+        ${tuileCal('en_retard', 'ses_en_retard', 'rouge')}
+        ${tuileCal('semaine', 'ses_semaine', 'ambre')}
+        ${tuileCal('mois', 'ses_mois', 'bleu')}
+        ${tuileCal('tenues_annee', 'ses_tenues', 'vert')}
+      </div>
+      <div class="cal-duo">
+        <div class="cal-mois" id="cal-mois"></div>
+        <div class="cal-detail" id="cal-detail">
+          <p class="pal-vide">${esc(T('ses_choisir_une'))}</p>
+        </div>
+      </div>`;
+    z.querySelector('[data-retour]').onclick = fermerCal;
+    const bp = z.querySelector('[data-planif]');
+    if (bp) bp.onclick = formSession;
+    rendreMois();
+    z.scrollIntoView({ block: 'start' });
+  }
+
+  // ══ Les deux explications, derrière un « i » ═══════════════════════
+  // ⚠️ Écrites en clair, elles occupaient la place de ce qu'on vient lire.
+  // Derrière un « i » elles restent accessibles sans encombrer : la règle du
+  // MINIMUM et l'échelle 0→4 s'expliquent une fois, pas à chaque regard.
+  function boutonInfo(titre, texte) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cv2-i ev-i';
+    b.setAttribute('aria-label', titre);
+    b.innerHTML = '<i class="fa-solid fa-info"></i>';
+    brancherInfo(b, titre, texte);
+    return b;
+  }
+
+  // ══ L'accueil : les prochaines séances ════════════════════════════
+  // La vue d'ensemble disait où en est la personne, jamais ce qui l'attend.
+  async function rendreSeances() {
+    const z = $('#cv2-seances'); if (!z) return;
+    const d = await api('/paliers/calendrier', undefined, true);
+    if (!d || d.__error) { z.classList.add('hidden'); return; }
+    const miennes = (d.sessions || [])
+      .filter(x => x.user_id === state.cible && x.statut === 'prevue')
+      .slice(0, 4);
+    z.classList.remove('hidden');
+    z.innerHTML = `
+      <div class="cv2-sea-h">
+        <span class="k"><i class="fa-regular fa-calendar"></i>${esc(T('cal_seances'))}</span>
+        <button type="button" class="cv2-sea-tout" data-cal>${esc(T('cal_voir_tout'))}
+          <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+      ${miennes.length ? `<div class="cv2-sea-l">${miennes.map(x => `
+        <button type="button" class="cv2-sea${x.en_retard ? ' est-tard' : ''}" data-ses="${x.id}">
+          <span class="d">${esc(fmtDate(x.date_prevue))}</span>
+          <span class="q">${esc(quandDit(x.date_prevue))}</span>
+          <span class="r">${esc(x.role || '')}</span>
+          <span class="n">${esc(x.a_trancher
+            ? nf('ses_a_trancher', x.a_trancher) : T('ses_prevue'))}</span>
+        </button>`).join('')}</div>`
+        : `<p class="cv2-sea-vide">${esc(T('cal_aucune_a_venir'))}</p>`}`;
+    z.querySelector('[data-cal]').onclick = () => ouvrirCalendrier();
+    z.querySelectorAll('[data-ses]').forEach(b =>
+      b.onclick = () => ouvrirCalendrier(+b.dataset.ses));
+  }
+
+  const texteMinimum = () => T('ev_min_i');
+  const texteEchelle = () => [
+    T('pal_comment_0'), T('pal_comment_1'), T('pal_comment_2'),
+    T('pal_comment_3'), T('pal_comment_4'),
+  ].map((l, i) => i + ' · ' + l).join('\n');
 
 })();

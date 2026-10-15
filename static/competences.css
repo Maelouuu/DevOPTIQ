@@ -2657,3 +2657,167 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
 }
 .sq-rail .pal-pas .pal-m, .sq-rail .pal-pas .pal-q { font-size: 12.5px; }
 @media (max-width: 1180px) { .sq-rail { flex: 1 1 100%; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA PAGE, DEUXIÈME PASSE — une seule largeur, une seule palette
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️⚠️ `header { position: sticky; top: 0; z-index: 30 }` est déclaré pour
+   TOUTE la feuille (ligne 27). Mes en-têtes de page SONT des `<header>` : ils
+   héritaient le même z-index que la barre de navigation, et comme ils
+   viennent APRÈS dans le document, ils passaient par-dessus elle au
+   défilement. C'est la quatrième fois que cette règle globale mord. */
+.ev-tete, .sq-tete { position: relative; top: auto; z-index: 1; }
+
+/* Une seule largeur pour toute la page Compétences : la vue d'ensemble
+   tenait dans 1200 px (960 réels au zoom .8) et sautait à 1760 px dès qu'on
+   ouvrait une activité — deux pages d'un même écran. */
+body.pg.page--competences .pg-container { max-width: 1760px; }
+
+/* ───────────── Les quatre cartes de contexte, même famille ─────────────
+   ⚠️ Elles étaient dépareillées : une bleu plein, une marron, une blanche
+   fade. Même silhouette, même en-tête, et des fonds PASTEL tirés de la
+   couleur que chacune porte déjà. */
+.ev-ctx .ev-carte {
+  border-radius: 18px; padding: 16px 18px; border: 1px solid;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+}
+.ev-ctx .ev-carte .k {
+  margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: .9px;
+  text-transform: uppercase; display: flex; align-items: center; gap: 7px;
+}
+.ev-ctx .ev-carte .k i { font-size: 12px; }
+
+/* 1 · le niveau — bleu très pâle, c'est la couleur de la page */
+.ev-ctx .ev-carte:not(.ev-carte--ses):not(.ev-carte--tech) {
+  background: color-mix(in srgb, var(--pg-accent) 5%, #fff);
+  border-color: color-mix(in srgb, var(--pg-accent) 22%, #fff);
+}
+.ev-ctx .ev-carte:not(.ev-carte--ses):not(.ev-carte--tech) .k { color: var(--pg-accent-deep); }
+
+/* 2 · la prochaine séance — ambre pastel */
+.ev-carte--ses {
+  background: #fdf6e7; border-color: #ead9ae;
+}
+.ev-carte--ses .k { color: #8a5a12; }
+.ev-carte--ses .date { color: #7a4a0c; }
+.ev-carte--ses .d { color: #8a5a12; }
+.ev-carte--ses .pal-b--doux {
+  background: #fff; border-color: #d9bf85; color: #7a4a0c;
+}
+.ev-carte--ses .pal-b--doux .pal-b-ic { background: #b4802a; }
+.ev-carte--ses .pal-b--doux:hover { border-color: #b4802a; color: #5c3708; }
+
+/* 3 · la technicité — teal pastel : un AUTRE axe, donc une autre teinte,
+   mais de la même famille claire que ses voisines. */
+.ev-carte--tech {
+  background: #eaf7f6; border-color: #a9d9d4; color: var(--ink);
+}
+.ev-carte--tech .k { color: #0d6e63; }
+.ev-carte--tech .d { color: #40736d; margin-top: 10px; }
+.ev-carte--tech .cv2-domsel, .ev-carte--tech input {
+  background: #fff; border-color: #b9ddd8; color: var(--ink);
+}
+
+/* Le petit « i » : la même pastille partout. */
+.ev-i {
+  width: 17px; height: 17px; flex: none; border-radius: 50%;
+  border: none; cursor: pointer; font-size: 9px; line-height: 1;
+  display: inline-grid; place-items: center;
+  background: rgba(15, 23, 42, .1); color: inherit; opacity: .75;
+}
+.ev-i:hover, .ev-i:focus-visible { opacity: 1; background: rgba(15, 23, 42, .18); }
+.cv2-info .d { max-width: 330px; }
+
+/* ───────────── Le filtre, en tête de la colonne des activités ───────── */
+.ev-acts-f { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
+.ev-f {
+  flex: 1 1 auto; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--border); border-radius: 9px; background: var(--card);
+  padding: 5px 8px; text-align: center; line-height: 1.15;
+}
+.ev-f .n { display: block; font-size: 15px; font-weight: 700; }
+.ev-f .k { display: block; font-size: 10px; font-weight: 600; color: var(--muted); }
+.ev-f:hover { border-color: var(--border-strong, var(--border)); }
+.ev-f.is-on { border-width: 1.5px; }
+.ev-f--green { background: #f2fbf5; border-color: #bfe7cd; } .ev-f--green .n { color: #15803d; }
+.ev-f--orange { background: #fdf6e7; border-color: #ead9ae; } .ev-f--orange .n { color: #a8690f; }
+.ev-f--blue { background: #eff5ff; border-color: #c2d8fb; } .ev-f--blue .n { color: #1d4ed8; }
+.ev-f--grey { background: #f6f7fa; border-color: #dfe3ec; } .ev-f--grey .n { color: #5b6676; }
+.ev-f.is-on.ev-f--green { border-color: #15803d; }
+.ev-f.is-on.ev-f--orange { border-color: #a8690f; }
+.ev-f.is-on.ev-f--blue { border-color: #1d4ed8; }
+.ev-f.is-on.ev-f--grey { border-color: #5b6676; }
+
+/* ───────────── Le calendrier, en page ───────────── */
+#cv2-ecran-cal .cal-tuiles { margin: 16px 0; }
+#cv2-ecran-cal .cal-duo { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { #cv2-ecran-cal .cal-duo { grid-template-columns: minmax(0, 1fr); } }
+#cv2-ecran-cal .cal-case { min-height: 72px; }
+#cv2-ecran-cal .cal-mois, #cv2-ecran-cal .cal-detail { border-radius: 18px; }
+#cv2-ecran-cal .cal-mois-h h3 { font-size: 21px; }
+/* La même palette pastel que les cartes de contexte. */
+.cal-tuile--rouge { background: #fdf0ef; border-color: #eab8b4; }
+.cal-tuile--rouge .n, .cal-tuile--rouge .l { color: #a32b22; }
+.cal-tuile--ambre { background: #fdf6e7; border-color: #ead9ae; }
+.cal-tuile--ambre .n, .cal-tuile--ambre .l { color: #8a5a12; }
+.cal-tuile--bleu { background: #eff5ff; border-color: #c2d8fb; }
+.cal-tuile--vert { background: #f2fbf5; border-color: #bfe7cd; }
+.cal-tuile--vert .n, .cal-tuile--vert .l { color: #156b38; }
+.cal-pal .m2 {
+  margin: 0; display: flex; align-items: center; gap: 10px;
+  font-size: 13px; color: var(--ink-2);
+}
+.cal-pal .m2 .v { border-radius: 999px; padding: 3px 11px; font-size: 12.5px; font-weight: 700; }
+
+/* ───────────── L'accueil : les prochaines séances ───────────── */
+.cv2-seances {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px); padding: 15px 18px; margin: 14px 0 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
+}
+.cv2-sea-h { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
+.cv2-sea-h .k {
+  flex: 1; display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .9px;
+  text-transform: uppercase; color: var(--muted);
+}
+.cv2-sea-tout {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--pg-accent-deep); background: none; border: none; padding: 0;
+}
+.cv2-sea-tout:hover { text-decoration: underline; text-underline-offset: 3px; }
+.cv2-sea-l { display: grid; grid-template-columns: repeat(auto-fit, minmax(188px, 1fr)); gap: 10px; }
+.cv2-sea {
+  text-align: left; cursor: pointer; font-family: inherit;
+  background: #eff5ff; border: 1px solid #c2d8fb; border-radius: 12px; padding: 11px 13px;
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.cv2-sea:hover { transform: translateY(-2px); box-shadow: 0 8px 18px -8px rgba(29, 78, 216, .4); }
+.cv2-sea .d { display: block; font-family: var(--pg-font-display); font-size: 19px; font-weight: 700; color: #16326b; }
+.cv2-sea .q { display: block; margin-top: 1px; font-size: 12px; color: #2d4a85; }
+.cv2-sea .r {
+  display: inline-block; margin-top: 7px; background: #fff; border: 1px solid #c2d8fb;
+  border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: #1d4ed8;
+}
+.cv2-sea .n { display: block; margin-top: 5px; font-size: 12.5px; font-weight: 600; color: #1d4ed8; }
+.cv2-sea.est-tard { background: #fdf0ef; border-color: #eab8b4; }
+.cv2-sea.est-tard .d { color: #7c2018; }
+.cv2-sea.est-tard .q, .cv2-sea.est-tard .n { color: #a32b22; }
+.cv2-sea.est-tard .r { border-color: #eab8b4; color: #a32b22; }
+.cv2-sea-vide { margin: 0; font-size: 13px; color: var(--muted); }
+
+/* ───────────── Le radar se remplit à mesure qu'on évalue ───────────── */
+/* Là où il n'y a pas de mesure, il n'y a pas de trait : la surface se ferme
+   seulement quand toutes les activités sont évaluées. */
+.cv2-r-dem-part {
+  fill: none; stroke: var(--pg-accent); stroke-width: 2.4;
+  stroke-linejoin: round; stroke-linecap: round;
+}
+.cv2-radar-zone[data-couche="req"] .cv2-r-dem-part { opacity: .25; }
+
+/* La vue d'ensemble n'a plus d'énormes bords blancs : ses blocs suivent la
+   largeur de la page d'évaluation. */
+.cv2-profil, .cv2-seances, .cv2-rolecards, .cv2-bilan { max-width: none; }
+.cv2-rolecards { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
