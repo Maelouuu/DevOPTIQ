@@ -4951,10 +4951,17 @@ défauts remis un par un, dix cliquets tombés** (l'écran intermédiaire, le
 calendrier en fenêtre, le radar refiltré, la règle du minimum en clair, la
 bulle sans le zoom, l'en-tête sous le sticky global, les deux largeurs, les
 compteurs à zéro effacés, le bouton qui redit « trancher », les écrans morts
-revenus au gabarit). Suite : **3104 passés**, `repet_image` 3069 + 36 sautés
+revenus au gabarit). Suite : **3147 passés**, `repet_image` 3112 + 36 sautés
 (les 4 cas du semis SQL sautent : `tools/` est retiré de l'arbre d'image).
 Éprouvé au banc à 1600 px dans les deux langues : accueil, rôle → page,
 calendrier, séance et retour ; zéro fuite française sur l'écran anglais.
+
+⚠️ **Et `test_110::test_sans_connexion_401`, arrivé de la routine de tests,
+ne pouvait passer que s'il tournait EN PREMIER.** La fixture `client` est en
+portée SESSION : c'est le MÊME objet que `auth_client`, et il arrive connecté
+dès qu'un fichier précédent s'est authentifié — `test_109` le fait. Un test
+de l'ANONYMAT fabrique donc son propre client (`app.test_client()`), comme le
+font déjà la centaine de cas qui s'isolent de cette session partagée.
 
 ---
 

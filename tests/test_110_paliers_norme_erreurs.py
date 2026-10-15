@@ -106,8 +106,12 @@ def _donnee(app, cadre):
 
 
 class TestPoserNorme:
-    def test_sans_connexion_401(self, client, cadre):
-        r = client.post("/paliers/norme/%d" % cadre["data_id"], json={"valeur": 5})
+    def test_sans_connexion_401(self, app, cadre):
+        # ⚠️ La fixture `client` est en portee SESSION : c'est le MEME objet
+        # que `auth_client`, et il arrive connecte des qu'un fichier precedent
+        # s'est authentifie. Un test de l'ANONYMAT doit fabriquer son client.
+        anonyme = app.test_client()
+        r = anonyme.post("/paliers/norme/%d" % cadre["data_id"], json={"valeur": 5})
         assert r.status_code == 401
         assert r.get_json()["error"] == "not_logged_in"
 
