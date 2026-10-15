@@ -2821,3 +2821,128 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    largeur de la page d'évaluation. */
 .cv2-profil, .cv2-seances, .cv2-rolecards, .cv2-bilan { max-width: none; }
 .cv2-rolecards { grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   HUIT POINTS — le calendrier qui filtre, le niveau attendu à l'accueil
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ───────── Les quatre tuiles sont des BOUTONS ───────── */
+.cal-tuile {
+  cursor: pointer; font-family: inherit; text-align: left;
+  transition: transform .13s ease, box-shadow .13s ease, border-color .13s ease;
+}
+.cal-tuile:hover { transform: translateY(-2px); box-shadow: 0 7px 16px -10px rgba(15, 23, 42, .45); }
+/* Allumée, la tuile porte un anneau de SA couleur : on voit lequel des quatre
+   filtres est actif sans relire les quatre libellés. */
+.cal-tuile.is-on { border-width: 2px; }
+.cal-tuile--rouge.is-on { border-color: var(--pal-rouge-f); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-rouge-f) 15%, transparent); }
+.cal-tuile--ambre.is-on { border-color: var(--pal-ambre-f); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-ambre-f) 15%, transparent); }
+.cal-tuile--bleu.is-on { border-color: var(--pg-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 15%, transparent); }
+.cal-tuile--vert.is-on { border-color: var(--pal-vert-f); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pal-vert-f) 15%, transparent); }
+
+.cal-filtre {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  margin: -6px 0 14px; padding: 8px 13px;
+  background: var(--card-2); border: 1px solid var(--border); border-radius: 11px;
+}
+.cal-filtre .k { font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+.cal-f-off {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--muted);
+  background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+  padding: 3px 10px;
+}
+.cal-f-off:hover { color: var(--ink); border-color: var(--border-strong, var(--border)); }
+
+/* Le filtre MET EN AVANT, il ne masque pas : une case qui disparaîtrait
+   laisserait un trou dans le mois, et on ne saurait plus quel jour on lit. */
+.cal-case.est-eteint { opacity: .3; filter: grayscale(.75); }
+.cal-case.est-vise { box-shadow: 0 0 0 2px currentColor inset; }
+
+/* ───────── Une case LIBRE se clique pour poser une date ───────── */
+.cal-case--libre { position: relative; cursor: pointer; }
+.cal-case--libre .pose {
+  position: absolute; right: 6px; bottom: 5px;
+  width: 19px; height: 19px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 9px;
+  background: color-mix(in srgb, var(--pg-accent) 12%, #fff);
+  color: var(--pg-accent-deep);
+  opacity: 0; transition: opacity .13s ease;
+}
+.cal-case--libre:hover { border-color: color-mix(in srgb, var(--pg-accent) 42%, #fff); }
+.cal-case--libre:hover .pose, .cal-case--libre:focus-visible .pose { opacity: 1; }
+/* Le jour que le formulaire vise : c'est le seul lien entre la grille de
+   gauche et le champ de droite, il doit se voir d'un coup d'œil. */
+.cal-case.est-visee {
+  border-color: var(--pg-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 18%, transparent);
+}
+.cal-case.est-visee .pose { opacity: 1; background: var(--pg-accent); color: #fff; }
+
+.cal-d-aide {
+  display: flex; align-items: center; gap: 8px; margin: 10px 0 0;
+  padding: 8px 11px; border-radius: 10px;
+  background: color-mix(in srgb, var(--pg-accent) 6%, #fff);
+  border: 1px dashed color-mix(in srgb, var(--pg-accent) 30%, #fff);
+  font-size: 12.5px; color: var(--pg-accent-deep);
+}
+
+/* ───────── Le niveau ATTENDU se règle dans le détail d'un rôle ───────── */
+.cv2-barres-lg {
+  margin-left: auto; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .5px; text-transform: uppercase; color: var(--muted);
+}
+/* ⚠️ La ligne gagne une quatrième colonne : la régler SANS toucher aux trois
+   autres garde les barres alignées entre les deux états (avec et sans droit). */
+.cv2-bar-l { grid-template-columns: minmax(0, 1fr) minmax(90px, 1.25fr) 52px; }
+.cv2-bar-l:has(.cv2-bar-req) { grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr) 46px auto; }
+.cv2-bar-req { display: inline-flex; gap: 2px; }
+.cv2-bar-q {
+  width: 22px; height: 22px; cursor: pointer; font-family: inherit;
+  font-size: 11.5px; font-weight: 700; line-height: 1;
+  color: var(--muted); background: var(--card-2);
+  border: 1px solid var(--border); border-radius: 6px;
+  display: grid; place-items: center; transition: .12s;
+}
+.cv2-bar-q:hover { color: var(--ink); border-color: var(--border-strong, var(--border)); }
+/* Une CIBLE se dessine, elle ne se remplit pas : le pas choisi est en creux,
+   comme le bloc « niveau attendu » l'était sur la page d'évaluation. */
+.cv2-bar-q.sel {
+  color: var(--pg-accent-deep); background: #fff;
+  border-color: var(--pg-accent); box-shadow: inset 0 0 0 1px var(--pg-accent);
+}
+.cv2-bar-q--off { width: auto; padding: 0 7px; }
+@media (max-width: 1100px) {
+  .cv2-bar-l:has(.cv2-bar-req) { grid-template-columns: minmax(0, 1fr) 46px auto; }
+  .cv2-bar-l:has(.cv2-bar-req) .cv2-bar-piste { display: none; }
+}
+
+/* ───────── L'évolution se referme par le BAS ───────── */
+.pal-evo-fin {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 2px; padding: 9px 0; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted);
+  background: var(--card-2); border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--r-card, 14px) var(--r-card, 14px);
+  transition: .13s;
+}
+.pal-evo-fin:hover { color: var(--pg-accent-deep); background: color-mix(in srgb, var(--pg-accent) 7%, #fff); }
+
+/* ───────── Les deux premières colonnes se distinguent ───────── */
+/* ⚠️ On choisissait une activité à gauche, on notait ses sorties au milieu, et
+   rien ne disait que ce n'était pas le même objet. Les deux colonnes portent
+   donc un NUMÉRO et une phrase qui nomme ce qu'elles montrent. */
+.ev-acts-h .k, .ev-centre-h .k { display: flex; align-items: center; gap: 8px; }
+.ev-acts-h .num, .ev-centre-h .num {
+  width: 19px; height: 19px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 700; font-family: var(--pg-font);
+  background: var(--pg-accent); color: #fff;
+}
+.ev-centre-h { margin-bottom: 13px; }
+.ev-centre-h .k {
+  margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .9px;
+  text-transform: uppercase; color: var(--pg-accent-deep);
+}
+.ev-centre-h .d { margin: 5px 0 0; font-size: 12.5px; color: var(--muted); }

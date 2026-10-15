@@ -358,19 +358,30 @@ def calendrier():
         r = roles.get(s.role_id)
         j["role"] = nom_affiche(r, lang) if r else ""
         j["a_trancher"] = a_trancher.get(s.id, 0)
+        # ⚠️ Chaque session dit À QUELLES TUILES elle appartient, et c'est la
+        # MÊME boucle qui incrémente les compteurs. Les quatre tuiles filtrent
+        # le calendrier : si le navigateur refaisait ces prédicats de son côté,
+        # le chiffre annoncé et les cases mises en avant finiraient par ne plus
+        # désigner le même ensemble — c'est le défaut que `dashboard_rows` a
+        # déjà montré sur les compteurs de la page.
+        j["tuiles"] = []
         out.append(j)
         if s.statut == "tenue":
             if s.date_prevue and s.date_prevue.year == today.year:
                 n_tenues += 1
+                j["tuiles"].append("tenues_annee")
             continue
         if s.statut != "prevue" or not s.date_prevue:
             continue
         if j["en_retard"]:
             n_retard += 1
+            j["tuiles"].append("en_retard")
         if lundi <= s.date_prevue <= dimanche:
             n_sem += 1
+            j["tuiles"].append("semaine")
         if s.date_prevue.year == today.year and s.date_prevue.month == today.month:
             n_mois += 1
+            j["tuiles"].append("mois")
     out.sort(key=lambda j: (j["date_prevue"] or "", j["id"]))
     return jsonify({"ok": True, "aujourdhui": today.isoformat(), "sessions": out,
                     "compteurs": {"en_retard": n_retard, "semaine": n_sem,

@@ -822,3 +822,179 @@ class TestLeMotEvaluerRemplaceTrancher:
                        if ":" in l and motifs[langue].search(l.split(":", 1)[1])]
             assert fautifs == [], fautifs
         assert "pal_trancher: 'Évaluer ce palier'" in js
+
+class TestLEnregistrementTrouveSesCartes:
+    """⚠️⚠️ Le défaut le plus grave de la passe : « ça dit que c'est
+    enregistré, mais en rechargeant, rien ». `saveEvaluation` cherchait ses
+    cartes dans `#cv2-drawer-body` — le TIROIR, d'où l'évaluation est partie
+    le 14/10. Il n'en trouvait AUCUNE, la boucle ne tournait pas, et le
+    « Enregistré » tombait quand même. Mesuré au banc : 2 cartes dans
+    `#ev-centre`, 0 dans le tiroir."""
+
+    def test_il_lit_la_colonne_du_milieu_et_pas_le_tiroir(self):
+        js = _lire(JS)
+        corps = js.split("  async function saveEvaluation() {", 1)[1].split("\n  }", 1)[0]
+        assert "#ev-centre .cv2-res" in corps
+        assert "cv2-drawer-body" not in corps
+
+    def test_il_n_annonce_pas_un_succes_sans_rien_ecrire(self):
+        """Un enregistrement qui ne trouve rien à écrire ne dit plus
+        « Enregistré » : c'est ce silence qui a coûté les notes."""
+        js = _lire(JS)
+        corps = js.split("  async function saveEvaluation() {", 1)[1].split("\n  }", 1)[0]
+        assert "if (!cards.length)" in corps
+        assert "ecrites" in corps
+        assert "toast(ecrites ? T('saved') : T('save_rien'));" in corps
+
+
+class TestLeCalendrierFiltreEtPoseLesDates:
+
+    def test_l_appartenance_a_une_tuile_vient_du_SERVEUR(self, auth_client, bob, comme_dev):
+        """⚠️ Les quatre prédicats (en retard, cette semaine, ce mois, tenues
+        cette année) sont écrits UNE fois, dans la boucle qui incrémente les
+        compteurs. Refaits en JS, le chiffre de la tuile et les cases qu'elle
+        met en avant finiraient par désigner deux ensembles.
+
+        ⚠️ Écrit sur le COMPORTEMENT, pas en relisant la source : un test qui
+        lit un `.py` passe ici et rougit à CHAQUE exécution sur l'instance,
+        dont l'arbre est compilé en bytecode.
+        """
+        en_retard = _session(auth_client, bob, -9)
+        a_venir = _session(auth_client, bob, 300)
+        d = json.loads(auth_client.get("/paliers/calendrier").data)
+        par_id = {s["id"]: s for s in d["sessions"]}
+
+        assert "en_retard" in par_id[en_retard]["tuiles"]
+        assert par_id[a_venir]["tuiles"] == [], "une séance lointaine n'est dans aucune tuile"
+
+        # Le compteur d'une tuile EST le nombre de séances qu'elle marque :
+        # c'est l'invariant qui empêche le chiffre et les cases de diverger.
+        for cle, n in d["compteurs"].items():
+            marquees = [s for s in d["sessions"] if cle in s["tuiles"]]
+            assert len(marquees) == n, "%s : %d marquées pour %d annoncées" % (
+                cle, len(marquees), n)
+
+        js = _lire(JS)
+        assert "(ses.tuiles || []).indexOf(cle) >= 0" in js
+        # Aucun des quatre prédicats n'est reconstruit côté navigateur.
+        assert "getDay() === 1" not in js
+
+    def test_les_tuiles_sont_des_boutons_qui_filtrent(self, auth_client):
+        js = _lire(JS)
+        corps = js.split("  function tuileCal(cle, lbl, teinte) {", 1)[1].split("\n  }", 1)[0]
+        assert "<button" in corps and 'data-f="${cle}"' in corps
+        assert "aria-pressed" in corps
+        # Recliquer la tuile allumée l'éteint : sans ça on ne revient pas à tout.
+        f = js.split("  function filtrerCal(cle) {", 1)[1].split("\n  }", 1)[0]
+        assert "cal.filtre === cle ? null : cle" in f
+
+    def test_le_filtre_met_en_avant_sans_jamais_masquer(self):
+        """Une case qui disparaîtrait laisserait un trou dans le mois : on ne
+        saurait plus quel jour on lit."""
+        css = _lire(CSS)
+        assert ".cal-case.est-eteint" in css
+        assert "display: none" not in css.split(".cal-case.est-eteint", 1)[1][:120]
+
+    def test_une_case_du_mois_pose_la_date_du_formulaire(self):
+        js = _lire(JS)
+        assert "function poserJour(iso)" in js
+        corps = js.split("  function poserJour(iso) {", 1)[1].split("\n  }", 1)[0]
+        assert "champ.value = iso" in corps and "cal.vise = iso" in corps
+        # ⚠️ Le formulaire ouvert l'emporte sur le chargement d'une session :
+        # sinon cliquer un jour déjà occupé quitterait la planification.
+        m = js.split("z.querySelectorAll('[data-jour]')", 1)[1][:420]
+        assert "#cal-detail [data-d]" in m and "poserJour" in m
+
+    def test_seul_qui_peut_planifier_voit_une_case_cliquable(self):
+        js = _lire(JS)
+        assert "const planif = !!(state.estDev && state.roleId && state.cible);" in js
+        assert "planif\n          ? `<button" in js or "planif ? `<button" in js
+
+
+class TestLeNiveauAttenduQuitteLEvaluation:
+    """Trois objets dans un même écran — l'activité à gauche, ses sorties au
+    milieu, la cible du RÔLE à droite — et on ne savait plus lequel on notait.
+    Le niveau attendu se règle là où les rôles se regardent."""
+
+    def test_il_n_est_plus_dans_la_colonne_de_droite(self):
+        js = _lire(JS)
+        assert "function cibleRequise(" not in js
+        assert "ev_attendu" not in js
+        corps = js.split("  function remplirContexte(st) {", 1)[1].split("\n  }\n", 1)[0]
+        assert "cv2-cible" not in corps
+
+    def test_il_se_regle_dans_le_detail_d_un_role(self):
+        js = _lire(JS)
+        corps = js.split("  function barresRole(role) {", 1)[1].split("\n  }\n", 1)[0]
+        assert "cv2-bar-req" in corps and "data-act" in corps
+        assert "const peutRegler = jeSuisLeDev();" in js
+        # ⚠️ Le réglage recharge la synthèse ENTIÈRE : la couleur, le compteur
+        # « en écart » et le radar en dépendent, et les redresser à la main
+        # donnerait une seconde règle pour un seul verdict.
+        h = js.split("hote.querySelectorAll('.cv2-bar-req [data-lv]')", 1)[1][:1100]
+        assert "'/mastery/required'" in h and "await chargerSynthese();" in h
+
+    def test_la_phrase_de_la_technicite_a_disparu(self):
+        js = _lire(JS)
+        assert "ev_tech_d" not in js
+        assert "contexte technique, pas la ma" not in js
+
+
+class TestLesDeuxColonnesSeDistinguent:
+
+    def test_chacune_porte_son_numero_et_ce_qu_elle_montre(self):
+        js = _lire(JS)
+        assert '<span class="num">1</span>' in js and '<span class="num">2</span>' in js
+        assert "T('ev_col_sor')" in js and "T('ev_col_sor_d')" in js
+        # ⚠️ `remplirCentre` VIDE `#ev-centre` : un en-tête écrit dans le
+        # gabarit de la page serait effacé au premier remplissage.
+        corps = js.split("  function remplirCentre(st) {", 1)[1][:400]
+        assert "ev-centre-h" in corps
+
+    def test_le_gabarit_de_la_page_ne_le_redit_pas(self):
+        js = _lire(JS)
+        sk = js.split('<main class="ev-centre" id="ev-centre"', 1)[1][:80]
+        assert "ev-centre-h" not in sk
+
+
+class TestLEvolutionSeFermeParLeBas:
+    """Une fois le graphe et l'historique dépliés, le bouton qui a OUVERT la
+    section se retrouve en plein milieu : il faut le chercher."""
+
+    def test_un_bouton_ferme_la_section_depuis_son_pied(self):
+        js = _lire(JS)
+        corps = js.split("  function basculerGraphe(card, r) {", 1)[1].split("\n  }", 1)[0]
+        assert "pal-evo-fin" in corps
+        assert "fa-chevron-up" in corps
+        # ⚠️ En DERNIER enfant : `.pal-form` vient après l'historique, et une
+        # marche posée pendant la lecture glisserait un formulaire SOUS lui.
+        assert "card.appendChild(bas);" in corps
+
+    def test_il_part_quand_la_section_se_referme(self):
+        js = _lire(JS)
+        corps = js.split("  function basculerGraphe(card, r) {", 1)[1].split("\n  }", 1)[0]
+        avant = corps.split("card.dataset.evo = '';", 1)[0]
+        assert ".pal-evo-fin" in avant, "le repli doit le retirer"
+
+    def test_il_a_son_style(self):
+        css = _lire(CSS)
+        assert ".pal-evo-fin {" in css
+
+
+class TestLesLibellesNeufsExistentDansLesDeuxLangues:
+
+    def test_les_dix_cles_posees_sont_dans_les_deux_catalogues(self):
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
+        for k in ("ev_col_sor", "ev_col_sor_d", "save_rien", "p_regler_req",
+                  "ses_f_on", "ses_f_off", "ses_f_tout", "ses_f_actif",
+                  "ses_f_actif_n", "ses_clic_jour", "ses_poser_le"):
+            assert ("%s:" % k) in fr, "manque en FR : %s" % k
+            assert ("%s:" % k) in en, "manque en EN : %s" % k
+
+    def test_le_pluriel_du_bandeau_ne_se_devine_pas(self):
+        """« 1 session(s) » n'est pas une tournure, c'est un aveu."""
+        js = _lire(JS)
+        assert "session(s)" not in js
+        assert "nf('ses_f_actif'" in js

@@ -4963,6 +4963,97 @@ dès qu'un fichier précédent s'est authentifié — `test_109` le fait. Un tes
 de l'ANONYMAT fabrique donc son propre client (`app.test_client()`), comme le
 font déjà la centaine de cas qui s'isolent de cette session partagée.
 
+#### Les notes ne s'enregistraient PAS, et six autres points (2026-10-15)
+
+⚠️⚠️ **« Ça dit que c'est enregistré, mais en rechargeant, les notes ne sont
+pas là. »** Exact, et le plus grave de la passe. `saveEvaluation` cherchait ses
+cartes dans **`#cv2-drawer-body`** — le TIROIR, d'où l'évaluation est partie la
+veille. Mesuré au banc : **2 cartes dans `#ev-centre`, 0 dans le tiroir**. La
+boucle ne tournait donc pas une seule fois, aucune requête ne partait, et le
+`toast(T('saved'))` tombait **après** la boucle, inconditionnellement. On
+notait, on validait, on était rassuré, et rien n'était écrit.
+- Deux corrections, pas une : il lit `#ev-centre`, **et** il n'annonce plus un
+  succès sans avoir rien écrit (`ecrites`). Un enregistrement silencieux qui se
+  félicite est pire qu'une erreur — il n'y a aucun moment où l'on peut
+  s'apercevoir de la perte.
+- Vérifié de bout en bout, vrai rechargement de page : note 1 et preuve
+  `CTRL-…` relues en base après F5.
+
+**Le calendrier : les quatre tuiles FILTRENT, et une case pose la date.**
+- Chaque tuile est un bouton (`data-f`, `aria-pressed`) ; recliquer celle qui
+  est allumée l'éteint — sans quoi on ne revient jamais à « tout ». Le mois se
+  cale sur la première séance retenue : filtrer sur un mois qui n'en porte
+  aucune ne montrerait rien.
+- ⚠️ **L'appartenance à une tuile vient du SERVEUR** (`j["tuiles"]`), calculée
+  dans la boucle même qui incrémente les compteurs. Refaire en JS les quatre
+  prédicats (en retard, cette semaine, ce mois, tenues cette année) donnerait
+  un second verdict, et le chiffre annoncé finirait par ne plus désigner les
+  cases mises en avant. Le cliquet vérifie l'INVARIANT : le compteur d'une
+  tuile est le nombre de séances qu'elle marque.
+- ⚠️ **Le filtre met en avant, il ne masque pas** : une case qui disparaîtrait
+  laisserait un trou dans le mois et on ne saurait plus quel jour on lit. Les
+  séances hors filtre s'éteignent (`.est-eteint`), celles qui restent portent
+  un anneau.
+- **Un jour du calendrier renseigne la date du formulaire** (`poserJour`), et
+  la case visée porte un anneau d'accent : c'est le seul lien entre la grille
+  de gauche et le champ de droite. ⚠️ **Le formulaire ouvert l'emporte** — un
+  clic sur un jour DÉJÀ occupé pose la date au lieu de charger sa séance,
+  sinon on quitterait la planification en cours de route. ⚠️ Et le jour visé
+  vit dans `cal`, pas seulement dans le champ : le mois se redessine à chaque
+  clic.
+- Une case libre n'est un bouton que pour qui peut vraiment planifier.
+
+**Le niveau attendu QUITTE la page d'évaluation.** Trois objets dans un même
+écran — l'activité choisie à gauche, ses sorties au milieu, la cible du RÔLE à
+droite — et on ne savait plus lequel on notait. Il se règle désormais dans le
+**détail d'un rôle, sur la vue d'ensemble** (`barresRole`), qui montrait déjà
+une ligne par activité avec sa cible sur la piste : cinq pas en creux par
+ligne. Une cible se dessine, elle ne se remplit pas.
+- ⚠️ Le réglage recharge la synthèse ENTIÈRE : la couleur, le compteur « en
+  écart » et le radar en dépendent, et les redresser à la main donnerait une
+  seconde règle pour un seul verdict. ⚠️ `box` et `hote` sont alors DÉTACHÉS
+  (`renderProfil` réécrit le bloc) — on rouvre les barres sur la zone neuve.
+- `cibleRequise`, la clé `ev_attendu` et la phrase `ev_tech_d` (« Un axe à
+  part : le contexte technique, pas la maîtrise ») sont supprimées.
+
+**Les deux premières colonnes portent un NUMÉRO** et une phrase qui nomme ce
+qu'elles montrent — ① les activités du rôle, ② ce que l'activité produit,
+« les sorties de l'activité choisie à gauche ; c'est là-dessus qu'on note ».
+⚠️ L'en-tête de la colonne 2 est reconstruit par `remplirCentre`, pas écrit
+dans le gabarit de la page : cette fonction VIDE `#ev-centre`, elle l'aurait
+effacé au premier remplissage.
+
+**L'évolution se referme par le BAS** (`.pal-evo-fin`, chevron vers le haut) :
+une fois le graphe et l'historique dépliés, le bouton qui a ouvert la section
+se retrouve en plein milieu, et il faut le chercher. ⚠️ Il est posé en DERNIER
+enfant de la carte, pas après l'historique : `.pal-form` vient ensuite, et une
+marche posée pendant la lecture glisserait un formulaire sous lui.
+
+⚠️ **« Pourquoi “Demande de tests qualité” est en écart alors que le seuil de
+95 % est atteint ? » — ce n'est pas un défaut de calcul.** Vérifié des deux
+côtés (`categorie()` en JS, `categorie_activite()` au serveur) : la **norme
+atteinte vaut 2** (qualifié), un palier **au-delà** vaut 3 (avancé), et le rôle
+exigeait 3. 97 % ≥ 95 % donne donc bien « Qualifié · 2 », et 2 < 3 donne « en
+écart ». Ce qui manquait, c'est que l'écran montrait la cible du rôle à dix
+centimètres de la note de la sortie sans jamais dire qu'elles ne mesurent pas
+la même chose. Le déplacement ci-dessus est le correctif ; la règle, elle, est
+juste. Pour aller à 3, il faut **poser la marche suivante** — le bouton est sur
+la carte.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 50 à **67 cas** ;
+**quatorze défauts remis un par un, quatorze cliquets tombés**.
+⚠️ Le cliquet des tuiles relisait d'abord `Code/routes/paliers_routes.py` : vert
+en local, **rouge dans l'arbre d'image** (bytecode-only). Réécrit sur le
+COMPORTEMENT — il appelle `/paliers/calendrier` et compare chaque compteur au
+nombre de séances marquées — ce qui en fait un contrôle plus fort, pas un
+contrôle sauté.
+Suite : **3164 passés**, `repet_image` 3129 + 36 sautés. Éprouvé au banc à
+1600 px dans les deux langues : enregistrement relu après rechargement, filtre
+des quatre tuiles (compteur et cases accordés), clic d'un jour libre et d'un
+jour occupé, annulation, réglage du niveau attendu depuis l'accueil (3 → 4 →
+3, relu), fermeture de l'évolution par le bas ; zéro fuite française sur
+l'écran anglais.
+
 ---
 
 ## Notes importantes (suite)

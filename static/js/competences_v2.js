@@ -37,6 +37,17 @@
       ev_nb_act_1: '1 activité',
       ev_suivi_par: 'suivi par [[x]]',
       ev_evaluees: '[[n]] activités évaluées sur [[t]]',
+      ev_col_sor: 'Ce que l’activité produit',
+      ev_col_sor_d: 'Les sorties de l’activité choisie à gauche. C’est là-dessus qu’on note.',
+      save_rien: 'Rien à enregistrer sur cette activité.',
+      p_regler_req: 'Réglez le niveau attendu',
+      ses_f_on: 'Ne montrer que celles-ci',
+      ses_f_off: 'Montrer tout le monde',
+      ses_f_tout: 'Tout afficher',
+      ses_f_actif: '[[t]] · [[n]] séance',
+      ses_f_actif_n: '[[t]] · [[n]] séances',
+      ses_clic_jour: 'Cliquez un jour du calendrier pour poser la date.',
+      ses_poser_le: 'Planifier ce jour-là',
       ev_col_act: 'Les activités du rôle',
       ev_col_act_d: "On passe de l'une à l'autre sans quitter la page.",
       ev_sorties_n: '[[n]] sorties',
@@ -46,10 +57,8 @@
       ev_en_retard_n: '[[n]] en retard',
       ev_niv_act: 'Niveau de cette activité',
       ev_min_de: 'le [[b]]minimum[[/b]] de ses sorties, jamais la moyenne',
-      ev_attendu: 'Niveau attendu sur ce rôle',
       ev_cible_dit: 'une cible se dessine, elle ne se remplit pas',
       ev_tech: 'Technicité',
-      ev_tech_d: 'Un axe à part : le contexte technique, pas la maîtrise.',
       ev_masquer_evo: "Masquer l'évolution",
       ev_rien_eval: "Rien à évaluer tant que l'activité n'est pas configurée.",
       ev_enregistrer: 'Enregistrer les notes',
@@ -332,6 +341,17 @@
       ev_nb_act_1: '1 activity',
       ev_suivi_par: 'followed by [[x]]',
       ev_evaluees: '[[n]] of [[t]] activities assessed',
+      ev_col_sor: 'What the activity produces',
+      ev_col_sor_d: 'The outputs of the activity picked on the left. This is what you rate.',
+      save_rien: 'Nothing to save on this activity.',
+      p_regler_req: 'Set the expected level',
+      ses_f_on: 'Show only these',
+      ses_f_off: 'Show everyone',
+      ses_f_tout: 'Show all',
+      ses_f_actif: '[[t]] · [[n]] session',
+      ses_f_actif_n: '[[t]] · [[n]] sessions',
+      ses_clic_jour: 'Click a day in the calendar to set the date.',
+      ses_poser_le: 'Schedule that day',
       ev_col_act: "The role's activities",
       ev_col_act_d: 'Move between them without leaving the page.',
       ev_sorties_n: '[[n]] outputs',
@@ -341,10 +361,8 @@
       ev_en_retard_n: '[[n]] overdue',
       ev_niv_act: 'Level of this activity',
       ev_min_de: 'the [[b]]lowest[[/b]] of its outputs, never the average',
-      ev_attendu: 'Expected level for this role',
       ev_cible_dit: 'a target is outlined, never filled in',
       ev_tech: 'Technicity',
-      ev_tech_d: 'A separate axis: the technical context, not mastery.',
       ev_masquer_evo: 'Hide progress',
       ev_rien_eval: 'Nothing to assess until the activity is configured.',
       ev_enregistrer: 'Save the levels',
@@ -1166,6 +1184,7 @@
   // « sur quelle activité ce rôle décroche ». Les barres répondent à ça :
   // une ligne par activité, la cible marquée sur la piste.
   function barresRole(role) {
+    const peutRegler = jeSuisLeDev();
     const actes = (role.activities || []).slice()
       .sort((a, b) => (a.gap == null ? 99 : a.gap) - (b.gap == null ? 99 : b.gap)
                       || a.activity_name.localeCompare(b.activity_name));
@@ -1180,10 +1199,19 @@
         : `<i class="cv2-bar-plein cv2-bar--${coul}" style="--w:${(dem / 4) * 100}%"></i>`;
       const cible = req === null ? ''
         : `<i class="cv2-bar-cible" style="--x:${(req / 4) * 100}%" title="${esc(T('p_required'))} ${req}"></i>`;
+      // ⚠️ Le niveau ATTENDU se règle ICI, pas dans la page d'évaluation :
+      // c'est une décision de rôle, et là-bas elle se confondait avec la note
+      // qu'on venait poser sur les sorties de l'activité.
+      const regle = peutRegler ? `<span class="cv2-bar-req" data-act="${a.activity_id}">
+          ${[0, 1, 2, 3, 4].map(lv => `<button type="button" class="cv2-bar-q${req === lv ? ' sel' : ''}"
+             data-lv="${lv}" title="${esc(levelName(lv))}">${lv}</button>`).join('')}
+          <button type="button" class="cv2-bar-q cv2-bar-q--off${req === null ? ' sel' : ''}"
+             data-lv="" title="${esc(T('not_set'))}">—</button></span>` : '';
       return `<div class="cv2-bar-l" style="--i:${i}">
           <span class="cv2-bar-nom" title="${esc(a.activity_name)}">${esc(a.activity_name)}</span>
           <span class="cv2-bar-piste">${piste}${cible}</span>
           <span class="cv2-bar-val">${dem === null ? '—' : dem}<small>/${req === null ? '—' : req}</small></span>
+          ${regle}
         </div>`;
     }).join('');
 
@@ -1192,6 +1220,7 @@
           <button type="button" class="cv2-barres-retour">
             <i class="fa-solid fa-arrow-left"></i> ${esc(T('p_back_radar'))}</button>
           <div class="cv2-barres-t">${esc(role.role_name)}</div>
+          ${peutRegler ? `<span class="cv2-barres-lg">${esc(T('p_regler_req'))}</span>` : ''}
         </div>
         ${actes.length > 1 ? `<div class="cv2-barres-corps">${lignes}</div>`
           : `<div class="cv2-barres-corps">${lignes}
@@ -1205,6 +1234,24 @@
     if (!zone || !hote) return;
     box.querySelector('.cv2-radar-bulle')?.classList.remove('est-la');
     hote.innerHTML = barresRole(role);
+    hote.querySelectorAll('.cv2-bar-req [data-lv]').forEach(b => b.onclick = async () => {
+      const v = b.dataset.lv;
+      const r = await api('/mastery/required', { method: 'POST', body: JSON.stringify({
+        activity_id: +b.closest('[data-act]').dataset.act, role_id: role.role_id,
+        required_mastery_level: v === '' ? null : +v }) });
+      if (r.__error) return;
+      toast(T('req_set'));
+      // On recharge la synthèse ENTIÈRE : le niveau attendu décide de la
+      // couleur, du compteur « en écart » et du radar — les redresser à la
+      // main en JS donnerait une seconde règle pour un seul verdict.
+      // ⚠️ `box` et `hote` sont DÉTACHÉS après ce rechargement : `renderProfil`
+      // réécrit tout le bloc. On rouvre les barres sur la zone NEUVE.
+      await chargerSynthese();
+      const neuf = ((state.synthese && state.synthese.roles) || [])
+        .find(x => x.role_id === role.role_id);
+      const zone = $('#cv2-profil');
+      if (neuf && zone) ouvrirBarres(zone, neuf);
+    });
     // Le changement de vue se fait sur l'attribut : le CSS porte l'animation,
     // et rien ne bouge si l'utilisateur a demandé moins de mouvement.
     zone.dataset.vue = 'barres';
@@ -1446,29 +1493,6 @@
   // ── Le niveau requis ──────────────────────────────────────────────
   // ⚠️ C'était un lien « modifier » qui dépliait six boutons gris : rien ne
   // disait que c'était réglable, ni qu'il s'agissait d'une CIBLE.
-  function cibleRequise(st) {
-    const wrap = document.createElement('div');
-    const req = estNul(st.required_level) ? null : st.required_level;
-    const peut = jeSuisLeDev();
-    let html = `<div class="cv2-cible">`;
-    for (let lv = 0; lv <= 4; lv++) {
-      html += `<button type="button" class="cv2-cible-niv${req === lv ? ' sel' : ''}" data-req="${lv}"
-        ${peut ? '' : 'disabled'} title="${esc(levelName(lv))}">${lv}</button>`;
-    }
-    html += `<button type="button" class="cv2-cible-off${req === null ? ' sel' : ''}" data-req=""
-      ${peut ? '' : 'disabled'}>${esc(T('not_set'))}</button>
-      <div class="cv2-cible-dit">${req === null ? esc(T('not_set'))
-        : `<b>${req}</b> · ${esc(levelName(req))}`}</div></div>`;
-    wrap.innerHTML = html;
-    if (peut) {
-      wrap.querySelectorAll('[data-req]').forEach(b => b.onclick = () => {
-        const v = b.dataset.req;
-        setRequired(v === '' ? null : +v);
-      });
-    }
-    return wrap;
-  }
-
   // ── La carte d'un RÉSULTAT ────────────────────────────────────────
   // L'échelle interactive porte MA note ; l'autre note s'affiche à côté, dans
   // une forme qui ne peut pas être confondue avec elle.
@@ -1595,9 +1619,16 @@
     return `<span class="cv2-accord cv2-accord--${cls}">${esc(T(cle))}</span>`;
   }
 
+  // ⚠️⚠️ Il cherchait ses cartes dans `#cv2-drawer-body` — le TIROIR, d'où
+  // l'évaluation est partie le 14/10. Il n'en trouvait donc aucune, la boucle
+  // ne tournait pas, et le « Enregistré » tombait quand même : on notait, on
+  // validait, et rien n'était écrit. Un enregistrement qui ne trouve rien à
+  // écrire n'annonce plus un succès.
   async function saveEvaluation() {
-    const cards = document.querySelectorAll('#cv2-drawer-body .cv2-res');
+    const cards = document.querySelectorAll('#ev-centre .cv2-res');
+    if (!cards.length) { toast(T('save_rien')); return; }
     const btn = $('#cv2-save-btn'); if (btn) btn.disabled = true;
+    let ecrites = 0;
     for (const c of cards) {
       // ⚠️ Bien `.is-mienne` : la carte porte maintenant DEUX échelles, et un
       // `querySelector` non qualifié ramènerait la première — celle du
@@ -1614,8 +1645,10 @@
         }),
       });
       if (r.__error) { if (btn) btn.disabled = false; return; }
+      ecrites += 1;
     }
-    toast(T('saved'));
+    toast(ecrites ? T('saved') : T('save_rien'));
+    if (!ecrites) { if (btn) btn.disabled = false; return; }
     await refreshDashboard();
     await ouvrirEvaluation(state.activity);
   }
@@ -2864,14 +2897,45 @@
   // session ne se voit qu'en ayant d'abord choisi la bonne — c'est ce qui
   // faisait manquer les propositions de carto dans la page RH.
   const cal = { mois: null, sessions: [], compteurs: {}, choisie: null,
-                detail: null, retour: 'synthese' };
+                detail: null, retour: 'synthese', filtre: null, vise: null };
+
+  // ⚠️ L'appartenance d'une session à une tuile vient du SERVEUR (`tuiles`),
+  // calculée dans la boucle qui incrémente les compteurs : refaire ici les
+  // quatre prédicats (en retard, cette semaine, ce mois, tenues cette année)
+  // donnerait un second verdict, et le chiffre de la tuile finirait par ne
+  // plus désigner les cases qu'elle met en avant.
+  const LIB_TUILE = { en_retard: 'ses_en_retard', semaine: 'ses_semaine',
+                      mois: 'ses_mois', tenues_annee: 'ses_tenues' };
+  const dansTuile = (ses, cle) => (ses.tuiles || []).indexOf(cle) >= 0;
+  const visibles = () => (cal.filtre
+    ? cal.sessions.filter(x => dansTuile(x, cal.filtre)) : cal.sessions);
 
 
 
+  // Un chiffre appelle le clic : chaque tuile FILTRE le mois, et se
+  // rallume pour dire lequel. Recliquer celle qui est allumée l'éteint —
+  // sinon on ne peut plus revenir à « tout ».
   function tuileCal(cle, lbl, teinte) {
-    return `<div class="cal-tuile cal-tuile--${teinte}">
-        <span class="n">${cal.compteurs[cle] || 0}</span>
-        <span class="l">${esc(T(lbl))}</span></div>`;
+    const n = cal.compteurs[cle] || 0;
+    const on = cal.filtre === cle;
+    return `<button type="button" class="cal-tuile cal-tuile--${teinte}${on ? ' is-on' : ''}"
+        data-f="${cle}" aria-pressed="${on ? 'true' : 'false'}"
+        title="${esc(on ? T('ses_f_off') : T('ses_f_on'))}">
+        <span class="n">${n}</span>
+        <span class="l">${esc(T(lbl))}</span></button>`;
+  }
+
+  // Filtrer sur un mois qui ne porte aucune session visée ne montrerait
+  // rien : on se pose sur le mois de la première session retenue.
+  function filtrerCal(cle) {
+    cal.filtre = cal.filtre === cle ? null : cle;
+    const vus = visibles();
+    if (cal.filtre && vus.length) {
+      const j = dateJour(vus[0].date_prevue);
+      if (j) cal.mois = new Date(j.getFullYear(), j.getMonth(), 1);
+    }
+    rendreCal();
+    if (cal.choisie) chargerSession(cal.choisie);
   }
 
   function rendreMois() {
@@ -2889,6 +2953,10 @@
         (parJour[d.getDate()] = parJour[d.getDate()] || []).push(s);
       }
     });
+    // Planifier : une case se clique pour poser sa date. Elle n'est offerte
+    // qu'à qui peut vraiment planifier — un bouton qui ne mène nulle part
+    // vaut moins qu'un simple jour.
+    const planif = !!(state.estDev && state.roleId && state.cible);
     const jours = ['ses_lun', 'ses_mar', 'ses_mer', 'ses_jeu', 'ses_ven', 'ses_sam', 'ses_dim'];
     let g = '';
     jours.forEach((k, i) => {
@@ -2899,16 +2967,23 @@
     for (let j = 1; j <= nJours; j++) {
       const dj = new Date(an, mo, j), we = dj.getDay() === 0 || dj.getDay() === 6;
       const ses = parJour[j] || [];
+      const iso = jourISO(dj);
+      const base = `${we ? ' est-we' : ''}${+dj === +auj ? ' est-auj' : ''}`
+        + (cal.vise === iso ? ' est-visee' : '');
       if (!ses.length) {
-        g += `<div class="cal-case${we ? ' est-we' : ''}${+dj === +auj ? ' est-auj' : ''}">
-                <span class="n">${j}</span></div>`;
+        g += planif
+          ? `<button type="button" class="cal-case cal-case--libre${base}" data-jour="${iso}"
+               title="${esc(T('ses_poser_le'))}"><span class="n">${j}</span>
+               <span class="pose"><i class="fa-solid fa-plus"></i></span></button>`
+          : `<div class="cal-case${base}"><span class="n">${j}</span></div>`;
         continue;
       }
       const s = ses[0];
       const teinte = s.statut === 'tenue' ? 'tenue' : (s.en_retard ? 'retard' : 'prevue');
       const n = s.a_trancher || s.n_paliers || 0;
-      g += `<button type="button" class="cal-case cal-case--${teinte}${cal.choisie === s.id ? ' est-choisie' : ''}"
-              data-ses="${s.id}">
+      const vise = !cal.filtre || dansTuile(s, cal.filtre);
+      g += `<button type="button" class="cal-case cal-case--${teinte}${base}${cal.choisie === s.id ? ' est-choisie' : ''}${cal.filtre ? (vise ? ' est-vise' : ' est-eteint') : ''}"
+              data-ses="${s.id}" data-jour="${iso}">
           <span class="n">${j}</span>
           <span class="qui"><i class="pt"></i>${esc(s.nom)}</span>
           <span class="sub">${esc(n ? Tv(n > 1 ? 'ses_a_trancher_pl' : 'ses_a_trancher', { n: n })
@@ -2933,7 +3008,18 @@
       cal.mois = new Date(cal.mois.getFullYear(), cal.mois.getMonth() + (+b.dataset.dm), 1);
       rendreMois();
     });
-    z.querySelectorAll('[data-ses]').forEach(b => b.onclick = () => chargerSession(+b.dataset.ses));
+    // ⚠️ Le formulaire ouvert l'emporte : tant qu'on planifie, un clic
+    // n'importe où dans le mois POSE la date — y compris sur un jour déjà
+    // occupé, puisqu'une deuxième séance le même jour est légitime.
+    z.querySelectorAll('[data-jour]').forEach(b => b.addEventListener('click', ev => {
+      const champ = $('#cal-detail [data-d]');
+      if (champ) { ev.stopPropagation(); poserJour(b.dataset.jour); return; }
+      if (!b.dataset.ses) formSession(b.dataset.jour);
+    }));
+    z.querySelectorAll('[data-ses]').forEach(b => b.addEventListener('click', () => {
+      if ($('#cal-detail [data-d]')) return;      // le formulaire a déjà pris le clic
+      chargerSession(+b.dataset.ses);
+    }));
     if (!Object.keys(parJour).length) {
       z.querySelector('.cal-grille').insertAdjacentHTML('afterend',
         `<p class="pal-vide">${esc(T('ses_vide_mois'))}</p>`);
@@ -2994,17 +3080,34 @@
   // ⚠️ Pas de `window.prompt` : la fenêtre du navigateur arrive avec ses
   // styles système et son texte en dur — c'est exactement ce qu'on a retiré
   // de la page Temps. Le formulaire s'ouvre DANS le panneau de droite.
-  function formSession() {
+  // ⚠️ Le jour VISÉ vit dans `cal`, pas seulement dans le champ : le mois se
+  // redessine à chaque clic, et c'est lui qui marque la case choisie.
+  function poserJour(iso) {
+    const champ = $('#cal-detail [data-d]');
+    if (!champ) return;
+    champ.value = iso;
+    cal.vise = iso;
+    const j = dateJour(iso);
+    if (j && (j.getMonth() !== cal.mois.getMonth() || j.getFullYear() !== cal.mois.getFullYear())) {
+      cal.mois = new Date(j.getFullYear(), j.getMonth(), 1);
+    }
+    rendreMois();
+  }
+
+  function formSession(iso) {
     const z = $('#cal-detail');
     const d = new Date(); d.setDate(d.getDate() + 15);
+    const depart = iso || jourISO(d);
+    cal.vise = depart;
     z.innerHTML = `
       <div class="cal-d-h"><h3>${esc(T('ses_planifier'))}</h3>
         <p class="r"><span class="pastille">${esc(state.roleName || '')}</span>${esc(state.cibleNom || '')}</p></div>
       <div class="cal-d-corps">
         <div class="pal-champs">
           <label><span>${esc(T('ses_date'))}</span>
-            <input type="date" data-d value="${jourISO(d)}"></label>
+            <input type="date" data-d value="${esc(depart)}"></label>
         </div>
+        <p class="cal-d-aide"><i class="fa-regular fa-hand-pointer"></i>${esc(T('ses_clic_jour'))}</p>
         <label class="pal-champ-large"><span>${esc(T('ses_objet_ph'))}</span>
           <input type="text" data-o></label>
       </div>
@@ -3014,7 +3117,11 @@
         <button type="button" class="pal-b pal-b--prim" data-ok>
           <span class="pal-b-ic"><i class="fa-solid fa-calendar-plus"></i></span>${esc(T('ses_planifier'))}</button>
       </div>`;
+    z.querySelector('[data-d]').addEventListener('change', e => {
+      cal.vise = e.target.value || null; rendreMois();
+    });
     z.querySelector('[data-ko]').onclick = () => {
+      cal.vise = null; rendreMois();
       if (cal.choisie) chargerSession(cal.choisie);
       else z.innerHTML = `<p class="pal-vide">${esc(T('ses_choisir_une'))}</p>`;
     };
@@ -3026,10 +3133,12 @@
         objet: z.querySelector('[data-o]').value }) });
       if (res.__error) return;
       toast(T('ses_cree'));
+      cal.vise = null;
       cal.mois = dateJour(quand);
       cal.mois = new Date(cal.mois.getFullYear(), cal.mois.getMonth(), 1);
       await ouvrirCalendrier(res.session && res.session.id);
     };
+    rendreMois();
     z.querySelector('[data-d]').focus();
   }
 
@@ -3109,7 +3218,7 @@
       <div class="ev-corps">
         <aside class="ev-acts">
           <div class="ev-acts-h">
-            <p class="k">${esc(T('ev_col_act'))}</p>
+            <p class="k"><span class="num">1</span>${esc(T('ev_col_act'))}</p>
             <p class="d">${esc(T('ev_col_act_d'))}</p>
             <div class="ev-acts-f" id="ev-acts-f"></div>
           </div>
@@ -3196,7 +3305,11 @@
   }
 
   function remplirCentre(st) {
-    const box = $('#ev-centre'); box.innerHTML = '';
+    const box = $('#ev-centre');
+    box.innerHTML = `<div class="ev-centre-h">
+        <p class="k"><span class="num">2</span>${esc(T('ev_col_sor'))}</p>
+        <p class="d">${esc(T('ev_col_sor_d'))}</p>
+      </div>`;
     const tete = document.createElement('div');
     tete.className = 'ev-sujet';
     tete.innerHTML = `<h1>${esc(state.activity.activity_name)}</h1>
@@ -3285,17 +3398,10 @@
       box.appendChild(s);
     }
 
-    const cible = document.createElement('section');
-    cible.className = 'ev-carte';
-    cible.innerHTML = `<p class="k">${esc(T('ev_attendu'))}</p>`;
-    cible.appendChild(cibleRequise(st));
-    box.appendChild(cible);
-
     const tech = document.createElement('section');
     tech.className = 'ev-carte ev-carte--tech';
     tech.innerHTML = `<p class="k">${esc(T('ev_tech'))}</p>
-      <div class="cv2-domlist"></div><div class="cv2-domadd"></div>
-      <p class="d">${esc(T('ev_tech_d'))}</p>`;
+      <div class="cv2-domlist"></div><div class="cv2-domadd"></div>`;
     box.appendChild(tech);
     loadTech(tech);
 
@@ -3325,6 +3431,8 @@
       ouvert.remove();
       const h = card.querySelector('.pal-histo');
       if (h) h.remove();
+      const f = card.querySelector('.pal-evo-fin');
+      if (f) f.remove();
       card.dataset.evo = '';
       majLibelleEvo(card, false);
       return;
@@ -3332,7 +3440,19 @@
     const serie = (state.histo && state.histo[r.data_id]) || { points: [] };
     const pied = card.querySelector('.pal-pied');
     pied.insertAdjacentElement('afterend', blocGraphe(r, serie));
-    card.querySelector('.pal-graphe').insertAdjacentElement('afterend', blocHistorique(r));
+    const histo = blocHistorique(r);
+    card.querySelector('.pal-graphe').insertAdjacentElement('afterend', histo);
+    // ⚠️ Le bouton qui a OUVERT la section se retrouve en plein milieu une
+    // fois le graphe et l'historique dépliés : il faut le chercher pour
+    // refermer. On referme donc par le BAS, là où la lecture s'arrête.
+    const bas = document.createElement('button');
+    bas.type = 'button'; bas.className = 'pal-evo-fin';
+    bas.innerHTML = `<i class="fa-solid fa-chevron-up"></i>${esc(T('ev_masquer_evo'))}`;
+    bas.onclick = () => { basculerGraphe(card, r); card.scrollIntoView({ block: 'nearest' }); };
+    // ⚠️ En DERNIER enfant de la carte, pas après l'historique : `.pal-form`
+    // vient après lui, et une marche posée pendant qu'on lit l'évolution
+    // glisserait un formulaire SOUS le bouton qui sert à la refermer.
+    card.appendChild(bas);
     card.dataset.evo = '1';
     majLibelleEvo(card, true);
   }
@@ -3616,6 +3736,11 @@
         ${tuileCal('mois', 'ses_mois', 'bleu')}
         ${tuileCal('tenues_annee', 'ses_tenues', 'vert')}
       </div>
+      ${cal.filtre ? `<div class="cal-filtre">
+          <span class="k">${esc(nf('ses_f_actif', visibles().length, T(LIB_TUILE[cal.filtre])))}</span>
+          <button type="button" class="cal-f-off" data-foff>
+            <i class="fa-solid fa-xmark"></i>${esc(T('ses_f_tout'))}</button>
+        </div>` : ''}
       <div class="cal-duo">
         <div class="cal-mois" id="cal-mois"></div>
         <div class="cal-detail" id="cal-detail">
@@ -3624,7 +3749,10 @@
       </div>`;
     z.querySelector('[data-retour]').onclick = fermerCal;
     const bp = z.querySelector('[data-planif]');
-    if (bp) bp.onclick = formSession;
+    if (bp) bp.onclick = () => formSession();
+    z.querySelectorAll('[data-f]').forEach(b => b.onclick = () => filtrerCal(b.dataset.f));
+    const bf = z.querySelector('[data-foff]');
+    if (bf) bf.onclick = () => filtrerCal(cal.filtre);
     rendreMois();
     z.scrollIntoView({ block: 'start' });
   }
