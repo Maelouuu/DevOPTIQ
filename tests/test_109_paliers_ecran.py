@@ -386,7 +386,9 @@ class TestLAuDelaResteDansLeReel:
         corps = js.split("function plausible(", 1)[1].split("\n  }", 1)[0]
         assert "return v > 0" in corps, "une durée négative n'existe pas"
         assert "100" in corps and "%" in corps, "un taux ne dépasse pas 100 %"
-        assert "perf.marge && plausible(" in js, "le garde-fou doit être BRANCHÉ"
+        # ⚠️ Il ne se branche plus sur `perf.marge` mais sur `perf.au_dela`,
+        # le seuil que le serveur calcule — le rail n'en déduit plus aucun.
+        assert "plausible(au, sens, n.unite)" in js, "le garde-fou doit être BRANCHÉ"
 
     def test_il_ne_touche_PAS_au_niveau_rendu_par_le_serveur(self, auth_client, bob, comme_dev):
         """Le garde-fou est un affichage. Le niveau, lui, reste celui du
@@ -998,3 +1000,210 @@ class TestLesLibellesNeufsExistentDansLesDeuxLangues:
         js = _lire(JS)
         assert "session(s)" not in js
         assert "nf('ses_f_actif'" in js
+
+import os as _os
+_SRC_LISIBLE = _os.path.exists("Code/paliers.py")
+
+
+class TestDepasserLaNormeFaitMonterLeNiveau:
+    """⚠️⚠️ Le défaut signalé par le client, et son effet domino.
+
+    « La norme est fixée à 95 %, pourtant une marche à 98 % mesurée à 99 %
+    nous laisse à 2. » Exact. `pas_de_progression` ne regardait que les
+    marches EN DEÇÀ de la norme : sur 67 → 81 → 95 → 98 il rendait 14 et
+    plaçait l'au-delà à **109 %** — une valeur qui n'existe pas sur un
+    pourcentage. Le niveau d'une activité étant le MINIMUM de ses sorties et
+    celui d'un rôle le minimum de ses activités, l'erreur redescendait
+    jusqu'au verdict « apte / pas apte ».
+    """
+
+    def test_une_marche_posee_au_dela_EST_le_seuil(self):
+        from Code.paliers import seuil_au_dela
+        # Le cas du client, au chiffre près.
+        assert seuil_au_dela([67, 81, 95, 98], 95, "plus") == 98
+        # Et dans l'autre sens, où « mieux » veut dire « moins ».
+        assert seuil_au_dela([20, 14, 10, 6], 10, "moins") == 6
+
+    def test_la_PREMIERE_marche_au_dela_fait_la_frontiere(self):
+        """Les suivantes vont plus loin encore ; elles ne déplacent pas le
+        moment où l'on passe de « tenu » à « dépassé »."""
+        from Code.paliers import seuil_au_dela
+        assert seuil_au_dela([95, 98, 99], 95, "plus") == 98
+
+    def test_sans_marche_au_dela_on_retombe_sur_le_pas(self):
+        """La règle d'avant reste la bonne quand personne n'a rien posé plus
+        loin : 96 → 72 → 48 donne un pas de 24, donc un au-delà à 24."""
+        from Code.paliers import seuil_au_dela
+        assert seuil_au_dela([96, 72, 48], 48, "moins") == 24
+        assert seuil_au_dela([48], 48, "moins") is None
+
+    def test_le_niveau_monte_a_3_quand_la_marche_au_dela_est_franchie(self):
+        from Code.paliers import niveau_depuis_mesure
+        # ⚠️ Le seuil EXPLICITE l'emporte sur celui qu'on déduit d'un pas :
+        # sans cela, `marge=14` aurait placé l'au-delà à 109 % et rendu 2.
+        assert niveau_depuis_mesure(99, 95, "plus", 67, marge=14, au_dela=98) == 3
+        assert niveau_depuis_mesure(96, 95, "plus", 67, marge=14, au_dela=98) == 2
+
+    def test_le_domino_va_jusqu_au_ROLE(self, app, auth_client, bob, comme_dev):
+        """Une sortie qui passe à 3 fait passer l'activité à 3, et le rôle
+        cesse d'être « en écart » quand il exigeait 3."""
+        from Code.models.models import Data, activity_roles
+        from Code.extensions import db
+
+        # Le niveau attendu du rôle : 3.
+        r = auth_client.post("/mastery/required", json={
+            "activity_id": bob["activity_id"], "role_id": bob["role_id"],
+            "required_mastery_level": 3})
+        assert r.status_code == 200, r.data
+
+        with app.app_context():
+            d = db.session.get(Data, bob["data_id"])
+            d.norme_valeur, d.norme_unite, d.norme_sens = 95, "%", "plus"
+            db.session.commit()
+
+        # 67 → 81 → 95 (la norme) → 98 (au-delà), chacune mesurée au-dessus.
+        for cible, mesure in ((67, 70.4), (81, 85.1), (95, 97), (98, 99)):
+            pid = _poser(auth_client, bob, cible, 10)
+            rr = auth_client.post("/paliers/palier/%d/trancher" % pid,
+                                  json={"mesure": mesure, "role_id": bob["role_id"]})
+            assert rr.status_code == 200, rr.data
+
+        etat = json.loads(auth_client.get(
+            "/mastery/activity/%d/%d?role_id=%d"
+            % (bob["bob_id"], bob["activity_id"], bob["role_id"])).data)
+        sortie = etat["results"][0]
+        assert sortie["performance"]["au_dela"] == 98
+        assert sortie["demonstrated_level"] == 3, "la sortie a dépassé la norme"
+        assert etat["global_level"] == 3, "l'activité suit sa sortie"
+        assert etat["gap"] == 0, "le rôle exigeait 3 : il n'est plus en écart"
+
+
+class TestLeRailEstUneLIGNE:
+    """⚠️ « La courbe UI casse. » Le drapeau de norme était un `inline-block`
+    avec sa marge, et les marches sans drapeau un bloc vide de 22 px : la
+    marche flaguée descendait de ~5 px et le rail formait un décroché."""
+
+    def test_toutes_les_marches_partagent_la_meme_bande_de_titre(self):
+        js = _lire(JS)
+        assert "pal-drapeau-vide" not in js, "plus de bloc vide à la hauteur devinée"
+        assert '<div class="pal-marque">${marque}</div>' in js
+        css = _lire(CSS)
+        regle = [l for l in css.splitlines() if l.strip().startswith("height: 26px;")
+                 and "align-items: center" in l]
+        assert regle, ".pal-marque doit porter une hauteur FIXE"
+        assert ".pal-drapeau { margin-bottom: 0; }" in css
+
+    def test_un_seul_drapeau_de_norme(self):
+        """`mieux()` répond « atteint » : TOUTE marche à partir de la norme le
+        portait, et 95 comme 98 s'annonçaient « norme de l'entreprise »."""
+        js = _lire(JS)
+        corps = js.split("  function construireRail(perf) {", 1)[1].split("\n  }", 1)[0]
+        assert "let norme_vue = false;" in corps
+        assert "estNorme = atteintNorme && !norme_vue" in corps
+        assert "pal_audela_tag" in js, "la marche au-delà porte sa propre marque"
+
+    def test_le_seuil_dessine_vient_du_SERVEUR(self):
+        """Le rail traçait l'au-delà depuis `marge` ; il aurait montré 109 %
+        quand le niveau se jouait sur 98 %."""
+        js = _lire(JS)
+        corps = js.split("  function construireRail(perf) {", 1)[1].split("\n  }", 1)[0]
+        assert "perf.au_dela" in corps
+        assert "n.valeur + perf.marge" not in corps
+        src = _lire("Code/paliers.py") if _SRC_LISIBLE else ""
+        if src:
+            assert '"au_dela": au_dela,' in src
+
+    def test_la_mesure_se_lit_autant_que_la_cible(self):
+        js = _lire(JS)
+        assert "pal_mesure_k" in js
+        css = _lire(CSS)
+        # ⚠️ `.pal-pas .pal-m` est déclarée deux fois : c'est la DERNIÈRE
+        # qui gagne, et c'est donc elle qu'il faut lire.
+        bloc = css.rsplit(".pal-pas .pal-m {", 1)[1].split("}", 1)[0]
+        assert "border-radius: 999px" in bloc, "une pastille, pas une ligne grise"
+        assert ".pal-pas .pal-m b { font-size: 15px" in css
+
+
+class TestOnPeutDonnerUneNormeApresCoup:
+    """⚠️ Boucle fermée : une sortie née sans norme ne pouvait PLUS jamais en
+    recevoir. On notait 0→4 à la main, on revenait, et c'était tout — aucun
+    écran ne proposait de poser le standard de l'entreprise."""
+
+    def test_la_carte_a_la_main_porte_la_porte_vers_les_paliers(self):
+        js = _lire(JS)
+        corps = js.split("  function resultCard(r, requis) {", 1)[1].split("\n  }\n", 1)[0]
+        # ⚠️ `data-poser-norme>` et pas `data-poser-norme` : le sélecteur de la
+        # liaison (`[data-poser-norme]`) vit dans le même corps, et il suffisait
+        # à faire passer le contrôle alors que le BOUTON avait disparu.
+        assert "data-poser-norme>" in corps, "le bouton lui-même doit porter l'attribut"
+        assert "pal_definir_norme" in corps
+        assert "formNorme(card.querySelector('.pal-form'), r)" in js
+
+    def test_poser_la_norme_fait_basculer_la_sortie(self, app, auth_client, bob, comme_dev):
+        """La même route sert aux deux : une sortie jugée à la main devient
+        mesurable dès qu'elle porte un chiffre attendu."""
+        # ⚠️ Le décor de `bob` naît AVEC une norme : on la retire d'abord,
+        # sinon on part du cas qu'on veut justement atteindre.
+        r0 = auth_client.post("/paliers/norme/%d" % bob["data_id"], json={"valeur": None})
+        assert r0.status_code == 200, r0.data
+        avant = json.loads(auth_client.get(
+            "/mastery/activity/%d/%d?role_id=%d"
+            % (bob["bob_id"], bob["activity_id"], bob["role_id"])).data)
+        assert avant["results"][0]["mesurable"] is False
+
+        r = auth_client.post("/paliers/norme/%d" % bob["data_id"],
+                             json={"valeur": 48, "unite": "h", "sens": "moins"})
+        assert r.status_code == 200, r.data
+
+        apres = json.loads(auth_client.get(
+            "/mastery/activity/%d/%d?role_id=%d"
+            % (bob["bob_id"], bob["activity_id"], bob["role_id"])).data)
+        assert apres["results"][0]["mesurable"] is True
+        assert apres["results"][0]["performance"]["norme"]["valeur"] == 48
+
+
+class TestMoinsDePhrasesPosees:
+
+    def test_la_colonne_1_ne_decrit_plus_ce_que_l_ecran_fait(self):
+        js = _lire(JS)
+        assert "ev_col_act_d" not in js
+
+    def test_les_deux_explications_attendent_derriere_un_i(self):
+        js = _lire(JS)
+        assert "boutonInfo(T('ev_col_sor'), T('ev_col_sor_d'))" in js
+        assert "boutonInfo(T('ses_verdicts_t'), T('ses_verdicts_calc'))" in js
+
+    def test_le_verdict_s_explique_au_lieu_de_s_affirmer(self):
+        """« Les verdicts se calculent, ils ne se cochent pas » ne disait ni
+        ce qu'est un verdict, ni ce qu'on attend du lecteur."""
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        ligne = [l for l in fr.splitlines() if "ses_verdicts_calc:" in l][0]
+        assert len(ligne) > 160, "la phrase doit expliquer le geste et sa conséquence"
+        assert "mesur" in ligne and "cible" in ligne
+
+    def test_l_aide_du_calendrier_se_range_a_cote_du_champ(self):
+        js = _lire(JS)
+        assert '<div class="cal-d-date">' in js
+        css = _lire(CSS)
+        assert ".cal-d-date { display: flex;" in css
+
+
+class TestLesDeuxNotesSeTiennent:
+    """« Cette section n'est vraiment pas très belle. » Deux rectangles gris
+    empilés, chacun avec son petit en-tête : on ne voyait pas que c'est UNE
+    décision regardée de deux côtés."""
+
+    def test_elles_partagent_un_seul_cadre(self):
+        js = _lire(JS)
+        assert '<div class="cv2-notes">${officielle}${auto}</div>' in js
+        css = _lire(CSS)
+        assert ".cv2-notes .cv2-nt + .cv2-nt { border-top:" in css
+        assert ".cv2-notes .cv2-nt--off { border-left-color: var(--pg-accent); }" in css
+
+    def test_la_preuve_est_un_bouton_pas_un_lien_souligne(self):
+        js = _lire(JS)
+        assert 'class="cv2-preuve-btn' in js and "fa-paperclip" in js
+        css = _lire(CSS)
+        bloc = css.rsplit("\n.cv2-preuve-btn {", 1)[1].split("}", 1)[0]
+        assert "border-radius: 999px" in bloc and "border: 1px solid" in bloc

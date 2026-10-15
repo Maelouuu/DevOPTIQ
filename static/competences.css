@@ -1837,10 +1837,6 @@ header { position: sticky; top: 0; z-index: 30; }
   padding: 2px 10px; font-size: 10px; font-weight: 700;
   letter-spacing: .8px; text-transform: uppercase; white-space: nowrap;
 }
-/* ⚠️ Un bloc vide de la MÊME hauteur sous les marches sans drapeau : sans
-   lui, la marche qui porte la norme descendrait de 22 px et le rail ne
-   serait plus une ligne. */
-.pal-drapeau-vide { display: block; height: 22px; }
 
 .pal-ligne { display: flex; align-items: center; }
 .pal-fil { flex: 1; height: 3px; border-radius: 2px; }
@@ -2946,3 +2942,168 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   text-transform: uppercase; color: var(--pg-accent-deep);
 }
 .ev-centre-h .d { margin: 5px 0 0; font-size: 12.5px; color: var(--muted); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE RAIL SE REDRESSE, LA MESURE SE LIT, LES DEUX NOTES SE TIENNENT
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️⚠️ La « courbe qui casse ». Le drapeau de norme était un `inline-block`
+   avec `margin-bottom: 5px`, et les marches sans drapeau portaient un bloc
+   vide de 22 px : la marche FLAGUÉE descendait donc de ~5 px, et le rail
+   formait un décroché à chaque drapeau. Une bande de hauteur FIXE, drapeau
+   ou pas, et la ligne redevient une ligne. */
+.pal-marque {
+  height: 26px; display: flex; align-items: center; justify-content: center;
+}
+.pal-drapeau { margin-bottom: 0; }
+/* La marche posée AU-DELÀ de la norme porte sa propre marque : c'est elle qui
+   fait passer à « avancé », elle ne doit pas se confondre avec la norme. */
+.pal-drapeau--au {
+  background: var(--pal-vert-f);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pal-vert) 22%, transparent);
+}
+
+/* ───────── La MESURE au même rang que la cible ─────────
+   ⚠️ « mesuré 19 j » était en 12,5 px gris sous une cible en 19 px : c'est
+   pourtant le chiffre qu'on vient lire, celui qu'on a relevé en séance. Il
+   prend une pastille à la couleur de son verdict. */
+.pal-pas .pal-m {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  margin: 7px 0 0; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; line-height: 1.35;
+  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
+}
+.pal-pas .pal-m .k {
+  font-size: 10px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; opacity: .75;
+}
+.pal-pas .pal-m b { font-size: 15px; font-weight: 700; }
+.pal-pas--atteint .pal-m {
+  background: var(--pal-vert-p); border-color: var(--pal-vert-b); color: var(--pal-vert-f);
+}
+.pal-pas--manque .pal-m {
+  background: var(--pal-rouge-p); border-color: var(--pal-rouge-b); color: var(--pal-rouge-f);
+}
+.pal-pas .pal-q { margin-top: 4px; }
+/* La marche d'au-delà franchie : même vert, mais on voit qu'on a dépassé. */
+.pal-pas.est-audela .pal-v { letter-spacing: -.01em; }
+
+/* ───────── La norme : une pastille, un bouton SPHÉRIQUE ───────── */
+.pal-norme { border-radius: 999px; padding: 4px 6px 4px 13px; }
+.pal-ic { border-radius: 50%; width: 28px; height: 28px; }
+.pal-ic:hover {
+  background: color-mix(in srgb, var(--pg-accent) 10%, #fff);
+  border-color: var(--pg-accent);
+}
+
+/* ───────── Le niveau déduit : c'est le niveau ACTUEL de la personne ─────────
+   ⚠️ Il se lisait comme une étiquette de plus dans un pied gris. C'est le
+   résultat de tout ce qui est au-dessus — et ce que l'entreprise retient. */
+.pal-pied-k {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.pal-niv {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  border-radius: 999px; padding: 6px 15px; font-size: 15px; font-weight: 700;
+}
+.pal-niv b {
+  font-family: var(--pg-font-display); font-size: 25px; font-weight: 700; line-height: 1;
+}
+.pal-niv--ok { box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--pal-vert) 55%, transparent); }
+.pal-niv--off { font-size: 13px; }
+/* Le niveau et son libellé vont ensemble : ils passent à la ligne d'un bloc. */
+.pal-pied { row-gap: 9px; }
+.pal-pied > .pal-pied-k + .pal-niv { margin-right: 4px; }
+
+/* ───────── Une sortie SANS norme : la porte vers les paliers ─────────
+   ⚠️ C'était une boucle fermée — née sans norme, une sortie ne pouvait plus
+   jamais en recevoir : aucun écran ne proposait de poser le standard. */
+.cv2-vers-pal {
+  margin-top: 13px; padding: 12px 14px; border-radius: 12px;
+  background: var(--card-2); border: 1px dashed var(--border-strong, var(--border));
+}
+.cv2-vers-pal .t {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.cv2-vers-pal .d { margin: 7px 0 11px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+
+/* ───────── Les deux notes : une seule carte, deux régimes ─────────
+   ⚠️ Deux rectangles gris empilés, chacun avec son petit en-tête : on ne
+   voyait pas que c'est UNE décision regardée de deux côtés. Elles partagent
+   désormais un cadre, et c'est leur COULEUR qui les distingue — bleu pour ce
+   qui fait foi, violet pour l'auto-évaluation. */
+.cv2-notes {
+  margin-top: 14px; border-radius: 13px; overflow: hidden;
+  border: 1px solid var(--border); background: var(--card);
+}
+.cv2-notes .cv2-nt {
+  margin-top: 0; border: none; border-radius: 0; padding: 13px 15px 15px;
+  border-left: 3px solid transparent;
+}
+.cv2-notes .cv2-nt + .cv2-nt { border-top: 1px solid var(--border); }
+.cv2-notes .cv2-nt--off { border-left-color: var(--pg-accent); }
+.cv2-notes .cv2-nt--auto { border-left-color: var(--cv-auto); }
+/* Celle qui n'est pas la vôtre est POSÉE : lisible, mais en retrait. */
+.cv2-notes .cv2-nt.is-posee { opacity: 1; background: var(--card-2); }
+.cv2-notes .cv2-nt.is-posee .cv2-nt-ico { opacity: .62; }
+
+.cv2-nt-tete { gap: 9px; flex-wrap: nowrap; }
+.cv2-nt-qui { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0; }
+.cv2-nt-ico { width: 24px; height: 24px; border-radius: 50%; font-size: 11px; }
+.cv2-nt-lbl { font-size: 11.5px; letter-spacing: .06em; }
+.cv2-nt-val { font-size: 13px; white-space: nowrap; }
+.cv2-nt-val b { font-family: var(--pg-font-display); font-size: 19px; }
+.cv2-nt .cv2-echelle { margin-top: 11px; gap: 7px; }
+.cv2-nt .cv2-niv { width: 50px; padding: 10px 0 9px; font-size: 14.5px; }
+.cv2-gomme {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border-radius: 999px; padding: 9px 13px;
+}
+.cv2-gomme i { font-size: 10.5px; }
+
+/* ───────── « Ajouter une preuve » : un bouton, pas un lien souligné ───────── */
+.cv2-preuve-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 11px; padding: 7px 14px 7px 7px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  color: var(--ink-2); background: var(--card-2);
+  border: 1px solid var(--border); border-radius: 999px; transition: .14s;
+}
+.cv2-preuve-btn .ic {
+  width: 22px; height: 22px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 10.5px;
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+}
+.cv2-preuve-btn:hover {
+  text-decoration: none; color: var(--pg-accent-deep);
+  border-color: color-mix(in srgb, var(--pg-accent) 38%, #fff);
+  background: color-mix(in srgb, var(--pg-accent) 6%, #fff);
+}
+.cv2-preuve-btn:hover .ic {
+  background: var(--pg-accent); border-color: var(--pg-accent); color: #fff;
+}
+
+/* ───────── Le calendrier : l'aide se range à DROITE du champ ─────────
+   ⚠️ Elle occupait toute la largeur du panneau pour une phrase de huit mots,
+   alors que le champ de date n'en prend qu'un tiers. */
+.cal-d-date { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.cal-d-date > label { display: flex; flex-direction: column; gap: 5px; flex: none; }
+.cal-d-date > label > span {
+  font-size: 11px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--muted);
+}
+.cal-d-date input {
+  padding: 8px 10px; font-family: inherit; font-size: 13.5px;
+  border: 1px solid var(--border); border-radius: var(--r-btn, 9px); background: var(--card);
+}
+.cal-d-date input:focus { outline: none; border-color: var(--pg-accent); }
+.cal-d-aide {
+  flex: 1 1 190px; min-width: 0; margin: 0; padding: 8px 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.cal-d-info { display: inline-flex; align-items: center; }
+.cal-d-info .ev-i { width: 20px; height: 20px; font-size: 10px; }

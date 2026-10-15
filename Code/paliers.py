@@ -85,8 +85,40 @@ def pas_de_progression(cibles, norme_valeur, norme_sens):
     return pas or None
 
 
+def seuil_au_dela(cibles, norme_valeur, norme_sens, marge=None):
+    """À partir de quelle valeur la norme est DÉPASSÉE, pas seulement tenue.
+
+    ⚠️ Une marche posée AU-DELÀ de la norme est ce seuil, et rien d'autre.
+    `pas_de_progression` ne regardait que les marches EN DEÇÀ : sur 67 → 81 →
+    95 (norme) → 98, il rendait 14 et plaçait l'au-delà à **109 %** — une
+    valeur qui n'existe pas sur un pourcentage. Mesuré à 99 %, le
+    collaborateur restait donc à « qualifié » alors qu'il venait de franchir
+    la marche que son développeur avait posée exprès au-dessus de l'attendu.
+    Et comme le niveau d'une activité est le MINIMUM de ses sorties, l'erreur
+    redescendait sur l'activité puis sur le rôle : une personne déclarée
+    inapte parce qu'un seuil avait été deviné au lieu d'être lu.
+
+    À défaut de marche au-delà, on retombe sur le pas de progression — la
+    règle d'avant, qui reste la bonne quand personne n'a rien posé plus loin.
+    """
+    if norme_valeur is None or norme_sens not in SENS:
+        return None
+    # La PREMIÈRE marche strictement au-delà : c'est celle que le développeur
+    # a posée comme « mieux que l'attendu ». Les suivantes vont plus loin
+    # encore, elles ne déplacent pas la frontière.
+    au_dela = [c for c in cibles if c is not None
+               and _mieux_que(c, norme_valeur, norme_sens)]
+    if au_dela:
+        return min(au_dela, key=lambda c: abs(c - norme_valeur))
+    if marge is None:
+        marge = pas_de_progression(cibles, norme_valeur, norme_sens)
+    if not marge:
+        return None
+    return (norme_valeur - marge) if norme_sens == MOINS else (norme_valeur + marge)
+
+
 def niveau_depuis_mesure(mesure, norme_valeur, norme_sens, premiere_cible=None,
-                         marge=None):
+                         marge=None, au_dela=None):
     """Le niveau 0→4 déduit d'une mesure. NULL si rien n'est mesuré.
 
     `premiere_cible` est la marche la plus basse de la progression : en
@@ -102,10 +134,11 @@ def niveau_depuis_mesure(mesure, norme_valeur, norme_sens, premiere_cible=None,
     if mesure is None or norme_valeur is None or norme_sens not in SENS:
         return None
     if atteint(mesure, norme_valeur, norme_sens):
-        if marge:
+        # Le seuil EXPLICITE l'emporte sur celui qu'on déduit d'un pas.
+        if au_dela is None and marge:
             au_dela = (norme_valeur - marge) if norme_sens == MOINS else (norme_valeur + marge)
-            if atteint(mesure, au_dela, norme_sens):
-                return NIVEAU_AVANCE
+        if au_dela is not None and atteint(mesure, au_dela, norme_sens):
+            return NIVEAU_AVANCE
         return NIVEAU_QUALIFIE
     if premiere_cible is not None and not atteint(mesure, premiere_cible, norme_sens):
         return 0
@@ -141,9 +174,11 @@ def etat_sortie(d, user_id, role_id=None):
     paliers = paliers_de(user_id, d.id, role_id)
     mesure, quand = derniere_mesure(paliers)
     premiere = paliers[0].cible_valeur if paliers else None
-    marge = pas_de_progression([p.cible_valeur for p in paliers],
-                               d.norme_valeur, d.norme_sens)
-    niveau = niveau_depuis_mesure(mesure, d.norme_valeur, d.norme_sens, premiere, marge)
+    cibles = [p.cible_valeur for p in paliers]
+    marge = pas_de_progression(cibles, d.norme_valeur, d.norme_sens)
+    au_dela = seuil_au_dela(cibles, d.norme_valeur, d.norme_sens, marge)
+    niveau = niveau_depuis_mesure(mesure, d.norme_valeur, d.norme_sens, premiere,
+                                  marge, au_dela)
     en_cours = next((p for p in paliers if p.statut == "en_cours"), None)
     return {
         "data_id": d.id,
@@ -154,6 +189,11 @@ def etat_sortie(d, user_id, role_id=None):
         "mesure": mesure,
         "mesure_le": quand.isoformat() if quand else None,
         "marge": marge,
+        # ⚠️ L'écran dessine la marche « au-delà » à partir de CE seuil, pas
+        # d'un calcul à lui : deux implémentations d'une même frontière
+        # finissent par dire deux choses — ici, le rail aurait montré 109 %
+        # quand le niveau se jouait sur 98 %.
+        "au_dela": au_dela,
         "niveau": niveau,
         "qualifie": niveau is not None and niveau >= NIVEAU_QUALIFIE,
         "palier_en_cours": _json_palier(en_cours) if en_cours else None,

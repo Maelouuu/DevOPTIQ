@@ -49,7 +49,6 @@
       ses_clic_jour: 'Cliquez un jour du calendrier pour poser la date.',
       ses_poser_le: 'Planifier ce jour-là',
       ev_col_act: 'Les activités du rôle',
-      ev_col_act_d: "On passe de l'une à l'autre sans quitter la page.",
       ev_sorties_n: '[[n]] sorties',
       ev_sorties_1: '1 sortie',
       ev_non_eval: 'non évaluée',
@@ -109,6 +108,12 @@
       pal_manque: 'Manqué',
       pal_encours: 'En cours',
       pal_audela: 'Au-delà',
+      pal_audela_tag: 'Au-delà de la norme',
+      pal_mesure_k: 'mesuré',
+      pal_sans_norme: 'Jugée à la main',
+      pal_sans_norme_d: "Cette sortie n'a pas de chiffre attendu : son niveau se pose sur l'échelle ci-dessus. Donnez-lui la norme de l'entreprise pour la suivre en paliers mesurés.",
+      pal_definir_norme: "Définir la norme de l'entreprise",
+      ses_verdicts_t: 'Comment le verdict tombe',
       pal_audela_d: "un palier de mieux que l'attendu",
       pal_norme_tag: "Norme de l'entreprise",
       pal_mesure_de: 'mesuré [[v]]',
@@ -169,7 +174,7 @@
       ses_cloturer: 'Clôturer la session',
       ses_reporter: 'Reporter',
       ses_note: "Ce qu'on a observé",
-      ses_verdicts_calc: 'Les verdicts se calculent, ils ne se cochent pas.',
+      ses_verdicts_calc: "En séance, vous relevez le chiffre mesuré — rien d'autre. L'application le compare à la cible du palier et en tire le verdict : atteint si la cible est tenue, manqué sinon. Personne ne coche le résultat à la main, et c'est ce verdict qui fait monter le niveau.",
       ses_close_ok: 'Session clôturée',
       ses_cree: 'Session planifiée',
       ses_suppr: 'Session retirée',
@@ -353,7 +358,6 @@
       ses_clic_jour: 'Click a day in the calendar to set the date.',
       ses_poser_le: 'Schedule that day',
       ev_col_act: "The role's activities",
-      ev_col_act_d: 'Move between them without leaving the page.',
       ev_sorties_n: '[[n]] outputs',
       ev_sorties_1: '1 output',
       ev_non_eval: 'not assessed',
@@ -413,6 +417,12 @@
       pal_manque: 'Missed',
       pal_encours: 'Under way',
       pal_audela: 'Beyond',
+      pal_audela_tag: 'Beyond the standard',
+      pal_mesure_k: 'measured',
+      pal_sans_norme: 'Judged by hand',
+      pal_sans_norme_d: 'This output has no expected figure: its level is set on the scale above. Give it the company standard to follow it as measured steps.',
+      pal_definir_norme: 'Set the company standard',
+      ses_verdicts_t: 'How the verdict is reached',
       pal_audela_d: 'one step better than expected',
       pal_norme_tag: 'Company standard',
       pal_mesure_de: 'measured [[v]]',
@@ -473,7 +483,7 @@
       ses_cloturer: 'Close the session',
       ses_reporter: 'Postpone',
       ses_note: 'What was observed',
-      ses_verdicts_calc: 'Verdicts are computed, not ticked.',
+      ses_verdicts_calc: 'In a session you record the measured figure — nothing else. The app compares it with the step target and derives the verdict: reached if the target is met, missed otherwise. Nobody ticks the outcome by hand, and it is that verdict which raises the level.',
       ses_close_ok: 'Session closed',
       ses_cree: 'Session scheduled',
       ses_suppr: 'Session removed',
@@ -1524,13 +1534,16 @@
     return `<div class="cv2-nt cv2-nt--${o.genre}${o.modifiable ? ' is-mienne' : ' is-posee'}"
                  data-note="${o.genre}">
         <div class="cv2-nt-tete">
-          <span class="cv2-nt-ico"><i class="fa-solid ${o.genre === 'off' ? 'fa-circle-check' : 'fa-user'}"></i></span>
-          <span class="cv2-nt-lbl">${esc(o.titre)}</span>
-          ${o.tag ? `<span class="cv2-nt-tag">${esc(o.tag)}</span>` : ''}
+          <span class="cv2-nt-ico"><i class="fa-solid ${o.genre === 'off' ? 'fa-shield-halved' : 'fa-user'}"></i></span>
+          <div class="cv2-nt-qui">
+            <span class="cv2-nt-lbl">${esc(o.titre)}</span>
+            ${o.tag ? `<span class="cv2-nt-tag">${esc(o.tag)}</span>` : ''}
+          </div>
           <span class="cv2-nt-val">${valeur}</span>
         </div>
         <div class="cv2-echelle">${paliers}
-          ${o.modifiable ? `<button type="button" class="cv2-gomme${estNul(o.niveau) ? ' sel' : ''}" data-lv="">${esc(T('erase'))}</button>` : ''}
+          ${o.modifiable ? `<button type="button" class="cv2-gomme${estNul(o.niveau) ? ' sel' : ''}" data-lv="">
+             <i class="fa-solid fa-eraser"></i>${esc(T('erase'))}</button>` : ''}
         </div>
         ${o.accord || ''}
       </div>`;
@@ -1573,9 +1586,18 @@
           ${r.minimum_performance_text ? '<i class="fa-regular fa-circle-question cv2-astuce"></i>' : ''}
         </div>
       </div>
-      ${officielle}${auto}
-      <button type="button" class="cv2-preuve-btn${preuve ? ' hidden' : ''}">${esc(T('add_evidence'))}</button>
-      <textarea class="cv2-ev${preuve ? '' : ' hidden'}" placeholder="${esc(T('evidence_ph'))}">${esc(preuve)}</textarea>`;
+      <div class="cv2-notes">${officielle}${auto}</div>
+      <button type="button" class="cv2-preuve-btn${preuve ? ' hidden' : ''}">
+        <span class="ic"><i class="fa-solid fa-paperclip"></i></span>${esc(T('add_evidence'))}</button>
+      <textarea class="cv2-ev${preuve ? '' : ' hidden'}" placeholder="${esc(T('evidence_ph'))}">${esc(preuve)}</textarea>
+      ${dev ? `<div class="cv2-vers-pal">
+          <div class="t"><i class="fa-solid fa-ruler"></i>
+            <span>${esc(T('pal_sans_norme'))}</span></div>
+          <p class="d">${esc(T('pal_sans_norme_d'))}</p>
+          <button type="button" class="pal-b pal-b--doux" data-poser-norme>
+            <span class="pal-b-ic"><i class="fa-solid fa-bullseye"></i></span>${esc(T('pal_definir_norme'))}</button>
+        </div>
+        <div class="pal-form hidden"></div>` : ''}`;
 
     // Seule MA note se clique ; l'autre est posée là pour être lue.
     const mienne = card.querySelector('.cv2-nt.is-mienne');
@@ -1587,6 +1609,8 @@
     });
     const bp = card.querySelector('.cv2-preuve-btn'), ta = card.querySelector('.cv2-ev');
     bp.onclick = () => { bp.classList.add('hidden'); ta.classList.remove('hidden'); ta.focus(); };
+    const bn = card.querySelector('[data-poser-norme]');
+    if (bn) bn.onclick = () => formNorme(card.querySelector('.pal-form'), r);
     return card;
   }
 
@@ -2497,22 +2521,36 @@
   // un (même règle que `pas_de_progression`, côté serveur).
   function construireRail(perf) {
     const n = perf.norme || {}, sens = n.sens || SENS_MOINS;
-    const rail = (perf.paliers || []).map(p => ({
-      id: p.id, cible: p.cible, statut: p.statut, mesure: p.mesure,
-      quand: p.evalue_le, echeance: p.echeance,
-      estNorme: mieux(p.cible, n.valeur, sens),
-    }));
-    if (!rail.some(s => s.estNorme)) {
+    const au = estNul(perf.au_dela) ? null : perf.au_dela;
+    // ⚠️ UN SEUL drapeau de norme. `mieux()` répond « atteint », donc toute
+    // marche À PARTIR de la norme le portait : sur 67 → 81 → 95 → 98, deux
+    // marches s'annonçaient « norme de l'entreprise ». La norme est un
+    // passage, pas une zone — c'est la PREMIÈRE marche qui l'atteint.
+    let norme_vue = false;
+    const rail = (perf.paliers || []).map(p => {
+      const atteintNorme = mieux(p.cible, n.valeur, sens);
+      const estNorme = atteintNorme && !norme_vue;
+      if (atteintNorme) norme_vue = true;
+      return {
+        id: p.id, cible: p.cible, statut: p.statut, mesure: p.mesure,
+        quand: p.evalue_le, echeance: p.echeance, estNorme: estNorme,
+        // La marche POSÉE au-delà porte sa propre marque : c'est elle qui
+        // fait passer à « avancé », et elle doit se distinguer de la norme.
+        estAuDela: au !== null && mieux(p.cible, au, sens) && !estNorme,
+      };
+    });
+    if (!norme_vue) {
       rail.push({ cible: n.valeur, statut: 'cible', estNorme: true, fantome: true });
     }
-    if (perf.marge && plausible(sens === SENS_MOINS ? n.valeur - perf.marge : n.valeur + perf.marge,
-                                sens, n.unite)) {
-      const au = sens === SENS_MOINS ? n.valeur - perf.marge : n.valeur + perf.marge;
+    // Le seuil d'au-delà ne se dessine que si AUCUNE marche ne l'occupe déjà :
+    // sinon on doublait la marche réelle d'un fantôme à la même valeur.
+    const deja = rail.some(x => x.estAuDela);
+    if (au !== null && !deja && plausible(au, sens, n.unite)) {
       // ⚠️ Cette marche se REMPLIT quand la dernière mesure la dépasse. Elle
       // restait creuse alors que la pastille annonçait « avancé » : la carte
       // disait une chose, son échelle en disait une autre juste en dessous.
       const franchie = !estNul(perf.mesure) && mieux(perf.mesure, au, sens);
-      rail.push({ cible: au, statut: franchie ? 'atteint' : 'audela',
+      rail.push({ cible: au, statut: franchie ? 'atteint' : 'audela', estAuDela: true,
                   mesure: franchie ? perf.mesure : null,
                   quand: franchie ? perf.mesure_le : null, fantome: true });
     }
@@ -2533,7 +2571,12 @@
       if (plein) ico = '<i class="fa-solid fa-check"></i>';
       else if (s.statut === 'manque') ico = '<i class="fa-solid fa-xmark"></i>';
       if (s.statut === 'atteint' || s.statut === 'manque') {
-        sous = `<p class="pal-m">${esc(Tv('pal_mesure_de', { v: fmtVal(s.mesure, u) }))}</p>`
+        // ⚠️ La CIBLE dit ce qu'on visait ; la MESURE dit ce qui a été fait.
+        // C'est elle qu'on vient lire, et elle était en 12,5 px gris sous la
+        // cible en 19 px — on ne la voyait pas. Même rang visuel désormais :
+        // une pastille à la couleur du verdict, le chiffre en gras.
+        sous = `<p class="pal-m"><span class="k">${esc(T('pal_mesure_k'))}</span>`
+          + `<b>${esc(fmtVal(s.mesure, u))}</b></p>`
           + `<p class="pal-q">${esc(fmtDate(s.quand))}</p>`;
       } else if (s.statut === 'en_cours') {
         const n = ecartJours(s.echeance);
@@ -2547,8 +2590,14 @@
       }
       const mot = { atteint: 'pal_atteint', manque: 'pal_manque', en_cours: 'pal_encours',
                     audela: 'pal_audela', cible: 'pal_cible' }[s.statut];
-      html += `<div class="pal-pas pal-pas--${s.statut}">
-          ${s.estNorme ? `<span class="pal-drapeau">${esc(T('pal_norme_tag'))}</span>` : '<span class="pal-drapeau-vide"></span>'}
+      // ⚠️ Le drapeau vit dans une bande de HAUTEUR FIXE, drapeau ou pas :
+      // posé en `inline-block` avec sa marge, il descendait sa marche de 5 px
+      // et le rail n'était plus une ligne — il « cassait » à chaque drapeau.
+      const marque = s.estNorme
+        ? `<span class="pal-drapeau">${esc(T('pal_norme_tag'))}</span>`
+        : (s.estAuDela ? `<span class="pal-drapeau pal-drapeau--au">${esc(T('pal_audela_tag'))}</span>` : '');
+      html += `<div class="pal-pas pal-pas--${s.statut}${s.estAuDela ? ' est-audela' : ''}">
+          <div class="pal-marque">${marque}</div>
           <div class="pal-ligne">
             <span class="pal-fil pal-fil--${gauche}"></span>
             <span class="pal-dot">${ico}</span>
@@ -3064,7 +3113,7 @@
       </div>
       <div class="cal-d-corps">${lignes || `<p class="pal-vide">${esc(T('ses_rien_a_trancher'))}</p>`}</div>
       <div class="cal-d-pied">
-        <p class="d">${esc(T('ses_verdicts_calc'))}</p>
+        <span class="cal-d-info"></span>
         ${(d.paliers || []).length && state.estDev
           ? `<button type="button" class="pal-b pal-b--prim" data-tenir>
               <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>
@@ -3073,6 +3122,8 @@
     // ⚠️ UN seul endroit pose une mesure : la séance. Le calendrier dit
     // QUAND et QUOI ; deux écrans de saisie finiraient par ne plus dire la
     // même chose du même geste.
+    const inf = z.querySelector('.cal-d-info');
+    if (inf) inf.appendChild(boutonInfo(T('ses_verdicts_t'), T('ses_verdicts_calc')));
     const b = z.querySelector('[data-tenir]');
     if (b) b.onclick = () => ouvrirSeance(s.id);
   }
@@ -3103,11 +3154,11 @@
       <div class="cal-d-h"><h3>${esc(T('ses_planifier'))}</h3>
         <p class="r"><span class="pastille">${esc(state.roleName || '')}</span>${esc(state.cibleNom || '')}</p></div>
       <div class="cal-d-corps">
-        <div class="pal-champs">
+        <div class="cal-d-date">
           <label><span>${esc(T('ses_date'))}</span>
             <input type="date" data-d value="${esc(depart)}"></label>
+          <p class="cal-d-aide"><i class="fa-regular fa-hand-pointer"></i>${esc(T('ses_clic_jour'))}</p>
         </div>
-        <p class="cal-d-aide"><i class="fa-regular fa-hand-pointer"></i>${esc(T('ses_clic_jour'))}</p>
         <label class="pal-champ-large"><span>${esc(T('ses_objet_ph'))}</span>
           <input type="text" data-o></label>
       </div>
@@ -3219,7 +3270,6 @@
         <aside class="ev-acts">
           <div class="ev-acts-h">
             <p class="k"><span class="num">1</span>${esc(T('ev_col_act'))}</p>
-            <p class="d">${esc(T('ev_col_act_d'))}</p>
             <div class="ev-acts-f" id="ev-acts-f"></div>
           </div>
           <div class="ev-acts-l" id="ev-acts-l"></div>
@@ -3308,8 +3358,9 @@
     const box = $('#ev-centre');
     box.innerHTML = `<div class="ev-centre-h">
         <p class="k"><span class="num">2</span>${esc(T('ev_col_sor'))}</p>
-        <p class="d">${esc(T('ev_col_sor_d'))}</p>
       </div>`;
+    box.querySelector('.ev-centre-h .k')
+       .appendChild(boutonInfo(T('ev_col_sor'), T('ev_col_sor_d')));
     const tete = document.createElement('div');
     tete.className = 'ev-sujet';
     tete.innerHTML = `<h1>${esc(state.activity.activity_name)}</h1>

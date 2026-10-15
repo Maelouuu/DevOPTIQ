@@ -5054,6 +5054,122 @@ jour occupé, annulation, réglage du niveau attendu depuis l'accueil (3 → 4 �
 3, relu), fermeture de l'évolution par le bas ; zéro fuite française sur
 l'écran anglais.
 
+#### ⚠️⚠️ Dépasser la norme ne faisait PAS monter le niveau (2026-10-15)
+
+« La norme de "Demande de tests qualité" est fixée à 95 %, pourtant une marche
+à 98 % mesurée à 99 % nous laisse à 2. » Exact, et c'est le défaut le plus
+lourd du module : **le niveau d'une activité est le MINIMUM de ses sorties, et
+celui d'un rôle le minimum de ses activités** — l'erreur redescendait jusqu'au
+verdict « apte / pas apte ».
+
+**La cause.** `pas_de_progression` ne regardait que les marches **en deçà** de
+la norme et en déduisait une marge. Reproduit au chiffre près :
+
+```
+cibles 67 → 81 → 95 (norme) → 98      marge déduite 14   au-delà = 109 %
+mesure 99 %                            →  niveau 2
+```
+
+**109 %** : une valeur qui n'existe pas sur un pourcentage, donc un seuil que
+personne ne franchira jamais. Pendant ce temps le développeur avait posé une
+marche à **98 %**, exprès, au-dessus de l'attendu — et elle ne comptait pas.
+
+⚠️ **Et « Enquête client » marchait par HASARD** : 20 → 14 → 10 (norme) → 6
+donne une marge de 4, donc un au-delà à 6 — qui tombe pile sur la marche
+posée. Le même code rendait le bon résultat d'un côté et le mauvais de
+l'autre, ce qui est la pire façon d'avoir tort.
+
+**La règle, écrite une fois** : `seuil_au_dela(cibles, norme, sens, marge)` —
+**une marche posée au-delà de la norme EST le seuil**, et c'est la PREMIÈRE
+(les suivantes vont plus loin, elles ne déplacent pas la frontière). À défaut,
+on retombe sur le pas de progression : la règle d'avant reste la bonne quand
+personne n'a rien posé plus loin. `niveau_depuis_mesure` accepte ce seuil
+explicite, qui l'emporte sur celui qu'on déduit. Vérifié de bout en bout, vrai
+POST HTTP : sortie 3 → activité 3 → `gap` 0 sur un rôle qui exigeait 3.
+
+⚠️ **Le rail dessinait son propre seuil** (`n.valeur + perf.marge`) : il aurait
+montré 109 % quand le niveau se jouait sur 98 %. `etat_sortie` renvoie
+désormais `au_dela`, et l'écran s'en sert — une frontière, une source.
+
+#### Le rail était une ligne BRISÉE, et la mesure illisible (2026-10-15)
+
+- ⚠️ **« La courbe UI casse, ce n'est pas beau. »** Le drapeau de norme était
+  un `inline-block` avec `margin-bottom: 5px`, et les marches sans drapeau
+  portaient un bloc vide de 22 px : la marche **flaguée descendait de ~5 px**
+  et le rail formait un décroché à chaque drapeau. Une bande `.pal-marque` de
+  hauteur FIXE, drapeau ou pas. Mesuré après : **0 px** d'écart entre les
+  centres des pastilles, à 1280 comme à 1600.
+- ⚠️ **DEUX drapeaux « Norme de l'entreprise » sur le même rail.** `mieux()`
+  répond « atteint » : toute marche **à partir de** la norme le portait. La
+  norme est un passage, pas une zone — c'est la PREMIÈRE marche qui l'atteint.
+  La marche au-delà porte sa propre marque (`pal_audela_tag`), verte.
+- **La mesure se lit autant que la cible.** « mesuré 19 j » était en 12,5 px
+  gris sous une cible en 19 px — or c'est le chiffre qu'on vient voir, celui
+  qu'on a relevé en séance. Il prend une pastille à la couleur de son verdict,
+  valeur en 15 px gras.
+- **Le niveau déduit** — le niveau ACTUEL de la personne dans l'entreprise —
+  passe de 13 px à une pastille à chiffre Fraunces 25 px.
+- Le crayon de la norme devient **sphérique**, et la pastille de norme aussi.
+
+#### La boucle était FERMÉE : une sortie ne pouvait pas recevoir sa norme
+
+⚠️ « Je note une première fois, je valide, et rien ne se passe ; comment
+j'ajoute des marches, comment je renseigne le niveau requis ? » Le reproche
+visait un vrai trou de structure : `resultCard` (une sortie SANS norme) ne
+proposait **nulle part** de poser le standard de l'entreprise. Née à la main,
+une sortie restait à la main pour toujours — l'échelle des paliers était
+inatteignable, et on notait donc avant d'avoir pu dire ce qui est attendu.
+
+La carte porte désormais un bloc « Jugée à la main » qui dit pourquoi elle
+n'a pas de rail, et **« Définir la norme de l'entreprise »** ouvre le même
+formulaire que la carte mesurée (`formNorme`, route `/paliers/norme/<id>`
+inchangée). Vérifié au banc : une sortie à la main reçoit 48 h « au plus » et
+devient mesurée, avec son rail et « Poser la marche suivante ».
+
+#### Ce qui se dit moins, et ce qui se dit mieux
+
+- « On passe de l'une à l'autre sans quitter la page » : retiré, l'écran le
+  fait de toute façon.
+- « Les sorties de l'activité choisie à gauche » passe derrière le « i » du
+  titre de colonne.
+- ⚠️ **« Les verdicts se calculent, ils ne se cochent pas »** ne disait ni ce
+  qu'est un verdict ni ce qu'on attend du lecteur. Derrière un « i », et
+  réécrite sur le GESTE : « En séance, vous relevez le chiffre mesuré — rien
+  d'autre. L'application le compare à la cible du palier et en tire le
+  verdict… et c'est ce verdict qui fait monter le niveau. »
+- **L'aide « cliquez un jour »** occupait toute la largeur du panneau pour
+  huit mots, à côté d'un champ de date de 117 px. Les deux sont sur une seule
+  ligne, l'aide à droite.
+- **« + Ajouter une preuve »** était un lien souligné : c'est une pastille
+  avec son trombone.
+- **Les deux notes partagent un seul cadre** (`.cv2-notes`) au lieu de deux
+  rectangles gris empilés : un liseré bleu pour ce qui fait foi, violet pour
+  l'auto-évaluation, pastilles rondes, échelle plus grande, gomme à icône.
+
+⚠️ **Et un faux pas à ne pas refaire** : le retrait de `.pal-drapeau-vide` a
+d'abord été écrit en regex (`/\* .*?Un bloc vide.*?\*/\n\.pal-drapeau-vide…`
+en `re.S`). Le `.*?` non gourmand part du **premier** `/*` du fichier :
+**1 840 lignes de `competences.css` ont disparu d'un coup**, et le symptôme
+était trompeur — `.pal-rail` rendait `display: block`, donc un rail vertical,
+comme si c'était la nouvelle mise en page qui échouait. Restauré depuis git,
+puis retrait par chaîne EXACTE. Une suppression se fait sur des bornes, pas
+sur un motif ouvert.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 67 à **84 cas** ; **treize
+défauts remis un par un, treize cliquets tombés** (le seuil deviné, le pas qui
+l'emporte sur la marche posée, le domino jusqu'au rôle, la bande devinée du
+rail, le drapeau sur toute marche, le rail qui redéduit son seuil, la mesure
+en ligne grise, la boucle refermée, la phrase de la colonne 1, le verdict
+réaffirmé, l'aide pleine largeur, les notes réempilées, la preuve soulignée).
+⚠️ Trois cliquets ne mordaient PAS au premier essai, et c'était l'injection
+qui visait à côté — dont un vrai défaut de contrôle : `data-poser-norme`
+existe aussi dans le SÉLECTEUR de la liaison, donc retirer le bouton laissait
+le test vert. Il cherche `data-poser-norme>`, la balise.
+Suite : **3181 passés**, `repet_image` 3146 + 36 sautés. Éprouvé au banc à
+1280 et 1600 px dans les deux langues : rail droit (0 px d'écart), norme posée
+après coup, marche au-delà franchie → niveau 3 remonté jusqu'à l'activité,
+aucun débordement horizontal, zéro fuite française sur l'écran anglais.
+
 ---
 
 ## Notes importantes (suite)
