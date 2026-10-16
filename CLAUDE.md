@@ -5391,6 +5391,86 @@ plus lu, et le jour où il a raison personne ne regarde. C'est la quatrième
 fois — tout cas qui ouvre un fichier hors de `static/`, des gabarits ou de
 `tests/` doit se demander s'il existe dans l'image.
 
+
+#### LA FICHE — la section de notation, tranchée sur maquettes (2026-10-16)
+
+« Autant dans le style que dans l'agencement de la section que dans son
+manque de couleurs, les phrases en petit et en gris au lieu de mettre des i. »
+Cinq directions dessinées à l'échelle (canvas « Notation à la main —
+5 directions » : la règle, les deux lectures, le verdict, l'escalier, la
+fiche), une retenue — **la fiche** — avec trois corrections demandées :
+le fond sombre du verdict passe à gauche, les crans ne portent que leur
+chiffre, et la porte vers les paliers prend le vert au lieu de l'ocre.
+
+**Ce qui n'allait pas, mesuré avant de redessiner** : trois boîtes grises de
+poids égal empilées, deux échelles identiques de cinq carrés BLANCS bordés de
+gris — un 0 et un 4 s'y ressemblaient trait pour trait — chaque cran portant
+son libellé en 10 px (« Autonome / compétent » sur un bouton de 50 px, cinq
+fois, deux fois par sortie), et un pavé de deux lignes de 12,5 px gris pour
+expliquer le régime jugé. Rien n'y disait ce qu'on regarde en premier.
+
+**La section se sépare en deux.**
+- ⚠️ **Ce qu'on JUGE passe sur fond de nuit** — le même dégradé que l'en-tête
+  de la page. Ce n'est pas un décor : c'est le CONTRASTE qui désigne le sujet.
+  En gris clair, la colonne de gauche n'aurait été qu'une quatrième boîte.
+  Elle porte le nom de la sortie en Fraunces, **le standard minimal ÉCRIT**
+  (derrière une info-bulle que personne ne survole, la phrase qui dit sur quoi
+  on note n'existait pas) et le **niveau attendu en 44 px vert pastel**
+  `#7ee0b8` — la barre à franchir, lisible de loin.
+- **Ce qu'on POSE** à sa droite : les deux notes, le verdict d'accord, la
+  preuve.
+
+**La rampe de couleur, qui manquait.** Chaque cran porte au repos une teinte
+pâle de SON palier, et la teinte bascule une fois, au niveau 2 — le seuil
+d'autonomie, exactement comme le relief bascule au franchissement de la
+norme. Le cran choisi prend la couleur pleine. ⚠️ **Sur le bloc qui fait foi
+la couleur dit le NIVEAU ; sur l'auto-évaluation elle dit QUI** (violet), et
+cela ne change pas selon qui regarde — sinon la même note changerait de
+couleur d'un lecteur à l'autre.
+
+⚠️ **Un cran ne porte plus que son chiffre.** Le nom du palier vient au
+survol, **après une demi-seconde** (`transition-delay` sur `:hover`
+seulement) : assez pour ne pas clignoter quand on traverse la rangée. Au
+clavier il n'y a pas de survol, la bulle sort au `:focus-visible`, sans
+délai. ⚠️ **Pas d'attribut `title`** : l'info-bulle du système sortirait
+par-dessus la nôtre, une seconde plus tard et sans sa couleur — le piège déjà
+rencontré sur la matrice RH. `aria-label` porte « 2 · Autonome / compétent ».
+
+**La porte vers les paliers passe au VERT**, en rappel du niveau attendu, et
+en **six teintes** pour qu'elle ne soit pas un aplat : fond en dégradé
+`#eaf6f1 → #f6fbf9`, filet `#bfe3d4`, pastille blanche à glyphe `#11835e`,
+titre `#0a5540`, phrase `#4e8775`, bouton `#11835e → #0a5540`.
+
+⚠️ **Le verdict d'accord sort des deux blocs.** Posé dans celui du bas, il se
+lisait comme un commentaire de l'auto-évaluation ; il parle de l'ÉCART, donc
+des deux. `majValeur` écrit désormais dans `[data-accord]`.
+
+⚠️ **Les crochets de l'enregistrement survivent à la refonte.**
+`saveEvaluation` lit `.cv2-nt.is-mienne [data-lv].sel`, et **la gomme en fait
+partie** : la sortir du bloc (comme la maquette le montrait) aurait fait
+qu'un niveau effacé ne serait plus trouvé, et l'enregistrement l'aurait sauté
+en silence. Elle reste donc dans la rangée, en pastille creuse à l'écart.
+
+⚠️ **Le standard se cite avec un `<q>`**, pas des chevrons écrits à la main :
+ils sont une convention française, et le navigateur pose les guillemets de la
+langue du document tout seul. ⚠️ Le cliquet qui l'exige lit aussi les
+COMMENTAIRES — en écrire un qui contient le caractère le fait échouer sur son
+propre texte, comme pour les clés i18n construites.
+
+Trois phrases passent derrière un « i » : l'échelle 0 → 4, le pourquoi du
+régime jugé, et — pour les sorties mesurées — ce qu'elle était déjà.
+Hauteur de la section : **430 → 327 px**.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 114 à **126 cas** ; **sept
+défauts remis un par un, sept cliquets tombés** (le fond de nuit retiré, le
+requis en petit, le nom rendu au cran, la bulle sans délai, la rampe
+invisible, la porte en ocre, le verdict rendu à l'auto). Suite : **3239
+passés**, `repet_image` 3199 + 41 sautés. Éprouvé au banc à 1600 px dans les
+deux langues : les deux états de
+la fiche (avec et sans niveau attendu), la bulle non rognée par
+l'`overflow: hidden` de la carte (48 px sous son bord haut), et zéro fuite
+française sur l'écran anglais — texte ET attributs.
+
 ---
 
 ## Notes importantes (suite)

@@ -3182,3 +3182,182 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 }
 .cal-d-info { display: inline-flex; align-items: center; }
 .cal-d-info .ev-i { width: 20px; height: 20px; font-size: 10px; }
+
+/* ═════════════════ LA FICHE : ce qu'on JUGE, ce qu'on POSE ═════════════════
+   « Autant dans le style que dans l'agencement que dans son manque de
+   couleurs. » Trois boîtes grises de poids égal, cinq carrés blancs bordés
+   de gris où un 0 et un 4 se ressemblaient trait pour trait, et deux lignes
+   de douze px gris pour expliquer le régime. La section se sépare en deux :
+   le SUJET sur fond de nuit — le même que l'en-tête de la page, c'est le
+   contraste qui désigne ce qu'on vient noter — et ce qu'on POSE à sa droite.
+   ⚠️ Rien ici ne lit `--pg-accent-soft` ni ses frères : déclarés sur `:root`,
+   où `--pg-accent` vaut encore le gris par défaut, ils rendent du GRIS. */
+.cv2-res.cv2-fiche {
+  padding: 0; overflow: hidden; border-left-width: 1px;
+  border-left-color: var(--border);
+}
+.fi-corps { display: flex; flex-wrap: wrap; align-items: stretch; }
+
+/* ── Ce qu'on juge : le fond de nuit ── */
+.fi-sujet {
+  width: 302px; flex: none; padding: 16px 18px 18px; color: #e6edf7;
+  background:
+    radial-gradient(120% 150% at 88% -20%, rgba(17, 131, 94, .34), transparent 62%),
+    radial-gradient(70% 110% at 6% 118%, rgba(37, 99, 235, .3), transparent 70%),
+    linear-gradient(118deg, #1b2a4a, #0b1120);
+}
+.fi-sur {
+  margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 1.3px;
+  text-transform: uppercase; color: #8aa0c4;
+}
+.fi-nom {
+  margin: 7px 0 0; font-family: var(--pg-font-display); font-size: 18px;
+  font-weight: 600; line-height: 1.3; color: #fff;
+}
+.fi-std {
+  margin-top: 13px; padding: 10px 12px; border-radius: 4px 11px 11px 4px;
+  background: rgba(255, 255, 255, .07); border-left: 3px solid rgba(126, 224, 184, .75);
+}
+.fi-std .fi-sur { color: #7f94b8; }
+.fi-std-t {
+  display: block; margin: 5px 0 0; font-size: 12.5px; line-height: 1.5;
+  font-style: italic; color: #dbe4f2;
+}
+
+/* Le niveau attendu : c'est la barre à franchir, elle se lit de loin. */
+.fi-req { margin-top: 14px; }
+.fi-req-v {
+  margin: 4px 0 0; display: flex; align-items: baseline; gap: 10px;
+  color: #7ee0b8; font-size: 13.5px; font-weight: 600;
+}
+.fi-req-v b {
+  font-family: var(--pg-font-display); font-size: 44px; font-weight: 600; line-height: .9;
+}
+.fi-req-v.is-vide {
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  font-style: italic; color: #8aa0c4;
+}
+.fi-main {
+  display: flex; align-items: center; gap: 8px; margin-top: 15px;
+  padding: 9px 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, .07); font-size: 12.5px; color: #dbe4f2;
+}
+.fi-main .ic {
+  width: 22px; height: 22px; flex: none; border-radius: 7px; font-size: 10.5px;
+  display: grid; place-items: center; background: rgba(255, 255, 255, .1); color: #a9c0e4;
+}
+.fi-main .cv2-i {
+  border-color: rgba(255, 255, 255, .32); background: rgba(255, 255, 255, .08); color: #cfd8e6;
+}
+.fi-main .cv2-i:hover { border-color: #7ee0b8; color: #7ee0b8; }
+
+/* ── Ce qu'on pose ── */
+.fi-pose { flex: 1 1 372px; min-width: 0; padding: 16px 18px 17px; }
+.fi-pose-h { display: flex; align-items: center; gap: 9px; }
+.fi-bas { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; margin-top: 12px; }
+.fi-bas .sp { flex: 1; min-width: 0; }
+.fi-bas .cv2-preuve-btn { margin-top: 0; }
+.cv2-fiche .cv2-ev { margin-top: 10px; }
+
+/* Les deux notes, dans la fiche : un liseré par identité, pas une boîte. */
+.fi-pose .cv2-nt {
+  margin-top: 11px; padding: 11px 13px 13px; border-radius: 4px 13px 13px 4px;
+  border: 1px solid var(--border); border-left-width: 3px; background: var(--card);
+}
+.fi-pose .cv2-nt--off { border-left-color: var(--pg-accent); border-color: #c7d7f7; }
+.fi-pose .cv2-nt--auto {
+  border-left-color: var(--cv-auto); border-color: #d8c7f6;
+  border-style: dashed; border-left-style: solid; background: #fdfcff;
+}
+.fi-pose .cv2-nt.is-posee { opacity: 1; }
+
+/* ── Les crans : le CHIFFRE seul, et la rampe se voit au repos ──
+   ⚠️ C'est elle qui manquait : cinq carrés blancs ne disaient pas qu'un 4
+   vaut mieux qu'un 0. La teinte bascule UNE fois, au seuil d'autonomie —
+   la même bascule que le relief au franchissement de la norme. */
+.fi-pose .cv2-echelle { margin-top: 10px; gap: 6px; flex-wrap: nowrap; }
+.fi-pose .cv2-niv {
+  flex: 1; width: auto; min-width: 0; padding: 9px 0 8px;
+  font-family: var(--pg-font-display); font-size: 17px; font-weight: 600;
+  border: none; border-radius: 7px; position: relative;
+}
+.fi-pose .cv2-nt--off .cv2-niv[data-lv="0"] { background: #eef1f5; color: #667085; }
+.fi-pose .cv2-nt--off .cv2-niv[data-lv="1"] { background: #e8f0fc; color: #2f6fd0; }
+.fi-pose .cv2-nt--off .cv2-niv[data-lv="2"] { background: #e4f1ec; color: #11835e; }
+.fi-pose .cv2-nt--off .cv2-niv[data-lv="3"] { background: #e0eee8; color: #0a5540; }
+.fi-pose .cv2-nt--off .cv2-niv[data-lv="4"] { background: #e3eaeb; color: #0b3d2e; }
+.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="0"] { background: #98a2b3; color: #fff; }
+.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="1"] { background: #7aa7e8; color: #fff; }
+.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="2"] { background: #11835e; color: #fff; }
+.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="3"] { background: #0a5540; color: #fff; }
+.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="4"] { background: #0b3d2e; color: #fff; }
+.fi-pose .cv2-nt--off .cv2-niv.sel { box-shadow: 0 4px 12px -4px rgba(10, 85, 64, .55); }
+/* L'auto-évaluation garde l'identité violette : elle dit QUI, pas le niveau. */
+.fi-pose .cv2-nt--auto .cv2-niv { background: #f4f0fc; color: #a99bc9; }
+.fi-pose .cv2-nt--auto .cv2-niv.sel { background: var(--cv-auto); color: #fff; }
+.fi-pose .cv2-niv:hover:not(:disabled):not(.sel) { filter: brightness(.96); }
+.fi-pose .cv2-niv:disabled { cursor: default; }
+/* Le niveau attendu, sur la rampe : un anneau, pas un tiret sous le cran. */
+.fi-pose .cv2-niv.cible { box-shadow: inset 0 0 0 2px var(--ink); }
+.fi-pose .cv2-niv.cible::before { content: none; }
+
+/* Le nom du palier vient au SURVOL, après une demi-seconde : assez pour ne
+   pas clignoter quand on traverse la rangée. */
+.fi-pose .cv2-niv::after {
+  content: attr(data-nom); position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translate(-50%, 4px); white-space: nowrap; pointer-events: none;
+  padding: 5px 10px; border-radius: 8px; background: var(--ink); color: #fff;
+  font-family: var(--pg-font); font-size: 11.5px; font-weight: 600; letter-spacing: .1px;
+  opacity: 0; transition: opacity .16s, transform .16s; transition-delay: 0s; z-index: 4;
+}
+.fi-pose .cv2-niv:hover::after {
+  opacity: 1; transform: translate(-50%, 0); transition-delay: .5s;
+}
+.fi-pose .cv2-niv:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) {
+  .fi-pose .cv2-niv::after { transition: none; }
+}
+
+/* La gomme n'est pas un palier : elle sort de la rampe. */
+.fi-pose .cv2-gomme {
+  flex: none; width: 38px; padding: 9px 0; border-radius: 9px;
+  border: 1px dashed var(--border-strong, var(--border)); background: var(--card);
+  color: var(--faint);
+}
+.fi-pose .cv2-gomme i { font-size: 11px; }
+
+/* ── La porte vers les paliers : le VERT, en rappel du niveau attendu ──
+   Six teintes pour qu'elle ne soit pas un aplat : le fond en dégradé, le
+   filet, la pastille, le titre, sa phrase, et le bouton. */
+.fi-porte {
+  display: flex; align-items: center; gap: 13px; padding: 13px 18px;
+  background: linear-gradient(100deg, #eaf6f1, #f6fbf9);
+  border-top: 1px solid #bfe3d4;
+}
+.fi-porte .ic {
+  width: 30px; height: 30px; flex: none; border-radius: 9px; font-size: 13px;
+  display: grid; place-items: center; background: #fff; color: #11835e;
+  box-shadow: 0 1px 2px rgba(10, 85, 64, .12);
+}
+.fi-porte .t { flex: 1; min-width: 0; }
+.fi-porte .t b { font-size: 12.5px; color: #0a5540; }
+.fi-porte .t p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.45; color: #4e8775; }
+.fi-b {
+  display: inline-flex; align-items: center; gap: 9px; flex: none; cursor: pointer;
+  border: none; border-radius: 999px; padding: 9px 15px 9px 9px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: #fff;
+  background: linear-gradient(135deg, #11835e, #0a5540);
+  box-shadow: 0 5px 14px -6px rgba(10, 85, 64, .8); transition: .14s;
+}
+.fi-b:hover { box-shadow: 0 7px 18px -6px rgba(10, 85, 64, .9); transform: translateY(-1px); }
+.fi-b-ic {
+  width: 22px; height: 22px; flex: none; border-radius: 50%; font-size: 10.5px;
+  display: grid; place-items: center; background: rgba(255, 255, 255, .22);
+}
+.cv2-fiche .pal-form { border-top: 1px solid #bfe3d4; }
+
+/* Sous 1000 px réels la fiche repasse en colonne : le sujet au-dessus. */
+@media (max-width: 1000px) {
+  .fi-sujet { width: 100%; }
+  .fi-req-v b { font-size: 36px; }
+}

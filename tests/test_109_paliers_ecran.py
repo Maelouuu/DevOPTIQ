@@ -1224,12 +1224,15 @@ class TestLesDeuxNotesSeTiennent:
     empilés, chacun avec son petit en-tête : on ne voyait pas que c'est UNE
     décision regardée de deux côtés."""
 
-    def test_elles_partagent_un_seul_cadre(self):
+    def test_elles_vivent_dans_la_colonne_de_ce_qu_on_pose(self):
+        """Elles partageaient un cadre ; elles partagent désormais la COLONNE
+        qui porte tout ce qu'on pose — et c'est leur liseré qui les
+        distingue, bleu pour ce qui fait foi, violet pour l'auto."""
         js = _lire(JS)
-        assert '<div class="cv2-notes">${officielle}${auto}</div>' in js
+        assert "${officielle}${auto}" in js
         css = _lire(CSS)
-        assert ".cv2-notes .cv2-nt + .cv2-nt { border-top:" in css
-        assert ".cv2-notes .cv2-nt--off { border-left-color: var(--pg-accent); }" in css
+        assert ".fi-pose .cv2-nt--off { border-left-color: var(--pg-accent);" in css
+        assert ".fi-pose .cv2-nt--auto {" in css
 
     def test_la_preuve_est_un_bouton_pas_un_lien_souligne(self):
         js = _lire(JS)
@@ -1589,5 +1592,147 @@ class TestLEcranPoseLesTroisElements:
                   "pal_exp_retirer", "pal_exp_posee", "pal_exp_d",
                   "pal_exp_mesure", "rel_tenues_1", "rel_suivi_1",
                   "pal_exp_ok", "pal_exp_off"):
+            assert ("%s:" % k) in fr, "manque en FR : %s" % k
+            assert ("%s:" % k) in en, "manque en EN : %s" % k
+
+
+class TestLaFicheDeNotation:
+    """⚠️ « Autant dans le style que dans l'agencement que dans son manque de
+    couleurs, les phrases en petits et en gris au lieu de mettre des i. »
+    Trois boîtes grises de poids égal, cinq carrés blancs bordés de gris où un
+    0 et un 4 se ressemblaient trait pour trait, et deux lignes de douze px
+    gris pour expliquer le régime. La section se sépare en deux — ce qu'on
+    JUGE sur fond de nuit, ce qu'on POSE à sa droite.
+    """
+
+    def _corps(self, js):
+        return js.split("  function resultCard(r, requis) {", 1)[1].split("\n  }\n", 1)[0]
+
+    def test_le_sujet_passe_sur_fond_de_nuit(self):
+        """C'est le CONTRASTE qui désigne ce qu'on vient noter : sans lui, la
+        colonne de gauche n'était qu'une quatrième boîte grise."""
+        js = _lire(JS)
+        corps = self._corps(js)
+        assert 'class="fi-sujet"' in corps and 'class="fi-pose"' in corps
+        css = _lire(CSS)
+        bloc = css.split(".fi-sujet {", 1)[1].split("}", 1)[0]
+        assert "#0b1120" in bloc, "le même fond que l'en-tête de la page"
+        assert "radial-gradient" in bloc
+
+    def test_le_niveau_attendu_se_lit_de_loin(self):
+        js = _lire(JS)
+        assert 'class="fi-req-v"' in self._corps(js)
+        css = _lire(CSS)
+        bloc = css.split(".fi-req-v b {", 1)[1].split("}", 1)[0]
+        assert "font-size: 44px" in bloc
+        teinte = css.split(".fi-req-v {", 1)[1].split("}", 1)[0]
+        assert "#7ee0b8" in teinte, "le vert pastel du fond sombre"
+
+    def test_un_cran_ne_porte_que_SON_CHIFFRE(self):
+        """« Autonome / compétent » sur un cran de 50 px, cinq fois de suite,
+        deux fois par sortie : illisible, et la moitié du petit texte gris de
+        la fenêtre."""
+        js = _lire(JS)
+        corps = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
+        assert 'aria-label="${esc(lv + \' · \' + nom)}">${lv}</button>' in corps
+        # ⚠️ Pas de `title` : l'info-bulle du système sortirait PAR-DESSUS la
+        # nôtre, une seconde plus tard et sans sa couleur.
+        assert "title=" not in corps
+
+    def test_le_nom_vient_au_survol_apres_une_demi_seconde(self):
+        js = _lire(JS)
+        corps = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
+        assert 'data-nom="${esc(nom)}"' in corps
+        css = _lire(CSS)
+        apres = css.split(".fi-pose .cv2-niv::after {", 1)[1].split("}", 1)[0]
+        assert "content: attr(data-nom)" in apres
+        assert "opacity: 0" in apres
+        survol = css.split(".fi-pose .cv2-niv:hover::after {", 1)[1].split("}", 1)[0]
+        assert "transition-delay: .5s" in survol, "assez pour traverser la rangée"
+        # Au clavier il n'y a pas de survol : la bulle sort au focus, sans délai.
+        assert ".fi-pose .cv2-niv:focus-visible::after" in css
+
+    def test_la_rampe_se_voit_AU_REPOS(self):
+        """Cinq carrés blancs ne disaient pas qu'un 4 vaut mieux qu'un 0. La
+        teinte bascule UNE fois, au seuil d'autonomie — la même bascule que le
+        relief au franchissement de la norme."""
+        css = _lire(CSS)
+        for lv, teinte in ((0, "#eef1f5"), (1, "#e8f0fc"), (2, "#e4f1ec"),
+                           (3, "#e0eee8"), (4, "#e3eaeb")):
+            regle = '.fi-pose .cv2-nt--off .cv2-niv[data-lv="%d"] {' % lv
+            assert regle in css, regle
+            assert teinte in css.split(regle, 1)[1].split("}", 1)[0]
+        # Et le cran choisi prend la couleur PLEINE de son palier.
+        assert '.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="2"] { background: #11835e;' in css
+
+    def test_l_auto_evaluation_garde_son_identite(self):
+        """Sur le bloc qui fait foi, la couleur dit le NIVEAU ; sur celui qui
+        commente, elle dit QUI — et cela ne change pas selon qui regarde."""
+        css = _lire(CSS)
+        assert ".fi-pose .cv2-nt--auto .cv2-niv.sel { background: var(--cv-auto);" in css
+
+    def test_les_phrases_grises_passent_derriere_un_i(self):
+        js = _lire(JS)
+        corps = self._corps(js)
+        assert "boutonInfo(T('pal_echelle_t'), texteEchelle())" in corps
+        assert "boutonInfo(T('pal_sans_norme'), T('pal_sans_norme_d'))" in corps
+        # La phrase n'est plus ÉCRITE dans la carte.
+        assert "T('pal_sans_norme_d')}" not in corps
+
+    def test_le_standard_minimal_revient_ECRIT(self):
+        """Derrière une info-bulle que personne ne survole, la phrase qui dit
+        sur quoi on note n'existait pas."""
+        js = _lire(JS)
+        corps = self._corps(js)
+        assert 'class="fi-std-t"' in corps
+        assert "r.minimum_performance_text" in corps
+        # ⚠️ Un <q>, pas des chevrons écrits à la main : ils sont une
+        # convention FRANÇAISE, et le navigateur pose les guillemets de la
+        # langue du document. Le contrôle lit aussi les COMMENTAIRES : en
+        # écrire un ici le ferait échouer sur son propre texte.
+        assert '<q class="fi-std-t">' in corps
+        assert '«' not in corps
+        assert "cv2-astuce" not in corps, "plus de point d'interrogation en 11 px"
+
+    def test_la_porte_est_VERTE_en_rappel_du_niveau_attendu(self):
+        """Elle était en ocre quand rien d'autre ne portait de couleur. Le vert
+        du chiffre attendu la reprend — en plusieurs teintes, pour qu'elle ne
+        soit pas un aplat."""
+        js = _lire(JS)
+        assert 'class="fi-porte"' in self._corps(js)
+        css = _lire(CSS)
+        porte = css.split("\n.fi-porte {", 1)[1].split("}", 1)[0]
+        assert "#eaf6f1" in porte and "#bfe3d4" in porte
+        bouton = css.split("\n.fi-b {", 1)[1].split("}", 1)[0]
+        assert "#11835e" in bouton and "#0a5540" in bouton
+        assert "#93571a" not in porte, "plus d'ocre"
+
+    def test_le_verdict_sort_des_deux_blocs(self):
+        """Posé dans celui du bas, il se lisait comme un commentaire de
+        l'auto-évaluation. Il parle de l'ÉCART, donc des deux."""
+        js = _lire(JS)
+        corps = self._corps(js)
+        assert "qi('[data-accord]').innerHTML = accordBadge(" in corps
+        maj = js.split("  function majValeur(bloc, card, r, dev) {", 1)[1].split("\n  }", 1)[0]
+        assert "card.querySelector('[data-accord]')" in maj
+        assert "cv2-nt--auto" not in maj
+
+    def test_les_crochets_de_l_enregistrement_survivent(self):
+        """⚠️ `saveEvaluation` lit `.cv2-nt.is-mienne [data-lv].sel`, et la
+        gomme en fait partie : hors du bloc, un niveau effacé ne serait plus
+        trouvé et l'enregistrement le sauterait en silence."""
+        js = _lire(JS)
+        bloc = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
+        assert "cv2-nt cv2-nt--${o.genre}${o.modifiable ? ' is-mienne'" in bloc
+        gomme = bloc.split('class="cv2-gomme', 1)[1].split("button>", 1)[0]
+        assert 'data-lv=""' in gomme
+        assert '.cv2-nt.is-mienne [data-lv].sel' in js
+
+    def test_les_libelles_de_la_fiche_sont_dans_les_deux_langues(self):
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
+        for k in ("fi_sujet", "fi_pose", "fi_requis", "fi_sans_requis",
+                  "fi_suivre", "fi_suivre_d"):
             assert ("%s:" % k) in fr, "manque en FR : %s" % k
             assert ("%s:" % k) in en, "manque en EN : %s" % k

@@ -129,6 +129,12 @@
       pal_audela_tag: 'Au-delà de la norme',
       pal_mesure_k: 'mesuré',
       pal_sans_norme: 'Jugée à la main',
+      fi_sujet: "Ce qu'on juge",
+      fi_pose: "Ce qu'on pose",
+      fi_requis: 'Requis par le rôle',
+      fi_sans_requis: 'Aucun niveau attendu',
+      fi_suivre: 'La suivre en paliers mesurés',
+      fi_suivre_d: "Donnez-lui un chiffre attendu, et son niveau se déduira de ce qu'on relève en séance.",
       pal_sans_norme_d: "Cette sortie n'a pas de chiffre attendu : son niveau se pose sur l'échelle ci-dessus. Donnez-lui la norme de l'entreprise pour la suivre en paliers mesurés.",
       pal_definir_norme: "Définir la norme de l'entreprise",
       ses_verdicts_t: 'Comment le verdict tombe',
@@ -461,6 +467,12 @@
       pal_audela_tag: 'Beyond the standard',
       pal_mesure_k: 'measured',
       pal_sans_norme: 'Judged by hand',
+      fi_sujet: 'What is being judged',
+      fi_pose: 'What you set',
+      fi_requis: 'Required by the role',
+      fi_sans_requis: 'No target level',
+      fi_suivre: 'Track it in measured steps',
+      fi_suivre_d: 'Give it a target figure, and its level will follow from what is measured in session.',
       pal_sans_norme_d: 'This output has no expected figure: its level is set on the scale above. Give it the company standard to follow it as measured steps.',
       pal_definir_norme: 'Set the company standard',
       ses_verdicts_t: 'How the verdict is reached',
@@ -1574,15 +1586,26 @@
   // Celle qui vous appartient est cliquable ; l'autre est posée, verrouillée.
   // L'ordre ne bouge jamais : la note qui fait foi d'abord, quel que soit le
   // regard — on sait toujours où regarder.
-  function echelleNote(o) {
-    let paliers = '';
+  // ── Un cran : le CHIFFRE, rien d'autre ────────────────────────────
+  // ⚠️ Chaque bouton portait son libellé en dessous — « Autonome / compétent »
+  // sur un cran de 50 px, cinq fois de suite, deux fois par sortie. C'était
+  // illisible ET c'était la moitié du petit texte gris de la fenêtre. Le nom
+  // vient au SURVOL, après une demi-seconde : assez pour ne pas clignoter
+  // quand on traverse la rangée.
+  // ⚠️ Pas d'attribut `title` : l'info-bulle du système sortirait par-dessus
+  // la nôtre, une seconde plus tard et sans sa couleur. C'est le piège déjà
+  // rencontré sur la matrice RH. `aria-label` porte la même phrase pour qui
+  // ne voit pas la bulle.
+  function blocNote(o) {
+    let crans = '';
     for (let lv = 0; lv <= 4; lv++) {
       const cls = ['cv2-niv'];
       if (o.niveau === lv) cls.push('sel');
       if (o.requis === lv) cls.push('cible');
-      const bulle = levelName(lv) + (o.requis === lv ? ` — ${T('target_short')}` : '');
-      paliers += `<button type="button" class="${cls.join(' ')}" data-lv="${lv}"
-        ${o.modifiable ? '' : 'disabled'} title="${esc(bulle)}">${lv}</button>`;
+      const nom = levelName(lv) + (o.requis === lv ? ' — ' + T('target_short') : '');
+      crans += `<button type="button" class="${cls.join(' ')}" data-lv="${lv}"
+        ${o.modifiable ? '' : 'disabled'} data-nom="${esc(nom)}"
+        aria-label="${esc(lv + ' · ' + nom)}">${lv}</button>`;
     }
     const valeur = estNul(o.niveau)
       ? `<span class="cv2-nt-vide">${esc(o.modifiable ? T('pick_level') : T('n_none_yet'))}</span>`
@@ -1597,11 +1620,10 @@
           </div>
           <span class="cv2-nt-val">${valeur}</span>
         </div>
-        <div class="cv2-echelle">${paliers}
-          ${o.modifiable ? `<button type="button" class="cv2-gomme${estNul(o.niveau) ? ' sel' : ''}" data-lv="">
-             <i class="fa-solid fa-eraser"></i>${esc(T('erase'))}</button>` : ''}
+        <div class="cv2-echelle">${crans}
+          ${o.modifiable ? `<button type="button" class="cv2-gomme${estNul(o.niveau) ? ' sel' : ''}"
+             data-lv="" aria-label="${esc(T('erase'))}"><i class="fa-solid fa-eraser"></i></button>` : ''}
         </div>
-        ${o.accord || ''}
       </div>`;
   }
 
@@ -1616,44 +1638,84 @@
     const dev = jeSuisLeDev();
     const card = document.createElement('div');
     const maNote = dev ? r.demonstrated_level : r.self_level;
-    card.className = 'cv2-res' + (estNul(maNote) ? '' : ' est-note');
     card.dataset.dataId = r.data_id;
     const req = estNul(requis) ? null : requis;
     const preuve = (dev ? r.evidence : r.self_evidence) || '';
 
-    const officielle = echelleNote({
+    const officielle = blocNote({
       genre: 'off', titre: T('n_official'), tag: T('n_official_tag'),
       niveau: r.demonstrated_level, requis: req, modifiable: dev,
     });
-    const auto = echelleNote({
+    // ⚠️ Le verdict d'accord sort des deux blocs : il ne parle NI de l'un NI
+    // de l'autre, il parle de leur écart. Posé dans celui du bas, il se
+    // lisait comme un commentaire de l'auto-évaluation.
+    const auto = blocNote({
       genre: 'auto', titre: dev ? T('n_self') : T('n_self_mine'), tag: dev ? '' : T('n_you'),
       niveau: r.self_level, requis: req, modifiable: !dev,
-      accord: accordBadge(r.self_level, r.demonstrated_level, dev),
     });
 
-    // ⚠️ Le standard minimal n'est plus ÉCRIT : il tenait deux lignes de petit
-    // texte par résultat, et la fenêtre en portait autant que de résultats. Il
-    // reste sous le nom, au survol — c'est une référence qu'on consulte, pas
-    // une consigne qu'on relit à chaque fois.
+    // ── LA FICHE : ce qu'on JUGE, puis ce qu'on POSE ──────────────────
+    // ⚠️ Les deux se mélangeaient dans la même colonne de boîtes grises de
+    // poids égal, et rien n'y disait ce qu'on regarde en premier. Séparés,
+    // le sujet prend un fond de nuit — le même que l'en-tête de la page —
+    // et c'est le CONTRASTE qui désigne ce qu'on vient noter.
+    // ⚠️ Le standard minimal y revient ÉCRIT : derrière une info-bulle que
+    // personne ne survole, la phrase qui dit sur quoi on note n'existait pas.
+    card.className = 'cv2-res cv2-fiche' + (estNul(maNote) ? '' : ' est-note');
     card.innerHTML = `
-      <div class="rtete">
-        <div class="rname"${r.minimum_performance_text
-          ? ` title="${esc(T('std'))}${DP}${esc(r.minimum_performance_text)}"` : ''}>${esc(r.name)}
-          ${r.minimum_performance_text ? '<i class="fa-regular fa-circle-question cv2-astuce"></i>' : ''}
+      <div class="fi-corps">
+        <aside class="fi-sujet">
+          <p class="fi-sur">${esc(T('fi_sujet'))}</p>
+          <h3 class="fi-nom">${esc(r.name)}</h3>
+          ${r.minimum_performance_text ? `<div class="fi-std">
+              <p class="fi-sur">${esc(T('std'))}</p>
+              <!-- ⚠️ Un <q>, pas des chevrons écrits à la main : ils sont une
+                   convention FRANÇAISE, et le navigateur pose les guillemets
+                   de la langue du document tout seul. -->
+              <q class="fi-std-t">${esc(r.minimum_performance_text)}</q>
+            </div>` : ''}
+          <div class="fi-req">
+            <p class="fi-sur">${esc(T('fi_requis'))}</p>
+            ${estNul(req)
+              ? `<p class="fi-req-v is-vide">${esc(T('fi_sans_requis'))}</p>`
+              : `<p class="fi-req-v"><b>${req}</b><span>${esc(levelName(req))}</span></p>`}
+          </div>
+          ${dev ? `<div class="fi-main">
+              <span class="ic"><i class="fa-solid fa-ruler"></i></span>
+              <b>${esc(T('pal_sans_norme'))}</b><span data-pourquoi></span>
+            </div>` : ''}
+        </aside>
+
+        <div class="fi-pose">
+          <div class="fi-pose-h">
+            <span class="fi-sur">${esc(T('fi_pose'))}</span><span data-echelle></span>
+          </div>
+          ${officielle}${auto}
+          <div class="fi-bas">
+            <span data-accord></span>
+            <span class="sp"></span>
+            <button type="button" class="cv2-preuve-btn${preuve ? ' hidden' : ''}">
+              <span class="ic"><i class="fa-solid fa-paperclip"></i></span>${esc(T('add_evidence'))}</button>
+          </div>
+          <textarea class="cv2-ev${preuve ? '' : ' hidden'}" placeholder="${esc(T('evidence_ph'))}">${esc(preuve)}</textarea>
         </div>
       </div>
-      <div class="cv2-notes">${officielle}${auto}</div>
-      <button type="button" class="cv2-preuve-btn${preuve ? ' hidden' : ''}">
-        <span class="ic"><i class="fa-solid fa-paperclip"></i></span>${esc(T('add_evidence'))}</button>
-      <textarea class="cv2-ev${preuve ? '' : ' hidden'}" placeholder="${esc(T('evidence_ph'))}">${esc(preuve)}</textarea>
-      ${dev ? `<div class="cv2-vers-pal">
-          <div class="t"><i class="fa-solid fa-ruler"></i>
-            <span>${esc(T('pal_sans_norme'))}</span></div>
-          <p class="d">${esc(T('pal_sans_norme_d'))}</p>
-          <button type="button" class="pal-b pal-b--doux" data-poser-norme>
-            <span class="pal-b-ic"><i class="fa-solid fa-bullseye"></i></span>${esc(T('pal_definir_norme'))}</button>
+      ${dev ? `<div class="fi-porte">
+          <span class="ic"><i class="fa-solid fa-chart-line"></i></span>
+          <div class="t"><b>${esc(T('fi_suivre'))}</b><p>${esc(T('fi_suivre_d'))}</p></div>
+          <button type="button" class="fi-b" data-poser-norme>
+            <span class="fi-b-ic"><i class="fa-solid fa-bullseye"></i></span>${esc(T('pal_definir_norme'))}</button>
         </div>
         <div class="pal-form hidden"></div>` : ''}`;
+
+    const qi = s => card.querySelector(s);
+    if (qi('[data-echelle]')) {
+      qi('[data-echelle]').appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
+    }
+    if (qi('[data-pourquoi]')) {
+      qi('[data-pourquoi]').appendChild(boutonInfo(T('pal_sans_norme'), T('pal_sans_norme_d')));
+    }
+    qi('[data-accord]').innerHTML = accordBadge(r.self_level, r.demonstrated_level, dev);
 
     // Seule MA note se clique ; l'autre est posée là pour être lue.
     const mienne = card.querySelector('.cv2-nt.is-mienne');
@@ -1685,11 +1747,8 @@
       : `<b>${lv}</b> · ${esc(levelName(lv))}`;
     const off = dev ? lv : r.demonstrated_level;
     const perso = dev ? r.self_level : lv;
-    const cible = card.querySelector('.cv2-nt--auto');
-    const ancien = cible.querySelector('.cv2-accord');
-    if (ancien) ancien.remove();
-    const neuf = accordBadge(perso, off, dev);
-    if (neuf) cible.insertAdjacentHTML('beforeend', neuf);
+    const zone = card.querySelector('[data-accord]');
+    if (zone) zone.innerHTML = accordBadge(perso, off, dev);
   }
 
   // Le verdict d'accord vit sur l'auto-évaluation : c'est ELLE qu'on situe par
