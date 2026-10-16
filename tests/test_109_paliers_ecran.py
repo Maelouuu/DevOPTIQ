@@ -582,7 +582,12 @@ class TestUnSeulEndroitPoseUneMesure:
         champ qu'on est en train de taper — le piège déjà rencontré sur les
         cartes du plan de formation."""
         js = _lire(JS)
-        corps = js.split("    const lire = () => {", 1)[1].split("    };", 1)[0]
+        # ⚠️ Ancré sur `rendreCourant` : le formulaire de la carte déclare
+        # lui aussi un `lire`, PLUS HAUT dans le fichier — une découpe non
+        # ancrée tombait dessus et le cas passait au vert sans rien lire de la
+        # séance.
+        seance = js.split("  function rendreCourant() {", 1)[1]
+        corps = seance.split("    const lire = () => {", 1)[1].split("    };", 1)[0]
         assert "renderSeance()" not in corps
         assert "rendreVerdict(p)" in corps and "rendreFile()" in corps
 
@@ -1734,5 +1739,96 @@ class TestLaFicheDeNotation:
         en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
         for k in ("fi_sujet", "fi_pose", "fi_requis", "fi_sans_requis",
                   "fi_suivre", "fi_suivre_d"):
+            assert ("%s:" % k) in fr, "manque en FR : %s" % k
+            assert ("%s:" % k) in en, "manque en EN : %s" % k
+
+
+class TestLeFormulaireDeLaCarte:
+    """« Cette partie-là est encore visuellement moche. » Les quatre
+    formulaires de la carte partagent un patron : un en-tête qui dit ce qu'on
+    fait et contre quoi, un corps dont le champ est le SUJET, un pied où
+    l'irréversible est à l'autre bout de la validation."""
+
+    def _ouvrir(self, js):
+        return js.split("  function ouvrirForm(zone, o, surValider) {", 1)[1] \
+                 .split("\n  }", 1)[0]
+
+    def _trancher(self, js):
+        return js.split("  function formTrancher(zone, r, palier) {", 1)[1] \
+                 .split("\n  function apresEchec()", 1)[0]
+
+    def test_le_patron_porte_un_en_tete_et_un_pied(self):
+        """C'était un rectangle pâle : le titre flottait en 15 px et les deux
+        boutons tombaient au ras du corps."""
+        js = _lire(JS)
+        corps = self._ouvrir(js)
+        assert 'class="pf-tete"' in corps
+        assert 'class="pf-ic"' in corps, "l'en-tête porte sa pastille d'icône"
+        assert 'class="pf-corps"' in corps
+        assert 'class="pal-form-pied"' in corps
+        # ⚠️ Les QUATRE formulaires passent par lui : un seul qui s'en écarte
+        # et la carte porte deux grammaires de formulaire.
+        assert js.count("ouvrirForm(zone, {") == 4
+
+    def test_la_reference_est_une_pastille_pas_une_ligne_grise(self):
+        """Contre quoi on mesure se lisait dans une ligne de 13 px, au milieu
+        du reste. C'est la moitié de la décision : elle est dans l'en-tête."""
+        tr = self._trancher(_lire(JS))
+        assert 'class="pf-rep"' in tr
+        assert "fmtVal(palier.cible, u)" in tr
+        assert "T('pal_au_plus')" in tr and "T('pal_au_moins')" in tr
+
+    def test_le_champ_qu_on_remplit_est_le_SUJET_du_formulaire(self):
+        """130 px et 14,5 px pour le chiffre qu'on vient poser, contre un
+        titre de 15 px : rien ne disait où écrire."""
+        css = _lire(CSS)
+        saisie = css.split('\n.pf-saisie input[type="text"] {', 1)[1].split("}", 1)[0]
+        assert "27px" in saisie
+        assert "var(--pg-font-display)" in saisie
+        assert "text-align: right" in saisie, "le chiffre et son unité se touchent"
+
+    def test_le_grand_champ_vise_l_ATTRIBUT_et_pas_la_classe_seule(self):
+        """⚠️ La règle globale de l'application cible input[type="text"] :
+        elle pèse (0,2,0) et bat une classe suivie d'un élément (0,1,1).
+        Mesuré avant : la largeur passait, la taille restait à 13,5 px."""
+        css = _lire(CSS)
+        assert '\n.pf-saisie input[type="text"] {' in css
+        # Le même piège mordait les champs de la carte, qui croyaient poser
+        # 14,5 px sans jamais y arriver.
+        regle = css.split("\n.pal-champs input[type=", 1)[1].split("{", 1)[0]
+        assert "pal-champ-large input[type=" in regle
+
+    def test_le_libelle_est_vise_par_sa_CLASSE_et_pas_par_son_element(self):
+        """⚠️ `.pf-grand > span` prenait aussi la boîte de saisie, qui est un
+        span : l'unité sortait en capitales grises à côté du chiffre."""
+        css = _lire(CSS)
+        assert "\n.pf-grand > .pf-lbl {" in css
+        assert "\n.pf-grand > span {" not in css
+        js = _lire(JS)
+        assert js.count('class="pf-lbl"') == 2, "les deux grands champs la portent"
+
+    def test_le_verdict_est_un_APERCU_et_pas_la_regle(self):
+        """On tapait un chiffre et rien ne répondait, alors que la séance,
+        elle, donne le sien en direct. Mais c'est `trancher()` qui tranche :
+        le reconstruire côté navigateur en ferait un second verdict."""
+        tr = self._trancher(_lire(JS))
+        assert "inp.addEventListener('input', lire)" in tr
+        assert "mieux(m, palier.cible, sens)" in tr
+        assert "/trancher`" in tr and "res.statut === 'atteint'" in tr
+
+    def test_l_irreversible_est_a_l_autre_bout_du_pied(self):
+        """Il traînait en lien rouge souligné au ras de « Valider » : un geste
+        qui ne se rattrape pas ne se pose pas à côté de celui qu'on répète."""
+        corps = self._ouvrir(_lire(JS))
+        avant, apres = corps.split('<span class="sp"></span>', 1)
+        assert "pf-danger" in avant
+        assert "pf-ko" in apres and "pf-ok" in apres
+        assert "pf-danger" not in apres
+
+    def test_les_libelles_du_formulaire_sont_dans_les_deux_langues(self):
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
+        for k in ("pal_trancher_ok", "pf_contre", "pal_norme_deja_c"):
             assert ("%s:" % k) in fr, "manque en FR : %s" % k
             assert ("%s:" % k) in en, "manque en EN : %s" % k

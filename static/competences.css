@@ -1917,8 +1917,9 @@ header { position: sticky; top: 0; z-index: 30; }
   font-size: 11.5px; font-weight: 700; letter-spacing: .7px;
   text-transform: uppercase; color: var(--muted);
 }
-.pal-champs input, .pal-champs select,
-.pal-champ-large input, .pal-champ-large textarea {
+.pal-champs input[type="text"], .pal-champs select,
+.pal-champ-large input[type="text"], .pal-champ-large textarea,
+.pal-champs input, .pal-champ-large input {
   font-family: inherit; font-size: 14.5px; font-weight: 600; color: var(--ink);
   background: var(--card); border: 1px solid var(--border-strong, var(--border));
   border-radius: var(--r-btn, 9px); padding: 8px 11px; width: 130px;
@@ -3360,4 +3361,133 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 @media (max-width: 1000px) {
   .fi-sujet { width: 100%; }
   .fi-req-v b { font-size: 36px; }
+}
+
+/* ═══════════ LE FORMULAIRE DE LA CARTE : un en-tête, un corps, un pied ═══════
+   « Cette partie-là est encore visuellement moche. » C'était un rectangle
+   pâle sans structure : le titre flottait en 15 px, la référence tenait dans
+   une ligne grise de 13, le champ qu'on vient remplir faisait 130 px — et la
+   SUPPRESSION traînait en lien rouge souligné, au ras des deux boutons.
+   Les quatre formulaires de la carte partagent ce patron ; ils appartiennent
+   tous au régime mesuré, ils en portent donc le vert. */
+.pal-form {
+  padding: 0; background: linear-gradient(170deg, #f3faf7, #fbfdfc);
+  border-top: 1px solid #bfe3d4;
+}
+.pf-tete {
+  display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
+  padding: 13px 16px; border-bottom: 1px solid #ddefe7;
+  background: linear-gradient(100deg, #eaf6f1, #f4fbf8);
+}
+.pf-ic {
+  width: 30px; height: 30px; flex: none; border-radius: 9px; font-size: 13px;
+  display: grid; place-items: center; background: #fff; color: #11835e;
+  box-shadow: 0 1px 2px rgba(10, 85, 64, .12);
+}
+.pf-t { flex: 1; min-width: 150px; }
+.pf-t b { font-size: 14px; color: #0a5540; }
+.pf-t p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.45; color: #4e8775; }
+
+/* La référence contre laquelle on va mesurer : une pastille, pas une ligne. */
+.pf-rep {
+  display: inline-flex; align-items: baseline; gap: 7px; flex: none;
+  padding: 6px 13px; border-radius: 999px; background: #fff;
+  border: 1px solid #bfe3d4; white-space: nowrap;
+}
+.pf-rep .k {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: #4e8775;
+}
+.pf-rep b {
+  font-family: var(--pg-font-display); font-size: 19px; font-weight: 600;
+  color: #0a5540; font-variant-numeric: tabular-nums;
+}
+.pf-rep .s { font-size: 11.5px; color: #4e8775; }
+
+.pf-corps { padding: 15px 16px 2px; }
+
+/* ── Le champ qu'on vient remplir est le SUJET du formulaire ── */
+.pf-grand { display: block; }
+/* ⚠️ On vise .pf-grand > .pf-lbl, et NON .pf-grand > span : la boîte de
+   saisie est elle aussi un span, elle héritait donc des capitales, de la
+   couleur grise et du corps du libellé — l'unité sortait en « ESSAIS » gris
+   clair à côté du chiffre. */
+.pf-grand > .pf-lbl {
+  display: block; margin-bottom: 6px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .7px; text-transform: uppercase; color: var(--muted);
+}
+.pf-saisie {
+  display: inline-flex; align-items: baseline; gap: 8px; padding: 6px 14px 7px;
+  background: var(--card); border: 1px solid var(--border-strong, var(--border));
+  border-radius: 13px; transition: .14s;
+}
+.pf-saisie:focus-within {
+  border-color: #11835e; box-shadow: 0 0 0 3px rgba(17, 131, 94, .16);
+}
+/* ⚠️ Le sélecteur porte [type="text"] : la règle globale de l'application
+   vise cet ATTRIBUT, elle pèse donc (0,2,0) et bat une classe suivie d'un
+   élément (0,1,1). Mesuré : la largeur de 128 px passait, la taille restait
+   à 13,5 px. Le même piège mordait les champs de .pal-champs, qui croyaient
+   poser 14,5 px. */
+.pf-saisie input[type="text"] {
+  width: 104px; padding: 0; border: none; background: none; outline: none;
+  text-align: right; font-family: var(--pg-font-display); font-size: 27px;
+  font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.pf-saisie input::placeholder { color: var(--faint); }
+.pf-saisie em { font-style: normal; font-size: 14px; font-weight: 600; color: var(--muted); }
+
+/* ⚠️ Le verdict est un APERÇU de la comparaison : c'est `trancher()` qui
+   l'écrit. On tapait un chiffre et rien ne répondait, alors que la séance,
+   elle, donne le sien en direct. */
+.pf-verdict:empty { display: none; }
+.pf-verdict {
+  display: inline-flex; align-items: center; gap: 8px; margin: 11px 0 0;
+  padding: 6px 13px; border-radius: 999px; font-size: 12.5px;
+}
+.pf-verdict i { font-size: 12px; }
+.pf-verdict.is-ok { background: var(--pal-vert-p); color: var(--pal-vert-f); }
+.pf-verdict.is-ko { background: var(--pal-rouge-p); color: var(--pal-rouge-f); }
+.pf-verdict span { opacity: .8; }
+
+.pal-form .pal-champ-large { margin-top: 13px; }
+.pal-form .pal-deja {
+  margin: 0; background: #fff; border-color: #ddefe7; color: #4e8775;
+}
+.pal-form .pal-deja i { color: #11835e; }
+
+/* ── Le pied : l'irréversible à un bout, la validation à l'autre ── */
+.pal-form-pied {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 0; padding: 12px 16px; border-top: 1px solid #ddefe7;
+}
+.pal-form-pied .sp { flex: 1; min-width: 0; }
+.pf-danger {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  padding: 7px 13px; border-radius: 999px; font-family: inherit;
+  font-size: 12.5px; font-weight: 600; color: var(--pal-rouge);
+  background: transparent; border: 1px solid transparent; transition: .14s;
+}
+.pf-danger i { font-size: 11px; }
+.pf-danger:hover {
+  background: var(--pal-rouge-p); border-color: var(--pal-rouge-b);
+  color: var(--pal-rouge-f);
+}
+.pf-ko {
+  padding: 8px 15px; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--border-strong, var(--border));
+}
+.pf-ko:hover { border-color: var(--muted); color: var(--ink); }
+.pf-ok {
+  display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
+  border: none; border-radius: 999px; padding: 8px 16px 8px 8px;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: #fff;
+  background: linear-gradient(135deg, #11835e, #0a5540);
+  box-shadow: 0 5px 14px -6px rgba(10, 85, 64, .8); transition: .14s;
+}
+.pf-ok:hover { box-shadow: 0 7px 18px -6px rgba(10, 85, 64, .9); transform: translateY(-1px); }
+.pf-ok .ic {
+  width: 21px; height: 21px; flex: none; border-radius: 50%; font-size: 10px;
+  display: grid; place-items: center; background: rgba(255, 255, 255, .22);
 }

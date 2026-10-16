@@ -5471,6 +5471,73 @@ la fiche (avec et sans niveau attendu), la bulle non rognée par
 l'`overflow: hidden` de la carte (48 px sous son bord haut), et zéro fuite
 française sur l'écran anglais — texte ET attributs.
 
+#### Les formulaires de la carte deviennent des FORMULAIRES (2026-10-16)
+
+« Cette partie-là est encore visuellement moche. » Les quatre formulaires de
+la carte mesurée — poser la norme, poser la première mesure, poser une marche,
+**évaluer un palier** — partageaient un patron qui n'en était pas un : un
+rectangle pâle sans en-tête ni pied, où le titre flottait en 15 px, la
+référence contre laquelle on mesure tenait dans une ligne grise de 13 px au
+milieu du corps, le champ qu'on vient remplir faisait **130 px et 14,5 px** —
+plus petit que le titre — et la SUPPRESSION traînait en lien rouge souligné,
+**au ras des deux boutons**.
+
+`ouvrirForm(zone, o, surValider)` prend désormais un objet et porte les trois
+étages :
+- **un en-tête** (`.pf-tete`) : pastille d'icône, titre, et à droite le
+  `repere` — la cible en pastille (`.pf-rep`, Fraunces 19 px) avec son sens
+  (« au plus » / « au moins »). Contre quoi on mesure est la moitié de la
+  décision : elle ne se lit pas dans une ligne de corps ;
+- **un corps** dont le champ est le SUJET (`.pf-grand` / `.pf-saisie`) :
+  27 px Fraunces, **aligné à droite** pour que le chiffre et son unité se
+  touchent ;
+- **un pied** où l'irréversible est à l'AUTRE bout (`.pf-danger` avant le
+  ressort, `.pf-ko` / `.pf-ok` après) : un geste qui ne se rattrape pas ne se
+  pose pas à côté de celui qu'on répète.
+
+Les quatre appels y passent — un seul qui s'en écarterait et la carte
+porterait deux grammaires de formulaire. Teinte verte partout : ils
+appartiennent tous au régime mesuré.
+
+⚠️ **« Évaluer ce palier » donne son verdict PENDANT la frappe**
+(`.pf-verdict`, vert ou rouge, « Atteint · contre une cible de 5 j ») : on
+tapait un chiffre et rien ne répondait, alors que la séance, elle, répond en
+direct. ⚠️ Mais c'est un **aperçu** de la comparaison, pas la règle : c'est
+`trancher()`, au serveur, qui écrit le statut — le reconstruire côté navigateur
+en ferait un second verdict, et deux implémentations d'un même verdict
+finissent par diverger.
+
+⚠️⚠️ **Deux pièges de spécificité CSS, tous deux silencieux.**
+1. **`.pf-saisie input` ne posait RIEN de sa taille.** La règle globale de
+   l'application vise `input[type="text"]` — un sélecteur d'ATTRIBUT, donc
+   (0,2,0) — et bat une classe suivie d'un élément (0,1,1). Mesuré : la
+   largeur de 128 px passait, la taille restait à **13,5 px**. Le sélecteur
+   porte donc l'attribut lui aussi. Le même piège mordait déjà
+   `.pal-champs input`, qui croyait poser 14,5 px depuis le début.
+2. **`.pf-grand > span` prenait aussi la boîte de saisie**, qui est un span :
+   elle héritait des capitales, du gris et du corps du libellé — l'unité
+   sortait en « ESSAIS » gris clair à côté du chiffre. On vise `.pf-lbl`.
+
+⚠️ **Et une leçon de shell, pas de CSS** : écrire ces commentaires par un
+heredoc Bash entre guillemets a fait **évaluer les backticks** — chaque nom de
+sélecteur cité entre `` ` `` a disparu du fichier, laissant des commentaires
+amputés (« ⚠️ , pas  : … »). Un commentaire qui cite du code se pose par la
+Write tool ou un heredoc *quoté*.
+
+⚠️ `test_109::TestUnSeulEndroitPoseUneMesure::…ne_rerend_pas_la_page…` est
+**ancré sur `rendreCourant`** : le formulaire de la carte déclare lui aussi un
+`lire`, plus haut dans le fichier, et la découpe non ancrée tombait dessus —
+le cas passait au vert sans rien lire de la séance.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 126 à **134 cas** ; **huit
+défauts remis un par un, huit cliquets tombés** (l'en-tête retiré, la référence
+rendue à une ligne, le champ ramené à 14,5 px, les deux spécificités, le
+verdict muet, la suppression ramenée à côté de « Valider », une clé absente de
+l'anglais). Suite : **3247 passés**, `repet_image` 3207 + 41 sautés. Éprouvé au
+banc à 1600 px dans les deux langues (`tools/devrun_competences.py`) : les deux
+verdicts, et zéro fuite française sur l'écran anglais — les trois relevés sont
+des DONNÉES du banc (le nom de la sortie et son standard).
+
 ---
 
 ## Notes importantes (suite)

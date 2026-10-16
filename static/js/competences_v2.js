@@ -102,6 +102,9 @@
       pal_premiere_d: "Trois choses, en une fois : ce que l'entreprise attend, ce qui a été relevé, et le niveau qui en découle.",
       pal_premiere_ok: 'Première mesure enregistrée.',
       pal_norme_deja: 'Norme déjà définie pour cette sortie —',
+      pal_norme_deja_c: "Elle vit sur la sortie, pas sur la personne : on ne redemande que la mesure.",
+      pal_trancher_ok: 'Enregistrer la mesure',
+      pf_contre: 'contre une cible de [[c]]',
       pal_mesure_q: "Qu'a-t-on mesuré pour [[x]] ?",
       pal_mesure_manque: 'Donnez la valeur mesurée.',
       pal_niveau_suivra: 'Niveau qui en découle',
@@ -440,6 +443,9 @@
       pal_premiere_d: 'Three things at once: what the company expects, what was measured, and the level that follows.',
       pal_premiere_ok: 'First reading saved.',
       pal_norme_deja: 'Standard already set for this output —',
+      pal_norme_deja_c: 'It lives on the output, not on the person: only the measurement is asked for.',
+      pal_trancher_ok: 'Save the measurement',
+      pf_contre: 'against a target of [[c]]',
       pal_mesure_q: 'What was measured for [[x]]?',
       pal_mesure_manque: 'Enter the measured value.',
       pal_niveau_suivra: 'Level this gives',
@@ -3375,10 +3381,28 @@
 
   // ⚠️ Les formulaires s'ouvrent DANS la carte, jamais en fenêtre : une modale
   // par-dessus une modale cache le chiffre qu'on vient lire pour décider.
-  function ouvrirForm(zone, html, surValider) {
-    zone.innerHTML = html + `<div class="pal-form-pied">
-        <button type="button" class="btn btn-ghost" data-ko>${esc(T('pal_annuler'))}</button>
-        <button type="button" class="btn btn-primary" data-ok>${esc(T('pal_valider'))}</button>
+  // ⚠️ Un formulaire qui s'ouvre DANS la carte reste un formulaire. Sans
+  // en-tête ni pied, c'était un rectangle pâle où le titre flottait en 15 px,
+  // la référence («&nbsp;Cible&nbsp;: 7&nbsp;%&nbsp;») tenait dans une ligne grise, le champ
+  // qu'on vient remplir faisait 130 px — et la SUPPRESSION traînait en lien
+  // rouge souligné, au ras des deux boutons. Le patron porte donc les trois :
+  // qui on est, ce qu'on fait, et ce qui est irréversible — à l'autre bout
+  // du pied, jamais à côté de « Valider ».
+  function ouvrirForm(zone, o, surValider) {
+    zone.innerHTML = `
+      <div class="pf-tete">
+        <span class="pf-ic"><i class="fa-solid ${o.icone || 'fa-pen'}"></i></span>
+        <div class="pf-t"><b>${esc(o.titre)}</b>${o.sous ? `<p>${esc(o.sous)}</p>` : ''}</div>
+        ${o.repere || ''}
+      </div>
+      <div class="pf-corps">${o.corps}</div>
+      <div class="pal-form-pied">
+        ${o.danger ? `<button type="button" class="pf-danger" data-del>
+            <i class="fa-solid fa-trash-can"></i>${esc(o.danger)}</button>` : ''}
+        <span class="sp"></span>
+        <button type="button" class="pf-ko" data-ko>${esc(T('pal_annuler'))}</button>
+        <button type="button" class="pf-ok" data-ok>
+          <span class="ic"><i class="fa-solid fa-check"></i></span>${esc(o.valider || T('pal_valider'))}</button>
       </div>`;
     zone.classList.remove('hidden');
     zone.querySelector('[data-ko]').onclick = () => { zone.classList.add('hidden'); zone.innerHTML = ''; };
@@ -3441,12 +3465,14 @@
   function formPremiere(zone, r) {
     const n = (r.performance && r.performance.norme) || {};
     const deja = !estNul(n.valeur);
-    ouvrirForm(zone, `
-      <div class="pal-form-h">${esc(T('pal_premiere'))}</div>
-      <p class="pal-form-d">${esc(T('pal_premiere_d'))}</p>
+    ouvrirForm(zone, {
+      icone: 'fa-ruler', titre: T('pal_premiere'), sous: T('pal_premiere_d'),
+      repere: !deja ? '' : `<span class="pf-rep"><span class="k">${esc(T('pal_norme'))}</span>`
+        + `<b>${esc(fmtVal(n.valeur, n.unite))}</b>`
+        + `<span class="s">${esc(n.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span></span>`,
+      corps: `
       ${deja
-        ? `<p class="pal-deja"><i class="fa-solid fa-lock"></i>${esc(T('pal_norme_deja'))}
-             <b>${esc(fmtVal(n.valeur, n.unite))} ${esc(n.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</b></p>`
+        ? `<p class="pal-deja"><i class="fa-solid fa-lock"></i>${esc(T('pal_norme_deja_c'))}</p>`
         : `<div class="pal-champs">
              <label><span>${esc(T('pal_valeur'))}</span>
                <input type="text" data-v inputmode="decimal"></label>
@@ -3457,12 +3483,10 @@
                  <option value="plus">${esc(T('pal_plus'))}</option>
                </select></label>
            </div>`}
-      <div class="pal-champs">
-        <label class="pal-champ-mesure">
-          <span>${esc(Tv('pal_mesure_q', { x: state.cibleNom }))}</span>
-          <input type="text" data-m inputmode="decimal"></label>
-      </div>
+      <label class="pf-grand"><span class="pf-lbl">${esc(Tv('pal_mesure_q', { x: state.cibleNom }))}</span>
+        <span class="pf-saisie"><input type="text" data-m inputmode="decimal" placeholder="—"></span></label>
       <p class="pal-suivra" data-apercu></p>`,
+    },
       async z => {
         const m = lireNb(z, '[data-m]');
         if (!isFinite(m)) { toast(T('pal_mesure_manque')); return; }
@@ -3507,9 +3531,9 @@
 
   function formNorme(zone, r) {
     const n = (r.performance && r.performance.norme) || {};
-    ouvrirForm(zone, `
-      <div class="pal-form-h">${esc(T('pal_norme_titre'))}</div>
-      <p class="pal-form-d">${esc(T('pal_norme_d'))}</p>
+    ouvrirForm(zone, {
+      icone: 'fa-bullseye', titre: T('pal_norme_titre'), sous: T('pal_norme_d'),
+      corps: `
       <div class="pal-champs">
         <label><span>${esc(T('pal_valeur'))}</span>
           <input type="text" data-v value="${esc(estNul(n.valeur) ? '' : fmtNb(n.valeur))}" inputmode="decimal"></label>
@@ -3519,8 +3543,12 @@
             <option value="moins"${n.sens !== 'plus' ? ' selected' : ''}>${esc(T('pal_moins'))}</option>
             <option value="plus"${n.sens === 'plus' ? ' selected' : ''}>${esc(T('pal_plus'))}</option>
           </select></label>
-      </div>
-      ${estNul(n.valeur) ? '' : `<button type="button" class="pal-retirer" data-off>${esc(T('pal_effacer_norme'))}</button>`}`,
+      </div>`,
+      // ⚠️ Effacer la norme REND la sortie qualitative : c'est irréversible
+      // pour sa progression, donc c'est un danger — à l'autre bout du pied,
+      // pas un lien souligné collé au bouton « Valider ».
+      danger: estNul(n.valeur) ? '' : T('pal_effacer_norme'),
+    },
       async z => {
         const v = lireNb(z, '[data-v]');
         if (!isFinite(v)) { toast(T('pal_valeur')); return; }
@@ -3528,7 +3556,7 @@
                               sens: z.querySelector('[data-s]').value });
       });
     brancherUnite(zone);
-    const off = zone.querySelector('[data-off]');
+    const off = zone.querySelector('[data-del]');
     if (off) off.onclick = () => poserNorme(r, { valeur: null });
   }
 
@@ -3557,17 +3585,22 @@
   }
 
   function formPoser(zone, r) {
-    const perf = r.performance, u = (perf.norme || {}).unite || '';
+    const perf = r.performance, n = perf.norme || {}, u = n.unite || '';
     const prop = perf.proposition;
-    ouvrirForm(zone, `
-      <div class="pal-form-h">${esc(T('pal_poser_suivant'))}</div>
+    ouvrirForm(zone, {
+      icone: 'fa-stairs', titre: T('pal_poser_suivant'),
+      sous: estNul(prop) ? '' : Tv('pal_propose', { v: fmtVal(prop, u) }),
+      repere: estNul(n.valeur) ? '' : `<span class="pf-rep"><span class="k">${esc(T('pal_norme'))}</span>`
+        + `<b>${esc(fmtVal(n.valeur, u))}</b>`
+        + `<span class="s">${esc(n.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span></span>`,
+      corps: `
       <div class="pal-champs">
         <label><span>${esc(T('pal_cible'))}${u ? ' (' + esc(u) + ')' : ''}</span>
           <input type="text" data-c value="${esc(estNul(prop) ? '' : fmtNb(prop))}" inputmode="decimal"></label>
         <label><span>${esc(T('pal_delai'))} (${esc(T('pal_jours'))})</span>
           <input type="text" data-j value="30" inputmode="numeric"></label>
-      </div>
-      ${estNul(prop) ? '' : `<p class="pal-form-d">${esc(Tv('pal_propose', { v: fmtVal(prop, u) }))}</p>`}`,
+      </div>`,
+    },
       async z => {
         const c = parseFloat((z.querySelector('[data-c]').value || '').replace(',', '.'));
         if (!isFinite(c)) { toast(T('pal_cible')); return; }
@@ -3583,17 +3616,22 @@
   }
 
   function formTrancher(zone, r, palier) {
-    const u = (r.performance.norme || {}).unite || '';
-    ouvrirForm(zone, `
-      <div class="pal-form-h">${esc(T('pal_trancher'))}</div>
-      <p class="pal-form-d">${esc(T('pal_cible'))}${DP}<b>${esc(fmtVal(palier.cible, u))}</b></p>
-      <div class="pal-champs">
-        <label><span>${esc(T('pal_mesure_lbl'))}${u ? ' (' + esc(u) + ')' : ''}</span>
-          <input type="text" data-m inputmode="decimal"></label>
-      </div>
+    const n = r.performance.norme || {}, u = n.unite || '';
+    const sens = n.sens || SENS_MOINS;
+    ouvrirForm(zone, {
+      icone: 'fa-flag-checkered', titre: T('pal_trancher'),
+      valider: T('pal_trancher_ok'), danger: T('pal_retirer'),
+      repere: `<span class="pf-rep"><span class="k">${esc(T('pal_cible'))}</span>`
+        + `<b>${esc(fmtVal(palier.cible, u))}</b>`
+        + `<span class="s">${esc(sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</span></span>`,
+      corps: `
+      <label class="pf-grand"><span class="pf-lbl">${esc(T('pal_mesure_lbl'))}</span>
+        <span class="pf-saisie"><input type="text" data-m inputmode="decimal"
+          placeholder="—">${u ? `<em>${esc(u)}</em>` : ''}</span></label>
+      <p class="pf-verdict" data-verdict></p>
       <label class="pal-champ-large"><span>${esc(T('ses_note'))}</span>
-        <textarea data-p rows="2" placeholder="${esc(T('pal_preuve_ph'))}"></textarea></label>
-      <button type="button" class="pal-retirer" data-del>${esc(T('pal_retirer'))}</button>`,
+        <textarea data-p rows="2" placeholder="${esc(T('pal_preuve_ph'))}"></textarea></label>`,
+    },
       async z => {
         const m = parseFloat((z.querySelector('[data-m]').value || '').replace(',', '.'));
         if (!isFinite(m)) { toast(T('pal_mesure_lbl')); return; }
@@ -3615,6 +3653,22 @@
       toast(T('pal_supprime'));
       await refreshDashboard(); await ouvrirEvaluation(state.activity);
     };
+    // ⚠️ Un APERÇU de la comparaison, pour montrer d'avance ce que le serveur
+    // dira — c'est `trancher()` qui l'écrit. On tapait un chiffre et rien ne
+    // répondait, alors que la séance, elle, donne son verdict en direct.
+    const vue = zone.querySelector('[data-verdict]');
+    const inp = zone.querySelector('[data-m]');
+    const lire = () => {
+      const m = lireNb(zone, '[data-m]');
+      if (!isFinite(m)) { vue.className = 'pf-verdict'; vue.textContent = ''; return; }
+      const ok = mieux(m, palier.cible, sens);
+      vue.className = 'pf-verdict is-' + (ok ? 'ok' : 'ko');
+      vue.innerHTML = `<i class="fa-solid fa-${ok ? 'circle-check' : 'circle-xmark'}"></i>`
+        + `<b>${esc(T(ok ? 'pal_atteint' : 'pal_manque'))}</b>`
+        + `<span>${esc(Tv('pf_contre', { c: fmtVal(palier.cible, u) }))}</span>`;
+    };
+    inp.addEventListener('input', lire);
+    lire();
   }
 
   function apresEchec() {
