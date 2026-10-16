@@ -2766,13 +2766,10 @@ def api_debug_decisions_ai():
         return jsonify({"error": "Pas de fichier VSDX pour cette entité"}), 404
 
     try:
-        xml_content = _read_vsdx_page_xml(vsdx_path)
+        vsdx_result = extract_decisions_from_vsdx(vsdx_path)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-    result = _ai_extract_decisions(xml_content, entity.name)
+    result = _ai_extract_decisions(vsdx_result, entity.name)
     return jsonify(result)
 
-
-
-    return jsonify({"error": "Aucune clé IA configurée (ANTHROPIC_KEY ou OPENAI_API_KEY)"}), 503

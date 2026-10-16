@@ -642,5 +642,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-09T03:23:02"
+  },
+  {
+    "patch_uid": "2026-10-16-debug-decisions-ai-legacy-str",
+    "title": "Route legacy /api/debug-decisions/ai : chaîne XML passée à une fonction attendant un dict",
+    "node_ids": [
+      "tests/test_111_debug_decisions_ia.py::TestLegacyDebugDecisions::test_ai_avec_vsdx_stocke_appelle_l_ia"
+    ],
+    "page_slug": "debug_decisions_ia",
+    "failure_reason": "POST /activities/api/debug-decisions/ai avec un VSDX stocké levait AttributeError (500 HTML) : str has no attribute get.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "api_debug_decisions_ai passait le XML brut (_read_vsdx_page_xml) à _ai_extract_decisions qui attend le dict de extract_decisions_from_vsdx.",
+    "fix_description": "La route appelle désormais extract_decisions_from_vsdx(vsdx_path) (erreurs en 500 JSON) ; suppression du return mort en fin de fichier.",
+    "files_changed": [
+      "Code/routes/activities_map.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-16T03:30:29"
   }
 ]

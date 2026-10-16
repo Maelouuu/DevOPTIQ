@@ -81,6 +81,7 @@ PAGE_LABELS = {
     "test_105_roles_communs":              "Rôles Communs — Recherche, Usage, Fusion",
     "test_106_activities_data_defensif":  "Détails d'activité — Branches défensives",
     "test_110_paliers_norme_erreurs":     "Paliers — Norme, droits et chemins d'erreur",
+    "test_111_debug_decisions_ia":       "Carte — Débogage des décisions (VSDX / IA)",
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
     "test_57_mastery":                   "Niveaux de Maîtrise",
     "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
