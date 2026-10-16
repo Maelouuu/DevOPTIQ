@@ -22,7 +22,7 @@
 
   const I18N = {
     fr: {
-      p_profil_peu: 'Le profil se dessine à partir de trois activités. En attendant, les voici une par une.',
+      p_profil_peu: "Le profil se dessine à partir de trois activités évaluées ou dotées d'un niveau attendu. En attendant, les voici une par une.",
       cal_voir_tout: 'Voir le calendrier',
       cal_aucune_a_venir: 'Aucune séance prévue pour le moment.',
       cal_seances: 'Prochaines séances',
@@ -93,7 +93,26 @@
       pal_norme_d: 'Ce qui est attendu de cette sortie, pour tout le monde — elle ne dépend pas de qui fait le travail.',
       pal_valeur: 'Valeur',
       pal_unite: 'Unité',
-      pal_unite_ph: 'h, jours, %…',
+      pal_unite_ph: 'essais, lignes, €…',
+      pal_unite_autre: 'Autre…',
+      pal_u_pct: '% (pourcent)',
+      pal_u_j: 'j (jours)',
+      pal_u_h: 'h (heures)',
+      pal_premiere: 'Première mesure',
+      pal_premiere_d: "Trois choses, en une fois : ce que l'entreprise attend, ce qui a été relevé, et le niveau qui en découle.",
+      pal_premiere_ok: 'Première mesure enregistrée.',
+      pal_norme_deja: 'Norme déjà définie pour cette sortie —',
+      pal_mesure_q: "Qu'a-t-on mesuré pour [[x]] ?",
+      pal_mesure_manque: 'Donnez la valeur mesurée.',
+      pal_niveau_suivra: 'Niveau qui en découle',
+      pal_niveau_pose: 'Niveau posé à la main',
+      pal_exp_poser: 'Expertise',
+      pal_exp_retirer: "Retirer l'expertise",
+      pal_exp_posee: 'posée à la main',
+      pal_exp_mesure: 'mesuré : [[n]] · [[l]]',
+      pal_exp_d: "Aucun chiffre ne définit le niveau 4 : la déduction plafonne à 3. L'expertise se pose.",
+      pal_exp_ok: 'Expertise posée.',
+      pal_exp_off: 'Expertise retirée.',
       pal_sens: "Mieux, c'est",
       pal_moins: 'moins',
       pal_plus: 'plus',
@@ -209,9 +228,11 @@
       rel_zone: 'zone tenue',
       rel_franchie: 'norme franchie',
       rel_tenues: 'marches tenues sur [[t]]',
+      rel_tenues_1: 'marche tenue sur [[t]]',
       rel_repris: 'repris depuis le départ',
       rel_gagne: 'gagnés depuis le départ',
       rel_suivi: 'jours de suivi',
+      rel_suivi_1: 'jour de suivi',
       rel_detail: 'Le détail des séances',
       rel_detail_off: 'Masquer le détail',
       rel_aria: "Le relief de « [[x]] » : [[n]] mesures, norme [[v]]. Le temps en abscisse, la valeur en ordonnée — monter veut dire progresser.",
@@ -333,7 +354,7 @@
       plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
-      p_profil_peu: 'The profile takes shape from three activities on. In the meantime, here they are one by one.',
+      p_profil_peu: 'The profile takes shape from three activities that are assessed or carry a target level. In the meantime, here they are one by one.',
       cal_voir_tout: 'Open the calendar',
       cal_aucune_a_venir: 'No session scheduled at the moment.',
       cal_seances: 'Upcoming sessions',
@@ -404,7 +425,26 @@
       pal_norme_d: 'What is expected of this output, for everyone — it does not depend on who does the work.',
       pal_valeur: 'Value',
       pal_unite: 'Unit',
-      pal_unite_ph: 'h, days, %…',
+      pal_unite_ph: 'tests, lines, €…',
+      pal_unite_autre: 'Other…',
+      pal_u_pct: '% (percent)',
+      pal_u_j: 'j (days)',
+      pal_u_h: 'h (hours)',
+      pal_premiere: 'First reading',
+      pal_premiere_d: 'Three things at once: what the company expects, what was measured, and the level that follows.',
+      pal_premiere_ok: 'First reading saved.',
+      pal_norme_deja: 'Standard already set for this output —',
+      pal_mesure_q: 'What was measured for [[x]]?',
+      pal_mesure_manque: 'Enter the measured value.',
+      pal_niveau_suivra: 'Level this gives',
+      pal_niveau_pose: 'Level set by hand',
+      pal_exp_poser: 'Expertise',
+      pal_exp_retirer: 'Remove expertise',
+      pal_exp_posee: 'set by hand',
+      pal_exp_mesure: 'measured: [[n]] · [[l]]',
+      pal_exp_d: 'No figure defines level 4: the derivation caps at 3. Expertise is set by hand.',
+      pal_exp_ok: 'Expertise set.',
+      pal_exp_off: 'Expertise removed.',
       pal_sens: 'Better means',
       pal_moins: 'less',
       pal_plus: 'more',
@@ -520,9 +560,11 @@
       rel_zone: 'standard met',
       rel_franchie: 'standard reached',
       rel_tenues: 'steps met out of [[t]]',
+      rel_tenues_1: 'step met out of [[t]]',
       rel_repris: 'cut since the start',
       rel_gagne: 'gained since the start',
       rel_suivi: 'days of follow-up',
+      rel_suivi_1: 'day of follow-up',
       rel_detail: 'Session by session',
       rel_detail_off: 'Hide the detail',
       rel_aria: 'Progress relief for “[[x]]”: [[n]] measurements, standard [[v]]. Time along the bottom, value up the side — rising means progress.',
@@ -995,8 +1037,12 @@
     // effondrait le polygone vers le centre : le graphe disait « rien de
     // démontré » là où la vérité est « pas encore regardé » — la distinction
     // que tout le module tient par ailleurs (NULL ≠ 0).
-    const avecCible = (d.profil || []).filter(a => !estNul(a.required_level) && a.required_level > 0);
-    const axes = avecCible;
+    // ⚠️ Et un axe existe dès qu'il y a QUELQUE CHOSE à y porter — un requis
+    // OU un démontré. Filtré sur le seul requis, le profil de quelqu'un dont
+    // aucun rôle n'a fixé de cible restait VIDE, en affichant « le profil se
+    // dessine à partir de trois activités » alors qu'il en avait trois.
+    const axes = (d.profil || []).filter(a =>
+      (!estNul(a.required_level) && a.required_level > 0) || !estNul(a.demonstrated_level));
     const horsGraphe = axes.filter(a => estNul(a.demonstrated_level)).length;
     if (!d.roles.length) { box.classList.add('hidden'); return; }
     box.classList.remove('hidden');
@@ -1298,23 +1344,29 @@
 
     // Une activité non évaluée n'a pas de point : la laisser à 0 la ferait
     // passer pour « non démontrée », ce qu'on distingue partout ailleurs.
-    const req = axes.map(a => a.required_level);
-    const tout = axes.every(a => !estNul(a.demonstrated_level));
-    let couche;
-    if (tout) {
-      couche = `<polygon class="cv2-r-dem" points="${poly(axes.map(a => a.demonstrated_level))}"></polygon>`;
-    } else {
-      // Les suites d'axes mesurés qui se touchent, chacune en polyligne.
+    // ⚠️ La même règle vaut pour le REQUIS : un axe sans cible ne se ferme
+    // pas à zéro, sinon le contour dirait « rien n'est exigé ici » là où la
+    // vérité est « personne n'a encore fixé d'exigence ».
+    const couche = (cle, pleine, partielle) => {
+      const tout = axes.every(a => !estNul(a[cle]) && (cle !== 'required_level' || a[cle] > 0));
+      if (tout) {
+        return `<polygon class="${pleine}" points="${poly(axes.map(a => a[cle]))}"></polygon>`;
+      }
       const suites = [];
       let courante = [];
       axes.forEach((a, i) => {
-        if (estNul(a.demonstrated_level)) { if (courante.length > 1) suites.push(courante); courante = []; }
-        else courante.push(pt(i, a.demonstrated_level));
+        const v = a[cle];
+        if (estNul(v) || (cle === 'required_level' && !(v > 0))) {
+          if (courante.length > 1) suites.push(courante);
+          courante = [];
+        } else courante.push(pt(i, v));
       });
       if (courante.length > 1) suites.push(courante);
-      couche = suites.map(p => `<polyline class="cv2-r-dem-part"
+      return suites.map(p => `<polyline class="${partielle}"
           points="${p.map(c => c.map(x => x.toFixed(1)).join(',')).join(' ')}"></polyline>`).join('');
-    }
+    };
+    const coucheReq = couche('required_level', 'cv2-r-req', 'cv2-r-req-part');
+    const coucheDem = couche('demonstrated_level', 'cv2-r-dem', 'cv2-r-dem-part');
     const points = axes.map((a, i) => {
       if (estNul(a.demonstrated_level)) return '';
       const [x, y] = pt(i, a.demonstrated_level);
@@ -1341,8 +1393,8 @@
     return `<svg class="cv2-radar" viewBox="14 6 492 370" role="img"
                  aria-label="${esc(T('p_title'))}">
         ${toile}
-        <polygon class="cv2-r-req" points="${poly(req)}"></polygon>
-        ${couche}
+        ${coucheReq}
+        ${coucheDem}
         ${points}${etiquettes}
       </svg>`;
   }
@@ -1613,8 +1665,12 @@
     });
     const bp = card.querySelector('.cv2-preuve-btn'), ta = card.querySelector('.cv2-ev');
     bp.onclick = () => { bp.classList.add('hidden'); ta.classList.remove('hidden'); ta.focus(); };
+    // ⚠️ C'est la PREMIÈRE MESURE qui s'ouvre, pas la seule norme : poser la
+    // norme bascule la sortie en régime mesuré, et la note à la main qu'on
+    // lit juste au-dessus cesse alors d'être saisissable. Les deux se
+    // décident donc dans le même geste.
     const bn = card.querySelector('[data-poser-norme]');
-    if (bn) bn.onclick = () => formNorme(card.querySelector('.pal-form'), r);
+    if (bn) bn.onclick = () => formPremiere(card.querySelector('.pal-form'), r);
     return card;
   }
 
@@ -3145,7 +3201,7 @@
     if (faits.length) {
       const tenues = faits.filter(p => p.statut === 'atteint').length;
       items.push([tenues === faits.length ? 'ok' : '', String(tenues),
-                  Tv('rel_tenues', { t: faits.length })]);
+                  nf('rel_tenues', tenues, faits.length)]);
     }
     if (faits.length > 1) {
       const a = faits[0].mesure, z = faits[faits.length - 1].mesure;
@@ -3158,7 +3214,7 @@
       const d2 = dateJour(faits[faits.length - 1].evalue_le);
       if (d1 && d2) {
         const j = Math.round((d2 - d1) / 86400000);
-        if (j > 0) items.push(['', String(j), T('rel_suivi')]);
+        if (j > 0) items.push(['', String(j), nf('rel_suivi', j)]);
       }
     }
     return '<div class="pal-bilan">'
@@ -3174,8 +3230,20 @@
     const perf = r.performance, n = perf.norme || {}, dev = jeSuisLeDev();
     const card = document.createElement('div');
     const niv = perf.niveau;
+    // ⚠️ VIERGE : une norme posée, aucune mesure. La carte affichait alors
+    // « Non évalué » pendant que l'activité montrait encore la note posée à
+    // la main — et plus rien ne permettait de saisir ce qu'on avait relevé.
+    // Tant que rien n'est mesuré, c'est cette note-là qui se lit, et le geste
+    // qu'on propose est la PREMIÈRE MESURE.
+    const vierge = !(perf.paliers || []).length;
+    const expert = perf.expertise === true;
+    // ⚠️ L'expertise POSÉE est le niveau qui compte — la déduction plafonne à
+    // 3. Sans ça la carte affichait « 1 · En acquisition » pendant que
+    // l'activité, elle, lisait 4 : le même défaut d'accord que plus haut,
+    // dans l'autre sens.
+    const lu = expert ? 4 : (estNul(niv) ? perf.niveau_pose : niv);
     card.className = 'cv2-res pal-res' + (perf.qualifie ? ' est-qualifie' : '')
-      + (estNul(niv) ? '' : ' est-note');
+      + (estNul(lu) ? '' : ' est-note');
     card.dataset.dataId = r.data_id;
     card.dataset.mesurable = '1';
 
@@ -3204,25 +3272,36 @@
         ? `<div class="pal-relief">${reliefSvg(r)}</div>${bilanRelief(perf)}`
         : `<p class="pal-vide">${esc(T('pal_rien_d'))}</p>`}</div>
       <div class="pal-pied">
-        <span class="pal-pied-k">${esc(T('pal_niveau_deduit'))}<span data-echelle></span></span>
-        ${estNul(niv)
+        <span class="pal-pied-k">${esc((vierge || expert) ? T('pal_niveau_pose') : T('pal_niveau_deduit'))}<span data-echelle></span></span>
+        ${estNul(lu)
           ? `<span class="pal-niv pal-niv--off">${esc(T('not_assessed'))}</span>`
-          : `<span class="pal-niv pal-niv--${niv >= 2 ? 'ok' : 'bas'}"><b>${niv}</b> · ${esc(levelName(niv))}</span>`}
+          : `<span class="pal-niv pal-niv--${lu >= 2 ? 'ok' : 'bas'}"><b>${lu}</b> · ${esc(levelName(lu))}</span>`}
+        ${expert ? `<span class="pal-exp-tag"><i class="fa-solid fa-hand"></i>${esc(T('pal_exp_posee'))}${
+            estNul(niv) ? '' : ' · ' + esc(Tv('pal_exp_mesure', { n: niv, l: levelName(niv) }))}</span>` : ''}
         <span class="pal-pied-sp"></span>
+        ${dev && !vierge ? `<button type="button" class="pal-exp${expert ? ' est-on' : ''}"
+            data-exp aria-pressed="${expert ? 'true' : 'false'}"
+            title="${esc(T('pal_exp_d'))}"><i class="fa-solid fa-award"></i>${esc(
+              expert ? T('pal_exp_retirer') : T('pal_exp_poser'))}</button>` : ''}
         <!-- Une sortie déjà qualifiée n'appelle plus d'action : poser une
              marche de plus reste possible, mais ce n'est pas ce qu'on vient
              faire. Le bouton passe donc en discret. -->
-        ${dev && encours
-          ? `<button type="button" class="pal-b pal-b--prim" data-trancher="${encours.id}">
-               <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>${esc(T('pal_trancher'))}</button>`
-          : (dev ? `<button type="button" class="pal-b pal-b--${perf.qualifie ? 'doux' : 'prim'}" data-poser>
-               <span class="pal-b-ic"><i class="fa-solid fa-plus"></i></span>${esc((perf.paliers || []).length ? T('pal_poser_suivant') : T('pal_poser'))}</button>` : '')}
+        ${dev && vierge
+          ? `<button type="button" class="pal-b pal-b--prim" data-premiere>
+               <span class="pal-b-ic"><i class="fa-solid fa-ruler"></i></span>${esc(T('pal_premiere'))}</button>`
+          : (dev && encours
+            ? `<button type="button" class="pal-b pal-b--prim" data-trancher="${encours.id}">
+                 <span class="pal-b-ic"><i class="fa-solid fa-gavel"></i></span>${esc(T('pal_trancher'))}</button>`
+            : (dev ? `<button type="button" class="pal-b pal-b--${perf.qualifie ? 'doux' : 'prim'}" data-poser>
+                 <span class="pal-b-ic"><i class="fa-solid fa-plus"></i></span>${esc(T('pal_poser_suivant'))}</button>` : ''))}
       </div>
       <div class="pal-form hidden"></div>`;
 
     const zone = card.querySelector('.pal-form');
     const q = s => card.querySelector(s);
     if (q('[data-norme]')) q('[data-norme]').onclick = () => formNorme(zone, r);
+    if (q('[data-premiere]')) q('[data-premiere]').onclick = () => formPremiere(zone, r);
+    if (q('[data-exp]')) q('[data-exp]').onclick = () => poserExpertise(r, !expert);
     // ⚠️ Le lien du bilan n'existe pas sur une sortie sans palier ni norme :
     // il n'y a rien à détailler, et un câblage sans garde couperait toute la
     // suite de l'init de la carte.
@@ -3249,6 +3328,124 @@
     if (p) p.focus();
   }
 
+  // ── L'unité : trois couvrent presque tout ─────────────────────────
+  // ⚠️ %, jours, heures reviennent à chaque sortie : les retaper au clavier
+  // est une corvée, et deux orthographes de la même grandeur (« j » et
+  // « jours ») se liraient ensuite comme deux unités différentes. Le champ
+  // libre reste, pour tout le reste.
+  const UNITES = ['%', 'j', 'h'];
+  const CLE_UNITE = { '%': 'pal_u_pct', j: 'pal_u_j', h: 'pal_u_h' };
+  function champUnite(courante) {
+    // ⚠️ Une norme NEUVE (`null`) part sur « % », pas sur « Autre… » : ouvrir
+    // le champ libre d'emblée, c'est remettre au clavier ce qu'on vient d'en
+    // retirer. Une norme EXISTANTE sans unité, elle, garde son vide — on ne
+    // change pas une donnée enregistrée en passant.
+    const neuve = estNul(courante);
+    const val = neuve ? UNITES[0] : courante;
+    const connue = UNITES.indexOf(val) >= 0;
+    return `<label><span>${esc(T('pal_unite'))}</span>
+        <span class="pal-unite">
+          <select data-us>
+            ${UNITES.map(x => `<option value="${esc(x)}"${val === x ? ' selected' : ''}>${esc(T(CLE_UNITE[x]))}</option>`).join('')}
+            <option value="*"${connue ? '' : ' selected'}>${esc(T('pal_unite_autre'))}</option>
+          </select>
+          <input type="text" data-u class="${connue ? 'hidden' : ''}"
+                 value="${esc(connue ? '' : (val || ''))}"
+                 placeholder="${esc(T('pal_unite_ph'))}">
+        </span></label>`;
+  }
+  function brancherUnite(zone, apres) {
+    const s = zone.querySelector('[data-us]'), i = zone.querySelector('[data-u]');
+    if (!s || !i) return;
+    s.addEventListener('change', () => {
+      i.classList.toggle('hidden', s.value !== '*');
+      if (s.value === '*') i.focus();
+      if (apres) apres();
+    });
+  }
+  function lireUnite(zone) {
+    const s = zone.querySelector('[data-us]'), i = zone.querySelector('[data-u]');
+    if (!s) return ((i && i.value) || '').trim();
+    return s.value === '*' ? ((i && i.value) || '').trim() : s.value;
+  }
+  const lireNb = (zone, sel) => parseFloat(
+    ((zone.querySelector(sel) || {}).value || '').replace(',', '.').trim());
+
+  // ── La PREMIÈRE mesure : la norme et le relevé, ensemble ──────────
+  // ⚠️ Les deux se posaient séparément, et c'était le trou signalé : on
+  // réglait la norme, la carte basculait en régime mesuré, et il n'existait
+  // plus aucun endroit où saisir ce qu'on avait relevé — la sortie restait
+  // « Non évalué » pendant que l'activité affichait encore l'ancienne note.
+  // ⚠️ Et la norme ne se redemande PAS quand elle existe : elle vit sur la
+  // sortie, pas sur la personne. Qui prend un rôle déjà tenu ailleurs hérite
+  // de la norme de l'entreprise, on ne lui demande que sa mesure.
+  function formPremiere(zone, r) {
+    const n = (r.performance && r.performance.norme) || {};
+    const deja = !estNul(n.valeur);
+    ouvrirForm(zone, `
+      <div class="pal-form-h">${esc(T('pal_premiere'))}</div>
+      <p class="pal-form-d">${esc(T('pal_premiere_d'))}</p>
+      ${deja
+        ? `<p class="pal-deja"><i class="fa-solid fa-lock"></i>${esc(T('pal_norme_deja'))}
+             <b>${esc(fmtVal(n.valeur, n.unite))} ${esc(n.sens === SENS_MOINS ? T('pal_au_plus') : T('pal_au_moins'))}</b></p>`
+        : `<div class="pal-champs">
+             <label><span>${esc(T('pal_valeur'))}</span>
+               <input type="text" data-v inputmode="decimal"></label>
+             ${champUnite(null)}
+             <label><span>${esc(T('pal_sens'))}</span>
+               <select data-s>
+                 <option value="moins">${esc(T('pal_moins'))}</option>
+                 <option value="plus">${esc(T('pal_plus'))}</option>
+               </select></label>
+           </div>`}
+      <div class="pal-champs">
+        <label class="pal-champ-mesure">
+          <span>${esc(Tv('pal_mesure_q', { x: state.cibleNom }))}</span>
+          <input type="text" data-m inputmode="decimal"></label>
+      </div>
+      <p class="pal-suivra" data-apercu></p>`,
+      async z => {
+        const m = lireNb(z, '[data-m]');
+        if (!isFinite(m)) { toast(T('pal_mesure_manque')); return; }
+        const corps = { user_id: state.cible, data_id: r.data_id,
+                        role_id: state.roleId, mesure: m };
+        if (!deja) {
+          const v = lireNb(z, '[data-v]');
+          if (!isFinite(v)) { toast(T('pal_valeur')); return; }
+          corps.valeur = v; corps.unite = lireUnite(z);
+          corps.sens = z.querySelector('[data-s]').value;
+        }
+        const res = await api('/paliers/premiere',
+          { method: 'POST', body: JSON.stringify(corps) });
+        if (res.__error) return;
+        toast(T('pal_premiere_ok'));
+        await refreshDashboard();
+        await ouvrirEvaluation(state.activity);
+      });
+
+    // ⚠️ Un APERÇU, pas une règle : c'est le serveur qui tranche. Avec une
+    // seule marche il n'y a que deux issues — la norme est atteinte (2) ou
+    // non (1). Ni 0 (on ne rate pas une marche que personne n'avait posée),
+    // ni 3 (aucun palier au-delà n'existe encore).
+    const vue = zone.querySelector('[data-apercu]');
+    const maj = () => {
+      const m = lireNb(zone, '[data-m]');
+      const v = deja ? n.valeur : lireNb(zone, '[data-v]');
+      const sens = deja ? (n.sens || SENS_MOINS)
+        : ((zone.querySelector('[data-s]') || {}).value || SENS_MOINS);
+      if (!isFinite(m) || !isFinite(v)) { vue.textContent = ''; return; }
+      const lvl = mieux(m, v, sens) ? 2 : 1;
+      vue.innerHTML = `<span class="k">${esc(T('pal_niveau_suivra'))}</span>`
+        + `<b class="pal-suivra-n pal-suivra-n--${lvl >= 2 ? 'ok' : 'bas'}">${lvl}</b>`
+        + `<span>${esc(levelName(lvl))}</span>`;
+    };
+    brancherUnite(zone, maj);
+    zone.querySelectorAll('input, select').forEach(e => {
+      e.addEventListener('input', maj); e.addEventListener('change', maj);
+    });
+    maj();
+  }
+
   function formNorme(zone, r) {
     const n = (r.performance && r.performance.norme) || {};
     ouvrirForm(zone, `
@@ -3257,8 +3454,7 @@
       <div class="pal-champs">
         <label><span>${esc(T('pal_valeur'))}</span>
           <input type="text" data-v value="${esc(estNul(n.valeur) ? '' : fmtNb(n.valeur))}" inputmode="decimal"></label>
-        <label><span>${esc(T('pal_unite'))}</span>
-          <input type="text" data-u value="${esc(n.unite || '')}" placeholder="${esc(T('pal_unite_ph'))}"></label>
+        ${champUnite(estNul(n.valeur) ? null : (n.unite || ''))}
         <label><span>${esc(T('pal_sens'))}</span>
           <select data-s>
             <option value="moins"${n.sens !== 'plus' ? ' selected' : ''}>${esc(T('pal_moins'))}</option>
@@ -3267,14 +3463,29 @@
       </div>
       ${estNul(n.valeur) ? '' : `<button type="button" class="pal-retirer" data-off>${esc(T('pal_effacer_norme'))}</button>`}`,
       async z => {
-        const brut = (z.querySelector('[data-v]').value || '').replace(',', '.').trim();
-        const v = parseFloat(brut);
+        const v = lireNb(z, '[data-v]');
         if (!isFinite(v)) { toast(T('pal_valeur')); return; }
-        await poserNorme(r, { valeur: v, unite: z.querySelector('[data-u]').value,
+        await poserNorme(r, { valeur: v, unite: lireUnite(z),
                               sens: z.querySelector('[data-s]').value });
       });
+    brancherUnite(zone);
     const off = zone.querySelector('[data-off]');
     if (off) off.onclick = () => poserNorme(r, { valeur: null });
+  }
+
+  // ⚠️ L'EXPERTISE est le seul niveau qu'aucun chiffre ne donne : la
+  // déduction plafonne à 3 (« la norme dépassée »). Sans cette porte, une
+  // sortie mesurée ne pourrait JAMAIS valoir 4, et l'échelle mentirait sur
+  // son propre palier du haut.
+  async function poserExpertise(r, oui) {
+    const res = await api('/mastery/evaluate', { method: 'POST', body: JSON.stringify({
+      user_id: state.cible, activity_id: state.activity.activity_id,
+      data_id: r.data_id, role_id: state.roleId, evaluator: '2',
+      mastery_level: oui ? 4 : null }) });
+    if (res.__error) return;
+    toast(T(oui ? 'pal_exp_ok' : 'pal_exp_off'));
+    await refreshDashboard();
+    await ouvrirEvaluation(state.activity);
   }
 
   async function poserNorme(r, corps) {

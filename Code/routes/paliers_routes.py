@@ -16,7 +16,8 @@ from Code.extensions import db
 from Code.models.models import (Activities, Data, PalierPerformance,
                                 SessionEvaluation, activity_roles)
 from Code.paliers import (SENS, STATUTS_SESSION, etat_sortie, json_session,
-                          mesurable, prochain_rang, proposer_cible, trancher)
+                          mesurable, poser_premiere_mesure, prochain_rang,
+                          proposer_cible, trancher)
 from Code.permissions import current_user
 from Code.routes.qualify_outputs import get_activity_outputs
 
@@ -39,6 +40,28 @@ def _role_porte(activity_id, role_id):
 
 
 # ═══════════════════════════ LA NORME ═══════════════════════════
+def _peut_regler_la_norme(acteur):
+    """Régler la norme engage toute l'organisation : réservé à qui encadre."""
+    from Code.competences_acces import _statut_eleve
+    from Code.models.models import UserRole
+    if _statut_eleve(acteur):
+        return True
+    return UserRole.query.filter_by(manager_id=acteur.id).count() > 0
+
+
+def _lire_norme(p):
+    """La norme telle qu'un formulaire l'envoie, ou un code d'erreur."""
+    try:
+        valeur = float(p["valeur"])
+    except (TypeError, ValueError, KeyError):
+        return None, "invalid_value"
+    sens = (p.get("sens") or "moins").strip().lower()
+    if sens not in SENS:
+        return None, "invalid_direction"
+    return {"valeur": valeur, "sens": sens,
+            "unite": (p.get("unite") or "").strip()[:20] or None}, None
+
+
 @paliers_bp.route("/norme/<int:data_id>", methods=["POST"])
 def poser_norme(data_id):
     """Ce que l'ENTREPRISE attend de cette sortie. Ne regarde personne : la
@@ -49,11 +72,7 @@ def poser_norme(data_id):
     d = db.session.get(Data, data_id)
     if d is None:
         return jsonify({"error": "unknown_output"}), 404
-    # Régler la norme engage toute l'organisation : réservé à qui encadre.
-    from Code.competences_acces import _statut_eleve
-    from Code.models.models import UserRole
-    encadre_qqn = UserRole.query.filter_by(manager_id=acteur.id).count() > 0
-    if not (_statut_eleve(acteur) or encadre_qqn):
+    if not _peut_regler_la_norme(acteur):
         return jsonify({"error": "forbidden"}), 403
 
     p = request.get_json(force=True) or {}
@@ -63,16 +82,12 @@ def poser_norme(data_id):
         d.norme_valeur = d.norme_unite = d.norme_sens = None
         db.session.commit()
         return jsonify({"ok": True, "mesurable": False}), 200
-    try:
-        valeur = float(p["valeur"])
-    except (TypeError, ValueError):
-        return jsonify({"error": "invalid_value"}), 400
-    sens = (p.get("sens") or "moins").strip().lower()
-    if sens not in SENS:
-        return jsonify({"error": "invalid_direction"}), 400
-    d.norme_valeur = valeur
-    d.norme_unite = (p.get("unite") or "").strip()[:20] or None
-    d.norme_sens = sens
+    norme, err = _lire_norme(p)
+    if err:
+        return jsonify({"error": err}), 400
+    d.norme_valeur = norme["valeur"]
+    d.norme_unite = norme["unite"]
+    d.norme_sens = norme["sens"]
     db.session.commit()
     return jsonify({"ok": True, "mesurable": True,
                     "norme": {"valeur": d.norme_valeur, "unite": d.norme_unite or "",
@@ -161,6 +176,66 @@ def creer_palier():
     db.session.add(palier)
     db.session.commit()
     return jsonify({"ok": True, "etat": etat_sortie(d, uid, rid)}), 200
+
+
+@paliers_bp.route("/premiere", methods=["POST"])
+def premiere_mesure():
+    """La PREMIÈRE lecture d'une sortie : la norme et la mesure, ensemble.
+
+    ⚠️ Les deux se posaient séparément, et c'était le trou signalé : on
+    réglait la norme, la carte basculait en régime mesuré, et il n'existait
+    plus aucun endroit où saisir ce qu'on avait relevé — la sortie restait
+    « Non évalué » pendant que l'activité affichait encore l'ancienne note à
+    la main. Une norme sans mesure ne dit rien de personne.
+
+    ⚠️ Et la norme NE SE REDEMANDE PAS quand elle existe déjà : elle vit sur
+    la sortie, pas sur la personne. Quelqu'un qui prend un rôle déjà tenu
+    ailleurs hérite de la norme de l'entreprise — on ne lui demande que sa
+    mesure.
+    """
+    acteur = current_user()
+    if acteur is None:
+        return jsonify({"error": "not_logged_in"}), 401
+    p = request.get_json(force=True) or {}
+    uid, did, rid = p.get("user_id"), p.get("data_id"), p.get("role_id")
+    if not (uid and did and rid):
+        return jsonify({"error": "invalid_payload", "reason": "role_required"}), 400
+    ok, motif = peut_noter(acteur, uid, "2", role_id=rid)
+    if not ok:
+        return jsonify({"error": "forbidden", "reason": motif}), 403
+    d = db.session.get(Data, did)
+    if d is None:
+        return jsonify({"error": "unknown_output"}), 404
+    aid = d.producer_activity_id
+    if aid is None or not _role_porte(aid, rid):
+        return jsonify({"error": "association_not_found"}), 404
+
+    deja = mesurable(d)
+    if not deja:
+        # Poser la norme est une décision d'organisation : la même porte que
+        # `/norme`, pas celle de la notation.
+        if not _peut_regler_la_norme(acteur):
+            return jsonify({"error": "forbidden", "reason": "norme"}), 403
+        norme, err = _lire_norme(p)
+        if err:
+            return jsonify({"error": err}), 400
+    try:
+        mesure = float(p["mesure"])
+    except (TypeError, ValueError, KeyError):
+        return jsonify({"error": "invalid_measure"}), 400
+
+    # ⚠️ UNE transaction : une norme écrite sans sa mesure laisserait
+    # exactement l'écran qu'on vient de corriger.
+    if not deja:
+        d.norme_valeur = norme["valeur"]
+        d.norme_unite = norme["unite"]
+        d.norme_sens = norme["sens"]
+        db.session.flush()
+    poser_premiere_mesure(d, uid, rid, mesure, preuve=p.get("preuve"),
+                          evaluateur_id=acteur.id)
+    db.session.commit()
+    return jsonify({"ok": True, "norme_deja_posee": deja,
+                    "etat": etat_sortie(d, uid, rid)}), 200
 
 
 @paliers_bp.route("/palier/<int:pid>/trancher", methods=["POST"])

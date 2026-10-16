@@ -18,6 +18,15 @@ pytestmark = pytest.mark.activities_map
 
 VSDX_SRC = os.path.join(os.path.dirname(__file__), "..", "Code", "example.vsdx")
 
+# ⚠️ `.dockerignore` exclut les `*.vsdx` : le fichier d'exemple n'existe pas
+# dans l'arbre d'image, où la suite tourne depuis l'instance. Les cinq cas qui
+# en dépendent y échouaient à CHAQUE exécution — et un contrôle qui rougit
+# toujours n'est plus lu, comme la fixture `pulse_app` l'a déjà montré.
+# `tools/repet_image.sh` le reproduit sans Docker.
+besoin_vsdx = pytest.mark.skipif(
+    not os.path.exists(VSDX_SRC),
+    reason="Code/example.vsdx est hors de l'arbre d'image (.dockerignore)")
+
 
 def _fake_client(content=None, boom=None):
     def create(**kwargs):
@@ -184,6 +193,7 @@ class TestAiExtractDecisions:
 
 class TestAnalyzeFileAi:
 
+    @besoin_vsdx
     def test_fichier_valide_appelle_l_ia(self, auth_client, monkeypatch):
         from Code.routes import activities_map as am
         monkeypatch.setattr(am, "openai_client_or_none",
@@ -195,6 +205,7 @@ class TestAnalyzeFileAi:
         assert r.status_code == 200
         assert r.get_json()["source"] == "openai"
 
+    @besoin_vsdx
     def test_analyze_file_valide_retourne_vsdx(self, auth_client):
         with open(VSDX_SRC, "rb") as f:
             data = {"vsdx": (io.BytesIO(f.read()), "example.vsdx")}
@@ -210,6 +221,7 @@ class TestAnalyzeFileAi:
 
 class TestLegacyDebugDecisions:
 
+    @besoin_vsdx
     def test_get_avec_vsdx_stocke(self, auth_client, entite_jetable):
         from Code.routes import activities_map as am
         os.makedirs(am.get_entity_dir(entite_jetable), exist_ok=True)
@@ -222,6 +234,7 @@ class TestLegacyDebugDecisions:
         assert body["has_vsdx"] is True
         assert "decisions" in body["vsdx"]
 
+    @besoin_vsdx
     def test_ai_avec_vsdx_stocke_appelle_l_ia(self, auth_client, entite_jetable, monkeypatch):
         from Code.routes import activities_map as am
         os.makedirs(am.get_entity_dir(entite_jetable), exist_ok=True)
@@ -245,6 +258,7 @@ class TestLegacyDebugDecisions:
         assert r.status_code == 200
         assert r.get_json()["data"] == {"decisions": []}
 
+    @besoin_vsdx
     def test_ai_extraction_en_erreur_500_json(self, auth_client, entite_jetable, monkeypatch):
         from Code.routes import activities_map as am
         os.makedirs(am.get_entity_dir(entite_jetable), exist_ok=True)

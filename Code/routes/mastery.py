@@ -11,7 +11,7 @@ from Code.extensions import db
 from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
-from Code.paliers import etat_sortie, mesurable
+from Code.paliers import NIVEAU_EXPERTISE, etat_sortie, mesurable
 from Code.routes.qualify_outputs import get_activity_outputs
 from Code.role_i18n import nom_affiche
 
@@ -108,8 +108,16 @@ def activity_mastery(user_id, activity_id, role_id=None):
         # finiraient par se contredire, et c'est le chiffre qui fait foi. Une
         # sortie sans norme chiffrée garde, elle, sa note à la main.
         perf = etat_sortie(d, user_id, role_id) if mesurable(d) else None
+        # ⚠️ L'EXPERTISE posée à la main l'emporte : la déduction plafonne à 3,
+        # donc un 4 ne peut venir que de là. Tout le reste vient du chiffre —
+        # et tant que RIEN n'est mesuré, la note d'avant tient : la sortie
+        # affichait « Non évalué » pendant que l'activité montrait encore 4.
         if perf is not None and perf["niveau"] is not None:
-            ref = perf["niveau"]
+            if ref is None or ref < NIVEAU_EXPERTISE:
+                ref = perf["niveau"]
+        if perf is not None:
+            perf["expertise"] = (ev.mastery_level == NIVEAU_EXPERTISE) if ev else False
+            perf["niveau_pose"] = ev.mastery_level if ev else None
         auto = _self_eval(user_id, activity_id, d.id)
         per_result.append({
             "data_id": d.id, "name": d.name,
@@ -519,7 +527,11 @@ def evaluate():
     # performance mesurée. Accepter les deux laisserait une note contredire le
     # chiffre affiché juste à côté. L'auto-évaluation reste permise : c'est un
     # repère que le collaborateur se donne, jamais le niveau qui fait foi.
-    if mesurable(d) and evaluator in VALIDATING:
+    # ⚠️ UNE exception, et une seule : l'EXPERTISE. La déduction plafonne à 3
+    # (« la norme dépassée ») — aucun seuil chiffré ne définit honnêtement le
+    # 4, c'est un jugement. Sans cette porte, une organisation ne peut jamais
+    # dire d'un collaborateur mesuré qu'il est expert. `null` l'efface.
+    if mesurable(d) and evaluator in VALIDATING and lvl not in (None, NIVEAU_EXPERTISE):
         return jsonify({"error": "measured_output"}), 400
     ev = CompetencyEvaluation.query.filter_by(
         user_id=uid, activity_id=aid, item_type=RESULT_ITEM_TYPE, item_id=did, eval_number=evaluator).first()

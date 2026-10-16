@@ -725,10 +725,27 @@ class TestLeProfilSeDessineDesQuUneCibleExiste:
     qu'on vient d'affecter n'avait aucun profil. On trace le REQUIS de toutes
     celles qui en portent un, et le démontré se remplit par-dessus."""
 
-    def test_les_axes_ne_sont_plus_filtres_sur_le_demontre(self):
+    def test_un_axe_existe_des_qu_il_y_a_QUELQUE_CHOSE_a_y_porter(self):
+        """⚠️ Filtré sur le seul requis, le profil de quelqu'un dont aucun
+        rôle n'a fixé de cible restait VIDE — en affichant « le profil se
+        dessine à partir de trois activités » alors qu'il en avait trois."""
         js = _lire(JS)
-        assert "const axes = avecCible;" in js
-        assert "avecCible.filter(a => !estNul(a.demonstrated_level))" not in js
+        corps = js.split("  function renderProfil(d) {", 1)[1].split("\n  }", 1)[0]
+        assert "|| !estNul(a.demonstrated_level));" in corps
+        assert "const axes = avecCible;" not in js
+        # Et le message dit la vraie condition.
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        assert "trois activités évaluées ou dotées d'un niveau attendu" in fr
+
+    def test_le_requis_sans_cible_ne_se_ferme_pas_a_zero(self):
+        """Un axe dont aucun rôle n'a fixé la cible dirait « rien n'est exigé
+        ici » — la même distinction que pour le démontré (NULL ≠ 0)."""
+        js = _lire(JS)
+        corps = js.split("  function radarSVG(axes) {", 1)[1].split("\n  }", 1)[0]
+        assert "const coucheReq = couche('required_level'" in corps
+        assert "cv2-r-req-part" in corps
+        assert "poly(req)" not in corps, "plus de polygone fermé sur le requis"
+        assert ".cv2-r-req-part {" in _lire(CSS)
 
     def test_la_surface_demontree_ne_se_ferme_que_si_tout_est_mesure(self):
         """Là où il n'y a pas de mesure, il n'y a pas de trait : fermer le
@@ -1146,7 +1163,11 @@ class TestOnPeutDonnerUneNormeApresCoup:
         # à faire passer le contrôle alors que le BOUTON avait disparu.
         assert "data-poser-norme>" in corps, "le bouton lui-même doit porter l'attribut"
         assert "pal_definir_norme" in corps
-        assert "formNorme(card.querySelector('.pal-form'), r)" in js
+        # ⚠️ Et c'est la PREMIÈRE MESURE qui s'ouvre, pas la seule norme :
+        # poser la norme bascule la sortie en régime mesuré, et la note à la
+        # main qu'on lit juste au-dessus cesse alors d'être saisissable.
+        assert "formPremiere(card.querySelector('.pal-form'), r)" in js
+        assert "formNorme(card.querySelector('.pal-form'), r)" not in js
 
     def test_poser_la_norme_fait_basculer_la_sortie(self, app, auth_client, bob, comme_dev):
         """La même route sert aux deux : une sortie jugée à la main devient
@@ -1384,3 +1405,189 @@ class TestLeRelief:
         for mort in ("--pg-accent-soft", "--pg-accent-softer",
                      "--pg-accent-border", "--pg-accent-glow"):
             assert mort not in bloc, mort
+
+
+class TestLaPremiereMesureSePoseEnUneFois:
+    """⚠️ Le trou signalé : on réglait la norme, la carte basculait en régime
+    mesuré, et il n'existait plus aucun endroit où saisir ce qu'on avait
+    relevé. La sortie restait « Non évalué » pendant que l'activité affichait
+    encore l'ancienne note à la main. Une norme sans mesure ne dit rien de
+    personne : les deux se posent ENSEMBLE.
+    """
+
+    def _sortie_nue(self, bob):
+        """La sortie de Bob, débarrassée de sa norme et de ses paliers."""
+        from Code.models.models import Data, PalierPerformance
+        for p in PalierPerformance.query.filter_by(
+                user_id=bob["bob_id"], data_id=bob["data_id"]).all():
+            db.session.delete(p)
+        d = db.session.get(Data, bob["data_id"])
+        d.norme_valeur = d.norme_unite = d.norme_sens = None
+        db.session.commit()
+        return d
+
+    def test_norme_et_mesure_dans_UNE_transaction(self, auth_client, bob, comme_dev):
+        from Code.models.models import Data
+        self._sortie_nue(bob)
+        r = auth_client.post("/paliers/premiere", json={
+            "user_id": bob["bob_id"], "data_id": bob["data_id"],
+            "role_id": bob["role_id"], "valeur": 48, "unite": "h",
+            "sens": "moins", "mesure": 60})
+        assert r.status_code == 200, r.data
+        j = json.loads(r.data)
+        assert j["norme_deja_posee"] is False
+        d = db.session.get(Data, bob["data_id"])
+        assert d.norme_valeur == 48 and d.norme_unite == "h"
+        # ⚠️ La première lecture dit OÙ ON PART : sa cible est la mesure
+        # elle-même. Lui donner la norme pour cible rendrait « 0 · Non
+        # démontré » à quelqu'un qui fait le travail.
+        assert len(j["etat"]["paliers"]) == 1
+        assert j["etat"]["paliers"][0]["cible"] == 60
+        assert j["etat"]["paliers"][0]["mesure"] == 60
+        assert j["etat"]["niveau"] == 1, "il produit, pas encore au niveau attendu"
+
+    def test_une_mesure_qui_tient_deja_la_norme_vaut_2_pas_3(
+            self, auth_client, bob, comme_dev):
+        """⚠️ Avec la mesure pour cible, un premier relevé meilleur que la
+        norme fabriquait un « palier au-delà » et se décernait 3 : 40 h pour
+        une norme de 48 h rendait « Maîtrise étendue » dès le premier jour,
+        là où le même chiffre vaut 2 par le chemin normal. Dépasser la norme
+        est une marche qu'on DÉCIDE de poser."""
+        self._sortie_nue(bob)
+        r = auth_client.post("/paliers/premiere", json={
+            "user_id": bob["bob_id"], "data_id": bob["data_id"],
+            "role_id": bob["role_id"], "valeur": 48, "unite": "h",
+            "sens": "moins", "mesure": 40})
+        j = json.loads(r.data)
+        assert j["etat"]["niveau"] == 2
+        assert j["etat"]["paliers"][0]["cible"] == 48, "la cible s'arrête à la norme"
+        assert j["etat"]["paliers"][0]["mesure"] == 40
+
+    def test_la_norme_DEJA_posee_ne_se_redemande_pas(self, auth_client, bob, comme_dev):
+        """Elle vit sur la sortie, pas sur la personne : qui prend un rôle
+        déjà tenu ailleurs en hérite."""
+        from Code.models.models import Data, PalierPerformance
+        for p in PalierPerformance.query.filter_by(
+                user_id=bob["bob_id"], data_id=bob["data_id"]).all():
+            db.session.delete(p)
+        db.session.commit()
+        d = db.session.get(Data, bob["data_id"])
+        assert d.norme_valeur is not None, "le décor pose déjà la norme"
+        avant = d.norme_valeur
+        r = auth_client.post("/paliers/premiere", json={
+            "user_id": bob["bob_id"], "data_id": bob["data_id"],
+            "role_id": bob["role_id"], "mesure": 70,
+            "valeur": 999})          # ignorée : elle existe déjà
+        assert r.status_code == 200, r.data
+        assert json.loads(r.data)["norme_deja_posee"] is True
+        assert db.session.get(Data, bob["data_id"]).norme_valeur == avant
+
+    def test_sans_mesure_rien_n_est_ecrit(self, auth_client, bob, comme_dev):
+        """Une norme écrite sans sa mesure laisserait exactement l'écran
+        qu'on vient de corriger."""
+        from Code.models.models import Data
+        self._sortie_nue(bob)
+        r = auth_client.post("/paliers/premiere", json={
+            "user_id": bob["bob_id"], "data_id": bob["data_id"],
+            "role_id": bob["role_id"], "valeur": 48, "sens": "moins"})
+        assert r.status_code == 400
+        assert json.loads(r.data)["error"] == "invalid_measure"
+        db.session.expire_all()
+        assert db.session.get(Data, bob["data_id"]).norme_valeur is None
+
+    def test_le_role_est_obligatoire(self, auth_client, bob, comme_dev):
+        r = auth_client.post("/paliers/premiere", json={
+            "user_id": bob["bob_id"], "data_id": bob["data_id"], "mesure": 60})
+        assert r.status_code == 400
+        assert json.loads(r.data)["reason"] == "role_required"
+
+    def test_un_compte_qui_ne_suit_pas_ce_role_ne_mesure_pas(self, auth_client, bob):
+        from Code.models.models import User
+        tiers = User(first_name="Tiers", last_name="Premiere",
+                     email="tiers.premiere@test.local", status="user")
+        tiers.password = "x"
+        db.session.add(tiers)
+        db.session.commit()
+        with auth_client.session_transaction() as sess:
+            avant = sess.get("user_id")
+            sess["user_id"] = tiers.id
+        try:
+            r = auth_client.post("/paliers/premiere", json={
+                "user_id": bob["bob_id"], "data_id": bob["data_id"],
+                "role_id": bob["role_id"], "mesure": 60})
+            assert r.status_code == 403, r.data
+        finally:
+            with auth_client.session_transaction() as sess:
+                sess["user_id"] = avant
+            db.session.delete(db.session.get(User, tiers.id))
+            db.session.commit()
+
+
+class TestLEcranPoseLesTroisElements:
+
+    def test_le_formulaire_demande_les_trois(self):
+        js = _lire(JS)
+        corps = js.split("  function formPremiere(zone, r) {", 1)[1].split("\n  }", 1)[0]
+        assert "/paliers/premiere" in corps
+        assert "pal_mesure_q" in corps, "ce qu'on a relevé"
+        assert "pal_norme_deja" in corps, "la norme déjà posée se rappelle"
+        assert "pal_niveau_suivra" in corps, "le niveau se montre AVANT de valider"
+
+    def test_l_apercu_du_niveau_n_est_PAS_une_seconde_regle(self):
+        """Avec une seule marche il n'y a que deux issues. C'est le serveur
+        qui tranche : l'écran montre d'avance, il ne décide pas."""
+        js = _lire(JS)
+        corps = js.split("  function formPremiere(zone, r) {", 1)[1].split("\n  }", 1)[0]
+        assert "const lvl = mieux(m, v, sens) ? 2 : 1;" in corps
+        assert "niveau_depuis_mesure" not in js, "la règle reste au serveur"
+
+    def test_une_sortie_sans_palier_propose_la_premiere_mesure(self):
+        js = _lire(JS)
+        corps = js.split("  function carteMesuree(r) {", 1)[1].split("\n  }", 1)[0]
+        assert "const vierge = !(perf.paliers || []).length;" in corps
+        assert "data-premiere" in corps
+        # ⚠️ Et tant que rien n'est mesuré, c'est la note posée à la main qui
+        # se lit — la carte disait « Non évalué » pendant que l'activité
+        # affichait encore 4.
+        assert "const lu = expert ? 4 : (estNul(niv) ? perf.niveau_pose : niv);" in corps
+        assert "pal_niveau_pose" in corps
+        # ⚠️ Et dans l'AUTRE sens : l'expertise posée est le niveau qui
+        # compte, la déduction plafonnant à 3. La carte affichait
+        # « 1 · En acquisition » pendant que l'activité lisait 4.
+        assert "pal_exp_mesure" in corps, "le niveau mesuré reste lisible à côté"
+
+    def test_l_expertise_se_pose_depuis_la_carte(self):
+        js = _lire(JS)
+        assert "async function poserExpertise(r, oui) {" in js
+        corps = js.split("  async function poserExpertise(r, oui) {", 1)[1].split("\n  }", 1)[0]
+        assert "mastery_level: oui ? 4 : null" in corps
+        assert "data-exp" in js
+
+    def test_l_unite_se_choisit_dans_une_liste(self):
+        """%, jours et heures reviennent à chaque sortie : les retaper est une
+        corvée, et deux orthographes de la même grandeur se liraient comme
+        deux unités."""
+        js = _lire(JS)
+        assert "const UNITES = ['%', 'j', 'h'];" in js
+        assert "function champUnite(courante) {" in js
+        # Le champ libre reste, pour tout le reste.
+        assert "pal_unite_autre" in js
+        for f in ("formNorme", "formPremiere"):
+            corps = js.split("  function %s(zone, r) {" % f, 1)[1].split("\n  }", 1)[0]
+            assert "champUnite(" in corps, f
+        css = _lire(CSS)
+        assert ".pal-unite {" in css
+
+    def test_les_libelles_de_la_premiere_mesure_sont_dans_les_deux_langues(self):
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
+        for k in ("pal_premiere", "pal_premiere_d", "pal_premiere_ok",
+                  "pal_norme_deja", "pal_mesure_q", "pal_mesure_manque",
+                  "pal_niveau_suivra", "pal_niveau_pose", "pal_unite_autre",
+                  "pal_u_pct", "pal_u_j", "pal_u_h", "pal_exp_poser",
+                  "pal_exp_retirer", "pal_exp_posee", "pal_exp_d",
+                  "pal_exp_mesure", "rel_tenues_1", "rel_suivi_1",
+                  "pal_exp_ok", "pal_exp_off"):
+            assert ("%s:" % k) in fr, "manque en FR : %s" % k
+            assert ("%s:" % k) in en, "manque en EN : %s" % k

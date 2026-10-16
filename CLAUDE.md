@@ -5288,6 +5288,109 @@ française sur l'écran anglais.
 Maquettes : canvas « Paliers — le relief » (le système, le relief, les trois
 états, la densité).
 
+
+#### La PREMIÈRE MESURE se pose en une fois — et le 4 redevient atteignable (2026-10-16)
+
+Quatre reproches, et l'un d'eux ouvrait un trou de structure.
+
+**« Si on définit la norme et qu'on l'enregistre, on ne peut plus saisir la
+note de l'user après. »** Exact. Poser la norme fait basculer la sortie du
+régime JUGÉ (échelle 0→4 à la main) au régime MESURÉ (le niveau se déduit du
+chiffre) : l'échelle disparaît, `POST /mastery/evaluate` refuse (`measured_
+output`), et il n'existait **aucun** endroit où entrer ce qu'on avait relevé.
+Une norme sans mesure ne dit rien de personne.
+
+**Et le symptôme inverse** : une note déjà posée, puis la norme ajoutée — la
+carte affichait « Non évalué » pendant que l'activité montrait toujours 4. La
+donnée était intacte (`ref` garde la note tant que `perf["niveau"]` est NULL),
+c'est la CARTE qui ne montrait que le niveau déduit.
+
+- **`POST /paliers/premiere`** — la norme et la mesure dans UNE transaction,
+  et l'écran les demande ensemble : « Première mesure » remplace « Poser un
+  palier » sur une sortie sans marche, et c'est aussi ce qu'ouvre « Définir la
+  norme » depuis une carte jugée à la main.
+  ⚠️ **La norme ne se redemande PAS quand elle existe** : elle vit sur la
+  sortie, pas sur la personne. Qui prend un rôle déjà tenu ailleurs en hérite
+  — l'écran la rappelle en lecture seule et ne demande que la mesure. C'est
+  exactement le cas que l'utilisateur avait isolé.
+  ⚠️ Poser la norme engage l'organisation : la route exige `peut_noter` POUR
+  la mesure **et** la porte de `/norme` pour la norme — pas l'une à la place
+  de l'autre.
+- ⚠️ **La cible du premier relevé, deux fois corrigée.** Lui donner la NORME
+  rendait « 0 · Non démontré » à quelqu'un qui fait le travail : on ne rate
+  pas une marche que personne n'avait posée. Lui donner la MESURE fabriquait
+  l'inverse — mesuré au banc, 40 h pour une norme de 48 h se décernait **3 ·
+  Maîtrise étendue dès le premier jour**, parce que la cible devenait un
+  « palier au-delà », là où le même chiffre vaut 2 par le chemin normal. La
+  règle : la cible est la mesure, **jamais au-delà de la norme**. Dépasser est
+  une marche qu'on DÉCIDE de poser.
+- **Le troisième élément se MONTRE, il ne se tape pas.** L'utilisateur
+  demandait les trois (note, norme, mesure) ; le niveau se déduit du chiffre —
+  c'est la règle du module, et c'est ce que dit déjà le « i » de l'échelle. Le
+  formulaire affiche donc « Niveau qui en découle · 1 · En acquisition » avant
+  de valider. ⚠️ C'est un APERÇU, pas une seconde règle : avec une seule
+  marche il n'y a que deux issues (la norme est atteinte, ou non), et c'est le
+  serveur qui tranche.
+
+⚠️⚠️ **« Comment un 4/4 se lit-il contre la norme ? »** La question a mis au
+jour un vrai plafond : `niveau_depuis_mesure` ne rend JAMAIS 4 — la déduction
+s'arrête à 3 (« la norme dépassée »), et c'est écrit dans la règle depuis le
+début (« le 4 n'est jamais déduit : c'est un jugement »). Mais sur une sortie
+mesurée, l'échelle 0→4 disparaît : **le 4 n'était plus atteignable par aucun
+chemin**, et l'échelle mentait sur son propre palier du haut.
+`/mastery/evaluate` accepte donc, d'un évaluateur qui fait foi et sur une
+sortie mesurée, **le 4 et lui seul** (`null` l'efface) ; `activity_mastery` lui
+donne la priorité sur le niveau déduit. La carte porte un bouton « Expertise »
+et écrit les deux chiffres : « 4 · Expertise · posée à la main · mesuré :
+1 · En acquisition ». Sans ce second chiffre, elle disait 1 pendant que
+l'activité lisait 4 — le même défaut d'accord, dans l'autre sens.
+
+**L'unité se choisit** (`champUnite`) : `%`, `j`, `h` en liste, plus un champ
+libre pour le reste. ⚠️ Une norme NEUVE part sur « % », pas sur « Autre… » :
+ouvrir le champ libre d'emblée, c'est remettre au clavier ce qu'on vient d'en
+retirer. ⚠️ Une norme EXISTANTE sans unité garde son vide — on ne change pas
+une donnée enregistrée en passant. ⚠️ Les trois VALEURS sont les mêmes dans
+les deux langues (`j`, pas `d`) : l'unité est une donnée portée par la sortie,
+pas un libellé ; seul son intitulé suit la langue.
+
+**Le radar ne se dessinait pas** alors que la personne a trois activités, et
+le message annonçait « à partir de trois activités ». Les axes étaient filtrés
+sur le seul `required_level` : quelqu'un dont aucun rôle n'a fixé de cible
+n'avait **aucun** axe. Un axe existe désormais dès qu'il y a quelque chose à y
+porter — un requis OU un démontré — et le message dit la vraie condition.
+⚠️ La couche du REQUIS suit alors la même règle que celle du démontré : des
+morceaux de polyligne, jamais un polygone fermé sur un sommet absent — le
+fermer à zéro dirait « rien n'est exigé ici » là où la vérité est « personne
+n'a encore fixé d'exigence ». Mesuré au banc : 0 requis + 2 démontrés → 2 axes
+(sous le seuil, donc pas de radar, ce qui est juste) ; +1 requis → 3 axes et
+le radar paraît.
+ℹ️ Un axe qui porte un requis ISOLÉ ne dessine pas de segment (il en faut
+deux) : la cible reste lisible dans les barres par rôle et dans la bulle. Pas
+de marqueur dédié — il ajouterait du bruit au cas normal, où le requis est un
+contour fermé.
+
+Tests : `test_108` (+1, l'expertise ; le cas « 0→3 refusés » couvre maintenant
+les quatre niveaux), `test_109` (+13 — la première mesure, la norme héritée,
+la transaction, l'aperçu qui n'est pas une règle, la liste d'unités, le radar
+des deux côtés). **Huit défauts remis un par un, huit cliquets tombés.**
+⚠️ L'un d'eux ne mordait PAS au premier essai : sans mesure posée, le niveau
+déduit est NULL et le contrôle de priorité de l'expertise passait sans rien
+éprouver. Le cas tranche donc un palier d'abord.
+Suite : **3227 passés**, `repet_image` 3187 + 41 sautés. Éprouvé au banc
+dans les deux langues : parcours
+complet des deux chemins (norme absente / norme héritée), unité par défaut,
+expertise posée puis retirée, et zéro fuite française sur l'écran anglais
+(texte ET attributs).
+
+⚠️ **Relevé en chemin : `tests/test_111_debug_decisions_ia.py` rougissait à
+chaque exécution sur l'instance.** Cinq de ses cas lisent `Code/example.vsdx`,
+que `.dockerignore` exclut (`*.vsdx`) — ils échouaient donc dans l'arbre
+d'image en passant en local. Garde de saut posée, comme pour la fixture
+`pulse_app`, `test_65` et `test_107` : un contrôle qui rougit toujours n'est
+plus lu, et le jour où il a raison personne ne regarde. C'est la quatrième
+fois — tout cas qui ouvre un fichier hors de `static/`, des gabarits ou de
+`tests/` doit se demander s'il existe dans l'image.
+
 ---
 
 ## Notes importantes (suite)

@@ -40,6 +40,10 @@ STATUTS_SESSION = ("prevue", "tenue", "annulee")
 # Ce que l'atteinte de la norme vaut sur l'échelle de maîtrise.
 NIVEAU_QUALIFIE = 2
 NIVEAU_AVANCE = 3
+# ⚠️ Le seul niveau qu'aucun chiffre ne donne : la déduction plafonne à 3.
+# Il se pose à la main, y compris sur une sortie mesurée — sans quoi une
+# organisation ne peut jamais dire « celui-là est expert ».
+NIVEAU_EXPERTISE = 4
 
 
 def mesurable(d):
@@ -259,6 +263,34 @@ def trancher(palier, mesure, evaluateur_id=None, preuve=None, quand=None):
         palier.preuve = (preuve or "").strip() or None
     palier.statut = "atteint" if atteint(mesure, palier.cible_valeur, sens) else "manque"
     return palier.statut
+
+
+def poser_premiere_mesure(d, user_id, role_id, mesure, preuve=None, evaluateur_id=None):
+    """La toute première lecture d'une sortie mesurée : elle dit OÙ ON PART.
+
+    ⚠️ Sa cible est la mesure ELLE-MÊME, et c'est délibéré. Une première
+    lecture n'est pas un examen qu'on rate : personne n'avait encore posé de
+    marche, donc rien n'a été manqué. Lui donner la norme pour cible rendrait
+    « 0 · Non démontré » à quelqu'un qui fait le travail — simplement pas
+    encore au niveau attendu. C'est ce point de départ qui distingue ensuite
+    « il n'y est pas » (0) de « il progresse » (1).
+
+    ⚠️ Mais elle ne va JAMAIS au-delà de la norme : une lecture meilleure que
+    l'attendu pose la norme pour cible, pas son propre chiffre. Sinon elle
+    fabriquait un « palier au-delà » et se décernait 3 — mesuré : 40 h pour
+    une norme de 48 h rendait « Maîtrise étendue » dès le premier jour, là où
+    le même chiffre vaut 2 par le chemin normal. Dépasser la norme est une
+    marche qu'on DÉCIDE de poser, pas un effet de bord d'un premier relevé.
+    """
+    cible = d.norme_valeur if atteint(mesure, d.norme_valeur, d.norme_sens) else mesure
+    p = PalierPerformance(
+        user_id=user_id, activity_id=d.producer_activity_id, data_id=d.id,
+        role_id=role_id, rang=prochain_rang(user_id, d.id, role_id),
+        cible_valeur=cible, statut="en_cours")
+    db.session.add(p)
+    db.session.flush()
+    trancher(p, mesure, evaluateur_id=evaluateur_id, preuve=preuve)
+    return p
 
 
 def sessions_de(user_id, role_id=None, a_venir_seulement=False):

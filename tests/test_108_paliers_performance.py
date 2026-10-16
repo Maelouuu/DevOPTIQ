@@ -225,12 +225,43 @@ class TestLesDeuxRegimesCohabitent:
             self, auth_client, bob, comme_dev):
         """Deux notes pour une même chose finiraient par se contredire, et
         c'est le chiffre mesuré qui fait foi."""
-        r = auth_client.post("/mastery/evaluate", json={
-            "user_id": bob["bob_id"], "activity_id": bob["activity_id"],
-            "role_id": bob["role_id"], "data_id": bob["data_id"],
-            "evaluator": "2", "mastery_level": 4})
-        assert r.status_code == 400, r.data
-        assert json.loads(r.data)["error"] == "measured_output"
+        for lvl in (0, 1, 2, 3):
+            r = auth_client.post("/mastery/evaluate", json={
+                "user_id": bob["bob_id"], "activity_id": bob["activity_id"],
+                "role_id": bob["role_id"], "data_id": bob["data_id"],
+                "evaluator": "2", "mastery_level": lvl})
+            assert r.status_code == 400, (lvl, r.data)
+            assert json.loads(r.data)["error"] == "measured_output"
+
+    def test_SAUF_l_expertise_qu_aucun_chiffre_ne_donne(
+            self, auth_client, bob, comme_dev):
+        """⚠️ La déduction plafonne à 3 (« la norme dépassée »). Sans cette
+        porte, une sortie mesurée ne pourrait JAMAIS valoir 4 et l'échelle
+        mentirait sur son propre palier du haut."""
+        # ⚠️ Il FAUT une mesure : sans elle le niveau déduit est NULL, et le
+        # contrôle passerait sans jamais éprouver la priorité de l'expertise
+        # sur le chiffre — ce que l'injection du défaut a montré.
+        p1, _ = _palier(auth_client, bob, 96, 30)
+        assert _trancher(auth_client, p1, 90)["etat"]["niveau"] == 1
+        env = {"user_id": bob["bob_id"], "activity_id": bob["activity_id"],
+               "role_id": bob["role_id"], "data_id": bob["data_id"],
+               "evaluator": "2"}
+        r = auth_client.post("/mastery/evaluate", json=dict(env, mastery_level=4))
+        assert r.status_code == 200, r.data
+        etat = json.loads(auth_client.get(
+            "/mastery/activity/%d/%d?role_id=%d"
+            % (bob["bob_id"], bob["activity_id"], bob["role_id"])).data)
+        sortie = next(x for x in etat["results"] if x["data_id"] == bob["data_id"])
+        assert sortie["demonstrated_level"] == 4, "l'expertise l'emporte sur le mesuré"
+        assert sortie["performance"]["expertise"] is True
+        # …et elle se retire.
+        assert auth_client.post("/mastery/evaluate",
+                                json=dict(env, mastery_level=None)).status_code == 200
+        etat = json.loads(auth_client.get(
+            "/mastery/activity/%d/%d?role_id=%d"
+            % (bob["bob_id"], bob["activity_id"], bob["role_id"])).data)
+        sortie = next(x for x in etat["results"] if x["data_id"] == bob["data_id"])
+        assert sortie["performance"]["expertise"] is False
 
     def test_mais_l_auto_evaluation_reste_permise(self, auth_client, bob):
         """C'est un repère que le collaborateur se donne, jamais le niveau qui
