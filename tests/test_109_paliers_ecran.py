@@ -28,6 +28,11 @@ SQL = os.path.join(RACINE, "tools", "db", "seed_competences.sql")
 GABARIT = os.path.join(RACINE, "Code", "routes", "templates", "competences_view.html")
 
 
+def _relief(js):
+    """Le corps de `reliefSvg` — il se termine à la fonction suivante."""
+    return js.split("  function reliefSvg(r) {", 1)[1].split("  // Le bilan dit", 1)[0]
+
+
 def _lire(p):
     return io.open(p, encoding="utf-8").read()
 
@@ -517,13 +522,17 @@ class TestEvaluerEstUnePage:
         assert "body.a-cv2-page .pg-container" in css, \
             "le conteneur est plafonné à 1200 px — 960 réels au zoom .8"
 
-    def test_la_page_charge_l_etat_ET_l_historique_ensemble(self):
-        """Le graphe se déplie dans sa carte : il ne doit pas attendre un
-        aller-retour de plus au moment du clic."""
+    def test_la_page_ne_fait_qu_UN_aller_retour(self):
+        """Le relief se dessine depuis les paliers que `/mastery/activity`
+        porte déjà. `/paliers/historique` n'en rendait qu'un sous-ensemble (les
+        seuls évalués) : une requête dont personne ne lit la réponse, c'est du
+        temps pris à l'ouverture de la page."""
         js = _lire(JS)
         bloc = js.split("async function ouvrirEvaluation(", 1)[1][:900]
-        assert "Promise.all" in bloc
-        assert "/mastery/activity/" in bloc and "/paliers/historique/" in bloc
+        assert "/mastery/activity/" in bloc
+        assert "/paliers/historique/" not in bloc
+        assert "Promise.all" not in bloc
+        assert "state.histo" not in js, "plus de série à tenir en mémoire"
 
     def test_le_tiroir_ne_porte_plus_que_les_dialogues(self):
         js = _lire(JS)
@@ -960,12 +969,12 @@ class TestLesDeuxColonnesSeDistinguent:
 
 
 class TestLEvolutionSeFermeParLeBas:
-    """Une fois le graphe et l'historique dépliés, le bouton qui a OUVERT la
-    section se retrouve en plein milieu : il faut le chercher."""
+    """Une fois l'historique déplié, le bouton qui a OUVERT la section se
+    retrouve en plein milieu : il faut le chercher pour refermer."""
 
     def test_un_bouton_ferme_la_section_depuis_son_pied(self):
         js = _lire(JS)
-        corps = js.split("  function basculerGraphe(card, r) {", 1)[1].split("\n  }", 1)[0]
+        corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
         assert "pal-evo-fin" in corps
         assert "fa-chevron-up" in corps
         # ⚠️ En DERNIER enfant : `.pal-form` vient après l'historique, et une
@@ -974,7 +983,7 @@ class TestLEvolutionSeFermeParLeBas:
 
     def test_il_part_quand_la_section_se_referme(self):
         js = _lire(JS)
-        corps = js.split("  function basculerGraphe(card, r) {", 1)[1].split("\n  }", 1)[0]
+        corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
         avant = corps.split("card.dataset.evo = '';", 1)[0]
         assert ".pal-evo-fin" in avant, "le repli doit le retirer"
 
@@ -1207,3 +1216,171 @@ class TestLesDeuxNotesSeTiennent:
         css = _lire(CSS)
         bloc = css.rsplit("\n.cv2-preuve-btn {", 1)[1].split("}", 1)[0]
         assert "border-radius: 999px" in bloc and "border: 1px solid" in bloc
+
+
+class TestLeRelief:
+    """⚠️ « Visuellement tout est à la même hauteur alors que le niveau
+    augmente. » Le rail posait les marches côte à côte : rien n'y montrait la
+    montée. Le relief les porte sur deux axes RÉELS — le temps en abscisse, la
+    valeur en ordonnée — et il remplace le rail dans la carte d'une sortie
+    mesurée. Le rail reste à la SÉANCE, où la question est « quelle marche
+    suis-je en train de mesurer », pas « comment cela a progressé ».
+    """
+
+    def test_la_carte_mesuree_porte_le_relief_et_non_le_rail(self):
+        js = _lire(JS)
+        corps = js.split("  function carteMesuree(r) {", 1)[1].split("\n  }", 1)[0]
+        assert "reliefSvg(r)" in corps and "bilanRelief(perf)" in corps
+        assert "railHtml(" not in corps, "le rail ne vit plus dans la carte"
+        # …mais il vit toujours à la séance : c'est une AUTRE question.
+        assert 'class="sq-rail">${railHtml(' in js
+
+    def test_l_axe_vertical_est_ordonne_par_MERITE(self):
+        """Une durée compte à rebours, un taux à l'endroit : dans les deux cas
+        MONTER veut dire progresser. Sans cela, une sortie où l'on gagne du
+        temps dessinerait une courbe qui descend — et la moitié des cartes se
+        liraient à l'envers de l'autre moitié."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "const merite = v => (sens === SENS_MOINS ? -v : v);" in corps
+        assert "merite(v) - mmin" in corps
+
+    def test_le_trace_est_DROIT_entre_deux_mesures(self):
+        """Rien n'a été relevé entre deux séances : une courbe lissée
+        inventerait ce qu'on ne sait pas."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "<polyline points=" in corps
+        for courbe in (" C ", " Q ", " S ", "bezier"):
+            assert courbe not in corps, "aucune courbe entre deux points : %s" % courbe
+
+    def test_ce_qui_n_est_pas_mesure_est_creux_et_pointille(self):
+        js = _lire(JS)
+        corps = _relief(js)
+        assert 'stroke-dasharray="2 5"' in corps, "la projection est en pointillé"
+        assert 'stroke-dasharray="2.6 2.4"' in corps, "l'anneau non mesuré est creux"
+
+    def test_un_FANTOME_n_est_jamais_une_mesure(self):
+        """⚠️ `construireRail` recopie la dernière mesure sur le seuil
+        d'au-delà pour que le RAIL le montre franchi. Dans le relief, cette
+        copie dessinait un SECOND point au même relevé, à une date où personne
+        n'a rien mesuré, et le tracé partait à plat vers la droite. Mesuré au
+        banc : deux « 0,8 % » pour trois séances."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "const estMes = s => !s.fantome" in corps
+        assert "s.fantome ? (s.echeance || null)" in corps, \
+            "un fantôme n'emprunte pas la date de la mesure qu'il recopie"
+
+    def test_un_SEUL_norme_franchie(self):
+        """Même piège que le drapeau du rail : `mieux()` répond « atteint »,
+        donc toute marche à partir de la norme se disait franchie."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "const vert = s.statut === 'atteint' && yN !== null && s.estNorme;" in corps
+
+    def test_les_boites_sont_testees_avec_une_MARGE(self):
+        """Les boîtes sont ESTIMÉES — rien n'est dans le document pendant la
+        construction du SVG. Sans marge, deux étiquettes que le calcul croit
+        voisines se touchent au rendu : mesuré au banc, « 8 essais » et
+        « 9,2 essais » se recouvraient de 1,7 px."""
+        js = _lire(JS)
+        assert "const MARGE_X = 3, MARGE_Y = 2;" in js
+        corps = js.split("  function placeur() {", 1)[1].split("\n  }", 1)[0]
+        assert "b.x2 + MARGE_X <= o.x1" in corps and "b.y2 + MARGE_Y <= o.y1" in corps
+
+    def test_la_gouttiere_de_gauche_s_adapte_a_l_unite(self):
+        """⚠️ Une unité longue débordait du cadre : « 14.4 essais » sortait
+        24 px à GAUCHE du viewBox, donc invisible."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "G.X0 = Math.max(62, Math.round(gut) + 16);" in corps
+        assert "G.PX0 = Math.max(RL.PX0, G.X0 + 100);" in corps
+
+    def test_aucune_etiquette_ne_sort_du_cadre_a_droite(self):
+        """L'écart minimal tient les étiquettes entre elles, pas contre les
+        BORDS. « target 2 j · to be measured », centré sur la dernière marche,
+        sortait de 19 px — trouvé en relisant l'écran ANGLAIS, où les libellés
+        sont plus longs."""
+        js = _lire(JS)
+        assert "function glisser(b) {" in js
+        corps = _relief(js)
+        assert "let dx = glisser(b);" in corps
+        assert "P.poser(bouger(b, dx))" in corps
+        # Glisser, oui — mais pas au point de désigner la mauvaise marche.
+        assert "Math.abs(dx) > Math.max(26, dmin * 0.4)" in corps
+
+    def test_l_ordre_de_pose_decide_de_ce_qui_disparait(self):
+        """Quand la place manque, ce qui saute est la décoration — jamais le
+        chiffre relevé. La norme et les mesures sont FORCÉES, la mention de
+        zone passe en dernier et par `poser()`."""
+        js = _lire(JS)
+        corps = _relief(js)
+        i_norme = corps.index("P.forcer(boiteTexte(G.X0 - 14, yN + 4")
+        i_zone = corps.index("rel_zone")
+        assert i_norme < i_zone, "la norme se pose avant la mention de zone"
+        assert "P.forcer(o.b);" in corps, "le chiffre relevé ne se jette pas"
+        assert "P.poser(b)" in corps[i_zone - 400:i_zone + 400], \
+            "la mention de zone cède la place"
+
+    def test_c_est_une_CIBLE_qui_cede_la_place_jamais_un_releve(self):
+        """L'ordre de pose des étiquettes du bas n'est pas l'ordre des
+        marches. Relevé au banc sur une sortie dont la marche 4 avait été
+        tranchée avant la 3 : « cible 4 j · 15/10 » — la mesure la plus
+        RÉCENTE — sautait au profit d'une échéance à venir."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "const ordreBas = mes.slice().reverse()" in corps
+        assert "ordreBas.forEach(i => {" in corps
+        assert "rail.forEach((s, i) => {\n      if (mode.bas === 'rare'" not in corps
+
+    def test_sans_aucune_mesure_le_relief_est_COURT(self):
+        """Il n'y a rien à tracer : le relief plein laissait trois cents pixels
+        de vide sous une norme et une cible."""
+        js = _lire(JS)
+        corps = _relief(js)
+        assert "? { H: 300," in corps and ": { H: 198," in corps
+        assert 'viewBox="0 0 828 \' + G.H + \'"' in corps
+
+    def test_le_bilan_remplace_dix_lignes_d_historique(self):
+        js = _lire(JS)
+        corps = js.split("  function bilanRelief(perf) {", 1)[1].split("\n  }", 1)[0]
+        for cle in ("rel_tenues", "rel_repris", "rel_gagne", "rel_suivi", "rel_detail"):
+            assert cle in corps, cle
+        # ⚠️ Un gain se dit autrement selon le sens : on « reprend » du temps,
+        # on « gagne » des points.
+        assert "sens === SENS_MOINS ? 'rel_repris' : 'rel_gagne'" in corps
+
+    def test_le_lien_du_detail_est_cable_AVEC_une_garde(self):
+        """Il n'existe pas sur une sortie sans palier ni norme : un câblage
+        sans garde couperait toute la suite de l'init de la carte — c'est le
+        piège du contrat DOM de l'éditeur de carto."""
+        js = _lire(JS)
+        assert "if (q('[data-evol]')) q('[data-evol]').onclick" in js
+        assert "function basculerHisto(card, r) {" in js
+        assert "function blocGraphe(" not in js, "le relief EST le graphe"
+
+    def test_les_libelles_du_relief_sont_dans_les_deux_catalogues(self):
+        js = _lire(JS)
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
+        for k in ("rel_bas", "rel_a_mesurer", "rel_seuil", "rel_norme", "rel_zone",
+                  "rel_franchie", "rel_tenues", "rel_repris", "rel_gagne",
+                  "rel_suivi", "rel_detail", "rel_detail_off", "rel_aria"):
+            assert ("%s:" % k) in fr, "manque en FR : %s" % k
+            assert ("%s:" % k) in en, "manque en EN : %s" % k
+
+    def test_les_polices_sont_ecrites_sur_chaque_texte(self):
+        """⚠️ Un SVG n'hérite PAS des polices de la feuille."""
+        js = _lire(JS)
+        assert "const FD = 'Fraunces, Georgia, serif';" in js
+        assert 'font-family="\' + FD + \'"' in _relief(js)
+
+    def test_le_css_du_relief_n_appelle_pas_le_gris_de_la_racine(self):
+        """`--pg-accent-soft` et ses frères sont déclarés sur `:root`, où
+        `--pg-accent` vaut encore le gris par défaut."""
+        css = _lire(CSS)
+        bloc = css.split("LE RELIEF, et le détail", 1)[1].split("\n.pal-histo {", 1)[0]
+        for mort in ("--pg-accent-soft", "--pg-accent-softer",
+                     "--pg-accent-border", "--pg-accent-glow"):
+            assert mort not in bloc, mort

@@ -1947,21 +1947,30 @@ header { position: sticky; top: 0; z-index: 30; }
 .pal-echec > i { font-size: 15px; }
 .pal-echec > span { flex: 1; min-width: 180px; }
 
-/* ───────────────── Le graphe, et l'historique ───────────────── */
-.pal-graphe { padding: 16px 22px 8px; }
-.pal-graphe-d { margin: 0 0 10px; font-size: 13px; color: var(--ink-2); }
-.pal-graphe svg { width: 100%; height: auto; display: block; font-family: var(--pg-font); }
-.pal-leg {
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border);
-  font-size: 12.5px; color: var(--ink-2);
+/* ───────────────── LE RELIEF, et le détail des séances ─────────────────
+   Le relief remplace le rail dans la carte d'une sortie mesurée : deux axes
+   réels, le temps et la valeur ordonnée par mérite. Tout son dessin — y
+   compris le choix des étiquettes qui tiennent — est calculé par
+   `reliefSvg()` ; ici il n'y a que la boîte qui le porte. */
+.pal-relief { padding: 12px 10px 0; }
+.pal-relief svg { width: 100%; height: auto; display: block; }
+.pal-bilan {
+  display: flex; align-items: baseline; gap: 26px; flex-wrap: wrap;
+  margin: 2px 20px 0; padding: 13px 0 0; border-top: 1px solid #f2f4f7;
 }
-.pal-leg span { display: inline-flex; align-items: center; gap: 7px; }
-.pal-leg .t { width: 16px; height: 4px; border-radius: 2px; display: inline-block; }
-.pal-leg .t--bleu { background: var(--pg-accent); }
-.pal-leg .t--noir { background: var(--ink); }
-.pal-leg .t--tirets { height: 0; border-top: 3px dashed #94a3b8; }
-.pal-leg .t--vert { height: 12px; border-radius: 3px; background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); }
+.pal-bilan .n {
+  font-family: var(--pg-font-display); font-size: 21px; font-weight: 600;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.pal-bilan .n.est-ok { color: var(--pal-vert-f); }
+.pal-bilan .l { font-size: 12.5px; color: var(--ink-2); }
+.pal-bilan .sp { flex: 1; min-width: 0; }
+.pal-detail {
+  border: none; background: none; padding: 0; font: inherit; font-size: 12.5px;
+  font-weight: 600; color: var(--pal-vert-f); cursor: pointer; white-space: nowrap;
+}
+.pal-detail:hover { color: var(--pal-vert); text-decoration: underline; }
+.pal-detail i { font-size: 10px; margin-left: 3px; }
 
 .pal-histo { padding: 4px 22px 20px; }
 .pal-histo-h { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 14px; }
@@ -2391,7 +2400,11 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
 .ev-centre .pal-pied { padding: 13px 22px; }
 .ev-centre .cv2-res.pal-res { box-shadow: 0 4px 18px -6px rgba(37, 99, 235, .2); }
 .ev-centre .cv2-res.pal-res.est-qualifie { box-shadow: 0 4px 18px -6px rgba(21, 128, 61, .22); }
-.ev-centre .pal-graphe { padding: 20px 26px 16px; border-top: 1px solid #eef2f7; background: #fcfdff; }
+/* Dans la colonne du milieu, le relief est le héros de la page : il respire. */
+.ev-centre .pal-relief { padding: 16px 14px 0; }
+.ev-centre .pal-bilan { margin: 4px 26px 0; padding-top: 15px; }
+.ev-centre .pal-bilan .n { font-size: 23px; }
+.ev-centre .pal-bilan .l, .ev-centre .pal-detail { font-size: 13px; }
 .pal-echec--page { margin: 0; }
 
 /* L'échelle 0→4 d'une sortie jugée à la main : des boutons qu'on vise. */

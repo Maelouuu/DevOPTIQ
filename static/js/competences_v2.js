@@ -58,7 +58,6 @@
       ev_min_de: 'le [[b]]minimum[[/b]] de ses sorties, jamais la moyenne',
       ev_cible_dit: 'une cible se dessine, elle ne se remplit pas',
       ev_tech: 'Technicité',
-      ev_masquer_evo: "Masquer l'évolution",
       ev_rien_eval: "Rien à évaluer tant que l'activité n'est pas configurée.",
       ev_enregistrer: 'Enregistrer les notes',
       sq_titre: "Séance d'évaluation",
@@ -127,7 +126,6 @@
       pal_poser: 'Poser un palier',
       pal_poser_suivant: 'Poser la marche suivante',
       pal_trancher: 'Évaluer ce palier',
-      pal_evolution: "Voir l'évolution",
       pal_cible: 'Cible',
       pal_delai: 'Délai',
       pal_jours: 'jours',
@@ -196,14 +194,6 @@
       ses_mois_suiv: 'Mois suivant',
       ev_titre: 'Évolution',
       ev_retour: '← Évaluation',
-      ev_descend: "Une durée se bat à la baisse : la courbe doit descendre jusqu'à la ligne noire.",
-      ev_monte: "La courbe doit monter jusqu'à la ligne noire.",
-      ev_zone_q: 'zone « qualifié »',
-      ev_zone_a: 'zone « avancé »',
-      ev_leg_mesure: 'mesuré en session',
-      ev_leg_encours: 'palier en cours',
-      ev_leg_norme: 'la norme',
-      ev_leg_audela: 'un palier au-delà',
       ev_histo: "Tout ce qui s'est passé",
       ev_rien: 'Aucune mesure encore : le graphe apparaîtra après la première session tenue.',
       ev_pose: 'Palier posé : [[v]]',
@@ -212,7 +202,19 @@
       ev_a_venir: 'à venir',
       ev_session_prevue: "Session d'évaluation",
       ev_session_tenue: 'Session tenue',
-      ev_graphe_de: "L'évolution de « [[x]] »",
+      rel_bas: 'cible [[c]] · [[d]]',
+      rel_a_mesurer: 'à mesurer',
+      rel_seuil: 'seuil « avancé »',
+      rel_norme: 'la norme',
+      rel_zone: 'zone tenue',
+      rel_franchie: 'norme franchie',
+      rel_tenues: 'marches tenues sur [[t]]',
+      rel_repris: 'repris depuis le départ',
+      rel_gagne: 'gagnés depuis le départ',
+      rel_suivi: 'jours de suivi',
+      rel_detail: 'Le détail des séances',
+      rel_detail_off: 'Masquer le détail',
+      rel_aria: "Le relief de « [[x]] » : [[n]] mesures, norme [[v]]. Le temps en abscisse, la valeur en ordonnée — monter veut dire progresser.",
       manager: 'Développeur de compétences', my_dev: 'Votre développeur de compétences',
       collaborators: 'Collaborateurs', me: 'Vous', no_collab: 'Aucun collaborateur.',
       no_dev: 'Aucun',
@@ -367,7 +369,6 @@
       ev_min_de: 'the [[b]]lowest[[/b]] of its outputs, never the average',
       ev_cible_dit: 'a target is outlined, never filled in',
       ev_tech: 'Technicity',
-      ev_masquer_evo: 'Hide progress',
       ev_rien_eval: 'Nothing to assess until the activity is configured.',
       ev_enregistrer: 'Save the levels',
       sq_titre: 'Evaluation session',
@@ -436,7 +437,6 @@
       pal_poser: 'Set a step',
       pal_poser_suivant: 'Set the next step',
       pal_trancher: 'Assess this step',
-      pal_evolution: 'See progress',
       pal_cible: 'Target',
       pal_delai: 'Deadline',
       pal_jours: 'days',
@@ -505,14 +505,6 @@
       ses_mois_suiv: 'Next month',
       ev_titre: 'Progress',
       ev_retour: '← Evaluation',
-      ev_descend: 'A duration is fought downwards: the curve must come down to the black line.',
-      ev_monte: 'The curve must rise to the black line.',
-      ev_zone_q: '“qualified” zone',
-      ev_zone_a: '“advanced” zone',
-      ev_leg_mesure: 'measured in session',
-      ev_leg_encours: 'step under way',
-      ev_leg_norme: 'the standard',
-      ev_leg_audela: 'one step beyond',
       ev_histo: 'Everything that happened',
       ev_rien: 'No measurement yet: the chart appears after the first session held.',
       ev_pose: 'Step set: [[v]]',
@@ -521,7 +513,19 @@
       ev_a_venir: 'upcoming',
       ev_session_prevue: 'Evaluation session',
       ev_session_tenue: 'Session held',
-      ev_graphe_de: 'Progress on “[[x]]”',
+      rel_bas: 'target [[c]] · [[d]]',
+      rel_a_mesurer: 'to be measured',
+      rel_seuil: '“advanced” threshold',
+      rel_norme: 'the standard',
+      rel_zone: 'standard met',
+      rel_franchie: 'standard reached',
+      rel_tenues: 'steps met out of [[t]]',
+      rel_repris: 'cut since the start',
+      rel_gagne: 'gained since the start',
+      rel_suivi: 'days of follow-up',
+      rel_detail: 'Session by session',
+      rel_detail_off: 'Hide the detail',
+      rel_aria: 'Progress relief for “[[x]]”: [[n]] measurements, standard [[v]]. Time along the bottom, value up the side — rising means progress.',
       manager: 'Competency developer', my_dev: 'Your competency developer',
       collaborators: 'Team members', me: 'You', no_collab: 'No team member.',
       no_dev: 'None',
@@ -660,7 +664,7 @@
     cible: null, cibleNom: '',
     ecran: null, roleId: null, roleName: null,
     scale: {}, notAssessed: '', domScale: {},
-    rows: [], filtre: null, activity: null, lastState: null, histo: {}, devNom: '',
+    rows: [], filtre: null, activity: null, lastState: null, devNom: '',
     plan: null,
   };
 
@@ -2611,6 +2615,560 @@
     return html + '</div>';
   }
 
+  // ══ LE RELIEF ══════════════════════════════════════════════════════
+  // Le rail posait les marches côte à côte, TOUTES À LA MÊME HAUTEUR : on n'y
+  // voyait pas que le niveau monte. Le relief les porte sur deux axes réels.
+  //  · en abscisse le TEMPS : l'écart entre deux séances se voit, donc un
+  //    ralentissement se voit — « on a mis plus longtemps à reprendre moins ».
+  //  · en ordonnée la valeur ORDONNÉE PAR MÉRITE : une durée compte à
+  //    rebours, un taux à l'endroit. Dans les deux cas MONTER = PROGRESSER,
+  //    et ce sont les étiquettes de l'échelle qui portent l'unité réelle.
+  // ⚠️ Le tracé est DROIT entre deux mesures : rien n'a été relevé entre les
+  // deux, une courbe lissée inventerait ce qu'on ne sait pas. Ce qui n'est
+  // pas encore mesuré est en pointillé, vers un anneau creux.
+
+  // Le cadre horizontal ne bouge jamais ; la HAUTEUR, si — une sortie sans
+  // mesure n'a pas de quoi remplir trois cents pixels (voir `G` plus bas).
+  const RL = { X0: 62, X1: 812, PX0: 162, PX1: 762, YT: 20 };
+  // ⚠️ Un SVG n'hérite PAS des polices de la feuille : `font-family` doit être
+  // écrit sur chaque texte. Les grands chiffres sont en Fraunces — c'est la
+  // police d'affichage du design system — et leur unité en DM Sans.
+  const FD = 'Fraunces, Georgia, serif';
+  const FT = 'DM Sans, system-ui, sans-serif';
+
+  // Une boîte de texte ESTIMÉE : rien n'est dans le document pendant qu'on
+  // construit le SVG, donc rien à mesurer. Les facteurs sont ceux de DM Sans
+  // (0,55 em) et de Fraunces en chiffres (0,62 em), relevés au banc avec
+  // `getBBox()` — l'estimation sert à placer, la mesure à vérifier.
+  function boiteTexte(x, yb, texte, px, ancre, fac) {
+    const w = String(texte === null || texte === undefined ? '' : texte).length
+      * px * (fac || 0.55);
+    const x1 = ancre === 'middle' ? x - w / 2 : (ancre === 'end' ? x - w : x);
+    return { x1: x1, x2: x1 + w, y1: yb - px * 0.78, y2: yb + px * 0.24 };
+  }
+
+  // ⚠️ L'ORDRE DE POSE EST LA DÉCISION : quand la place manque, ce qui
+  // disparaît est la décoration — la trame, les mentions de zone — jamais le
+  // chiffre relevé. On pose donc d'abord la dernière mesure, et en dernier
+  // tout ce qui ne fait que commenter.
+  // ⚠️ Les boîtes sont ESTIMÉES : on les teste donc avec une marge, sinon
+  // deux étiquettes que le calcul croit voisines se touchent vraiment au
+  // rendu. Mesuré au banc sur une carto chargée : « 8 essais » et
+  // « 9,2 essais » se recouvraient de 1,7 px alors que le placeur avait dit
+  // non-collision.
+  const MARGE_X = 3, MARGE_Y = 2;
+  // ⚠️ L'écart minimal tient les étiquettes entre elles, pas contre les BORDS :
+  // « target 2 j · to be measured », centré sur la dernière marche, sortait
+  // 19 px à droite du cadre — donc coupé. De combien faut-il la glisser vers
+  // l'intérieur pour qu'elle y rentre ?
+  function glisser(b) {
+    if (b.x1 < 4) return 4 - b.x1;
+    if (b.x2 > 824) return 824 - b.x2;
+    return 0;
+  }
+  const bouger = (b, dx) => ({ x1: b.x1 + dx, x2: b.x2 + dx, y1: b.y1, y2: b.y2 });
+  function placeur() {
+    const prises = [];
+    const cogne = b => prises.some(o =>
+      !(b.x2 + MARGE_X <= o.x1 || b.x1 - MARGE_X >= o.x2
+        || b.y2 + MARGE_Y <= o.y1 || b.y1 - MARGE_Y >= o.y2));
+    return {
+      libre: b => !cogne(b),
+      poser: b => { if (cogne(b)) return false; prises.push(b); return true; },
+      forcer: b => { prises.push(b); return true; },
+    };
+  }
+
+  function reliefSvg(r) {
+    const perf = r.performance || {}, n = perf.norme || {};
+    const sens = n.sens || SENS_MOINS, u = n.unite || '';
+    const rail = construireRail(perf);
+    if (!rail.length) return '';
+
+    // Un fantôme (la norme qu'aucune marche n'atteint, le seuil d'au-delà)
+    // n'est PAS une mesure : il ne porte ni point ni chiffre sur le tracé.
+    const estMes = s => !s.fantome && !estNul(s.mesure) && isFinite(s.mesure);
+    const mes = [];
+    rail.forEach((s, i) => { if (estMes(s)) mes.push(i); });
+
+    // ⚠️ Sans la moindre mesure, il n'y a RIEN à tracer : le relief plein
+    // laissait 300 px de vide sous une norme et une cible. On le raccourcit
+    // alors à l'échelle qui porte ce qui existe — la norme, et les marches
+    // qui attendent leur séance.
+    const G = mes.length
+      ? { H: 300, YH: 64, YB: 210, YAXE: 228, BAS1: 268, BAS2: 286 }
+      : { H: 198, YH: 52, YB: 118, YAXE: 134, BAS1: 170, BAS2: 188 };
+
+    // ── L'échelle couvre tout ce qui sera dessiné, norme comprise ──
+    const merite = v => (sens === SENS_MOINS ? -v : v);
+    const vals = [];
+    const garde = v => { if (!estNul(v) && isFinite(v)) vals.push(v); };
+    rail.forEach(s => { garde(s.cible); garde(s.mesure); });
+    garde(n.valeur);
+    if (!vals.length) return '';
+    let mmin = Math.min.apply(null, vals.map(merite));
+    let mmax = Math.max.apply(null, vals.map(merite));
+    const pad = (mmax - mmin) * 0.08 || Math.max(Math.abs(mmax) * 0.2, 1);
+    mmin -= pad; mmax += pad;
+    const y = v => G.YB - ((merite(v) - mmin) / (mmax - mmin)) * (G.YB - G.YH);
+    const vDe = m => (sens === SENS_MOINS ? -m : m);
+
+    // ── La gouttière de gauche s'ajuste à ce qu'on doit y écrire ──
+    // ⚠️ Une unité longue déborde du cadre : mesuré au banc, « 14.4 essais »
+    // sortait 24 px à GAUCHE du viewBox, donc invisible. La largeur de la
+    // gouttière vient des étiquettes elles-mêmes, pas d'une constante.
+    const reperes = [mmin + pad, (mmin + mmax) / 2, mmax - pad].map(vDe);
+    let gut = 0;
+    reperes.forEach(v => {
+      gut = Math.max(gut, boiteTexte(0, 0, fmtVal(v, u), 11, 'start', 0.6).x2);
+    });
+    if (!estNul(n.valeur)) {
+      gut = Math.max(gut, boiteTexte(0, 0, fmtVal(n.valeur, u), 13, 'start', 0.62).x2);
+    }
+    G.X0 = Math.max(62, Math.round(gut) + 16);
+    G.PX0 = Math.max(RL.PX0, G.X0 + 100);
+
+    // ── Le temps : la date d'une marche, c'est sa mesure ou son échéance ──
+    // ⚠️ Un FANTÔME n'a pas de date de son côté. `construireRail` recopie la
+    // dernière mesure sur le seuil d'au-delà pour que le rail le montre
+    // franchi — dans le relief, cette copie dessinait un SECOND point au même
+    // relevé, à une date où personne n'a rien mesuré, et le tracé partait à
+    // plat vers la droite. Mesuré au banc : deux « 0,8 % » sur trois séances.
+    const dateDe = s => (s.fantome ? (s.echeance || null) : (s.quand || s.echeance || null));
+    const jourDe = d => Math.round(d.getTime() / 86400000);
+    const N = rail.length;
+    const dts = rail.map(s => dateJour(dateDe(s)));
+    const jours = dts.map(d => (d ? jourDe(d) : null));
+    const connus = jours.map((j, i) => (j === null ? -1 : i)).filter(i => i >= 0);
+    if (!connus.length) {
+      for (let i = 0; i < N; i++) jours[i] = i * 14;
+    } else {
+      const pr = connus[0], dr = connus[connus.length - 1];
+      // Une queue sans date se prolonge du pas MOYEN : la coller sur sa
+      // voisine ferait croire à deux séances le même jour.
+      const pas = dr > pr
+        ? Math.max(1, Math.round((jours[dr] - jours[pr]) / (dr - pr))) : 14;
+      for (let k = 0; k < connus.length - 1; k++) {
+        const a = connus[k], b = connus[k + 1];
+        for (let i = a + 1; i < b; i++) {
+          jours[i] = jours[a] + ((jours[b] - jours[a]) * (i - a)) / (b - a);
+        }
+      }
+      for (let i = pr - 1; i >= 0; i--) jours[i] = jours[i + 1] - pas;
+      for (let i = dr + 1; i < N; i++) jours[i] = jours[i - 1] + pas;
+    }
+    // ⚠️ La progression est une ÉCHELLE : les marches gardent leur ordre de
+    // rang même si une date a été saisie à l'envers — un tracé qui revient
+    // en arrière ne se lit pas.
+    for (let i = 1; i < N; i++) jours[i] = Math.max(jours[i], jours[i - 1]);
+
+    // ── Le mode d'étiquetage se choisit sur la place DISPONIBLE ──
+    // « cible 10 j · 11/09 » fait ~108 px à 11,5 px : au-delà de six marches
+    // il faut deux rangées, puis la date seule, puis une étiquette sur deux.
+    const LARG = RL.PX1 - G.PX0;
+    const MODES = [{ bas: 'plein', min: 118, deux: false },
+                   { bas: 'plein', min: 62, deux: true },
+                   { bas: 'date', min: 44, deux: true },
+                   { bas: 'rare', min: 26, deux: false }];
+    let mode = MODES[MODES.length - 1];
+    for (let k = 0; k < MODES.length; k++) {
+      if ((N - 1) * MODES[k].min <= LARG) { mode = MODES[k]; break; }
+    }
+    const MIN = mode.min, tient = (N - 1) * MIN <= LARG;
+
+    const xs = [];
+    const j0 = jours[0], jn = jours[N - 1];
+    if (N === 1) xs.push((G.PX0 + RL.PX1) / 2);
+    else if (!tient || jn === j0) {
+      for (let i = 0; i < N; i++) xs.push(G.PX0 + (LARG * i) / (N - 1));
+    } else {
+      for (let i = 0; i < N; i++) xs.push(G.PX0 + (LARG * (jours[i] - j0)) / (jn - j0));
+      // Écarter : deux passes suffisent, la contrainte étant une chaîne
+      // d'intervalles — en avant pour imposer l'écart, en arrière pour
+      // rentrer dans le cadre.
+      for (let i = 1; i < N; i++) xs[i] = Math.max(xs[i], xs[i - 1] + MIN);
+      if (xs[N - 1] > RL.PX1) {
+        xs[N - 1] = RL.PX1;
+        for (let i = N - 2; i >= 0; i--) xs[i] = Math.min(xs[i], xs[i + 1] - MIN);
+        if (xs[0] < G.PX0) {
+          const d = G.PX0 - xs[0];
+          for (let i = 0; i < N; i++) xs[i] = Math.min(xs[i] + d, RL.PX1);
+        }
+      }
+    }
+    let dmin = Infinity;
+    for (let i = 1; i < N; i++) dmin = Math.min(dmin, xs[i] - xs[i - 1]);
+    if (!isFinite(dmin)) dmin = LARG;
+
+    // La règle des mois passe par les COUPLES (jour, x) réellement posés :
+    // après un écartement l'abscisse n'est plus linéaire dans le temps, et
+    // une graduation calculée sur le temps brut mentirait.
+    const xDuJour = j => {
+      if (j <= jours[0]) return xs[0];
+      for (let i = 1; i < N; i++) {
+        if (j <= jours[i]) {
+          const d = jours[i] - jours[i - 1];
+          return d ? xs[i - 1] + ((xs[i] - xs[i - 1]) * (j - jours[i - 1])) / d : xs[i];
+        }
+      }
+      return xs[N - 1];
+    };
+
+    const P = placeur();
+    const fond = [], trace = [], marques = [], txt = [];
+    const yN = estNul(n.valeur) ? null : y(n.valeur);
+
+    // ── La zone tenue, et la trame ──
+    if (yN !== null && yN > RL.YT + 4) {
+      fond.push('<rect x="' + G.X0 + '" y="' + RL.YT + '" width="' + (RL.X1 - G.X0)
+        + '" height="' + (yN - RL.YT).toFixed(1) + '" fill="#11835e" fill-opacity=".038"></rect>');
+    }
+
+    // ── Les mesures : le tracé plein, et sa masse neutre ──
+    // ⚠️ C'est le FIL qui porte la couleur : une masse teintée ferait deux
+    // signaux pour une seule information.
+    const co = mes.map(i => [xs[i], y(rail[i].mesure)]);
+
+    // Le fil ne change de teinte QU'UNE FOIS, et exactement là où il coupe la
+    // norme — pas au point suivant. C'est le dégradé qui le place, au pixel.
+    let off = null;
+    if (yN !== null && mes.length) {
+      if (mieux(rail[mes[0]].mesure, n.valeur, sens)) off = 0;
+      else {
+        for (let k = 1; k < mes.length; k++) {
+          const a = rail[mes[k - 1]].mesure, b = rail[mes[k]].mesure;
+          if (!mieux(a, n.valeur, sens) && mieux(b, n.valeur, sens) && b !== a) {
+            const t = (n.valeur - a) / (b - a);
+            const xc = co[k - 1][0] + (co[k][0] - co[k - 1][0]) * t;
+            const tot = co[co.length - 1][0] - co[0][0];
+            off = tot > 0 ? (xc - co[0][0]) / tot : 0;
+            break;
+          }
+        }
+      }
+    }
+    const gid = 'rl-fil-' + (r.data_id || 0);
+    let stops = '<stop offset="0" stop-color="#a9bbd4"></stop>'
+      + '<stop offset=".5" stop-color="#7aa7e8"></stop>'
+      + '<stop offset="1" stop-color="#2f6fd0"></stop>';
+    if (off !== null) {
+      const o = Math.max(0.02, Math.min(0.98, off));
+      stops = '<stop offset="0" stop-color="#a9bbd4"></stop>'
+        + '<stop offset="' + (o * 0.55).toFixed(3) + '" stop-color="#7aa7e8"></stop>'
+        + '<stop offset="' + (o - 0.012).toFixed(3) + '" stop-color="#2f6fd0"></stop>'
+        + '<stop offset="' + o.toFixed(3) + '" stop-color="#11835e"></stop>'
+        + '<stop offset="1" stop-color="#11835e"></stop>';
+    }
+    const defs = '<defs>'
+      + '<linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse" x1="'
+      + (co.length ? co[0][0].toFixed(1) : 0) + '" y1="0" x2="'
+      + (co.length ? co[co.length - 1][0].toFixed(1) : 1) + '" y2="0">' + stops + '</linearGradient>'
+      + '<linearGradient id="' + gid + '-m" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0" stop-color="#475467" stop-opacity=".09"></stop>'
+      + '<stop offset="1" stop-color="#475467" stop-opacity="0"></stop>'
+      + '</linearGradient></defs>';
+
+    if (co.length > 1) {
+      const d = co.map(c => c[0].toFixed(1) + ' ' + c[1].toFixed(1)).join(' L ');
+      trace.push('<path d="M ' + d + ' L ' + co[co.length - 1][0].toFixed(1) + ' '
+        + G.YAXE + ' L ' + co[0][0].toFixed(1) + ' ' + G.YAXE
+        + ' Z" fill="url(#' + gid + '-m)"></path>');
+      trace.push('<polyline points="'
+        + co.map(c => c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ')
+        + '" fill="none" stroke="url(#' + gid + ')" stroke-width="2.5"'
+        + ' stroke-linejoin="round" stroke-linecap="round"></polyline>');
+    }
+    // Ce qui reste à faire : pointillé jusqu'à la première marche non mesurée.
+    if (co.length) {
+      const suite = rail.findIndex((s, i) => estNul(s.mesure) && i > mes[mes.length - 1]);
+      if (suite > 0) {
+        trace.push('<path d="M ' + co[co.length - 1][0].toFixed(1) + ' '
+          + co[co.length - 1][1].toFixed(1) + ' L ' + xs[suite].toFixed(1) + ' '
+          + y(rail[suite].cible).toFixed(1) + '" fill="none" stroke="#0a5540"'
+          + ' stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".5"></path>');
+      }
+    }
+
+    // ── Les pastilles ──
+    const dernierMes = mes.length ? mes[mes.length - 1] : -1;
+    rail.forEach((s, i) => {
+      const mesuree = estMes(s);
+      const cy = mesuree ? y(s.mesure) : y(s.cible);
+      if (!isFinite(cy)) return;
+      const cx = xs[i];
+      if (!mesuree) {
+        // Un seuil DÉJÀ franchi se remplit : laissé creux, l'échelle disait
+        // le contraire de la pastille « qualifié · avancé » juste au-dessus.
+        const franchi = s.statut === 'atteint';
+        marques.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1)
+          + '" r="6" fill="' + (franchi ? '#11835e' : '#fff') + '" stroke="#0a5540"'
+          + ' stroke-width="2"' + (franchi ? '' : ' stroke-dasharray="2.6 2.4"')
+          + '></circle>');
+        return;
+      }
+      const atteintNorme = yN !== null && mieux(s.mesure, n.valeur, sens);
+      const col = s.statut === 'manque' ? '#a5192f'
+        : (atteintNorme ? '#11835e' : (i === mes[0] ? '#a9bbd4' : '#7aa7e8'));
+      const creux = s.statut !== 'manque' && !atteintNorme && i === mes[0];
+      if (i === dernierMes) {
+        marques.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1)
+          + '" r="15" fill="' + col + '" fill-opacity=".1"></circle>');
+      }
+      marques.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1)
+        + '" r="' + (i === dernierMes ? 6 : 5) + '" fill="' + (creux ? '#fff' : col)
+        + '" stroke="' + col + '" stroke-width="2.5"></circle>');
+    });
+
+    // ── LES ÉTIQUETTES, par ordre de priorité ──
+    // 1 · la norme sur l'axe : c'est la référence de tout le graphe.
+    if (yN !== null) {
+      const tn = fmtVal(n.valeur, u);
+      P.forcer(boiteTexte(G.X0 - 14, yN + 4, tn, 13, 'end', 0.62));
+      fond.push('<line x1="' + G.X0 + '" y1="' + yN.toFixed(1) + '" x2="' + RL.X1
+        + '" y2="' + yN.toFixed(1) + '" stroke="#101828" stroke-width="1.5"'
+        + ' stroke-opacity=".34"></line>');
+      txt.push('<text x="' + (G.X0 - 14) + '" y="' + (yN + 4).toFixed(1)
+        + '" text-anchor="end" font-family="' + FD + '" font-size="13" font-weight="600"'
+        + ' fill="#101828">' + esc(tn) + '</text>');
+    }
+
+    // 2 · les mesures, la DERNIÈRE d'abord — c'est le niveau actuel.
+    let fv = dmin >= 100 ? 26 : dmin >= 78 ? 22 : dmin >= 60 ? 18 : 15;
+    const ordre = mes.slice().reverse();
+    const posees = {};
+    for (let essai = 0; essai < 3; essai++) {
+      const vu = placeur();
+      let ok = true;
+      ordre.forEach(i => {
+        const t = fmtVal(rail[i].mesure, u);
+        const px = i === dernierMes ? fv + 4 : fv;
+        const haut = y(rail[i].mesure) - 19;
+        const bas = y(rail[i].mesure) + 30;
+        // Au-dessus par défaut ; en dessous quand le haut du cadre manque, ou
+        // quand la place est prise — on ne jette jamais le chiffre relevé.
+        let yb = haut - px * 0.78 >= RL.YT - 14 ? haut : bas;
+        let b = boiteTexte(xs[i], yb, t, px, 'middle', 0.62);
+        if (!vu.libre(b) && bas + px * 0.24 < G.YAXE - 6) {
+          yb = yb === haut ? bas : haut;
+          b = boiteTexte(xs[i], yb, t, px, 'middle', 0.62);
+        }
+        if (!vu.libre(b)) { ok = false; }
+        vu.forcer(b);
+        posees[i] = { t: t, px: px, yb: yb, b: b };
+      });
+      if (ok || fv <= 15) break;
+      fv -= 4;
+    }
+    ordre.forEach(i => {
+      const o = posees[i];
+      if (!o) return;
+      const s = rail[i];
+      const atteintNorme = yN !== null && mieux(s.mesure, n.valeur, sens);
+      const col = s.statut === 'manque' ? '#a5192f'
+        : (atteintNorme ? '#11835e' : (i === mes[0] ? '#475467' : '#2f6fd0'));
+      const colU = s.statut === 'manque' ? '#c08490'
+        : (atteintNorme ? '#6e9b8b' : (i === mes[0] ? '#98a2b3' : '#8aa6cf'));
+      const m = /^(.*?)(\s+\S+)$/.exec(o.t);
+      const nb = m ? m[1] : o.t, un = m ? m[2].trim() : '';
+      P.forcer(o.b);
+      txt.push('<text x="' + xs[i].toFixed(1) + '" y="' + o.yb.toFixed(1)
+        + '" text-anchor="middle" font-family="' + FD + '" font-size="' + o.px
+        + '" font-weight="600" fill="' + col + '">' + esc(nb)
+        + (un ? '<tspan font-family="' + FT + '" font-size="'
+            + Math.round(o.px * 0.46) + '" font-weight="500" fill="' + colU
+            + '" dx="3">' + esc(un) + '</tspan>' : '') + '</text>');
+    });
+
+    // 3 · ce que chaque marche visait, et quand — sous l'axe du temps.
+    const basTexte = (s, court) => {
+      // Le seuil d'au-delà n'est pas une marche posée : il n'a pas de date, et
+      // écrire « cible X · à mesurer » laisserait croire qu'une séance
+      // l'attend. Il dit ce qu'il est — la frontière de « avancé ».
+      if (s.fantome && s.estAuDela) return T('rel_seuil');
+      const d = dateDe(s);
+      const quand = d ? fmtDate(d) : T('rel_a_mesurer');
+      return (court || mode.bas === 'date') ? quand
+        : Tv('rel_bas', { c: fmtVal(s.cible, u), d: quand });
+    };
+    // ⚠️ L'ordre de POSE n'est pas l'ordre des marches : quand deux étiquettes
+    // se disputent la place, celle qui cède doit être une cible à venir, pas
+    // un relevé. Relevé au banc sur une sortie dont la marche 4 avait été
+    // tranchée avant la 3 : « cible 4 j · 15/10 » — la mesure la plus
+    // RÉCENTE — sautait au profit d'une échéance.
+    const ordreBas = mes.slice().reverse()
+      .concat(rail.map((s, i) => i).filter(i => mes.indexOf(i) < 0));
+    ordreBas.forEach(i => {
+      const s = rail[i];
+      if (mode.bas === 'rare' && i % 2 === 1 && i !== N - 1) return;
+      const yb = mode.deux && i % 2 === 1 ? G.BAS2 : G.BAS1;
+      let t = basTexte(s, false);
+      let b = boiteTexte(xs[i], yb, t, 11.5, 'middle', 0.56);
+      let dx = glisser(b);
+      // Glisser vers l'intérieur, oui — mais pas au point que l'étiquette
+      // désigne la mauvaise marche. Au-delà, on la raccourcit à sa date.
+      if (Math.abs(dx) > Math.max(26, dmin * 0.4)) {
+        t = basTexte(s, true);
+        b = boiteTexte(xs[i], yb, t, 11.5, 'middle', 0.56);
+        dx = glisser(b);
+      }
+      if (!P.poser(bouger(b, dx))) return;
+      // ⚠️ `mieux()` répond « atteint », donc TOUTE marche à partir de la
+      // norme se disait franchie — « norme franchie » s'écrivait deux fois,
+      // sous la marche de la norme et sous le seuil d'au-delà. La norme est
+      // un passage : c'est la marche qui le porte, et elle seule.
+      const vert = s.statut === 'atteint' && yN !== null && s.estNorme;
+      txt.push('<text x="' + (xs[i] + dx).toFixed(1) + '" y="' + yb + '" text-anchor="middle"'
+        + ' font-size="11.5"' + (vert ? ' font-weight="600" fill="#11835e"' : ' fill="#667085"')
+        + '>' + esc(t) + '</text>');
+      if (vert && !mode.deux && mode.bas === 'plein') {
+        const t2 = T('rel_franchie');
+        const b2 = boiteTexte(xs[i], G.BAS2, t2, 11, 'middle', 0.56);
+        if (P.poser(b2)) {
+          txt.push('<text x="' + xs[i].toFixed(1) + '" y="' + G.BAS2
+            + '" text-anchor="middle" font-size="11" fill="#98a2b3">' + esc(t2) + '</text>');
+        }
+      }
+    });
+
+    // 4 · la pastille de la marche en cours : son échéance.
+    const ec = rail.findIndex(s => s.statut === 'en_cours' && s.echeance);
+    if (ec >= 0) {
+      const cy = y(rail[ec].cible);
+      const j = ecartJours(rail[ec].echeance);
+      const t = fmtDate(rail[ec].echeance) + ' · ' + quandDit(rail[ec].echeance);
+      const w = Math.max(96, t.length * 6.2 + 20);
+      const hautDabord = cy > (G.YH + G.YB) / 2;
+      [hautDabord ? cy - 28 : cy + 32, hautDabord ? cy + 32 : cy - 28].some(yb => {
+        const b0 = { x1: xs[ec] - w / 2, x2: xs[ec] + w / 2, y1: yb - 14, y2: yb + 6 };
+        const dx = glisser(b0);
+        if (!P.poser(bouger(b0, dx))) return false;
+        const cx = xs[ec] + dx, tard = j !== null && j < 0;
+        marques.push('<rect x="' + (cx - w / 2).toFixed(1) + '" y="' + (yb - 14)
+          + '" width="' + w.toFixed(1) + '" height="20" rx="10" fill="'
+          + (tard ? '#fdf1f2' : '#fdf4e3') + '"></rect>');
+        txt.push('<text x="' + cx.toFixed(1) + '" y="' + yb + '" text-anchor="middle"'
+          + ' font-size="11" font-weight="600" fill="' + (tard ? '#a5192f' : '#93571a')
+          + '">' + esc(t) + '</text>');
+        return true;
+      });
+    }
+
+    // 5 · la marche posée AU-DELÀ de la norme : c'est elle qui fait « avancé ».
+    const ia = rail.findIndex(s => s.estAuDela);
+    if (ia >= 0 && estNul(rail[ia].mesure)) {
+      const yb = y(rail[ia].cible) - 20;
+      const t = T('pal_audela').toUpperCase();
+      const b = boiteTexte(xs[ia], yb, t, 9, 'middle', 0.72);
+      if (yb - 8 >= RL.YT - 12 && P.poser(b)) {
+        txt.push('<text x="' + xs[ia].toFixed(1) + '" y="' + yb.toFixed(1)
+          + '" text-anchor="middle" font-size="9" font-weight="700"'
+          + ' letter-spacing="1.2" fill="#0a5540">' + esc(t) + '</text>');
+      }
+    }
+
+    // 6 · l'étiquette « LA NORME », de part et d'autre de son filet.
+    if (yN !== null) {
+      const t = T('rel_norme').toUpperCase();
+      const w = Math.max(70, t.length * 6.6 + 16);
+      [yN - 16, yN + 3].some(ry => {
+        const b = { x1: G.X0, x2: G.X0 + w, y1: ry, y2: ry + 17 };
+        if (!P.poser(b)) return false;
+        marques.push('<rect x="' + G.X0 + '" y="' + ry.toFixed(1) + '" width="'
+          + w.toFixed(1) + '" height="17" rx="3" fill="#101828"></rect>');
+        txt.push('<text x="' + (G.X0 + w / 2).toFixed(1) + '" y="' + (ry + 12).toFixed(1)
+          + '" text-anchor="middle" font-size="8.5" font-weight="700"'
+          + ' letter-spacing="1.1" fill="#fff">' + esc(t) + '</text>');
+        return true;
+      });
+    }
+
+    // 7 · l'échelle : le pire, le milieu, le meilleur — dans l'unité réelle.
+    reperes.forEach(v => {
+      const yy = y(v);
+      if (!isFinite(yy) || yy < RL.YT || yy > G.YB + 14) return;
+      fond.push('<line x1="' + G.X0 + '" y1="' + yy.toFixed(1) + '" x2="' + RL.X1
+        + '" y2="' + yy.toFixed(1) + '" stroke="#f2f4f7" stroke-width="1"></line>');
+      const t = fmtVal(v, u);
+      const b = boiteTexte(G.X0 - 14, yy + 4, t, 11, 'end', 0.6);
+      if (!P.poser(b)) return;
+      txt.push('<text x="' + (G.X0 - 14) + '" y="' + (yy + 4).toFixed(1)
+        + '" text-anchor="end" font-size="11" fill="#98a2b3">' + esc(t) + '</text>');
+    });
+
+    // 8 · l'axe du temps, et sa règle des mois quand elle a du sens.
+    fond.push('<line x1="' + G.X0 + '" y1="' + G.YAXE + '" x2="' + RL.X1
+      + '" y2="' + G.YAXE + '" stroke="#eaecf0" stroke-width="1"></line>');
+    const reels = dts.filter(Boolean);
+    if (reels.length > 1 && mode.bas !== 'rare') {
+      const a = reels[0], z = reels[reels.length - 1];
+      let m = new Date(a.getFullYear(), a.getMonth() + 1, 1);
+      let garde2 = 0;
+      while (m <= z && garde2++ < 8) {
+        const mx = xDuJour(jourDe(m));
+        const nom = m.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'fr-FR',
+          { month: 'short' }).toUpperCase();
+        const b = boiteTexte(mx, 247, nom, 10, 'start', 0.62);
+        if (P.poser(b)) {
+          fond.push('<line x1="' + mx.toFixed(1) + '" y1="' + G.YAXE + '" x2="'
+            + mx.toFixed(1) + '" y2="' + (G.YAXE + 5) + '" stroke="#d0d5dd"'
+            + ' stroke-width="1"></line>');
+          txt.push('<text x="' + mx.toFixed(1) + '" y="247" font-size="10"'
+            + ' font-weight="600" letter-spacing=".9" fill="#b4bcc8">' + esc(nom) + '</text>');
+        }
+        m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+      }
+    }
+
+    // 9 · « zone tenue » : la seule mention purement explicative, donc la
+    // dernière à passer — et la première à sauter quand la place manque.
+    if (yN !== null && yN - RL.YT >= 26) {
+      const t = T('rel_zone').toUpperCase();
+      const b = boiteTexte(RL.X1 - 6, RL.YT + 13, t, 9, 'end', 0.72);
+      if (P.poser(b)) {
+        txt.push('<text x="' + (RL.X1 - 6) + '" y="' + (RL.YT + 13)
+          + '" text-anchor="end" font-size="9" font-weight="700" letter-spacing="1.2"'
+          + ' fill="#11835e" opacity=".75">' + esc(t) + '</text>');
+      }
+    }
+
+    const aria = Tv('rel_aria', { x: r.name, n: mes.length,
+      v: estNul(n.valeur) ? T('none') : fmtVal(n.valeur, u) });
+    return '<svg viewBox="0 0 828 ' + G.H + '" role="img" aria-label="' + esc(aria) + '">'
+      + defs + fond.join('') + trace.join('') + marques.join('') + txt.join('') + '</svg>';
+  }
+
+  // Le bilan dit en une ligne ce que l'historique disait en dix.
+  function bilanRelief(perf) {
+    const n = perf.norme || {}, sens = n.sens || SENS_MOINS, u = n.unite || '';
+    const faits = (perf.paliers || []).filter(p => !estNul(p.mesure));
+    const items = [];
+    if (faits.length) {
+      const tenues = faits.filter(p => p.statut === 'atteint').length;
+      items.push([tenues === faits.length ? 'ok' : '', String(tenues),
+                  Tv('rel_tenues', { t: faits.length })]);
+    }
+    if (faits.length > 1) {
+      const a = faits[0].mesure, z = faits[faits.length - 1].mesure;
+      const gagne = sens === SENS_MOINS ? a - z : z - a;
+      if (gagne > 0) {
+        items.push(['ok', fmtVal(gagne, u),
+                    T(sens === SENS_MOINS ? 'rel_repris' : 'rel_gagne')]);
+      }
+      const d1 = dateJour(faits[0].evalue_le);
+      const d2 = dateJour(faits[faits.length - 1].evalue_le);
+      if (d1 && d2) {
+        const j = Math.round((d2 - d1) / 86400000);
+        if (j > 0) items.push(['', String(j), T('rel_suivi')]);
+      }
+    }
+    return '<div class="pal-bilan">'
+      + items.map(it => '<div><span class="n' + (it[0] ? ' est-ok' : '') + '">'
+          + esc(it[1]) + '</span> <span class="l">' + esc(it[2]) + '</span></div>').join('')
+      + '<span class="sp"></span>'
+      + '<button type="button" class="pal-detail" data-evol>' + esc(T('rel_detail'))
+      + ' <i class="fa-solid fa-arrow-right"></i></button></div>';
+  }
+
   // ── La carte d'une sortie MESURÉE ─────────────────────────────────
   function carteMesuree(r) {
     const perf = r.performance, n = perf.norme || {}, dev = jeSuisLeDev();
@@ -2643,7 +3201,7 @@
         </div>
       </div>
       <div class="pal-corps">${(perf.paliers || []).length || perf.norme
-        ? railHtml(perf)
+        ? `<div class="pal-relief">${reliefSvg(r)}</div>${bilanRelief(perf)}`
         : `<p class="pal-vide">${esc(T('pal_rien_d'))}</p>`}</div>
       <div class="pal-pied">
         <span class="pal-pied-k">${esc(T('pal_niveau_deduit'))}<span data-echelle></span></span>
@@ -2651,8 +3209,6 @@
           ? `<span class="pal-niv pal-niv--off">${esc(T('not_assessed'))}</span>`
           : `<span class="pal-niv pal-niv--${niv >= 2 ? 'ok' : 'bas'}"><b>${niv}</b> · ${esc(levelName(niv))}</span>`}
         <span class="pal-pied-sp"></span>
-        <button type="button" class="pal-b pal-b--doux" data-evol>
-          <span class="pal-b-ic"><i class="fa-solid fa-chart-line"></i></span>${esc(T('pal_evolution'))}</button>
         <!-- Une sortie déjà qualifiée n'appelle plus d'action : poser une
              marche de plus reste possible, mais ce n'est pas ce qu'on vient
              faire. Le bouton passe donc en discret. -->
@@ -2667,7 +3223,10 @@
     const zone = card.querySelector('.pal-form');
     const q = s => card.querySelector(s);
     if (q('[data-norme]')) q('[data-norme]').onclick = () => formNorme(zone, r);
-    q('[data-evol]').onclick = () => basculerGraphe(card, r);
+    // ⚠️ Le lien du bilan n'existe pas sur une sortie sans palier ni norme :
+    // il n'y a rien à détailler, et un câblage sans garde couperait toute la
+    // suite de l'init de la carte.
+    if (q('[data-evol]')) q('[data-evol]').onclick = () => basculerHisto(card, r);
     const ech = q('[data-echelle]');
     if (ech) ech.appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
     if (q('[data-poser]')) q('[data-poser]').onclick = () => formPoser(zone, r);
@@ -2801,108 +3360,6 @@
     b2.insertBefore(w, b2.children[1] || null);
     w.classList.add('pal-echec--page');
     w.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
-
-  // ── Le graphe : une sortie, dans le temps ─────────────────────────
-  // ⚠️ Chaque sortie garde SON unité et son sens : une durée descend vers la
-  // norme, un taux y monte. Un score normalisé lirait pareil des deux côtés,
-  // mais on ne lit plus « 70 h » — or c'est ce chiffre qu'on vient voir.
-
-  function blocGraphe(r, serie) {
-    const wrap = document.createElement('div');
-    wrap.className = 'pal-graphe';
-    const perf = r.performance, n = perf.norme || {}, sens = n.sens || SENS_MOINS;
-    const u = n.unite || '';
-    const pts = serie.points || [];
-    const encours = perf.palier_en_cours;
-
-    if (!pts.length && !encours) {
-      wrap.innerHTML = `<p class="pal-vide">${esc(T('ev_rien'))}</p>`;
-      return wrap;
-    }
-
-    // L'échelle couvre tout ce qui est dessiné, norme et cibles comprises.
-    const tous = pts.map(p => p.mesure).concat(pts.map(p => p.cible))
-      .concat([n.valeur], encours ? [encours.cible] : [])
-      .filter(v => !estNul(v) && isFinite(v));
-    let vmax = Math.max.apply(null, tous) * 1.2 || 1;
-    if (sens !== SENS_MOINS && /%/.test(u) && vmax > 100) vmax = 100;
-    const X0 = 56, X1 = 780, Y0 = 16, Y1 = 254;
-    const y = v => Y1 - (v / vmax) * (Y1 - Y0);
-    const colonnes = pts.length + (encours ? 1 : 0);
-    const x = i => (colonnes <= 1 ? (X0 + X1) / 2
-      : X0 + 70 + ((X1 - X0 - 120) * i) / (colonnes - 1));
-
-    const yN = y(n.valeur);
-    const yA = perf.marge
-      ? y(sens === SENS_MOINS ? Math.max(n.valeur - perf.marge, 0) : n.valeur + perf.marge)
-      : null;
-    // La zone « qualifié » est du bon côté de la norme — en bas pour une
-    // durée, en haut pour un taux.
-    const zoneQ = sens === SENS_MOINS
-      ? `<rect x="${X0}" y="${yN}" width="${X1 - X0}" height="${Math.max(Y1 - yN, 0)}" fill="#f0fdf4"></rect>`
-      : `<rect x="${X0}" y="${Y0}" width="${X1 - X0}" height="${Math.max(yN - Y0, 0)}" fill="#f0fdf4"></rect>`;
-    const zoneA = yA === null ? '' : (sens === SENS_MOINS
-      ? `<rect x="${X0}" y="${yA}" width="${X1 - X0}" height="${Math.max(Y1 - yA, 0)}" fill="#dcfce7"></rect>`
-      : `<rect x="${X0}" y="${Y0}" width="${X1 - X0}" height="${Math.max(yA - Y0, 0)}" fill="#dcfce7"></rect>`);
-
-    let g = zoneQ + zoneA;
-    // Quatre repères horizontaux, plus la norme en trait plein.
-    for (let k = 1; k <= 4; k++) {
-      const v = (vmax * k) / 5, yy = y(v);
-      g += `<line x1="${X0}" y1="${yy}" x2="${X1}" y2="${yy}" stroke="#eef1f6"></line>
-            <text x="${X0 - 10}" y="${yy + 4}" text-anchor="end" font-size="11.5" fill="#5b6676">${esc(fmtNb(v))}</text>`;
-    }
-    g += `<line x1="${X0}" y1="${Y1}" x2="${X1}" y2="${Y1}" stroke="#cbd5e1" stroke-width="1.5"></line>`;
-    g += `<line x1="${X0}" y1="${yN}" x2="${X1}" y2="${yN}" stroke="#0f172a" stroke-width="2.5"></line>
-          <text x="${X1}" y="${yN - 8}" text-anchor="end" font-size="11" font-weight="700"
-                fill="#0f172a">${esc(T('pal_norme_tag') + ' · ' + fmtVal(n.valeur, u))}</text>`;
-    if (yA !== null) {
-      g += `<text x="${X1}" y="${sens === SENS_MOINS ? yA + 16 : yA - 8}" text-anchor="end"
-                  font-size="11.5" font-weight="700" fill="#15803d">${esc(T('ev_zone_a'))}</text>`;
-    }
-
-    // Le tracé des mesures, puis le palier en cours en pointillés.
-    const coords = pts.map((p, i) => [x(i), y(p.mesure)]);
-    if (coords.length > 1) {
-      g += `<path d="M${coords.map(c => c[0] + ' ' + c[1]).join(' L')}"
-                  stroke="#2563eb" stroke-width="3.5" fill="none" stroke-linecap="round"></path>`;
-    }
-    if (encours && coords.length) {
-      const last = coords[coords.length - 1], cx = x(colonnes - 1), cy = y(encours.cible);
-      g += `<path d="M${last[0]} ${last[1]} L${cx} ${cy}" stroke="#94a3b8" stroke-width="3"
-                  stroke-dasharray="8 6" fill="none" stroke-linecap="round"></path>`;
-    }
-    pts.forEach((p, i) => {
-      const [cx, cy] = coords[i];
-      const col = p.statut === 'manque' ? '#dc2626' : '#2563eb';
-      g += `<circle cx="${cx}" cy="${cy}" r="8" fill="${col}" stroke="#fff" stroke-width="3"></circle>
-            <text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="12.5" font-weight="700"
-                  fill="${col}">${esc(fmtVal(p.mesure, u))}</text>
-            <text x="${cx}" y="276" text-anchor="middle" font-size="12.5" font-weight="600"
-                  fill="#334155">${esc(fmtDate(p.date))}</text>
-            <text x="${cx}" y="291" text-anchor="middle" font-size="11.5"
-                  fill="${p.statut === 'manque' ? '#b91c1c' : '#15803d'}">${esc(T(p.statut === 'manque' ? 'pal_manque' : 'pal_atteint'))}</text>`;
-    });
-    if (encours) {
-      const cx = x(colonnes - 1), cy = y(encours.cible);
-      g += `<circle cx="${cx}" cy="${cy}" r="9" fill="#fff" stroke="#2563eb" stroke-width="3.5"
-                    stroke-dasharray="4 3"></circle>
-            <text x="${cx}" y="276" text-anchor="middle" font-size="12.5" font-weight="600"
-                  fill="#334155">${esc(encours.echeance ? fmtDate(encours.echeance) : '')}</text>
-            <text x="${cx}" y="291" text-anchor="middle" font-size="11.5" fill="#1d4ed8">${esc(T('ev_a_venir'))}</text>`;
-    }
-
-    wrap.innerHTML = `
-      <p class="pal-graphe-d">${esc(sens === SENS_MOINS ? T('ev_descend') : T('ev_monte'))}</p>
-      <svg viewBox="0 0 820 300" role="img" aria-label="${esc(Tv('ev_graphe_de', { x: r.name }))}">${g}</svg>
-      <div class="pal-leg">
-        <span><i class="t t--bleu"></i>${esc(T('ev_leg_mesure'))}</span>
-        <span><i class="t t--tirets"></i>${esc(T('ev_leg_encours'))}</span>
-        <span><i class="t t--noir"></i>${esc(T('ev_leg_norme'))}</span>
-        ${perf.marge ? `<span><i class="t t--vert"></i>${esc(T('ev_leg_audela'))}</span>` : ''}
-      </div>`;
-    return wrap;
   }
 
   function blocHistorique(r) {
@@ -3218,16 +3675,14 @@
     state.activity = row;
     montrerEcran('eval');
     showBusy(null, '#cv2-ecran-eval');
-    // Les deux appels partent ENSEMBLE : le graphe se déplie dans sa carte,
-    // il ne doit pas attendre un aller-retour de plus au moment du clic.
-    const [st, h] = await Promise.all([
-      api(`/mastery/activity/${state.cible}/${row.activity_id}?role_id=${state.roleId}`),
-      api(`/paliers/historique/${state.cible}/${row.activity_id}?role_id=${state.roleId}`, undefined, true),
-    ]);
+    // ⚠️ UN SEUL appel. Le relief se dessine depuis les paliers que
+    // `/mastery/activity` porte déjà (cible, mesure, date, échéance) :
+    // `/paliers/historique` n'en rendait qu'un sous-ensemble, et une requête
+    // dont personne ne lit la réponse est du temps pris à l'ouverture.
+    const st = await api(
+      `/mastery/activity/${state.cible}/${row.activity_id}?role_id=${state.roleId}`);
     if (st.__error) return;
     state.lastState = st;
-    state.histo = {};
-    ((h && h.series) || []).forEach(s => { state.histo[s.data_id] = s; });
     renderEval(st);
   }
 
@@ -3475,31 +3930,29 @@
     return quand ? { quand: quand, n: n } : null;
   }
 
-  // ── Le graphe se déplie DANS la carte : le rail reste sous les yeux ──
-  function basculerGraphe(card, r) {
-    const ouvert = card.querySelector('.pal-graphe');
+  // ── Le détail des séances se déplie DANS la carte, sous le relief ──
+  // ⚠️ Il n'y a plus de second graphe à ouvrir : le relief EST le graphe, et
+  // il est là dès l'ouverture de la carte. Ce qui se déplie, c'est ce qu'il
+  // ne peut pas montrer — séance par séance, qui a relevé quoi, et la preuve.
+  function basculerHisto(card, r) {
+    const ouvert = card.querySelector('.pal-histo');
     if (ouvert) {
       ouvert.remove();
-      const h = card.querySelector('.pal-histo');
-      if (h) h.remove();
       const f = card.querySelector('.pal-evo-fin');
       if (f) f.remove();
       card.dataset.evo = '';
       majLibelleEvo(card, false);
       return;
     }
-    const serie = (state.histo && state.histo[r.data_id]) || { points: [] };
     const pied = card.querySelector('.pal-pied');
-    pied.insertAdjacentElement('afterend', blocGraphe(r, serie));
-    const histo = blocHistorique(r);
-    card.querySelector('.pal-graphe').insertAdjacentElement('afterend', histo);
+    pied.insertAdjacentElement('afterend', blocHistorique(r));
     // ⚠️ Le bouton qui a OUVERT la section se retrouve en plein milieu une
-    // fois le graphe et l'historique dépliés : il faut le chercher pour
-    // refermer. On referme donc par le BAS, là où la lecture s'arrête.
+    // fois l'historique déplié : il faut le chercher pour refermer. On
+    // referme donc par le BAS, là où la lecture s'arrête.
     const bas = document.createElement('button');
     bas.type = 'button'; bas.className = 'pal-evo-fin';
-    bas.innerHTML = `<i class="fa-solid fa-chevron-up"></i>${esc(T('ev_masquer_evo'))}`;
-    bas.onclick = () => { basculerGraphe(card, r); card.scrollIntoView({ block: 'nearest' }); };
+    bas.innerHTML = `<i class="fa-solid fa-chevron-up"></i>${esc(T('rel_detail_off'))}`;
+    bas.onclick = () => { basculerHisto(card, r); card.scrollIntoView({ block: 'nearest' }); };
     // ⚠️ En DERNIER enfant de la carte, pas après l'historique : `.pal-form`
     // vient après lui, et une marche posée pendant qu'on lit l'évolution
     // glisserait un formulaire SOUS le bouton qui sert à la refermer.
@@ -3509,8 +3962,10 @@
   }
   function majLibelleEvo(card, ouvert) {
     const b = card.querySelector('[data-evol]');
-    if (!b) return;
-    b.lastChild.textContent = ouvert ? T('ev_masquer_evo') : T('pal_evolution');
+    if (!b || !b.firstChild) return;
+    // ⚠️ Le libellé est le PREMIER nœud du lien — la flèche vient après. Un
+    // `lastChild` réécrirait l'icône et on perdrait le libellé.
+    b.firstChild.textContent = (ouvert ? T('rel_detail_off') : T('rel_detail')) + ' ';
   }
 
   // ══ LA SÉANCE ══════════════════════════════════════════════════════

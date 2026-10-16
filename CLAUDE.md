@@ -5170,6 +5170,124 @@ Suite : **3181 passés**, `repet_image` 3146 + 36 sautés. Éprouvé au banc à
 après coup, marche au-delà franchie → niveau 3 remonté jusqu'à l'activité,
 aucun débordement horizontal, zéro fuite française sur l'écran anglais.
 
+#### LE RELIEF remplace le rail — tranché sur maquettes (2026-10-16)
+
+« Visuellement tout est à la même hauteur alors que le niveau augmente. » Le
+reproche portait sur le rail : les marches côte à côte, pastilles alignées,
+rien qui montre la montée. Deux séries de maquettes ont été refusées avant
+celle-ci (« aucun n'est satisfaisant, j'attends plus de finesse »), puis une
+direction retenue et poussée seule jusqu'au détail. **C'est la méthode pour
+tout ce qui se juge en trois secondes** — la troisième fois qu'elle évite une
+demi-journée de code écrite pour rien.
+
+**Le relief**, c'est le même objet sur **deux axes réels** :
+- en abscisse le **TEMPS** : les séances sont à 17, 17 puis 26 jours d'écart,
+  donc la dernière pente est plus douce — « on a mis plus longtemps à reprendre
+  moins ». Un axe par rang l'aurait caché.
+- en ordonnée la valeur **ORDONNÉE PAR MÉRITE** : une durée compte à rebours,
+  un taux à l'endroit. ⚠️ C'est un **renversement de la règle d'hier** (« une
+  durée descend vers la norme, un taux y monte ») : avec le mérite, MONTER veut
+  toujours dire PROGRESSER, et les deux moitiés des cartes se lisent dans le
+  même sens. Les étiquettes de l'échelle portent l'unité réelle, donc rien
+  n'est caché. `ev_descend` / `ev_monte` sont retirées.
+- ⚠️ **Le tracé est DROIT entre deux mesures** : rien n'a été relevé entre les
+  deux, une courbe lissée inventerait ce qu'on ne sait pas. Ce qui n'est pas
+  mesuré est en **pointillé** vers un **anneau creux**.
+- Une seule bascule de teinte, posée **exactement là où le tracé coupe la
+  norme** (un `linearGradient` en `userSpaceOnUse` dont l'arrêt est calculé par
+  interpolation), pas au point suivant. La masse sous le fil est NEUTRE : c'est
+  le fil qui porte la couleur, une masse teintée ferait deux signaux pour une
+  seule information.
+
+**Ce qui disparaît** : `blocGraphe` (le relief EST le graphe, et il est là dès
+l'ouverture de la carte), `state.histo`, l'appel à `/paliers/historique` —
+⚠️ il ne rendait qu'un SOUS-ENSEMBLE de `perf.paliers`, donc une requête de
+plus dont personne ne lisait la réponse. La route, elle, reste (elle est
+testée, et c'est une lecture légitime de l'API paliers). `pal_evolution`,
+`ev_masquer_evo`, `ev_zone_q`, `ev_zone_a`, `ev_leg_*`, `ev_graphe_de` partent
+avec. Le bouton « Voir l'évolution » devient **« Le détail des séances »**,
+dans la ligne de bilan, et n'ouvre plus que l'historique.
+
+⚠️ **Le rail reste à la SÉANCE** (`railHtml`, `.sq-rail`). Deux questions
+différentes : « quelle marche suis-je en train de mesurer » (une échelle), et
+« comment cela a progressé » (un relief). Même précédent que le radar et les
+barres de la vue d'ensemble.
+
+**« Fais attention que les choses écrites ne se superposent pas. »** Ce n'est
+pas une liste de cas particuliers mais un **placeur** : chaque étiquette a une
+boîte, on les pose dans un ORDRE DE PRIORITÉ, et ce qui ne rentre pas n'est
+pas dessiné. ⚠️ **L'ordre EST la décision** : la norme, puis les mesures (la
+plus récente d'abord), puis les cibles, la pastille d'échéance, « au-delà »,
+« la norme », l'échelle, la règle des mois, et en dernier « zone tenue ».
+Quand la place manque, ce qui saute est la décoration, jamais le chiffre
+relevé.
+
+Les six défauts que **la mesure** a trouvés — `getBBox()` au banc, pas l'œil :
+- ⚠️ **Le même relevé dessiné DEUX FOIS.** `construireRail` recopie la dernière
+  mesure sur le seuil d'au-delà pour que le RAIL le montre franchi ; dans le
+  relief cette copie faisait un second point, à une date où personne n'a rien
+  mesuré, et le tracé partait à plat vers la droite. Mesuré : deux « 0,8 % »
+  pour trois séances. Un fantôme n'est jamais une mesure, et n'emprunte pas la
+  date de ce qu'il recopie.
+- ⚠️ **« norme franchie » écrit deux fois** — `mieux()` répond « atteint »,
+  donc toute marche à partir de la norme se disait franchie. Exactement le
+  piège du drapeau du rail, un mois plus tôt : c'est `estNorme` qui tranche.
+- ⚠️ **Deux étiquettes se touchaient de 1,7 px** alors que le placeur avait dit
+  non-collision : les boîtes sont ESTIMÉES (rien n'est dans le document pendant
+  la construction du SVG), elles se testent donc avec une **marge**.
+- ⚠️ **« 14.4 essais » sortait 24 px à GAUCHE du cadre** : la gouttière était
+  une constante. Elle se calcule désormais sur les étiquettes elles-mêmes, et
+  la zone des points recule d'autant.
+- ⚠️ **« target 2 j · to be measured » sortait 19 px à DROITE** — trouvé en
+  relisant l'écran ANGLAIS, où les libellés sont plus longs. L'écart minimal
+  tient les étiquettes entre elles, pas contre les BORDS : une étiquette qui
+  déborde glisse vers l'intérieur, et si le glissement l'éloignait trop de sa
+  marche elle se raccourcit à sa date.
+- ⚠️ **C'était l'étiquette de la mesure la plus RÉCENTE qui sautait** quand la
+  place manquait, au profit d'une échéance à venir — relevé sur une sortie dont
+  la marche 4 avait été tranchée avant la 3. L'ordre de pose des étiquettes du
+  bas part donc des mesures, la plus récente en tête.
+
+**Deux autres décisions prises à l'écran**, pas au clavier :
+- ⚠️ **Sans aucune mesure, le relief est COURT** (198 px de viewBox au lieu de
+  300) : il n'y a rien à tracer, et le relief plein laissait trois cents pixels
+  de vide sous une norme et une cible.
+- **L'étiquetage du bas a quatre modes**, choisis sur la place DISPONIBLE :
+  « cible 10 j · 11/09 » fait ~108 px, donc au-delà de six marches il faut deux
+  rangées alternées, puis la date seule, puis une étiquette sur deux. Et les
+  abscisses sont **écartées** (deux passes sur une chaîne d'intervalles) pour
+  garantir l'écart du mode retenu ; la règle des mois passe alors par les
+  couples (jour, x) réellement posés — calculée sur le temps brut, elle
+  mentirait.
+- ⚠️ **Un SVG n'hérite PAS des polices de la feuille** : `font-family` est
+  écrit sur chaque texte (Fraunces pour les chiffres, DM Sans pour l'unité).
+
+**Le bilan** remplace en une ligne ce que l'historique disait en dix :
+« 3 marches tenues sur 3 · 5,5 j repris depuis le départ · 34 jours de suivi ».
+⚠️ Un gain se dit autrement selon le sens — on *reprend* du temps, on *gagne*
+des points.
+
+⚠️ **Et un faux pas de méthode, à ne pas refaire** : la suppression d'une règle
+CSS avait d'abord été écrite en expression régulière non gourmande ; le `.*?`
+est parti du PREMIER `/*` du fichier et **1 840 lignes de `competences.css`
+ont disparu d'un coup**, avec un symptôme trompeur (`.pal-rail` rendait
+`display: block`). Restauré depuis git, puis retrait par chaîne EXACTE. Une
+suppression se fait sur des bornes, jamais sur un motif ouvert.
+
+Tests : `tests/test_109_paliers_ecran.py` passe de 84 à **101 cas** ; **neuf
+défauts remis un par un, neuf cliquets tombés** (l'axe par magnitude, le
+fantôme compté comme mesure, les boîtes sans marge, la gouttière fixe, le
+cadre sans butée, le double « norme franchie », le relief jamais court, la
+courbe lissée, la cible qui l'emporte sur un relevé). Suite : **3213 passés**,
+`repet_image` 3163 + 36 sautés.
+Éprouvé au banc (`tools/devrun_competences.py`, 1600 px) dans les deux
+langues : six reliefs réels plus une **épreuve de charge à dix marches** (dont
+deux le même jour et deux à un jour d'écart) — **zéro chevauchement, zéro
+texte hors cadre** sur les 29 étiquettes du cas le plus chargé, et zéro fuite
+française sur l'écran anglais.
+Maquettes : canvas « Paliers — le relief » (le système, le relief, les trois
+états, la densité).
+
 ---
 
 ## Notes importantes (suite)
