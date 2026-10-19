@@ -1711,6 +1711,81 @@ partagent un design system chargé partout via `header_buttons.html` :
   n'a pas de session → tout repart en français. `seed_demo.py` enrichit donc dans
   un `test_request_context()` avec `session['lang']` posé.
 
+### Complété (session 10 — 2026-10-19) — `docs/doc_technique.html` refondue
+
+« Cela fait très longtemps qu'on ne l'a pas tenue à jour, et son design fait
+vraiment amateur avec la barre 100 % faite. » Les deux reproches étaient
+justes, et le second mesurable.
+
+**L'écart de contenu, mesuré avant de toucher à quoi que ce soit.** Recherche
+des termes un par un dans le fichier : « carto commune », « coordinateur »,
+« champion », « palier », `import_hub`, `ecriture.py`, `ActivityChangeRequest`,
+`roles_communs`, `entites_uniques`, « matrice » — **zéro occurrence pour
+chacun**. La doc datait du 16/09 et décrivait l'application d'avant les quatre
+paliers, l'accès par rôle, les propositions, la porte d'écriture, les paliers
+de performance, la page Temps refondue, la page Comptes refaite, l'historique
+des imports. Elle citait encore `time_extra.py`, **supprimé depuis** (c'est lui
+qui a mis la réunion des rôles à terre en production).
+
+⚠️ **La barre « Progression globale » affichait 100 % par CONSTRUCTION.** Elle
+comptait des badges `badge-done` posés à la main : **35 sections sur 37** les
+portaient. Elle a donc affiché 100 % pendant tout le mois où la doc prenait son
+retard — un indicateur qui ne peut pas descendre ne mesure rien. Remplacée par
+des **faits datés** (relue le…, sur le code de `staging · <sha>`, n sections,
+**4 à reprendre**), et chaque section périmée le dit **en tête, avant qu'on la
+lise** : le lecteur ne doit jamais découvrir après coup qu'il vient d'apprendre
+un écran qui n'existe plus.
+
+**Le design : on RACCORDE, on ne redessine pas.** La doc est servie par le hub
+(`/doc`), qui a une direction artistique aboutie — chaux, Fraunces en italique
+pour les sur-titres, olive `#7d8c2e` pour sa section Documentation. La doc,
+elle, était en Segoe UI rose-et-vert avec une barre latérale plate : on
+cliquait « Documentation » dans un lieu soigné et on tombait dans un autre
+monde. ⚠️ **C'est cet écart qui faisait amateur, pas le détail des pages** — et
+c'est la raison pour laquelle les deux refontes de la page Carte avaient été
+refusées (« j'avais redessiné ce qui ne devait pas bouger »). Tranché sur
+maquette avant d'écrire : canvas « Doc technique — la coque » (la page, la
+barre avant/après, le sommaire avant/après).
+
+**Le sommaire se construit DEPUIS les sections**, il n'est plus écrit à la
+main. ⚠️ C'est ce qui a manqué pendant un mois : une liste tenue à part finit
+par ne plus correspondre au document. Chaque `<section>` déclare sa famille
+(`data-fam`) et son état (`data-etat="neuf"|"vieux"`) ; six familles au lieu de
+37 liens à plat, plus un champ de recherche. Deux marques et deux seulement —
+**NEUF** et **À REPRENDRE** : les deux questions qu'on se pose en ouvrant une
+doc.
+
+**Sept sections écrites** : la gouvernance (quatre paliers, tableau des droits,
+porte d'écriture), l'accès (carto commune, rôles et statuts), les propositions
+(carte et données), les paliers de performance, Importer des données et son
+historique, le hub / panel / pulse, et l'outillage (bancs `devrun_*`, suite de
+tests, `repet_image.sh`). **Quatre marquées à reprendre** : `import-ia`, `rh`,
+`competences`, `gestion-compte` — chacune avec un bandeau qui dit ce qui a
+bougé et renvoie vers la section à jour. Les 33 sections existantes sont
+reprises **telles quelles** : réécrire 33 sections d'un coup, c'est en abîmer
+quelques-unes sans s'en apercevoir. 33 → **40 sections**.
+
+⚠️⚠️ **Ni `IntersectionObserver` ni `requestAnimationFrame` ne tirent dans le
+volet de mise au point.** Mesuré : un observateur NEUF, posé à la main, ne rend
+**rien** — pas même l'appel initial que la spécification garantit ; et
+`window.scrollY` change (55 513) pendant que le compteur d'événements `scroll`
+reste à **0**. Même famille que les transitions CSS figées en cours de route,
+déjà connue : tout ce qui dépend du rendu est invérifiable là-bas. Conséquence
+pratique : l'allumage de la section lue n'utilise **pas** d'observateur — un
+calcul au défilement se prouve en rejouant la fonction à chaque position, ce
+qui a d'ailleurs montré un vrai défaut (la **dernière** section ne pouvait
+jamais s'allumer : la page ne défile plus assez pour la faire monter dans la
+bande de lecture).
+
+⚠️ Les cinq diagrammes hérités déclarent `Segoe UI` en **attribut de
+présentation** (`font-family="…"` sur le `<svg>`), pas en `style` : une règle
+d'auteur l'emporte donc sans `!important`, et `svg { font-family: var(--f-corps) }`
+les raccorde sans toucher à leur tracé.
+
+**Reste pour une prochaine fois** : le guide utilisateur (`docs/guide.html`),
+que l'utilisateur a explicitement remis à plus tard, et les captures des
+écrans refondus.
+
 ### En cours
 - *(rien)*
 
@@ -1813,17 +1888,16 @@ développeur de compétences** (`gestion_rh.js`) — c'est la deuxième fois : t
 conversion. Mesuré après : écart horizontal 0,0 px avec le centre de la case.
 
 ### À faire (par priorité)
-1. **`docs/doc_technique.html` + `docs/guide.html` : le partage de carto a changé de
-   modèle** (carto commune, accès par rôle, propositions de modification, statut
-   « champion » à la place de « gestionnaire de compétences », statut « RH » retiré).
-   Les deux documents décrivent encore le partage par COPIE seul. À reprendre à la
-   prochaine routine de documentation, captures comprises — avec l'examen des
-   propositions depuis le bandeau de la page Carte et le tableau global des
-   compétences de la page RH (2026-09-21).
-2. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
-3. **La fenêtre « Importer des données »** (page Carte) remplace l'ancien import global IA :
-   le guide et la doc technique décrivent encore l'ancien écran (étapes analyse → revue),
-   captures comprises.
+1. **`docs/guide.html` — le guide utilisateur est le seul des deux documents à
+   n'avoir pas été repris** (la doc technique l'a été le 19/10/2026). Il décrit
+   encore le partage de carto par COPIE seul, l'ancien import global IA, et
+   ignore les quatre paliers, les propositions, les paliers de performance et
+   la page Temps refondue. Captures comprises — et elles se refont avec
+   `tools/guide/`.
+2. **Les captures de la doc technique** : elle n'en porte aucune, et quelques
+   écrans gagneraient à être montrés (la fenêtre d'examen, le relief des
+   paliers, la matrice d'accès).
+3. Éditeur OptiqCarto côté JS (`static/optiqcarto/editor.js`) — seul élément majeur restant
 
 ---
 
