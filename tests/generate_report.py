@@ -83,6 +83,7 @@ PAGE_LABELS = {
     "test_110_paliers_norme_erreurs":     "Paliers — Norme, droits et chemins d'erreur",
     "test_111_debug_decisions_ia":       "Carte — Débogage des décisions (VSDX / IA)",
     "test_112_rh_affectation_gaps":      "Gestion RH — Affectation en lot et listes de rôles",
+    "test_113_import_full_gaps":         "Import Global Excel — Enrichissement IA et refus",
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
     "test_57_mastery":                   "Niveaux de Maîtrise",
     "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
