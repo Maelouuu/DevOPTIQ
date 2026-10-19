@@ -5538,6 +5538,136 @@ banc à 1600 px dans les deux langues (`tools/devrun_competences.py`) : les deux
 verdicts, et zéro fuite française sur l'écran anglais — les trois relevés sont
 des DONNÉES du banc (le nom de la sortie et son standard).
 
+### Proposer une modification d'ACTIVITÉ — tâches, outils, compétences (2026-10-19)
+
+Le même principe que la cartographie, pour l'autre moitié des données : un
+champion dépose ce qu'il veut changer sur une fiche d'activité, un
+coordinateur applique ou refuse, et ce qui est appliqué vaut pour tout le
+monde — c'est la même ligne en base, il n'y a rien à propager.
+
+⚠️⚠️ **Ce n'était pas « rien » avant : c'était un MUR.** `Code/ecriture.py`
+consulte `carto_access.can_edit`, qui rend faux pour un champion sur une carto
+COMMUNE. Il se faisait donc refuser l'ajout d'une tâche avec le code
+`lecture_seule` — **le motif réservé à `user`**. Il pouvait proposer une
+modification de la CARTE, et rien de ce qu'elle porte.
+
+**Le périmètre** : tâches (et leurs rôles), outils, compétences, savoirs,
+savoir-faire, aptitudes, HSC, contraintes, données — tout ce qui s'écrit
+depuis la page Activités.
+
+#### Les trois décisions qui structurent le module
+
+- ⚠️ **Des GESTES, pas un instantané.** Une carto est un diagramme : on en
+  recopie l'état et on compare deux images. Une fiche d'activité n'a pas
+  d'état global — la page fait des appels CRUD atomiques et il n'existe aucun
+  brouillon. `ActivityChangeRequest.actions` porte donc la suite des requêtes
+  **telles qu'elles ont été faites** (chemin, méthode, corps), rejouées dans
+  l'ordre. Transporter un instantané aurait demandé de réécrire la page
+  entière pour qu'elle travaille sur une copie.
+- ⚠️ **La porte DÉTOURNE, elle ne refuse plus.** Le verdict
+  `VERDICT_PROPOSITION` est rendu par `porte()` quand `can_propose` dit oui sur
+  la carto active et que le chemin est de ceux qu'on sait rejouer ;
+  `_detourner()` range le geste et répond **202** avec `code: "proposition"`.
+  Les 39 fichiers de routes ne changent pas — c'est le même argument qui a
+  fait de `ecriture.py` une porte centrale, et la quarantième route écrite
+  demain sera couverte sans rien faire.
+- ⚠️ **Un LOT, pas un geste par proposition** (`status='draft'` tant qu'on
+  accumule). Corriger une fiche, c'est cinq ou six clics ; une proposition par
+  clic demanderait six décisions au coordinateur pour un seul travail — et on
+  refuse une intention, pas une touche de clavier.
+
+#### Appliquer : on rappelle les VRAIES routes, en une transaction
+
+`rejouer()` résout chaque geste dans `url_map`, pousse un
+`test_request_context` et appelle la vue. Zéro duplication de la logique
+métier : ce qui est appliqué est exactement ce que le champion aurait écrit, et
+une seconde implémentation de « ajouter une tâche » finirait par diverger de la
+première — ce qu'on cherche précisément à éviter en faisant relire.
+
+- ⚠️ **Chaque route appelée fait son propre `commit()`.** Rejoués tels quels,
+  cinq gestes donnent cinq transactions : si le troisième échoue, les deux
+  premiers sont déjà écrits et **personne ne peut dire où la proposition s'est
+  arrêtée**. `_neutraliser_commits()` remplace `commit` par `flush` le temps du
+  rejeu — le motif de `tools/provisioning/provision.py`, pour la même raison.
+  Mesuré : un geste impossible → 409 `rejeu`, **0 ligne écrite**, la
+  proposition **reste `pending`**, et l'écran dit LEQUEL a bloqué.
+- ⚠️ La session est recopiée dans le contexte du rejeu, et `active_entity_id`
+  est posée sur la carto de la PROPOSITION : le coordinateur tranche depuis la
+  page Carte, souvent sur une autre entité que la sienne.
+- ⚠️ **On ne détourne que ce qu'on saura rejouer** (`route_existe`). Trouvé par
+  un cliquet qui ne mordait pas : un POST vers une URL qui n'accepte que PUT
+  devenait une proposition — acceptée, examinée, puis **impossible à
+  appliquer**. Hors de la liste explicite `_SEGMENTS`, la porte refuse comme
+  avant : détourner une écriture qu'on n'a pas prévue, c'est promettre un
+  examen pour un geste qui échouera.
+
+#### L'écran
+
+- **Page Activités** : un bandeau ambre (la couleur de la gouvernance, déjà
+  celle du bouton « Proposer » de l'éditeur) avec le compte du brouillon, une
+  fenêtre pour relire / retirer / envoyer, et « Mes propositions » avec leur
+  décision. Rendu **seulement pour qui propose** (`propose_activites`, le même
+  verdict que la porte : le bandeau ne doit jamais promettre un examen que la
+  porte refuserait).
+- ⚠️ **On enveloppe `fetch`, on ne touche pas aux huit fichiers JS** de la
+  page. Chacun lit sa réponse à sa façon ; les reprendre un par un, c'est huit
+  occasions d'en oublier un. ⚠️ On **clone** la réponse : un flux ne se lit
+  qu'une fois, et l'appelant va le lire à son tour.
+- ⚠️ **Un TOAST, pas une modale** (`optiqAlert` reste pour ce qui ARRÊTE) :
+  cinq gestes, c'était cinq fenêtres à fermer. Relevé à l'écran.
+- **Examen** : la MÊME fenêtre que les propositions de carto (page Carte), et
+  le bandeau compte les deux files — un coordinateur décide au même endroit, et
+  une seconde porte finirait par ne jamais être ouverte (c'est ce qui faisait
+  manquer les propositions du temps où elles vivaient dans la page RH). Pas
+  d'avant/après en image : une fiche n'est pas un dessin, on lit les gestes
+  numérotés, dans l'ordre où ils seront rejoués.
+- ⚠️ **Les identifiants des DEUX tables se chevauchent** : la proposition de
+  carto n° 3 et celle d'activité n° 3 existent toutes les deux. Tout passe par
+  `cle` (`'c'+id` / `'a'+id`), jamais par `id` seul.
+
+#### Trois pièges rencontrés, tous déjà connus sous une autre forme
+
+- ⚠️⚠️ **DEUX conventions de substitution coexistent** : `{n}` (lu par
+  `carto_examen.js`) et `[[n]]` (lu par `activite_propositions.js`). Une clé
+  qui prend la mauvaise affiche son marqueur **tel quel**, et rien ne lève
+  d'erreur — relevé à l'écran avec « **[[N]] MODIFICATIONS PROPOSÉES** ». Une
+  clé suit la convention du FICHIER qui la lit ; `test_112` le tient dans les
+  deux sens.
+- ⚠️ **Le libellé se rebâtit à la LECTURE**, jamais à l'écriture : le champion
+  propose dans sa langue, le coordinateur lit dans la sienne. On stocke
+  `op` + `objet`, le verbe et la famille viennent du catalogue (`acp.v_*` /
+  `acp.f_*`) — une clé par couple ferait 54 libellés par langue, et l'article
+  s'accorde dans la famille (« la tâche », « l'outil »), ce que l'anglais
+  ignore. C'est la leçon du journal d'activité récente.
+- ⚠️ **Un OUTIL n'appartient à aucune activité** : c'est le catalogue de la
+  carto. Le corps d'une création en porte pourtant une (elle part du panneau
+  d'une tâche) — la retenir faisait paraître « Ajouter l'outil X » sous une
+  fiche qui ne le porte pas. Trouvé parce que le cliquet correspondant ne
+  mordait PAS : il neutralisait un garde que le chemin rendait inutile.
+- ⚠️ Supprimer une carto efface ses `activity_change_requests` : PostgreSQL
+  applique les clés étrangères.
+
+#### La popup Accès dit enfin ce que l'accès OUVRE
+
+Cet écran décide QUI entre, et ne disait nulle part ce qu'on y fait. La
+question s'est posée en étendant les propositions : ouvrir une carto ouvre
+désormais aussi le droit d'y **proposer** des tâches, des outils et des
+compétences. Un bandeau en tête de la fenêtre dit les trois paliers (consulte /
+propose / écrit et valide) et **renvoie** vers le tableau des droits de la page
+Comptes — ⚠️ il ne le règle pas : deux écrans pour un même réglage finissent
+par donner deux réponses.
+
+Aucun droit nouveau : `propose_carto`, `edit_carto` et `review_carto` servent
+tels quels. Les activités SONT les données d'une carto — c'est déjà ce que dit
+`DROIT_ECRITURE = "edit_carto"` dans `ecriture.py`.
+
+Tests : `tests/test_112_propositions_activite.py` (33 cas ; **18 défauts remis
+un par un, 18 cliquets tombés**). Suite : **3282 passés**, `repet_image`
+3242 + 41 sautés. Éprouvé au banc
+(`tools/devrun_partage.py`) dans les deux langues : parcours complet champion →
+envoi → coordinateur → application, les trois objets **relus en base**, le
+refus d'un `user`, et zéro fuite française sur l'écran anglais.
+
 ---
 
 ## Notes importantes (suite)

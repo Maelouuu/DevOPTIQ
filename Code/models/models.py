@@ -1126,6 +1126,57 @@ class CartoChangeRequest(db.Model):
     reviewer = db.relationship('User', foreign_keys=[reviewer_id])
 
 
+
+class ActivityChangeRequest(db.Model):
+    """Modification proposée sur les DONNÉES d'une carto commune.
+
+    Le pendant de `CartoChangeRequest` pour l'autre moitié : tâches, outils,
+    compétences, savoirs, HSC et contraintes d'une activité. Un champion ne
+    peut pas les écrire directement sur une carto commune — il dépose, un
+    coordinateur applique ou refuse, et ce qui est appliqué vaut pour tout le
+    monde.
+
+    ⚠️ **Des GESTES, pas un instantané.** Une carto est un diagramme dont on
+    recopie l'état ; une fiche d'activité n'a pas d'état global — la page fait
+    des appels CRUD atomiques et il n'existe aucun brouillon. `actions` porte
+    donc la suite des requêtes telles qu'elles ont été faites (chemin, méthode,
+    corps), rejouées dans l'ordre à l'application.
+
+    ⚠️ **Un brouillon par (auteur, carto)** : `status='draft'` tant que le
+    champion accumule, `pending` une fois envoyé. Une proposition par clic
+    demanderait au coordinateur six décisions pour un seul travail.
+    """
+    __tablename__ = 'activity_change_requests'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'),
+                          nullable=False, index=True)
+    # L'activité visée quand la proposition n'en touche qu'une — sinon NULL.
+    # ⚠️ Un OUTIL n'appartient à aucune activité (c'est le catalogue de la
+    # carto) : lui en inventer une ferait paraître le geste sous une fiche qui
+    # ne le porte pas.
+    activity_id = db.Column(db.Integer, nullable=True, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'),
+                          nullable=False, index=True)
+
+    title = db.Column(db.String(200), nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    actions = db.Column(db.Text, nullable=False, default='[]')
+
+    # draft | pending | approved | rejected
+    status = db.Column(db.String(20), nullable=False, default='draft')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    review_comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    author_seen_at = db.Column(db.DateTime, nullable=True)
+
+    entity = db.relationship('Entity', foreign_keys=[entity_id])
+    author = db.relationship('User', foreign_keys=[author_id])
+    reviewer = db.relationship('User', foreign_keys=[reviewer_id])
+
+
 class EntityShareOffer(db.Model):
     """Proposition de partage d'entité en attente de réponse.
 

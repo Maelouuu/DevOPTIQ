@@ -334,3 +334,31 @@ body.cex-ouverte { overflow: hidden; }
     .cex-detail { padding: 16px; }
     .cex-bandeau-cta { display: none; }
 }
+
+/* ── Une proposition d'ACTIVITÉ : des gestes, pas un dessin ──────────────
+   ⚠️ Elle n'a pas d'avant / après en image : une fiche d'activité n'est pas
+   un diagramme. Ce qu'on examine est la liste de ce qui a été fait — et
+   c'est exactement ce qui sera rejoué, dans cet ordre. */
+.cex-genre { color: #b45309; margin-right: 5px; font-size: .92em; }
+.cex-gestes {
+  list-style: none; margin: 0 0 10px; padding: 0; counter-reset: cexg;
+}
+.cex-g {
+  display: flex; align-items: center; gap: 11px; padding: 9px 12px;
+  margin-bottom: 6px; border-radius: 11px;
+  border: 1px solid var(--border, #e2e8f0); background: var(--card, #fff);
+}
+.cex-g::before {
+  counter-increment: cexg; content: counter(cexg);
+  width: 23px; height: 23px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
+  background: #fef3df; color: #b45309;
+}
+.cex-g-t { flex: 1; min-width: 0; }
+.cex-g-t b { display: block; font-size: 13.5px; color: var(--ink, #0f172a); }
+.cex-g-t span { font-size: 11.5px; color: var(--muted, #64748b); }
+.cex-g-note {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0 0 4px;
+  font-size: 12px; color: var(--muted, #64748b);
+}
+.cex-g-note i { margin-top: 2px; color: #b45309; }

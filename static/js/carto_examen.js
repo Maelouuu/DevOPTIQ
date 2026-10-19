@@ -67,10 +67,24 @@
     $('#cex-liste').innerHTML = '';
     $('#cex-detail').innerHTML = attente();
     try {
-      const rep = await fetch('/cartography/api/changes/a_examiner');
-      const data = await rep.json();
-      if (!rep.ok) throw new Error(data.error || '');
-      S.liste = data.requests || [];
+      // ⚠️ Les deux files, en PARALLÈLE et dans la MÊME fenêtre : un
+      // coordinateur a un seul endroit où décider. Deux écrans finiraient par
+      // ne plus dire la même chose du même geste, et surtout l'un des deux ne
+      // serait jamais ouvert.
+      const [rc, ra] = await Promise.all([
+        fetch('/cartography/api/changes/a_examiner'),
+        fetch('/api/propositions/a_examiner'),
+      ]);
+      const dc = await rc.json();
+      if (!rc.ok) throw new Error(dc.error || '');
+      const da = ra.ok ? await ra.json() : { requests: [] };
+      // ⚠️ Les identifiants des DEUX tables se chevauchent : la proposition
+      // de carto n° 3 et celle d'activité n° 3 existent toutes les deux. Tout
+      // passe donc par `cle`, jamais par `id` seul.
+      S.liste = [
+        ...(dc.requests || []).map((r) => ({ ...r, genre: 'carto', cle: 'c' + r.id })),
+        ...(da.requests || []).map((r) => ({ ...r, genre: 'activite', cle: 'a' + r.id })),
+      ];
     } catch (_) {
       $('#cex-detail').innerHTML = `<p class="cex-err">${esc(L('err'))}</p>`;
       return;
@@ -78,7 +92,7 @@
     majBandeau();
     if (!S.liste.length) { rendreFini(); return; }
     rendreListe();
-    choisir(S.liste[0].id);
+    choisir(S.liste[0].cle);
   }
 
   function fermer() {
@@ -123,9 +137,12 @@
           <b>${g.items.length}</b>
         </p>
         ${g.items.map((r) => `
-          <button type="button" class="cex-item${r.id === S.choisi ? ' is-on' : ''}"
-                  data-id="${r.id}"${r.id === S.choisi ? ' aria-current="true"' : ''}>
-            <span class="cex-item-titre">${esc(r.title || L('sans_titre'))}</span>
+          <button type="button" class="cex-item${r.cle === S.choisi ? ' is-on' : ''}"
+                  data-id="${esc(r.cle)}"${r.cle === S.choisi ? ' aria-current="true"' : ''}>
+            <span class="cex-item-titre">
+              <i class="fa-solid ${r.genre === 'activite' ? 'fa-list-check' : 'fa-diagram-project'} cex-genre"
+                 title="${esc(L(r.genre === 'activite' ? 'genre_activite' : 'genre_carto'))}"></i>
+              ${esc(r.title || L(r.genre === 'activite' ? 'sans_activite' : 'sans_titre'))}</span>
             <span class="cex-item-meta">${esc(r.author)} · ${esc(dateCourte(r.created_at))}</span>
           </button>`).join('')}
       </div>`).join('');
@@ -133,25 +150,83 @@
 
   /* ── Le détail d'une proposition ─────────────────────────────────────── */
 
-  async function choisir(id) {
-    S.choisi = id;
+  const parCle = (cle) => S.liste.find((x) => x.cle === cle);
+
+  async function choisir(cle) {
+    S.choisi = cle;
     rendreListe();
     const zone = $('#cex-detail');
     demonter();
     zone.innerHTML = attente();
+    const item = parCle(cle);
+    if (!item) return;
+    const url = item.genre === 'activite'
+      ? `/api/propositions/${item.id}`
+      : `/cartography/api/changes/${item.id}`;
     try {
-      const rep = await fetch(`/cartography/api/changes/${id}`);
+      const rep = await fetch(url);
       const r = await rep.json();
       if (!rep.ok) throw new Error(r.error || '');
-      if (S.choisi !== id) return;      // on a cliqué ailleurs entre-temps
-      S.detail = r;
+      if (S.choisi !== cle) return;     // on a cliqué ailleurs entre-temps
+      S.detail = { ...r, genre: item.genre, cle };
       demonter();
-      zone.innerHTML = detailHtml(r);
+      zone.innerHTML = item.genre === 'activite' ? detailActiviteHtml(r) : detailHtml(r);
       zone.scrollTop = 0;
-      monterComparaison(r);
+      if (item.genre !== 'activite') monterComparaison(r);
     } catch (_) {
-      if (S.choisi === id) zone.innerHTML = `<p class="cex-err">${esc(L('err'))}</p>`;
+      if (S.choisi === cle) zone.innerHTML = `<p class="cex-err">${esc(L('err'))}</p>`;
     }
+  }
+
+  /* ── Le détail d'une proposition d'ACTIVITÉ ──────────────────────────────
+     ⚠️ Pas d'avant / après en image : une fiche d'activité n'est pas un
+     dessin. Ce qu'on examine, ce sont les GESTES — et c'est aussi ce qui
+     sera rejoué, dans cet ordre, à l'application. */
+
+  function phraseGeste(g) {
+    const bouts = String(g.op || '').split('.');
+    const objet = g.objet
+      ? (L('lang') === 'en' ? ` “${g.objet}”` : ` « ${g.objet} »`) : '';
+    return L('v_' + (bouts[1] || 'update')) + ' ' + L('f_' + (bouts[0] || 'task')) + objet;
+  }
+
+  function detailActiviteHtml(r) {
+    const gestes = r.gestes || [];
+    return `
+      <div class="cex-d-tete">
+        <span class="cex-chip"><i class="fa-solid fa-diagram-project"></i>${esc(r.entity_name || '—')}</span>
+        <h4><i class="fa-solid fa-list-check cex-genre"></i> ${esc(r.title || L('sans_activite'))}</h4>
+        <p class="cex-d-meta">
+          <i class="fa-solid fa-user-pen"></i>${esc(L('par').replace('%s', r.author))}
+          <span>·</span>${esc(dateCourte(r.submitted_at || r.created_at))}
+        </p>
+      </div>
+      ${r.message ? `<blockquote class="cex-msg">${esc(r.message)}</blockquote>` : ''}
+
+      <h5 class="cex-h">${esc(gestes.length === 1 ? L('gestes_1')
+                              : F('gestes_n', { n: gestes.length }))}</h5>
+      <ol class="cex-gestes">
+        ${gestes.map((g) => `
+          <li class="cex-g">
+            <div class="cex-g-t"><b>${esc(phraseGeste(g))}</b>
+              <span>${esc(g.activite || L('hors_activite'))}</span></div>
+          </li>`).join('')}
+      </ol>
+      <p class="cex-g-note"><i class="fa-solid fa-circle-info"></i>${esc(L('gestes_note'))}</p>
+
+      ${r.can_review ? `
+        <div class="cex-decision">
+          <h5 class="cex-h">${esc(L('decision'))}</h5>
+          <label class="cex-lab" for="cex-comment">${esc(F('commentaire', { nom: r.author }))}</label>
+          <textarea id="cex-comment" rows="2" placeholder="${esc(L('commentaire_ph'))}"></textarea>
+          <small class="cex-aide">${esc(L('commentaire_aide'))}</small>
+          <div class="cex-actions">
+            <button type="button" class="cex-btn cex-btn--non" data-trancher="reject">
+              <i class="fa-solid fa-xmark"></i>${esc(L('refuser'))}</button>
+            <button type="button" class="cex-btn cex-btn--oui" data-trancher="approve">
+              <i class="fa-solid fa-check"></i>${esc(L('appliquer'))}</button>
+          </div>
+        </div>` : ''}`;
   }
 
   function ligneResume(n, cle, noms) {
@@ -254,7 +329,9 @@
     let data = {};
     let rep = null;
     try {
-      rep = await fetch(`/cartography/api/changes/${r.id}/${action}`, {
+      const base = r.genre === 'activite'
+        ? `/api/propositions/${r.id}` : `/cartography/api/changes/${r.id}`;
+      rep = await fetch(`${base}/${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: ($('#cex-comment')?.value || '').trim() }),
@@ -265,14 +342,23 @@
 
     // 409 : quelqu'un a tranché avant nous. La proposition quitte la liste —
     // la laisser proposerait une décision qui n'est plus possible.
-    if (rep && rep.status === 409) {
+    if (rep && rep.status === 409 && data.code !== 'rejeu') {
       annoncer(L('deja'), 'warn');
-      retirer(r.id);
+      retirer(r.cle);
+      return;
+    }
+    // ⚠️ 409 `rejeu` : un geste ne s'applique plus (l'objet a disparu, ou
+    // quelqu'un l'a déjà changé). RIEN n'a été écrit — on applique tout ou
+    // rien — et la proposition RESTE en attente : on dit lequel a bloqué,
+    // pour que le coordinateur puisse en parler à son auteur.
+    if (rep && rep.status === 409 && data.code === 'rejeu') {
+      annoncer(F('rejeu', { n: (data.rang || 0) + 1, quoi: data.objet || '—' }), 'err');
+      choisir(r.cle);
       return;
     }
     if (!rep || !rep.ok) {
       annoncer(rep && rep.status === 403 ? L('interdit') : L('err_decision'), 'err');
-      choisir(r.id);
+      choisir(r.cle);
       return;
     }
 
@@ -281,22 +367,25 @@
     const averti = ' ' + F('averti', { nom: r.author });
     if (action === 'approve') {
       const active = window.ACTIVE_ENTITY && window.ACTIVE_ENTITY.id;
-      if (active && Number(active) === Number(r.entity_id)) S.recharger = true;
+      // Une proposition d'ACTIVITÉ ne change pas le dessin : recharger la
+      // page Carte n'y montrerait rien de neuf.
+      if (r.genre !== 'activite'
+          && active && Number(active) === Number(r.entity_id)) S.recharger = true;
       annoncer(data.sync_warning ? L('avert_sync')
         : L('applique') + averti + (S.recharger ? ' ' + L('recharge') : ''),
       data.sync_warning ? 'warn' : 'ok');
     } else {
       annoncer(L('refuse') + averti, 'ok');
     }
-    retirer(r.id);
+    retirer(r.cle);
   }
 
   // L'ordre qu'on VOIT (groupé par carto), pas celui du serveur (par date).
-  const ordreAffiche = () => groupes().flatMap((g) => g.items).map((x) => x.id);
+  const ordreAffiche = () => groupes().flatMap((g) => g.items).map((x) => x.cle);
 
-  function retirer(id) {
-    const pos = ordreAffiche().indexOf(id);
-    S.liste = S.liste.filter((x) => x.id !== id);
+  function retirer(cle) {
+    const pos = ordreAffiche().indexOf(cle);
+    S.liste = S.liste.filter((x) => x.cle !== cle);
     majBandeau();
     if (!S.liste.length) { rendreFini(); return; }
     // La suivante : celle qui était juste en dessous dans la liste.
@@ -363,7 +452,7 @@
     fen.addEventListener('click', (e) => {
       if (e.target.closest('[data-cex="fermer"]')) { fermer(); return; }
       const item = e.target.closest('.cex-item');
-      if (item) { choisir(parseInt(item.dataset.id, 10)); return; }
+      if (item) { choisir(item.dataset.id); return; }
       const t = e.target.closest('[data-trancher]');
       if (t) trancher(t.dataset.trancher);
     });

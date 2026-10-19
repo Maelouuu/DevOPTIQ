@@ -90,6 +90,11 @@ TOUT_COMPTE = (
     # vérifiée route par route (404 sinon).
     "/activities/api/entities",
     "/activities/api/share",
+    # Propositions sur les donnees d'une activite : `can_propose` pour deposer,
+    # `can_review` pour trancher — exactement les regles de la cartographie, et
+    # bien plus fines qu'un droit d'ecriture unique. C'est d'ailleurs CETTE
+    # porte qui y detourne les gestes refuses (voir `_detourner`).
+    "/api/propositions",
     # Import : `_peut()` arbitre par nature de données (une carto pour qui
     # l'écrit, des comptes pour qui les crée).
     "/api/import",
@@ -113,6 +118,10 @@ MOTIF = {
     "non_connecte": ("non connecté", 401),
     "lecture_seule": ("lecture seule", 403),
 }
+
+# ⚠️ Un verdict qui n'est PAS un refus : le geste est détourné vers une
+# proposition. Voir `_detourner` plus bas, et `Code/propositions_activite.py`.
+VERDICT_PROPOSITION = "proposition"
 
 
 def _refus(code):
@@ -155,6 +164,30 @@ def _peut_ecrire():
     return bool(a_le_droit(DROIT_ECRITURE))
 
 
+def _peut_proposer(chemin, methode):
+    """Ce compte doit-il PROPOSER ce geste au lieu de se le voir refuser ?
+
+    ⚠️ C'était le trou : `_peut_ecrire` consulte `can_edit`, qui rend faux
+    pour un champion sur une carto COMMUNE — il se faisait donc refuser l'ajout
+    d'une tâche avec le code `lecture_seule`, le motif réservé à `user`. Il
+    pouvait proposer une modification de la CARTE, et rien de ce qu'elle porte.
+
+    Les deux conditions, et seulement elles : le chemin est de ceux qu'on sait
+    rejouer, et `can_propose` dit oui sur la carto active — la même règle que
+    pour la cartographie, donc la même ligne du tableau des droits.
+    """
+    from Code.carto_access import can_propose
+    from Code.models.models import Entity
+    from Code.propositions_activite import chemin_propasable, route_existe
+    if not chemin_propasable(chemin) or not route_existe(chemin, methode):
+        return False
+    try:
+        entite = Entity.get_active()
+    except Exception:
+        return False
+    return bool(entite is not None and can_propose(entite))
+
+
 def porte(chemin, methode, en_test=False):
     """Le verdict, isolé de Flask — pour qu'il soit testable tel quel.
 
@@ -182,10 +215,42 @@ def porte(chemin, methode, en_test=False):
         return None if en_test else "non_connecte"
     if _peut_ecrire():
         return None
+    # ⚠️ Avant de refuser : ce geste se PROPOSE-t-il ? Un champion sur une
+    # carto commune n'écrit pas, mais il n'est pas en lecture seule pour
+    # autant — c'est exactement ce qui sépare `champion` de `user`.
+    if _peut_proposer(chemin, methode):
+        return VERDICT_PROPOSITION
     # Règle 1 — connecté, mais sans le droit d'écrire. C'est le défaut que
     # l'audit a relevé : un compte `user` créait des tâches et réécrivait la
     # description d'un outil partagé.
     return "lecture_seule"
+
+
+def _detourner():
+    """Range le geste dans le brouillon du compte, et le dit au navigateur.
+
+    ⚠️ **202, pas 200.** Le geste n'est PAS appliqué : répondre comme une
+    écriture réussie ferait rafraîchir la liste à l'écran, qui montrerait
+    alors la base inchangée — on croirait avoir perdu sa saisie. Le code
+    `proposition` est ce que `static/js/activite_propositions.js` attend pour
+    dire que c'est parti à l'examen.
+    """
+    from Code.models.models import Entity
+    from Code.propositions_activite import ajouter_geste, lire_geste
+
+    geste = lire_geste(request.path, request.method,
+                       request.get_json(silent=True))
+    if geste is None:                       # on ne sait pas rejouer : on refuse
+        return _refus("lecture_seule")
+    cr, n = ajouter_geste(current_user(), Entity.get_active(), geste)
+    return jsonify({
+        "code": "proposition",
+        "proposition_id": cr.id,
+        "n": n,
+        "op": geste["op"],
+        "objet": geste.get("objet"),
+        "activite": geste.get("activite"),
+    }), 202
 
 
 def installer_porte_ecriture(app):
@@ -197,6 +262,8 @@ def installer_porte_ecriture(app):
                         en_test=bool(app.config.get("TESTING")))
         if verdict is None:
             return None
+        if verdict == VERDICT_PROPOSITION:
+            return _detourner()
         import os
         if os.environ.get("OPTIQ_TRACE_PORTE"):
             u = current_user()

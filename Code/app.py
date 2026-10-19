@@ -213,7 +213,23 @@ def create_app(test_config=None):
         from flask import session as _sess
         from Code.models.models import DEFAULT_LANG
         lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
-        return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label}
+        return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label,
+                'propose_activites': _propose_activites()}
+
+    def _propose_activites():
+        """Ce compte doit-il PROPOSER ses modifications d'activité ?
+
+        ⚠️ C'est le même verdict que celui de la porte d'écriture, pas une
+        seconde règle : le bandeau ne doit jamais promettre un examen que la
+        porte refuserait, ni se taire alors qu'elle détourne.
+        """
+        try:
+            from Code.carto_access import can_propose
+            from Code.models.models import Entity
+            entite = Entity.get_active()
+            return bool(entite is not None and can_propose(entite))
+        except Exception:
+            return False
 
     # -----------------------------
     # Blueprints
@@ -335,6 +351,9 @@ def create_app(test_config=None):
     from Code.routes.carto_sharing import carto_sharing_bp, share_page_bp
     app.register_blueprint(carto_sharing_bp)
     app.register_blueprint(share_page_bp)
+
+    from Code.routes.activite_propositions import acp_bp
+    app.register_blueprint(acp_bp)
 
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)

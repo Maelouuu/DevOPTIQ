@@ -234,3 +234,34 @@
 .cacc-msg.est-err { background: #be123c; }
 
 body.cacc-ouvert { overflow: hidden; }
+
+/* ── Ce qu'ouvre un accès ────────────────────────────────────────────────
+   ⚠️ Cet écran décide QUI entre ; il ne disait pas ce qu'on y fait. Depuis
+   que les propositions s'étendent aux données d'une activité, ouvrir une
+   carto ouvre aussi le droit d'y proposer des tâches et des outils — une
+   conséquence qui se lit ici, et se RÈGLE dans le tableau des droits. */
+.cacc-ouvre {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: 13px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: linear-gradient(120deg, #f8fafc, #fff);
+}
+.cacc-ouvre-h {
+  margin: 0 0 9px; font-size: 11.5px; font-weight: 700; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted, #64748b);
+}
+.cacc-ouvre-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.cacc-o { display: flex; align-items: flex-start; gap: 10px; }
+.cacc-o-ic {
+  width: 26px; height: 26px; flex: none; border-radius: 8px; font-size: 11.5px;
+  display: grid; place-items: center; background: #eef2f7; color: #475569;
+}
+.cacc-o--champion .cacc-o-ic { background: #fef3df; color: #b45309; }
+.cacc-o--coordinateur .cacc-o-ic { background: #dcfce7; color: #15803d; }
+.cacc-o > div { flex: 1; min-width: 0; }
+.cacc-o b { display: block; font-size: 13px; color: var(--ink, #0f172a); }
+.cacc-o span { font-size: 12px; line-height: 1.45; color: var(--muted, #64748b); }
+.cacc-ouvre-a {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 10px;
+  font-size: 12.5px; font-weight: 600; color: #0f766e; text-decoration: none;
+}
+.cacc-ouvre-a:hover { text-decoration: underline; }

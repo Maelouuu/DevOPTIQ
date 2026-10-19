@@ -248,9 +248,15 @@ def _examen_en_attente():
     """
     try:
         from Code.permissions import current_user
+        from Code.routes.activite_propositions import (
+            propositions_a_examiner as _activites_a_examiner)
         from Code.routes.carto_sharing import propositions_a_examiner
         user = current_user() if session.get('user_id') else None
-        demandes = propositions_a_examiner(user)
+        # ⚠️ Les DEUX files, dans un seul chiffre : le coordinateur décide au
+        # même endroit, et un bandeau qui n'en compterait qu'une laisserait
+        # l'autre dormir — c'est exactement ce qui faisait manquer les
+        # propositions quand elles vivaient dans la page RH.
+        demandes = list(propositions_a_examiner(user)) + list(_activites_a_examiner(user))
         if not demandes:
             return None
         cartos = {d.entity_id: (d.entity.name if d.entity else '') for d in demandes}
@@ -705,11 +711,13 @@ def delete_entity(entity_id):
         # ── Partage, accès par statut, propositions, historique des imports ──
         # PostgreSQL applique les clés étrangères : sans ces suppressions,
         # effacer une carto commune échouerait.
-        from Code.models.models import (CartoChangeRequest, EntityRoleAccess,
-                                        EntityStatusAccess, ImportRecord)
+        from Code.models.models import (ActivityChangeRequest, CartoChangeRequest,
+                                        EntityRoleAccess, EntityStatusAccess,
+                                        ImportRecord)
         EntityRoleAccess.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         EntityStatusAccess.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         CartoChangeRequest.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
+        ActivityChangeRequest.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
         ImportRecord.query.filter_by(entity_id=entity_id).delete(synchronize_session=False)
 
         # ── Tables d'association ──

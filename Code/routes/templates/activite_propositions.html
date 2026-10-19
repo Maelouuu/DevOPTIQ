@@ -1,0 +1,97 @@
+<!-- ============================================================
+     PROPOSER UNE MODIFICATION D'ACTIVITÉ — page Activités.
+     Le serveur : Code/propositions_activite.py (ce qui se propose et comment
+     on le rejoue) + Code/routes/activite_propositions.py (dépôt, examen).
+     L'écran : static/js/activite_propositions.js — tout passe par ACP_I18N.
+
+     ⚠️ Ce fragment n'est inclus que pour qui PROPOSE (`propose_activites`,
+     le même verdict que la porte d'écriture). Un coordinateur écrit
+     directement : lui montrer un brouillon n'aurait aucun sens.
+     ============================================================ -->
+{% if propose_activites %}
+<link rel="stylesheet" href="{{ url_for('static', filename='activite_propositions.css') }}">
+<script>
+  /* ⚠️ `| tojson`, jamais une traduction entre guillemets dans un script : le
+     navigateur ne décode pas les entités HTML ici.
+
+     Le libellé d'un geste se COMPOSE : verbe (v_*) + famille (f_*) + objet.
+     Une clé par couple ferait 54 libellés par langue, et l'article s'accorde
+     dans la famille (« la tâche », « l'outil ») — ce que l'anglais ignore.
+
+     ⚠️ Aucun commentaire ENTRE deux clés : `test_78` exige un `{` ou une `,`
+     juste avant la clé, sinon celle qui suit devient invisible au contrôle. */
+  window.ACP_I18N = {
+    bandeau_vide:   {{ t('acp.bandeau_vide') | tojson }},
+    bandeau_vide_d: {{ t('acp.bandeau_vide_d') | tojson }},
+    bandeau_1:      {{ t('acp.bandeau_1') | tojson }},
+    bandeau_n:      {{ t('acp.bandeau_n') | tojson }},
+    bandeau_d:      {{ t('acp.bandeau_d') | tojson }},
+    relire:         {{ t('acp.relire') | tojson }},
+    ajoute:         {{ t('acp.ajoute') | tojson }},
+    titre:          {{ t('acp.titre') | tojson }},
+    sous:           {{ t('acp.sous') | tojson }},
+    retirer:        {{ t('acp.retirer') | tojson }},
+    abandonner:     {{ t('acp.abandonner') | tojson }},
+    abandon_sur:    {{ t('acp.abandon_sur') | tojson }},
+    message:        {{ t('acp.message') | tojson }},
+    message_ph:     {{ t('acp.message_ph') | tojson }},
+    envoyer:        {{ t('acp.envoyer') | tojson }},
+    envoye:         {{ t('acp.envoye') | tojson }},
+    envoye_d:       {{ t('acp.envoye_d') | tojson }},
+    vide:           {{ t('acp.vide') | tojson }},
+    err:            {{ t('acp.err') | tojson }},
+    mes_titre:      {{ t('acp.mes_titre') | tojson }},
+    mes_vide:       {{ t('acp.mes_vide') | tojson }},
+    mes_1:          {{ t('acp.mes_1') | tojson }},
+    mes_n:          {{ t('acp.mes_n') | tojson }},
+    attente:        {{ t('acp.attente') | tojson }},
+    applique:       {{ t('acp.applique') | tojson }},
+    refuse:         {{ t('acp.refuse') | tojson }},
+    hors_activite:  {{ t('acp.hors_activite') | tojson }},
+    v_add:          {{ t('acp.v_add') | tojson }},
+    v_update:       {{ t('acp.v_update') | tojson }},
+    v_delete:       {{ t('acp.v_delete') | tojson }},
+    v_role_add:     {{ t('acp.v_role_add') | tojson }},
+    v_role_del:     {{ t('acp.v_role_del') | tojson }},
+    v_replace:      {{ t('acp.v_replace') | tojson }},
+    f_task:         {{ t('acp.f_task') | tojson }},
+    f_tool:         {{ t('acp.f_tool') | tojson }},
+    f_skill:        {{ t('acp.f_skill') | tojson }},
+    f_savoir:       {{ t('acp.f_savoir') | tojson }},
+    f_savoirfaire:  {{ t('acp.f_savoirfaire') | tojson }},
+    f_aptitude:     {{ t('acp.f_aptitude') | tojson }},
+    f_hsc:          {{ t('acp.f_hsc') | tojson }},
+    f_contrainte:   {{ t('acp.f_contrainte') | tojson }},
+    f_donnee:       {{ t('acp.f_donnee') | tojson }},
+    fermer:         {{ t('btn.close') | tojson }},
+    lang:           {{ session.get('lang', 'fr') | tojson }}
+  };
+</script>
+<script defer src="{{ url_for('static', filename='js/activite_propositions.js') }}"></script>
+
+<div class="acp-bandeau" id="acp-bandeau" hidden>
+  <span class="acp-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+  <div class="acp-txt">
+    <strong id="acp-titre"></strong>
+    <span id="acp-sous"></span>
+  </div>
+  <button type="button" class="acp-b" id="acp-ouvrir"></button>
+</div>
+
+<div class="acp" id="acp-win" hidden>
+  <div class="acp-fond" data-acp="fermer"></div>
+  <div class="acp-boite" role="dialog" aria-modal="true" aria-labelledby="acp-h">
+    <header class="acp-tete">
+      <span class="acp-tic"><i class="fa-solid fa-code-pull-request"></i></span>
+      <div>
+        <h3 id="acp-h"></h3>
+        <p id="acp-tsous"></p>
+      </div>
+      <button type="button" class="acp-x" data-acp="fermer" aria-label="{{ t('btn.close') }}">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </header>
+    <div class="acp-corps" id="acp-corps"></div>
+  </div>
+</div>
+{% endif %}
