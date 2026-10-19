@@ -1782,6 +1782,38 @@ présentation** (`font-family="…"` sur le `<svg>`), pas en `style` : une règl
 d'auteur l'emporte donc sans `!important`, et `svg { font-family: var(--f-corps) }`
 les raccorde sans toucher à leur tracé.
 
+**Puis les onze sections qui restaient fausses ou creuses** (même jour) :
+- ⚠️ **La carte des modèles comptait 18 lignes pour 49 modèles** — c'est le
+  premier endroit qu'on ouvre en arrivant. Refaite en bloc, par domaine, avec
+  les deux pièges de schéma qui ont coûté des 500 en production (une table lue
+  en SQL brut que rien ne crée ; deux modèles pour une même table).
+- **`import-ia` devient « Le moteur d'appariement des tâches »** : l'écran a
+  disparu, le moteur est resté et `import_hub` le réutilise. **`gestion-compte`**
+  réécrite sur la page refaite. **`rh`** dit ce qui reste et où sont partis les
+  trois blocs. **`competences`** dit lequel des deux modèles d'évaluation sert,
+  et pour quoi. Les quatre marques « À reprendre » tombent — **0 section
+  périmée**, et la tuile disparaît d'elle-même.
+- **`temps`** (refonte en trois écrans, les trois défauts de calcul de
+  l'audit), **`stack`** (les versions épinglées), **`deploiement`** (trois
+  branches / trois bases, et la sauvegarde qu'il faut RELIRE),
+  **`cartographie`** (la page refondue, les rôles communs, les noms uniques),
+  **`activites`** (l'import parti, le filtre « sans tâches »).
+- **`conventions` porte désormais « Les pièges qui ont mordu plus d'une
+  fois »** : ce que SQLite accepte et que PostgreSQL refuse, les contrôles qui
+  dépendent de la machine, la base de test partagée, le `zoom: .8`, `[hidden]`,
+  les propriétés personnalisées résolues à la déclaration, le volet qui ne
+  peint pas, les deux conventions de substitution, et les règles de travail
+  (un test se vérifie ROUGE, une refonte se tranche sur maquettes, une
+  suppression se fait sur des bornes). C'est la partie à lire avant d'écrire
+  du code.
+
+⚠️ **Le nettoyage d'un bandeau a laissé deux `</div>` orphelins.** Le retrait
+coupait au PREMIER `</div>` alors que le bloc en contient deux (le cadre, et
+la boîte du texte). Trouvé en parcourant le document balise par balise, pas à
+l'œil : un déséquilibre de `<div>` ne se voit pas forcément à l'écran. Le
+contrôle vaut d'être rejoué après toute retouche structurelle — ouvertures et
+fermetures doivent s'équilibrer, et la profondeur ne jamais devenir négative.
+
 **Reste pour une prochaine fois** : le guide utilisateur (`docs/guide.html`),
 que l'utilisateur a explicitement remis à plus tard, et les captures des
 écrans refondus.

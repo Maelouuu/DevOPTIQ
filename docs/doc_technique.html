@@ -389,6 +389,14 @@
     <pre>Flask, Flask-SQLAlchemy, Flask-Migrate, Flask-Mail
 werkzeug, python-dotenv, openai, anthropic, openpyxl, gunicorn
 cryptography (Ed25519 licence + Fernet prompts — branche distribution)</pre>
+    <h3>Les versions sont ÉPINGLÉES</h3>
+    <div class="piege">
+      <p>Une image pouvait cesser de démarrer sans qu'aucun commit ne change</p>
+      <p>Le 26/09/2026, <em>Deploy → Staging</em> a réussi son build puis échoué au démarrage, sur un commit qui ne touchait QUE des fichiers de <code>tests/</code>. La cause n'était pas dans le code : <strong>aucune version n'était épinglée dans <code>requirements.txt</code></strong>, et chaque construction installait « la dernière version du jour ». <code>SQLAlchemy</code> n'y était même pas déclarée — elle arrivait comme dépendance de <code>flask_sqlalchemy</code>, qui accepte <code>&gt;=2.0.16</code>. Mesuré en montant un venv neuf : <strong>2.1.1</strong>, une version MAJEURE, là où tout ce qui avait été éprouvé tournait sur 2.0.52.</p>
+    </div>
+    <p>⚠️ <strong>Et cela ne se voit PAS en local</strong> : le venv de développement garde les versions du jour où il a été créé, la suite reste verte et <code>repet_image.sh</code> aussi, pendant que l'image part sur autre chose. Même famille que <code>conftest.py</code> qui retire les clés IA — un contrôle qui dépend de la machine ne contrôle rien.</p>
+    <p>Les 19 dépendances portent une version exacte, et <code>SQLAlchemy==2.0.52</code> est déclarée <strong>explicitement</strong> : elle décide du dialecte SQL de toute l'application, la laisser choisir par <code>flask_sqlalchemy</code> revient à ne pas la choisir. ⚠️ <strong>Monter une version est désormais un CHANGEMENT</strong> : la modifier, lancer la suite ET <code>tools/repet_image.sh</code>, puis livrer. Cliquet : <code>test_72::TestLesDependancesSontEpinglees</code>.</p>
+
   </section>
 
   <section id="modeles" data-fam="fondations">
@@ -518,6 +526,68 @@ cryptography (Ed25519 licence + Fernet prompts — branche distribution)</pre>
       <tr><td><code>app_settings</code></td><td>Réglages applicatifs à chaud — notamment la clé OpenAI saisie depuis Paramètres → Administration (<code>Code/ai_key.py</code>)</td></tr>
       <tr><td><code>test_pages</code>, <code>test_cases</code>, <code>test_runs</code>, <code>test_results</code>, <code>test_patches</code></td><td>Panel de tests <code>/testpanel/</code> (modèles dans <code>Code/models/test_models.py</code>, registre versionné <code>tests/patches.json</code>)</td></tr>
     </table>
+    <h3>Les 49 modèles, par domaine</h3>
+    <p>⚠️ <strong>Cette carte est le premier endroit qu'on ouvre</strong> en arrivant sur le projet : elle a compté 18 modèles pendant que l'application en portait 49. Elle est donc tenue à jour <em>en bloc</em>, et non modèle par modèle. Tout vit dans <code>Code/models/models.py</code>, sauf les quatre du panel (<code>Code/models/test_models.py</code>).</p>
+    <table>
+      <thead><tr><th>Domaine</th><th>Modèles</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>La carte</strong></td>
+          <td><code>Entity</code> &#183; <code>Activities</code> &#183; <code>Role</code> &#183; <code>Link</code> &#183; <code>Data</code> &#183; <code>CartoCalque</code> &#183; <code>CrossCartoLiaison</code></td>
+        </tr>
+        <tr>
+          <td><strong>Ce que porte une activité</strong></td>
+          <td><code>Task</code> &#183; <code>Tool</code> &#183; <code>Constraint</code> &#183; <code>Competency</code> &#183; <code>Savoir</code> &#183; <code>SavoirFaire</code> &#183; <code>Aptitude</code> &#183; <code>Softskill</code> &#183; <code>Performance</code> &#183; <code>TaskLinkAssignment</code></td>
+        </tr>
+        <tr>
+          <td><strong>Gouvernance et accès</strong><br><span style="font-size:12px;color:#847c6c">voir <a href="#acces">Carto commune</a></span></td>
+          <td><code>EntityRoleAccess</code> &#183; <code>EntityStatusAccess</code> &#183; <code>CartoChangeRequest</code> &#183; <code>ActivityChangeRequest</code> &#183; <code>EntityShareOffer</code> &#183; <code>AppSetting</code></td>
+        </tr>
+        <tr>
+          <td><strong>Compétences V1.1</strong></td>
+          <td><code>CompetencyEvaluation</code> &#183; <code>ResultCapabilityLink</code> &#183; <code>ResultDiagnostic</code> &#183; <code>PlanFormation</code> &#183; <code>UserActivityPlan</code> &#183; <code>TechnicalDomain</code> &#183; <code>ActivityTechnicalDomain</code> &#183; <code>RoleActivityDomainRequirement</code> &#183; <code>UserDomainLevel</code> &#183; <code>HscLevelDescriptor</code></td>
+        </tr>
+        <tr>
+          <td><strong>Paliers de performance</strong><br><span style="font-size:12px;color:#847c6c">voir <a href="#paliers-perf">la section</a></span></td>
+          <td><code>PalierPerformance</code> &#183; <code>SessionEvaluation</code></td>
+        </tr>
+        <tr>
+          <td><strong>Temps</strong></td>
+          <td><code>TimeAnalysis</code> &#183; <code>TimeProject</code> &#183; <code>TimeProjectLine</code> &#183; <code>TimeRoleAnalysis</code> &#183; <code>TimeRoleLine</code> &#183; <code>TimeWeakness</code></td>
+        </tr>
+        <tr>
+          <td><strong>Comptes et organisation</strong></td>
+          <td><code>User</code> &#183; <code>UserRole</code> &#183; <code>EntrepriseSettings</code> &#183; <code>PerformancePersonnalisee</code></td>
+        </tr>
+        <tr>
+          <td><strong>Traces et fichiers</strong></td>
+          <td><code>ImportRecord</code> &#183; <code>RecentEvent</code> &#183; <code>FileBlob</code> &#183; <code>UsageEvent</code> &#183; <code>UsageBeat</code></td>
+        </tr>
+        <tr>
+          <td><strong>Panel de tests</strong><br><span style="font-size:12px;color:#847c6c"><code>test_models.py</code></span></td>
+          <td><code>TestPage</code> &#183; <code>TestCase</code> &#183; <code>TestRun</code> &#183; <code>TestResult</code> &#183; <code>TestPatch</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="piege">
+      <p>Une table lue en SQL brut et que rien ne crée tombe en 500 chez un nouveau client</p>
+      <p>Arrivé <strong>deux fois</strong> : <code>entreprise_settings</code>, puis <code>user_activity_plans</code> — lue et écrite en SQL brut par <code>plan_storage.py</code>, elle survivait sur les instances anciennes comme vestige d'une migration disparue. Sur toute base NEUVE, le premier enregistrement d'un plan tombait en 500. Pire : <code>tests/test_28_plan_storage.py</code> <strong>fabriquait la table lui-même</strong>, si bien que ses 20 cas passaient. Les deux ont désormais leur modèle, et <code>create_all()</code> les crée. <strong>Toute table qui n'a pas de modèle est un 500 qui attend un client.</strong></p>
+    </div>
+
+    <div class="piege">
+      <p>Deux modèles pour une même table</p>
+      <p><code>Code/routes/time_extra.py</code> redéclarait CINQ tables déjà définies dans <code>models.py</code>. Deux modèles pour une table lèvent <em>« Table X is already defined for this MetaData instance »</em> <strong>dès qu'on importe le second</strong> — et l'erreur frappe l'APPELANT, pas le fichier fautif. Personne n'importait ce module : il dormait depuis des mois, et la réunion des rôles a été la première à y toucher… en production. Fichier supprimé ; cliquet : <code>test_67::test_aucune_table_n_est_declaree_deux_fois</code>. ⚠️ Ce contrôle regarde le VOISINAGE de chaque <code>__tablename__</code>, pas le fichier : sauter <code>models.py</code> en entier (il contient <code>extend_existing</code> pour ses tables d'association) l'aurait rendu aveugle là où ça compte.</p>
+    </div>
+
+    <h3>Les migrations à chaud</h3>
+    <p>Pas d'Alembic en production : <code>create_app()</code> appelle <code>db.create_all()</code> puis une série d'<code>ALTER TABLE</code> idempotents (<code>_safe_add_column</code>), et vérifie enfin que les colonnes indispensables existent (<code>_verifier_colonnes</code>).</p>
+    <ul>
+      <li>⚠️ <strong><code>_safe_add_column</code> est muet par construction</strong> : il ne sait pas distinguer « colonne déjà là » d'un DDL invalide. C'est ce qui a laissé passer <code>BOOLEAN DEFAULT 0</code> — accepté par SQLite, refusé par PostgreSQL — et mis staging à terre (voir <a href="#acces">Carto commune</a>).</li>
+      <li>⚠️ <strong>Elles ne s'appliquent qu'au DÉMARRAGE de l'app sur cette base.</strong> Écrire dans une base qu'une instance en service n'a pas encore redémarrée avec le code courant, c'est écrire dans l'ancien schéma — <code>neondb</code> a refusé une restauration pour cette raison.</li>
+      <li>⚠️ <strong>Une reprise de données se joue UNE fois</strong>, avec son marqueur en base (<code>app_settings</code>) : <code>statuts_quatre_paliers</code>, <code>roles_hors_carte</code>, <code>roles_communs</code>, <code>entites_nom_unique</code>. Rejouée à chaque démarrage, elle finit par abîmer ce qu'elle avait réparé — « X 1 » redevient « X 1 1 », un champion devient coordinateur.</li>
+    </ul>
+
   </section>
 
   <section id="auth" data-fam="fondations">
@@ -598,6 +668,30 @@ def _require_auth():
       <li><code>main</code> — production stable (merger uniquement les versions validées)</li>
       <li><code>optiqfluent-beta-test</code> — distribution client OptiqFluent (basée sur <code>staging</code>, voir <a href="#distribution">Distribution</a>)</li>
     </ul>
+    <h3>Trois branches, trois instances, trois bases</h3>
+    <table>
+      <thead><tr><th>Branche</th><th>Service Cloud Run</th><th>Base</th><th>À quoi elle sert</th></tr></thead>
+      <tbody>
+        <tr><td><code>staging</code></td><td><code>devoptiq-staging</code></td><td><code>devoptiq_sandbox</code></td><td>Bac à sable. On y développe, on pousse quand une nouveauté est finie.</td></tr>
+        <tr><td><code>nouveau-point</code></td><td><code>devoptiq</code></td><td><code>neondb</code></td><td><strong>Version officielle interne AFDEC.</strong> On n'y pousse que du fini.</td></tr>
+        <tr><td><code>optiqfluent-staging</code></td><td><code>optiqfluent-staging</code></td><td><code>optiqfluent_pilot</code></td><td><strong>Pilote ARaymond (Inde).</strong> Les correctifs partent le soir — nuit là-bas.</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>⚠️ <strong><code>nouveau-point</code>, pas <code>main</code></strong> : c'est cette branche qui alimente le service <code>devoptiq</code>. <code>main</code> n'a pas bougé depuis mai 2026. Le workflow <code>deploy-officielle.yml</code> <strong>manquait</strong> — la branche avançait sans que l'instance bouge, et <code>devoptiq</code> a servi le code de mai pendant quatre mois.</li>
+      <li>⚠️ <strong>Un service, un chemin de déploiement.</strong> <code>deploy-production.yml</code> visait le MÊME service sur push de <code>prod-stable</code>, branche figée au 07/05/2026 : un push là-bas aurait ramené la version officielle quatre mois en arrière. Son déclenchement automatique est retiré.</li>
+      <li>⚠️ <strong>Les deux instances ont partagé UNE SEULE base jusqu'au 14/09/2026.</strong> <code>PROD_DATABASE_URL</code> et <code>STAGING_DATABASE_URL</code> pointaient tous deux sur <code>neondb</code>. Conséquence directe : une remise à zéro faite « sur staging » a effacé les données officielles — 30 entités, 59 comptes, 991 activités. ⚠️ Le garde-fou <code>--expect-db</code> ne valait rien tant que les deux bases portaient le MÊME NOM : deux noms distincts, c'est ce qui rend la vérification réelle.</li>
+      <li>⚠️ <strong><code>neondb</code> et <code>optiqfluent_pilot</code> vivent sur le MÊME endpoint Neon</strong> : une URL mal recopiée efface le travail du client.</li>
+    </ul>
+
+    <h4>Sauvegarder, et RELIRE la sauvegarde</h4>
+    <p><code>tools/db/dump_db.py</code> (JSON complet, sans <code>pg_dump</code>) et <code>tools/db/restore_db.py</code> (retire les 78 clés étrangères, vide, charge, les remet — ce qui VALIDE les données au passage — puis repositionne les 47 séquences, le tout dans UNE transaction).</p>
+    <div class="piege">
+      <p>Une sauvegarde qu'on n'a pas relue ne prouve rien</p>
+      <p>La première version de <code>dump_db.py</code> faisait <code>bytes(v).decode("utf-8", "replace")</code> : chaque octet non-UTF-8 devenait U+FFFD. Les 13 fichiers de <code>file_blobs</code> de la sauvegarde du 10/09 avaient perdu 31 à 45 % de leurs octets — et la base ayant été vidée derrière, c'était leur seule copie. <strong>Ces 13 fichiers sont perdus.</strong> Encodage base64 désormais, et chaque sauvegarde est relue table par table, les pièces jointes décodées jusqu'à leurs octets de signature.</p>
+    </div>
+    <p>⚠️ <strong>Une sauvegarde ne se restaure pas dans le schéma qu'elle a quitté</strong> : tables disparues, tables créées à l'exécution et non par <code>create_all</code>, contraintes ajoutées après coup que les anciennes données ne respectent pas. <code>restore_db.py</code> n'écrit que les colonnes présentes des deux côtés et nomme les écarts.</p>
+
   </section>
 
   <section id="gouvernance" data-fam="gouvernance" data-etat="neuf">
@@ -749,40 +843,39 @@ def porte(chemin, methode, en_test=False):
     <p class="fichiers">Tests : <code>tests/test_66_carto_sharing.py</code>, <code>tests/test_86_examen_et_competences_rh.py</code>, <code>tests/test_88_decision_a_l_auteur.py</code> (8 cas), <code>tests/test_112_propositions_activite.py</code> (33 cas).</p>
   </section>
 
-  <section id="gestion-compte" data-fam="gouvernance" data-etat="vieux">
+  <section id="gestion-compte" data-fam="gouvernance">
     <p class="fam-nom">Gouvernance et accès</p>
-    <div class="perime">
-      <span class="ic" aria-hidden="true">&#9888;</span>
-      <div><b>La page a été refaite</b><p>Refonte du 20/09/2026 : plus d'onglets, une liste et la fiche d'un compte par-dessus elle (<code>gestion_compte_new.html</code>) ; <code>edit_user.html</code> est supprimé. Les règles de droits décrites ici restent justes — voir aussi <a href="#gouvernance">Qui écrit, qui propose, qui valide</a>.</p></div>
-    </div>
-    <h2 class="section-title">Gestion des comptes</h2>
-    <p>Blueprint <code>gestion_compte_bp</code> — préfixe <code>/comptes</code>. Gère le CRUD des utilisateurs, l'assignation des managers et l'import en masse via JSON (Excel parsé côté client).</p>
+    <h2 class="section-title">La page Comptes</h2>
+    <p class="releve">Relue le 19/10/2026 &#183; <code>Code/routes/gestion_compte.py</code>, <code>gestion_compte_new.html</code></p>
 
-    <div class="callout callout-info">
-      Tous les utilisateurs et rôles sont filtrés par <strong>entité active</strong> (<code>Entity.get_active_id()</code>). Un utilisateur créé ou importé est automatiquement associé à cette entité.
+    <p>Refaite le 20/09/2026 : <strong>plus d'onglets</strong>. Une liste, et la fiche d'un compte PAR-DESSUS elle. Les compteurs par palier <strong>sont</strong> les filtres de la liste, et chaque palier garde sa couleur de la tuile jusqu'à la pastille de la ligne.</p>
+
+    <div class="piege">
+      <p>Créer et modifier posaient les mêmes questions dans deux écrans différents</p>
+      <p>Une page <code>edit_user.html</code> à part, avec sa propre identité visuelle et le mot de passe en section séparée. Une seule fiche désormais, trois groupes qui disent ce qu'on demande : <strong>identité &#183; connexion &#183; place dans l'organisation</strong>. <code>GET /comptes/update/&lt;id&gt;</code> <strong>redirige</strong> vers la liste (<code>?edit=&lt;id&gt;</code>) ; <code>edit_user.html</code> est supprimé.</p>
     </div>
 
-    <h3>Fonctionnements clés</h3>
+    <h3>Ce que la refonte a fermé</h3>
     <ul>
-      <li><strong>Mise à jour mot de passe</strong> : <code>flag_modified(user, 'password')</code> force SQLAlchemy à inclure le champ dans l'UPDATE même si la valeur hashée semble inchangée à l'ORM.</li>
-      <li><strong>Hiérarchie manager</strong> : le champ <code>User.manager_id</code> crée l'arbre de subordination. L'assignation supporte le mode multi (<code>user_ids[]</code>) ou unitaire.</li>
-      <li><strong>Import Excel</strong> : le client envoie un tableau JSON <code>[{prenom, nom, email, age, mot_de_passe, role, statut}]</code> (parsé côté JS depuis un XLSX). Le serveur déduplique par email, résout le rôle par nom dans l'entité active, crée les utilisateurs avec <code>flush()</code> pour obtenir l'ID avant le commit global.</li>
+      <li>⚠️ <strong><code>/comptes/create</code> n'empêchait pas de créer AU-DESSUS de soi</strong> : un compte autorisé à créer des comptes se fabriquait un administrateur. Le niveau demandé est comparé au sien (<code>niveau_status</code>), comme le fait l'import depuis toujours. Masquer le champ ne coûtait rien à contourner.</li>
+      <li>⚠️ <strong>Corriger un nom pouvait retirer un rôle — et l'accès à une carto.</strong> La fiche ne portait qu'UN rôle, choisi parmi ceux de la carto active, et <code>update_user</code> remplaçait « le » rôle de la personne. Pour quelqu'un qui tenait un rôle ailleurs, un simple « Enregistrer » le supprimait. Les rôles bougent désormais <strong>par paire</strong> (<code>roles_ajout</code> / <code>roles_retrait</code>) et seulement ceux que la fiche nomme.</li>
+      <li>⚠️ <strong>Un administrateur ne change pas son propre niveau</strong> : il perdrait l'écran depuis lequel il le remettrait.</li>
+      <li>⚠️ <strong>Un champ « âge » laissé vide arrive comme <code>''</code></strong> : envoyé tel quel dans une colonne entière, PostgreSQL rejette la requête — et c'était TOUTE modification qui tombait en 500, même un simple nom de famille.</li>
+      <li>La liste ne fait plus deux requêtes par ligne : les rôles de tout le monde sont chargés en deux requêtes, puis indexés en mémoire.</li>
     </ul>
 
-    <h3>Référence API — Gestion des comptes</h3>
-    <table>
-      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
-      <tr><td>GET</td><td><code>/comptes/</code></td><td>Liste utilisateurs + rôles + managers de l'entité active → <code>gestion_compte_new.html</code></td></tr>
-      <tr><td>POST</td><td><code>/comptes/create</code></td><td>Crée un utilisateur (form : <code>first_name, last_name, email, password, role_id, status, age</code>).</td></tr>
-      <tr><td>POST</td><td><code>/comptes/delete/&lt;id&gt;</code></td><td>Supprime l'utilisateur et ses <code>UserRole</code>. Rollback automatique en cas d'erreur.</td></tr>
-      <tr><td>GET/POST</td><td><code>/comptes/update/&lt;id&gt;</code></td><td>GET → formulaire. POST → mise à jour champs + rôle + mdp optionnel.</td></tr>
-      <tr><td>GET</td><td><code>/comptes/managers</code></td><td>JSON des managers avec leurs subordonnés (<code>User.subordinates.any()</code>).</td></tr>
-      <tr><td>POST</td><td><code>/comptes/assign_manager</code></td><td>Assigne un manager (mode unitaire ou lot via <code>multi_select=1</code>).</td></tr>
-      <tr><td>POST</td><td><code>/comptes/remove_collaborator/&lt;id&gt;</code></td><td>Retire l'utilisateur de son manager (<code>manager_id = None</code>).</td></tr>
-      <tr><td>GET</td><td><code>/comptes/users</code></td><td>Liste JSON <code>[{id, name}]</code> de tous les utilisateurs de l'entité.</td></tr>
-      <tr><td>GET</td><td><code>/comptes/manager/&lt;id&gt;/subordinates</code></td><td>Subordonnés d'un manager donné.</td></tr>
-      <tr><td>POST</td><td><code>/comptes/import_excel</code></td><td>Import en masse. Body JSON : <code>{users: [{prenom, nom, email, age, mot_de_passe, role, statut}]}</code>. Retourne <code>{success, imported, errors, message}</code>.</td></tr>
-    </table>
+    <h3>Les statuts, et pourquoi la comparaison est normalisée</h3>
+    <p><code>User.status</code> est un <strong>texte libre</strong>, écrit différemment selon les instances : « Gestionnaire de compétences » y arrive <strong>tronqué</strong> (la colonne fait 20 caractères), et le libellé est saisi tantôt en français tantôt en anglais. <code>Code/permissions.py</code> compare donc une forme normalisée (minuscules, sans accents, séparateurs unifiés) et reconnaît des <strong>familles</strong> de valeurs, jamais une liste figée. ⚠️ Le badge de la liste affiche la <strong>valeur brute</strong> quand aucune règle ne la reconnaît, au lieu de la faire passer pour « Utilisateur » : un statut mal orthographié se voit, au lieu de produire des droits inexpliqués.</p>
+
+    <h3>Ce qui y a déménagé</h3>
+    <ul>
+      <li><strong>« Droits par statut »</strong> vient de la page RH : c'est ici qu'on donne un statut à quelqu'un, c'est donc ici qu'on doit lire ce qu'il ouvre (<code>GET|POST /comptes/droits</code> — lecture : administrateur ou qui crée les comptes ; écriture : administrateur seul). Voir <a href="#gouvernance">Qui écrit, qui propose, qui valide</a>.</li>
+      <li><strong>L'import des comptes</strong> : c'est la MÊME fenêtre que la page Carte (<code>/api/import</code>) ouverte avec <code>?pour=comptes</code> ; elle ne propose alors que les collaborateurs et s'ouvre directement sur le dépôt. L'ancien <code>/comptes/import_excel</code> est supprimé. ⚠️ Un import MULTIPLE ne prend jamais les comptes : créer un compte engage l'instance, cela ne se glisse pas dans une feuille d'un classeur déposé sur la carte.</li>
+    </ul>
+
+    <h3>La langue</h3>
+    <p>Colonne <code>users.lang</code> (VARCHAR(5), défaut <code>en</code>). La connexion applique <code>user.lang</code> à <code>session['lang']</code>, <code>/parametres/set_language</code> persiste le choix sur le compte, et un <code>before_request</code> pose <code>session['lang']</code> par défaut — les dizaines de <code>session.get('lang', 'fr')</code> disséminées dans les vues ne retombent donc jamais sur le français.</p>
+    <p class="fichiers">Tests : <code>tests/test_50_accounts_permissions_lang.py</code> (36 cas), <code>tests/test_87_fiche_compte.py</code> (15 cas), <code>tests/test_84_import_hub.py</code>.</p>
   </section>
 
   <section id="cartographie" data-fam="ecrans">
@@ -856,6 +949,26 @@ def porte(chemin, methode, en_test=False):
     <div class="callout callout-warn">
       Retiré de l'éditeur : l'ancien bouton «&nbsp;Agencement auto&nbsp;» de la toolbar (libavoid + worker, ~710 lignes) et le badge de décision Oui/Non sur les losanges. Le champ <code>Link.choice_label</code> (DB) et son affichage dans les fiches activité sont un autre mécanisme, conservés.
     </div>
+    <h3>La page Carte : un board</h3>
+    <p>⚠️ Ce qui précède décrit l'ÉDITEUR et le format. La page qui l'héberge a été refondue quatre fois entre le 01/10 et le 11/10/2026, et le reproche de départ était chiffrable : le viewer était plafonné à <strong>580 px de haut quel que soit l'écran</strong> — 34 % d'une fenêtre de 1920×1080 — avec <strong>trois bandeaux empilés</strong> au-dessus qui répétaient la même chose.</p>
+    <p>L'organisation retenue (tranchée sur un board que l'utilisateur avait retravaillé) : une rangée de tuiles en haut, le dessin au centre, la liste à droite. <strong>66 % de la fenêtre</strong>, 79 % liste repliée. ⚠️ C'est moins que les 89 % d'une passe antérieure où les commandes flottaient SUR le dessin : les ramener dans le flux coûte 84 px de rangée, et c'est le prix de l'organisation choisie.</p>
+    <ul>
+      <li>⚠️ <strong>Le zoom s'aligne sur la LARGEUR de la zone</strong>, pas sur « tout tient ». Mesuré : la boîte du dessin fait 8787 × 6221 (ratio 1,41) quand la zone en fait 1,80 — le cadrage était donc borné par la HAUTEUR, et replier la liste ne faisait pas grandir le dessin d'un pixel, on gagnait 304 px de vide. Une carto est large et se lit de gauche à droite.</li>
+      <li>⚠️ <strong>Un dessin plus haut que la zone se cale en HAUT</strong>, pas au centre : centré, on couperait son premier couloir autant que le dernier.</li>
+      <li>⚠️ <strong>Le zoom par défaut n'était pas celui de la page</strong> : le viewer se cadre lui-même à la fin de son chargement. La page écoute <code>carto-state-ready</code> et impose le sien.</li>
+      <li>⚠️ <strong>La pastille numérotée d'une activité porte la couleur de SA forme</strong> sur le dessin. La couleur vient d'un fichier Visio et part dans un attribut <code>style</code> : Jinja protège de la sortie d'attribut, <strong>pas</strong> de l'injection d'une propriété CSS — seul un hexadécimal passe.</li>
+      <li>⚠️ <strong>Remplacer une passe de style emporte aussi sa MISE EN PAGE</strong> : arrivé deux fois. La structure des commandes s'écrit en tête de la nouvelle section, avant leur peau.</li>
+    </ul>
+
+    <h3>Les rôles sont COMMUNS à l'entreprise</h3>
+    <p><code>Role.entity_id</code> faisait d'un rôle une chose de SA carto : deux cartos portant la bande « Qualité » donnaient deux rôles sans rien qui les relie — un titulaire ici n'était pas titulaire là. <code>Code/roles_communs.py</code> est la source unique : <strong>une ligne par nom</strong> (comparaison normalisée), et <code>entity_id</code> ne dit plus que l'ORIGINE.</p>
+    <ul>
+      <li>⚠️ <strong><code>_sync_carto_to_db</code> ne supprime plus un rôle qui sert ailleurs</strong> : il DÉTACHE les liens de cette carto, et ne supprime que si le rôle n'a plus ni titulaire, ni activité, ni tâche — toutes cartos confondues.</li>
+      <li>⚠️ <strong>La réunion des doublons d'hier se joue UNE fois</strong> (marqueur <code>roles_communs</code>). Mesuré sur le pilote : <strong>380 lignes pour 56 noms</strong>, jusqu'à 14 exemplaires du même rôle. Après : 56 pour 56, et <strong>écart nul</strong> sur toutes les autres tables métier — la réunion re-pointe, elle ne perd pas.</li>
+      <li>⚠️ Et elle est tombée <strong>en production</strong>, sans qu'aucun test la voie : <em>aucun cas n'appelait <code>fusionner_doublons()</code></em>. Une reprise qui ne tourne qu'au démarrage n'est vérifiée par rien tant qu'on ne la joue pas explicitement.</li>
+    </ul>
+    <p>Et depuis le 29/09, <strong>deux cartos ne peuvent plus porter le même nom</strong> (<code>Code/entites_uniques.py</code>) : le nom est ce qui désigne une carto dans tous les écrans, et cinq « FluidClip » les rendaient indéchiffrables. ⚠️ La comparaison est normalisée — donc plus stricte qu'une contrainte UNIQUE en base, qui laisserait passer « FluidClip » et « fluidclip ». Créer ou renommer est <strong>refusé</strong> (409), jamais corrigé en douce ; les chemins automatiques, eux, cherchent un nom libre.</p>
+
   </section>
 
   <section id="api" data-fam="ecrans">
@@ -1018,6 +1131,18 @@ def porte(chemin, methode, en_test=False):
       <li><code>resolve_target_name(link)</code> — nom de la cible</li>
       <li><code>resolve_data_type(link, incoming)</code> — type de la donnée (<code>Data.type</code>)</li>
     </ul>
+    <h3>Ce qui a changé dans l'écran</h3>
+    <ul>
+      <li><strong>Le bouton « Importer des tâches » a quitté la page</strong> : l'import passe par la page Carte (<a href="#import">Importer des données</a>) — deux portes pour un même geste finissent par donner deux comportements. Supprimés avec lui : <code>import_tasks_modal.html</code>, son JS, son CSS et le blueprint <code>Code/routes/import_tasks.py</code>, devenu injoignable et <strong>sans contrôle d'accès</strong>.</li>
+      <li><strong>Un filtre « sans tâches »</strong> : les activités nées de la carto qu'on n'a pas encore complétées. ⚠️ Le cadrage est SERVEUR (<code>_cadrer</code>) : la liste arrive par lots de 20 et la recherche passe déjà par le serveur — un masquage en JS ne cacherait que ce qui est déjà à l'écran, et le compte serait faux. L'état vit dans l'URL (<code>?sans_taches=1</code>), donc il survit au rechargement et se partage.</li>
+      <li>⚠️ <strong>Le compteur du bouton porte sur TOUTE la carto</strong>, pas sur le lot affiché : il dit ce qui reste à faire, il ne bouge pas quand on filtre.</li>
+      <li>Si le compte doit proposer plutôt qu'écrire, un bandeau le dit et chaque geste part dans un lot — voir <a href="#propositions">Les propositions de modification</a>.</li>
+    </ul>
+    <div class="piege">
+      <p>L'ordre des tâches n'était pas déterministe</p>
+      <p><code>order</code> seul ne départage pas deux tâches de même rang : les lignes sortaient alors dans leur ordre PHYSIQUE, que PostgreSQL change après un UPDATE — la tâche qu'on venait de modifier « sautait » dans la liste. <code>id</code> est désormais le dernier critère de tri, dans la vue liste comme dans le partial.</p>
+    </div>
+
   </section>
 
   <section id="import" data-fam="ecrans" data-etat="neuf">
@@ -1056,89 +1181,38 @@ def porte(chemin, methode, en_test=False):
     <p class="fichiers">Tests : <code>tests/test_84_import_hub.py</code> (53 cas), <code>tests/test_91_noms_uniques_et_historique.py</code> (26 cas). Banc : <code>tools/devrun_import.py</code> (port 8126), avec une IA simulée — la simulation vit dans l'outil, jamais dans l'application.</p>
   </section>
 
-  <section id="import-ia" data-fam="ecrans" data-etat="vieux">
+  <section id="import-ia" data-fam="ecrans">
     <p class="fam-nom">Les écrans</p>
-    <div class="perime">
-      <span class="ic" aria-hidden="true">&#9888;</span>
-      <div><b>Cet écran a été remplacé</b><p>L'import global a laissé place, le 19/09/2026, à la fenêtre <strong>Importer des données</strong> de la page Carte (<a href="#import">section dédiée</a>). Le moteur d'appariement décrit ici vit toujours dans <code>Code/routes/import_full.py</code>, réutilisé par <code>import_hub</code> ; l'écran, lui, n'existe plus.</p></div>
-    </div>
-    <h2 class="section-title">Import IA — Excel vers DB</h2>
+    <h2 class="section-title">Le moteur d'appariement des tâches</h2>
+    <p class="releve">Relue le 19/10/2026 &#183; <code>Code/routes/import_full.py</code></p>
 
-    <p>Le module <code>import_full.py</code> (blueprint <code>import_full_bp</code>, préfixe <code>/api/import-full</code>) permet d'importer en masse les activités, tâches, outils, rôles et compétences depuis un fichier Excel fourni par le client. Le processus se déroule en deux étapes : <strong>analyse</strong> puis <strong>injection</strong>.</p>
-
-    <h3>Flux global</h3>
-    <div class="diagram">
-      <svg width="740" height="120" viewBox="0 0 740 120" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI',sans-serif" font-size="11">
-        <rect x="10"  y="30" width="130" height="58" rx="8" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
-        <text x="75"  y="55" text-anchor="middle" font-weight="700" fill="#374151">Fichier Excel</text>
-        <text x="75"  y="72" text-anchor="middle" font-size="10" fill="#6b7280">.xlsx / .xls / .xlsm</text>
-        <text x="75"  y="87" text-anchor="middle" font-size="10" fill="#6b7280">Upload navigateur</text>
-        <line x1="140" y1="59" x2="170" y2="59" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrB)"/>
-        <rect x="170" y="30" width="150" height="58" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.5"/>
-        <text x="245" y="55" text-anchor="middle" font-weight="700" fill="#be185d">_parse_excel_bytes()</text>
-        <text x="245" y="72" text-anchor="middle" font-size="10" fill="#6b7280">Propagation merged cells</text>
-        <text x="245" y="87" text-anchor="middle" font-size="10" fill="#6b7280">Groupes activité + tâches</text>
-        <line x1="320" y1="59" x2="350" y2="59" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrB)"/>
-        <rect x="350" y="30" width="170" height="58" rx="8" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.5"/>
-        <text x="435" y="52" text-anchor="middle" font-weight="700" fill="#be185d">_algorithmic_match()</text>
-        <text x="435" y="68" text-anchor="middle" font-size="10" fill="#6b7280">Exact → Inclusion → Fuzzy</text>
-        <text x="435" y="84" text-anchor="middle" font-size="10" fill="#6b7280">+ enrichissement OpenAI opt.</text>
-        <line x1="520" y1="59" x2="550" y2="59" stroke="#9ca3af" stroke-width="1.5" marker-end="url(#arrB)"/>
-        <rect x="550" y="30" width="170" height="58" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="1.5"/>
-        <text x="635" y="52" text-anchor="middle" font-weight="700" fill="#15803d">inject_full()</text>
-        <text x="635" y="68" text-anchor="middle" font-size="10" fill="#6b7280">Validation manuelle user</text>
-        <text x="635" y="84" text-anchor="middle" font-size="10" fill="#6b7280">→ écriture en base</text>
-        <defs><marker id="arrB" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#9ca3af"/></marker></defs>
-      </svg>
-      <p class="diagram-caption">Étape 1 (<code>/analyze</code>) : parsing + matching, retourne JSON. Étape 2 (<code>/inject</code>) : l'utilisateur valide les correspondances dans l'UI, puis déclenche l'écriture en base.</p>
+    <div class="note">
+      <p>L'écran a disparu, le moteur est resté</p>
+      <p>L'ancien « Import IA global » (étapes <em>analyse → revue</em>) a été remplacé le 19/09/2026 par la fenêtre <a href="#import">Importer des données</a>. Ses fonctions, elles, sont toujours là et <code>import_hub</code> les réutilise : c'est ce moteur qui décide à quelle activité une ligne se rattache, et qui écrit en base.</p>
     </div>
 
-    <h3>Format Excel attendu</h3>
-    <p>Le parseur détecte automatiquement la feuille principale et identifie les colonnes par leurs en-têtes. Les cellules fusionnées sont propagées vers le bas pour reconstituer les groupes.</p>
-    <table>
-      <tr><th>Colonne détectée</th><th>Mots-clés reconnus</th><th>Rôle</th></tr>
-      <tr><td><code>activity</code></td><td><em>semi finish, semi-finish, activity</em></td><td>Nom de l'activité (groupement)</td></tr>
-      <tr><td><code>department</code></td><td><em>department, dept</em></td><td>Département / entité</td></tr>
-      <tr><td><code>guarantor</code></td><td><em>guarantor, garant</em></td><td>Rôle garant de l'activité</td></tr>
-      <tr><td><code>task</code></td><td><em>task, tâche</em></td><td>Tâche à créer</td></tr>
-      <tr><td><code>tool</code></td><td><em>tool, outil</em></td><td>Outil(s) séparés par virgule ou point-virgule</td></tr>
-      <tr><td><code>doer</code></td><td><em>doer, executor</em></td><td>Rôle exécutant (lié à la tâche)</td></tr>
-      <tr><td><code>approver</code></td><td><em>approver, checker</em></td><td>Rôle approbateur (lié à la tâche)</td></tr>
-      <tr><td><code>skills</code></td><td><em>skills, knowledge, competenc, savoir</em></td><td>Compétences séparées par virgule</td></tr>
-      <tr><td><code>commentary</code></td><td><em>comment, commentaire, note</em></td><td>Description de la tâche</td></tr>
-    </table>
-
-    <h3>Algorithme de matching (<code>_algorithmic_match()</code>)</h3>
-    <ol>
-      <li><strong>Correspondance exacte</strong> (casse ignorée) — score 1.0</li>
-      <li><strong>Inclusion</strong> — l'un contient l'autre — score 0.88</li>
-      <li><strong>Fuzzy</strong> via <code>difflib.SequenceMatcher</code> — score entre 0 et 1</li>
-    </ol>
-    <div class="card card-green">
-      <strong>Seuil 0.90 :</strong> activité placée dans "Mappée" (confiance haute, import direct).<br>
-      <strong>0.75–0.89 :</strong> placée dans "À résoudre" avec raison <em>"Probable"</em>.<br>
-      <strong>0.60–0.74 :</strong> placée dans "À résoudre" avec raison <em>"Incertaine"</em>.<br>
-      <strong>&lt; 0.60 :</strong> aucune correspondance fiable — 3 suggestions triées par score sont proposées.
+    <h3>L'appariement, en trois passes</h3>
+    <p>Le fichier du client ne nomme pas les activités comme la carte harmonisée (« Identify Part » / « Develop Preliminary Technical Solution »). Trois passes, du plus sûr au moins sûr :</p>
+    <div class="etapes">
+      <div class="etape"><p class="n">1</p><b>Exact</b><span>Le nom normalisé correspond : on rattache.</span></div>
+      <div class="etape"><p class="n">2</p><b>Inclusion</b><span>L'un contient l'autre, au mot près.</span></div>
+      <div class="etape"><p class="n">3</p><b>Ressemblance</b><span>Au-delà de 90 %, on propose ; en dessous, l'utilisateur choisit.</span></div>
     </div>
+    <p>⚠️ <strong>Le fuzzy ne sert que de filet</strong>, et seulement au-delà de 90 % : en provisionnement, l'appariement est une <strong>table explicite</strong> (<code>tools/provisioning/data/*_mapping.json</code>) — les libellés d'un client ne se devinent pas.</p>
 
-    <h3>Enrichissement OpenAI (optionnel)</h3>
-    <p>Si <code>OPENAI_API_KEY</code> est défini et qu'il reste des groupes non-matchés, <code>_try_openai_enrich()</code> appelle GPT (défaut <code>gpt-4o-mini</code>) pour tenter une résolution sémantique. Toute erreur (quota, réseau, JSON malformé) est ignorée silencieusement.</p>
-
-    <h3>Injection en base (<code>POST /api/import-full/inject</code>)</h3>
+    <h3>L'injection</h3>
     <ul>
-      <li><strong>Garant</strong> : recherché ou créé dans <code>roles</code>, lié à l'activité avec statut <code>'garant'</code>.</li>
-      <li><strong>Tâches</strong> : créées seulement si leur nom n'existe pas déjà (déduplication insensible à la casse).</li>
-      <li><strong>Outils</strong> : get-or-create dans <code>tools</code> (scope entité), liés aux tâches.</li>
-      <li><strong>Doer / Approbateur</strong> : rôles créés ou retrouvés, liés via <code>task_roles</code>.</li>
-      <li><strong>Compétences</strong> : ajoutées à l'activité si la description n'existe pas encore.</li>
+      <li><code>Guarantor</code> → rôle <strong>Garant</strong> de l'activité ; <code>Doer</code> / <code>Approver</code> → rôles de tâche ; <code>Skills</code> → compétences.</li>
+      <li>Déduplication des tâches par nom, get-or-create des outils et des rôles : <strong>rejouer un import ne double rien</strong>.</li>
+      <li>⚠️ <strong>La colonne <code>Skills</code> sert aussi à dire qu'il n'y a RIEN à savoir faire.</strong> « No Special skills required » (27 lignes du fichier client) et « - » devenaient des compétences portant la phrase elle-même. <code>_est_non_competence()</code> écarte ces mentions d'absence ; 17 lignes supprimées après coup sur le pilote, 53 → 36 compétences.</li>
+      <li>⚠️ <strong>Le garant ne déborde plus d'une activité sur la suivante</strong> : la propagation des cellules fusionnées repart de zéro à chaque nouvelle activité. Un garant manquant se voit et se complète ; un garant FAUX lie un rôle à une activité qu'il ne tient pas.</li>
     </ul>
 
-    <h3>Référence API — Import IA</h3>
-    <table>
-      <tr><th>Méthode</th><th>URL</th><th>Description</th></tr>
-      <tr><td>POST</td><td><code>/api/import-full/analyze</code></td><td>Analyse le fichier Excel (<code>multipart/form-data</code>, champ <code>file</code>). Retourne <code>{analysis, stats, db_activities}</code>.</td></tr>
-      <tr><td>POST</td><td><code>/api/import-full/inject</code></td><td>Injecte les groupes validés (<code>application/json</code>, champ <code>groups</code>). Retourne <code>{status, stats}</code>.</td></tr>
-    </table>
+    <div class="piege">
+      <p><code>/api/import-full/inject</code> écrivait sans demander le droit d'écrire</p>
+      <p>La route écrivait dans l'entité active sans consulter <code>can_edit</code>. Elle l'exige désormais — et la <a href="#gouvernance">porte d'écriture</a> la couvre en plus.</p>
+    </div>
+    <p class="fichiers">Tests : <code>tests/test_84_import_hub.py</code> (53 cas) exerce le moteur à travers la fenêtre actuelle.</p>
   </section>
 
   <section id="refonte-competences" data-fam="ecrans">
@@ -1206,12 +1280,8 @@ def porte(chemin, methode, en_test=False):
     <p class="fichiers">Tests : <code>tests/test_108_paliers_performance.py</code>, <code>tests/test_109_paliers_ecran.py</code> (134 cas), <code>tests/test_104_developpeur_par_role.py</code> (15 cas). Banc : <code>tools/devrun_competences.py</code> (port 8125).</p>
   </section>
 
-  <section id="competences" data-fam="ecrans" data-etat="vieux">
+  <section id="competences" data-fam="ecrans">
     <p class="fam-nom">Les écrans</p>
-    <div class="perime">
-      <span class="ic" aria-hidden="true">&#9888;</span>
-      <div><b>Deux modèles d'évaluation cohabitent</b><p>Ce qui est décrit ici est le modèle historique (<code>CompetencyEvaluation</code> par item), toujours en base. L'évaluation réelle passe depuis la V1.1 par le RÉSULTAT, et par les <a href="#paliers-perf">paliers de performance</a> quand la sortie porte une norme chiffrée.</p></div>
-    </div>
     <h2 class="section-title">Compétences &amp; Évaluations</h2>
     <p>Blueprint : <code>competences_bp</code> — fichier : <code>Code/routes/competences.py</code>, préfixe <code>/competences</code>.</p>
     <p>Gère l'évaluation multi-évaluateurs des compétences des collaborateurs. Chaque activité porte des savoirs, savoir-faires et softskills ; chaque item peut être évalué indépendamment par trois profils.</p>
@@ -1386,12 +1456,8 @@ monthly = annual / 12</pre>
     </table>
   </section>
 
-  <section id="rh" data-fam="ecrans" data-etat="vieux">
+  <section id="rh" data-fam="ecrans">
     <p class="fam-nom">Les écrans</p>
-    <div class="perime">
-      <span class="ic" aria-hidden="true">&#9888;</span>
-      <div><b>Trois de ces blocs ont déménagé</b><p>« Droits par statut » est passé à la page <strong>Comptes</strong>, l'examen des propositions à la page <strong>Carte</strong> (<a href="#propositions">section dédiée</a>), et la section ③ montre désormais les compétences de chacun, toutes cartos. Le reste — rôles, affectations, calendrier — est à jour.</p></div>
-    </div>
     <h2 class="section-title">Gestion RH</h2>
     <p>Blueprint : <code>gestion_rh_bp</code> — fichier : <code>Code/routes/gestion_rh.py</code>, préfixe <code>/gestion_rh</code>.</p>
     <p>Module complet de gestion des collaborateurs : création de rôles, affectation aux utilisateurs, définition des managers, et paramétrage des temps de travail de l'entité.</p>
@@ -2099,6 +2165,83 @@ Body: {
     <h2 class="section-title">Optiq Hub, panel de tests, OptiqPulse</h2>
     <p class="releve">Relue le 19/10/2026 &#183; <code>hub/</code>, <code>pulse/</code>, <code>Code/routes/test_panel.py</code></p>
 
+    <h3>La page a été refondue — trois écrans, plus d'onglets</h3>
+    <p>⚠️ Ce qui suit décrit le <strong>moteur</strong>, qui n'a pas changé. L'écran, lui, a été refait le 13/10/2026 : les quatre onglets (Projet / Activité / Rôle / Faiblesse) étaient quatre modèles mentaux sans rien qui les relie, et un vocabulaire différent dans chacun pour la même notion (« Nb », « Fréq. », « Quantité »).</p>
+    <div class="etapes">
+      <div class="etape"><p class="n">1</p><b><code>#tm-accueil</code></b><span>La charge annuelle et son équivalent temps plein, le coût des faiblesses, ce qui n'est PAS chiffré, et les analyses enregistrées.</span></div>
+      <div class="etape"><p class="n">2</p><b><code>#tm-choix</code></b><span>« De quoi voulez-vous estimer la charge ? » — quatre portes qui disent QUAND s'en servir.</span></div>
+      <div class="etape"><p class="n">3</p><b><code>#tm-travail</code></b><span>Une analyse, son résultat collé à droite, qui vit pendant la frappe.</span></div>
+    </div>
+    <p>⚠️ <strong>Ce qui rend la refonte sûre : les IDs des compteurs n'ont pas bougé.</strong> <code>updateKpi</code> écrit par ID — déplacer un compteur du bas du formulaire vers le panneau de droite ne casse rien TANT QUE l'id survit.</p>
+    <p><code>GET /temps/api/tableau_de_bord</code> rend tout ce que l'accueil montre <strong>en une requête</strong> : quatre appels auraient donné quatre instants différents.</p>
+
+    <h4>Trois défauts de calcul, relevés par l'audit du client</h4>
+    <ul>
+      <li>⚠️ <strong>« Durée (h) » était en MINUTES</strong> dans le tableau de saisie du rôle : saisir 60 posait une heure. Le calcul était cohérent — c'est l'en-tête qui mentait. ⚠️ Sans renommer la clé partout : <code>time.col_duration_h</code> sert à QUATRE tableaux et trois sont justes.</li>
+      <li>⚠️ <strong>L'aperçu « Total estimé » ne se recalculait jamais</strong> : écrit seulement au changement d'ACTIVITÉ, aucun écouteur sur durée, fréquence ni nombre de personnes. 30 min × 2 × 3 affichait « 0.0 h » et enregistrait 3,0 h.</li>
+      <li>⚠️ <strong>La fréquence de la Faiblesse était lue, stockée, et n'entrait dans AUCUN calcul.</strong> Fréquence 1 et fréquence 2 rendaient exactement le même résultat. <code>H</code> compte les PÉRIODES par an et <code>freq</code> le nombre de fois PAR période : le produit des deux est le nombre d'occurrences. ⚠️ Cela déplace les résultats déjà enregistrés d'un facteur <code>freq</code> — c'est le but, mais une analyse relue après coup ne donnera plus le même chiffre.</li>
+    </ul>
+
+    <div class="piege">
+      <p>L'ATTENTE n'est pas du TRAVAIL</p>
+      <p>La carte des faiblesses additionnait le travail refait et l'attente, puis comparait le total à la charge de TRAVAIL. Relevé au banc : <strong>61 h de travail refait contre 984 h d'attente</strong>, et l'écran annonçait « 84 % de la charge » pour <strong>5 %</strong> réels. Une activité qui attend deux jours la réponse d'un fournisseur ne coûte deux jours de travail à personne. Les deux natures sont désormais rendues séparément, et le classement suit le travail refait — sinon celle qui ne coûte rien mais fait attendre trois jours arrive en tête.</p>
+    </div>
+
+    <p>⚠️ <strong>Une seule règle d'annualisation</strong> : <code>annuel_minutes()</code> (serveur) et <code>annuelMinutes()</code> (navigateur), confrontées par <code>test_105</code>. Elle était écrite dans <code>_role_summary</code> ET dans <code>recalcRoleTotals</code> ; le tableau de bord en aurait fait une troisième. ⚠️ Elle compte en calendrier CIVIL (mensuel = 12) — ce n'est <strong>pas</strong> la base de l'onglet Faiblesse, qui compte en périodes TRAVAILLÉES (mensuel = 47 ÷ 4,345). Les deux coexistent depuis toujours et n'ont pas été unifiées : changer l'une déplacerait des analyses déjà enregistrées.</p>
+
+    <div class="piege">
+      <p><code>delete(synchronize_session=False)</code> laisse des objets MORTS dans la session</p>
+      <p>Et le symptôme ne désigne pas le coupable : trois tests plus loin, un <code>POST</code> sans rapport tombait en 500 sur son <code>commit()</code> avec « 'NoneType' object has no attribute '__dict__' ». SQLAlchemy retrouve au flush un objet expiré dont la ligne n'existe plus. <strong>En production le défaut ne se voit pas</strong> (la session est déposée à la fin de chaque requête) ; dans la suite elle est PARTAGÉE du début à la fin. On supprime objet par objet.</p>
+    </div>
+    <p class="fichiers">Tests : <code>tests/test_105_temps_refonte.py</code> (57 cas), <code>tests/test_103_temps_audit.py</code> (8 cas), <code>tests/test_95_temps_calculs.py</code>. Banc : <code>tools/devrun_temps.py</code> (port 8127).</p>
+
+    <h3>Deux modèles d'évaluation, et lequel sert</h3>
+    <p>⚠️ Ce qui est décrit dans cette section est le modèle <strong>historique</strong> : <code>CompetencyEvaluation</code>, une note par item (savoir, savoir-faire, HSC) et par évaluateur. Il est toujours en base, et toujours lu. Mais l'évaluation réelle, depuis la refonte V1.1, part du <strong>RÉSULTAT</strong> :</p>
+    <table>
+      <thead><tr><th>Ce qu'on évalue</th><th>Comment</th><th>Où</th></tr></thead>
+      <tbody>
+        <tr><td>Une sortie SANS norme chiffrée</td><td>une note 0→4 posée à la main, sur le résultat</td><td><a href="#refonte-competences">Refonte V1.1</a> — <code>mastery.py</code></td></tr>
+        <tr><td>Une sortie AVEC une norme chiffrée</td><td>des marches, une mesure relevée en séance, le niveau se DÉDUIT</td><td><a href="#paliers-perf">Paliers de performance</a></td></tr>
+        <tr><td>Un savoir / savoir-faire / HSC</td><td>ce qui est décrit ici — sert au <strong>diagnostic</strong> d'un écart, pas au verdict</td><td>cette section</td></tr>
+      </tbody>
+    </table>
+    <p>⚠️ <strong>Le niveau d'une activité est le MINIMUM de ses résultats</strong>, jamais une moyenne, et <code>NULL</code> (non évalué) n'est jamais zéro — toute la chaîne tient cette distinction, jusqu'au radar du profil.</p>
+    <div class="piege">
+      <p><code>POST /mastery/evaluate</code> n'avait AUCUN contrôle d'accès</p>
+      <p>Tout compte connecté pouvait poser n'importe quel niveau sur n'importe qui — y compris se décerner celui qui fait foi. Sans conséquence tant que seuls les développeurs ouvraient l'écran ; plus du tout dès que les collaborateurs y viennent s'auto-évaluer. <code>Code/competences_acces.py</code> est la source unique : <code>peut_noter(acteur, cible, evaluateur)</code> et <code>peut_lire(…)</code>. ⚠️ Et <code>_statut_eleve</code> donnait l'arbitrage au mauvais palier (« champion ou administrateur ») : depuis les quatre paliers, un champion pouvait lire et NOTER tout le monde. La règle est désormais <code>niveau_status(statut) &gt;= NIVEAU_COORDINATEUR</code>.</p>
+    </div>
+
+    <h3>Ce que la page porte aujourd'hui</h3>
+    <p>Quatre blocs : les <strong>personnes</strong> (et leur développeur de compétences), les <strong>rôles</strong>, les <strong>compétences de chacun</strong>, et le <strong>calendrier de travail</strong> de l'entité. Trois choses en sont parties — elles sont décrites ailleurs :</p>
+    <table>
+      <thead><tr><th>Parti</th><th>Où c'est maintenant</th></tr></thead>
+      <tbody>
+        <tr><td>Droits par statut</td><td>Page <a href="#gestion-compte">Comptes</a> — c'est là qu'on donne un statut, c'est là qu'on doit lire ce qu'il ouvre.</td></tr>
+        <tr><td>Examen des propositions</td><td>Page Carte, <a href="#propositions">bandeau et fenêtre d'examen</a> — elles étaient cadrées par la carto ACTIVE, donc vues seulement en activant la bonne carto, donc souvent jamais.</td></tr>
+        <tr><td>Onboarding IA</td><td>Fiche d'un rôle (<a href="#onboarding">section dédiée</a>).</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Le développeur de compétences : un PAR RÔLE</h3>
+    <p>Celui qui suit quelqu'un sur « Qualité » ne le suit pas forcément sur « Logistique ». Deux rattachements coexistent : <code>users.manager_id</code> (global, couvre tous les rôles) et <code>user_roles.manager_id</code> (par rôle).</p>
+    <div class="piege">
+      <p>Restreindre à un rôle ne produisait RIEN</p>
+      <p><code>encadre()</code> lit les DEUX rattachements. Tant que le lien global existe, il couvre TOUS les rôles — y compris celui dont on venait de retirer le développeur. On affichait donc une restriction que le droit ignorait. <code>_dissoudre_lien_global()</code> reporte le lien global sur chaque rôle tenu puis l'efface : ce qu'il couvrait reste couvert, et la portée demandée veut enfin dire quelque chose. ⚠️ Et <code>POST /gestion_rh/dev_scope</code> porte la décision ENTIÈRE en UN appel : en deux requêtes, un refus au milieu laissait un développeur posé partout en attendant une portée qui n'arrivait jamais.</p>
+    </div>
+    <p>⚠️ Côté LECTURE, <code>encadre_pour_role()</code> fait la même distinction — sans elle, un développeur rattaché à deux rôles voyait et <strong>notait</strong> les quatre rôles de la personne (voir <a href="#paliers-perf">Paliers de performance</a>).</p>
+
+    <h3>Les compétences de chacun, toutes cartos</h3>
+    <p><code>GET /gestion_rh/api/competences</code> → <code>Code/competences_globales.py::tableau_global</code>. Une ligne par personne, une colonne par rôle groupée par carto.</p>
+    <ul>
+      <li>⚠️ <strong>Indépendant de la carto choisie en haut de la page</strong> : celle-ci cadre ce qu'on RÈGLE ; ce tableau sert à VOIR, et la vue utile d'abord est celle de toute l'entreprise.</li>
+      <li>⚠️ <strong>Mêmes chiffres que la page Compétences, par construction</strong> : la couleur, l'état d'une activité et la couverture viennent de <code>mastery</code>. Deux implémentations d'un même verdict finissent par diverger.</li>
+      <li>⚠️ <strong>Pas <code>dashboard_rows</code> en boucle</strong> : ~6 requêtes par activité et par personne — soixante personnes, deux rôles, quinze activités : dix mille requêtes, deux minutes et demie sur Neon. Le calcul est fait en BLOC, en un nombre FIXE de requêtes.</li>
+      <li>⚠️ <strong><code>get_activity_outputs</code> ÉCRIT</strong> (il matérialise les sorties en <code>Data</code>) : on ne l'appelle pas depuis une page de lecture.</li>
+    </ul>
+
+    <h3>Un rôle sur plusieurs cartos</h3>
+    <p>La carte d'un rôle porte un bouton <strong>Cartos</strong> (<code>GET|POST /gestion_rh/role_cartos</code>) : ouvrir une carto à un rôle se faisait carto par carto, et rien ne montrait ce qu'un rôle ouvre au total. ⚠️ Les deux conséquences sont écrites ligne par ligne dans l'écran, parce qu'elles décident de qui voit quoi — voir <a href="#acces">Carto commune</a>.</p>
+
     <p>Trois services <strong>séparés de l'application</strong>, déployés par leurs propres workflows.</p>
 
     <h3>Optiq Hub</h3>
@@ -2293,6 +2436,57 @@ Body: {
       <li><strong>Commentaires</strong> : uniquement si le WHY est non-évident. Jamais de commentaires décrivant ce que fait le code.</li>
       <li><strong>Commits</strong> : types <code>Feat:</code>, <code>Fix:</code>, <code>Docs:</code>, <code>Refactor:</code>, <code>Style:</code>.</li>
     </ul>
+    <h3>Les pièges qui ont mordu plus d'une fois</h3>
+    <p>Ce qui suit n'est pas une liste de bonnes pratiques : chacun de ces points a coûté quelque chose, et <strong>plusieurs ont mordu deux, trois ou quatre fois</strong>. C'est la partie de cette documentation qu'il faut lire avant d'écrire du code, pas après.</p>
+
+    <h4>Ce que SQLite accepte et que PostgreSQL refuse</h4>
+    <p>La suite tourne sur SQLite, la production sur PostgreSQL. <strong>Aucun test ne peut voir ces défauts</strong> — c'est le client qui les voit.</p>
+    <ul>
+      <li><code>BOOLEAN DEFAULT 0</code> : PostgreSQL refuse un entier comme défaut de booléen. Écrire <code>DEFAULT FALSE</code>, et <code>sa.false()</code> (jamais <code>text('0')</code>) en <code>server_default</code>.</li>
+      <li><strong>SQLite n'applique PAS les longueurs de VARCHAR.</strong> <code>softskills.niveau</code> est resté en <code>VARCHAR(10)</code> alors que la valeur stockée est le libellé HSC entier (« 2 (Acquisition) », 15 caractères) : chez un nouveau client, enregistrer une HSC tombait en 500.</li>
+      <li><strong>SQLite n'applique pas les clés étrangères, PostgreSQL si.</strong> Toute nouvelle table liée à une entité doit entrer dans le ménage de <code>delete_entity</code>.</li>
+      <li>Le filet : <code>tests/test_67_schema_postgres.py</code> compile le DDL des modèles avec le dialecte PostgreSQL, sans serveur, et relit les <code>ALTER</code> écrits à la main dans <code>create_app</code>.</li>
+    </ul>
+
+    <h4>Un contrôle qui dépend de la machine ne contrôle rien</h4>
+    <ul>
+      <li><strong>Les clés IA</strong> : des dizaines de cas vérifient le comportement <em>sans</em> clé et comptaient sur le fait qu'un poste de développement n'en a pas. Sur l'instance, Cloud Run les porte dans l'environnement — 15 tests rouges d'un coup. <code>conftest.py</code> les retire.</li>
+      <li><strong>Les versions non épinglées</strong> : le venv local garde celles du jour de sa création pendant que l'image installe les dernières (voir <a href="#stack">Stack technique</a>).</li>
+      <li><strong>Un test qui lit une SOURCE</strong> (<code>.py</code>, <code>tools/</code>, <code>hub/</code>, <code>*.vsdx</code>) passe en local et échoue dans l'arbre d'image, compilé en bytecode. Quatre fichiers en ont souffert ; tous portent une garde de saut. ⚠️ <strong>Un contrôle qui rougit toujours n'est plus lu, et le jour où il a raison personne ne regarde.</strong> <code>tools/repet_image.sh</code> avant toute livraison.</li>
+    </ul>
+
+    <h4>La base ET la session de test sont partagées</h4>
+    <p>C'est la première cause de faux échecs. Un cas monte son propre décor et le nettoie ; <code>client</code> et <code>auth_client</code> sont le <strong>même objet</strong> en portée session, donc un test de l'anonymat fabrique son propre <code>app.test_client()</code>, et un fichier qui remet la session à zéro doit la rendre en partant. ⚠️ Certains défauts ne se voient <strong>qu'en suite complète</strong> : un fichier vert tout seul ne prouve rien.</p>
+
+    <h4>Trois pièges d'interface, chacun revenu quatre fois</h4>
+    <ul>
+      <li>⚠️ <strong><code>body.pg</code> porte <code>zoom: .8</code></strong> (ui-theme). Deux conséquences : les <em>media queries</em> comptent en pixels RÉELS alors que la mise en page est en px CSS (un seuil à 1180 px se déclenche quand il reste 1475 px de place) ; et un enfant du <code>body</code> en <code>position: fixed</code> voit ses coordonnées <strong>multipliées</strong> par ce zoom, alors que <code>getBoundingClientRect()</code> les rend déjà en pixels d'écran. Tout élément posé sur le body en <code>fixed</code> doit diviser par le zoom avant d'écrire <code>left</code>/<code>top</code>.</li>
+      <li>⚠️ <strong><code>[hidden]</code> est une règle du NAVIGATEUR</strong> : une classe d'auteur qui pose un <code>display</code> l'emporte, et le masquage ne masque rien. Toute classe qui déclare <code>display</code> doit déclarer son <code>[hidden]</code>.</li>
+      <li>⚠️ <strong>Une propriété personnalisée se résout là où elle est DÉCLARÉE</strong>, pas où elle est employée. <code>--pg-accent-soft</code> et ses trois frères sont déclarés sur <code>:root</code>, où <code>--pg-accent</code> vaut encore le gris par défaut : ils rendent du <strong>gris sur toute l'application</strong>. Les mélanges s'écrivent dans la règle.</li>
+      <li>⚠️ <strong>À spécificité égale, c'est la dernière règle déclarée qui gagne</strong> : une <em>media query</em> écrite AVANT la règle de base ne fait rien. Et un sélecteur d'attribut (<code>input[type="text"]</code>, 0-2-0) bat une classe suivie d'un élément (<code>.classe input</code>, 0-1-1).</li>
+    </ul>
+
+    <h4>Le volet de mise au point ne peint pas</h4>
+    <p>Mesuré : une transition CSS <strong>ne progresse pas</strong> (et <code>getComputedStyle</code> rend alors la valeur figée en cours de route) ; un <code>IntersectionObserver</code> neuf ne rend <strong>rien</strong>, pas même l'appel initial que la spécification garantit ; <code>requestAnimationFrame</code> et l'événement <code>scroll</code> ne tirent pas, alors que <code>window.scrollY</code> change. ⚠️ <strong>Tout ce qui dépend du rendu y est invérifiable</strong> — couper la transition et relire donne la valeur CIBLE, et un mécanisme qu'on veut prouver se calcule plutôt qu'il ne s'observe.</p>
+
+    <h4>Les deux langues</h4>
+    <ul>
+      <li><strong>Quatre mécanismes</strong> traduisent, et aucun ne lève d'erreur quand il échoue : <code>t('cle')</code> retombe en silence sur le français, un catalogue JS sert son repli en dur, un <code>data-i18n</code> inconnu laisse le gabarit tel quel, et un texte écrit en dur ne passe par rien.</li>
+      <li>⚠️ <strong>Injecter avec <code>| tojson</code></strong>, jamais <code>"{{ t('x') }}"</code> entre guillemets dans un <code>&lt;script&gt;</code> : le navigateur décode les entités HTML dans un ATTRIBUT, jamais dans un script — <code>c&amp;#39;est</code> s'affichait tel quel.</li>
+      <li>⚠️ <strong>Deux conventions de substitution coexistent</strong> : <code>{n}</code> et <code>[[n]]</code>. Une clé doit suivre celle du FICHIER qui la lit, sinon son marqueur s'affiche brut — relevé à l'écran avec « [[N]] MODIFICATIONS PROPOSÉES ».</li>
+      <li>⚠️ <strong>Une clé CONSTRUITE</strong> (<code>t('pre_' + x)</code>) est relevée tronquée à son préfixe par le contrôle de couverture. L'écrire en entier, ou la tenir par un test dédié. Et le contrôle lit aussi les COMMENTAIRES.</li>
+      <li><strong>Ce qui se lit dans la langue du LECTEUR se rebâtit à la lecture</strong>, jamais à l'écriture : le journal d'activité, les libellés d'une proposition.</li>
+    </ul>
+
+    <h4>Les règles de travail</h4>
+    <ul>
+      <li><strong>Un test se vérifie ROUGE.</strong> On remet le défaut, on constate que le cas tombe. Un cas écrit après coup passe au vert quoi qu'il arrive — et c'est ainsi qu'on découvre ceux qui ne mordent pas.</li>
+      <li><strong>Une refonte visuelle se tranche sur MAQUETTES</strong>, pas dans le code : une passe de style coûte une demi-journée et se juge en trois secondes. Deux refontes écrites directement ont été refusées l'une après l'autre — et toutes deux parce qu'on avait <em>redessiné ce qui ne devait pas bouger</em>.</li>
+      <li><strong>Une suppression se fait sur des BORNES, jamais sur un motif ouvert</strong> : un <code>.*?</code> non gourmand en <code>re.S</code> part du PREMIER délimiteur du fichier. 1 840 lignes de CSS ont disparu d'un coup, avec un symptôme trompeur.</li>
+      <li><strong>Un commentaire qui cite du code ne se pose pas par un heredoc Bash non quoté</strong> : les backticks sont évalués, et les noms de sélecteurs disparaissent du fichier.</li>
+      <li><strong>Mesurer avant de corriger</strong>, et écrire le chiffre : « 35 sections sur 37 », « 61 h contre 984 h », « 2 318 requêtes ». Un défaut sans mesure se rediscute ; un défaut mesuré se corrige.</li>
+    </ul>
+
   </section>
 
 </main>
@@ -2303,7 +2497,7 @@ Body: {
    Le sommaire se construit DEPUIS LES SECTIONS — il n'est pas écrit à la
    main. ⚠️ C'est ce qui a manqué pendant un mois : une liste tenue à part
    finit par ne plus correspondre au document, et on ajoute une section sans
-   l'y mettre. Ici, écrire une <section> suffit.
+   l'y mettre. Ici, écrire une balise de section suffit.
 
    Chaque section déclare sa famille (`data-fam`) et, quand il y a lieu, son
    état (`data-etat="neuf"` ou `"vieux"`). Les deux marques du sommaire sont
