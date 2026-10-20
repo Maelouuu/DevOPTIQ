@@ -5774,6 +5774,76 @@ un par un, 18 cliquets tombés**). Suite : **3282 passés**, `repet_image`
 envoi → coordinateur → application, les trois objets **relus en base**, le
 refus d'un `user`, et zéro fuite française sur l'écran anglais.
 
+#### Le style des propositions d'activité, repris sur maquettes (2026-10-20)
+
+« Techniquement c'est exactement ce que je voulais, par contre niveau visuel
+je suis assez déçu, c'est vraiment bas étage. » Le reproche était juste, et
+chiffrable — mesuré à l'écran avant de redessiner :
+
+| | Avant | Après |
+|---|---|---|
+| Bandeau | **57 px**, titre 14 px, sous-titre 12,5, bouton 13 | 63 px, titre 17 px (Fraunces), chiffre **32 px** |
+| Fenêtre | 496 × 374, lignes de 51 px, libellé 13,5 px | 544 × 523, rail numéroté, objet **18 px** (Fraunces) |
+
+⚠️ **Tout était à l'échelle des MÉTA** — celle d'une ligne de date ou d'un
+compteur. Or le bandeau annonce un **changement de régime** (« ici vous ne
+modifiez pas, vous proposez »), une information permanente et structurante ;
+et la fenêtre est le moment où l'on **engage son travail devant quelqu'un**.
+
+⚠️ **Et le bandeau ne MONTRAIT rien** : « 3 modifications » sans dire
+lesquelles — il fallait ouvrir la fenêtre pour savoir ce qu'on venait de
+poser. Il affiche désormais les deux premiers gestes, puis « et n de plus ».
+C'est le défaut de fond, pas la peau.
+
+**Tranché sur maquettes** (canvas « Propositions d'activité — le style » :
+le bandeau en deux directions, la fenêtre, l'écran du coordinateur), direction
+**B — « le filet »** retenue : un liseré vertical porte la couleur, le chiffre
+porte le poids, la ligne du bas porte les gestes.
+
+**Le vocabulaire est celui déjà tranché ailleurs**, rien d'inventé :
+- **l'en-tête sur fond de NUIT** (`#4a2d0a → #2d1b06`), comme la fiche de
+  notation — c'est le CONTRASTE qui désigne le sujet, pas un filet de couleur ;
+- **Fraunces sur ce qu'on vient lire** : le compte, le nom de l'objet ;
+- **le rapport INVERSÉ** entre l'action et le réglage (page Temps, page
+  Carte) : au repos le bouton du bandeau est discret — on vient LIRE ; plein
+  dès qu'il y a quelque chose à envoyer — on vient AGIR ;
+- **l'ambre de gouvernance**, pas le violet de la page : prendre l'accent de
+  la page rangerait ce bandeau parmi ses contenus, alors qu'il parle de ce qui
+  ARRIVE à ce qu'on écrit.
+
+⚠️ **Les gestes sont un RAIL NUMÉROTÉ** (`<ol>`, pas `<ul>`) : l'ordre
+affiché EST celui du rejeu, et c'est la seule chose que le coordinateur doit
+lire avant d'appliquer. Le verbe passe en capitales au-dessus, l'objet porte
+la police d'affichage — c'est lui qu'on vient lire, pas « Ajouter la tâche ».
+
+⚠️ **Les DEUX écrans parlent la même langue** : le champion et le
+coordinateur regardent le même objet, deux vocabulaires finiraient par dire
+deux choses du même geste. Même en-tête de nuit, même rail, mêmes tailles —
+`carto_examen.css` reprend la peau de `activite_propositions.css`.
+ℹ️ Seul le bouton « Appliquer à la carto » garde le **teal** de la fenêtre
+d'examen : il est partagé avec les propositions de CARTO, et lui donner une
+autre couleur ici ferait deux verdicts visuels pour un même geste.
+
+**Le toast est conservé** tel quel : corriger une fiche, c'est cinq ou six
+gestes, et une fenêtre à fermer entre chacun transformerait la saisie en
+parcours d'obstacles. Il passe simplement sur le fond de nuit, comme le reste.
+
+⚠️ **Piège rencontré pour la énième fois** : le cliquet qui interdit
+`--pg-accent-soft` tombait sur **le commentaire qui l'explique**. Il retire
+donc les commentaires CSS avant de chercher — on parle de RÈGLES. Même famille
+que les clés i18n construites, et que le `<section>` écrit dans un commentaire
+de la doc technique.
+
+Tests : `tests/test_112_propositions_activite.py` passe de 33 à **41 cas** ;
+**huit défauts remis un par un, huit cliquets tombés** (le bandeau qui compte
+sans montrer, le chiffre et l'icône au même endroit, le bouton sans son
+rapport inversé, la liste non ordonnée, les deux écrans qui divergent,
+l'accent doux de la racine, le toast qui vole un clic, une clé absente de
+l'anglais). Suite : **3317 passés**, `repet_image` 3277 + 41 sautés.
+Éprouvé au banc dans les deux langues :
+bandeau vide et plein, fenêtre, envoi, examen côté coordinateur — zéro fuite
+française sur l'écran anglais (texte ET attributs).
+
 ---
 
 ## Notes importantes (suite)

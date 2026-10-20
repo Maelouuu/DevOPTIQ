@@ -7,161 +7,274 @@
    page rangerait ce bandeau parmi ses contenus, alors qu'il parle de ce qui
    ARRIVE à ce qu'on écrit.
 
+   ⚠️ **La première passe était à l'échelle des MÉTA** : bandeau de 57 px,
+   titre 14 px, sous-titre 12,5, bouton 13 — celle d'une ligne de date. Or il
+   annonce un changement de régime (« ici vous ne modifiez pas, vous
+   proposez »), et la fenêtre est le moment où l'on engage son travail devant
+   quelqu'un. Tranché sur maquettes : canvas « Propositions d'activité — le
+   style », direction B pour le bandeau.
+
    ⚠️ Aucune règle ici ne lit `--pg-accent-soft` ni ses trois frères :
    déclarés sur `:root`, où `--pg-accent` vaut encore le gris par défaut, ils
    rendent du GRIS sur toute l'application. Les mélanges sont écrits sur place.
    ============================================================ */
-.acp-bandeau {
-  display: flex; align-items: center; gap: 13px; flex-wrap: wrap;
-  margin: 0 0 16px; padding: 12px 16px;
-  border: 1px solid #fcd9a4; border-radius: var(--r-card, 14px);
-  background: linear-gradient(100deg, #fff8ec, #fffdf8);
-  box-shadow: 0 2px 10px -6px rgba(146, 94, 12, .45);
+:root {
+  --acp-nuit:  #2d1b06;  --acp-nuit2: #4a2d0a;
+  --acp-or:    #e8a84c;  --acp-or-p:  #fcd399;  --acp-or-f: #b45309;
+  --acp-encre: #3a2206;  --acp-encre2:#8a7556;  --acp-sur:  #8a6a3a;
+  --acp-voile: #fffdf8;  --acp-trait: #e2d4ba;
 }
-.acp-bandeau.est-plein { border-color: #f5b041; background: linear-gradient(100deg, #fef3df, #fffaf1); }
-.acp-ic {
-  width: 34px; height: 34px; flex: none; border-radius: 10px; font-size: 14px;
-  display: grid; place-items: center; background: #fff; color: #b45309;
-  box-shadow: 0 1px 3px rgba(146, 94, 12, .18);
-}
-.acp-txt { flex: 1; min-width: 180px; }
-.acp-txt strong { display: block; font-size: 14px; color: #7c3d09; }
-.acp-txt span { font-size: 12.5px; color: #92722f; }
-.acp-b {
-  flex: none; cursor: pointer; border: none; border-radius: 999px;
-  padding: 9px 17px; font-family: inherit; font-size: 13px; font-weight: 600;
-  color: #fff; background: linear-gradient(135deg, #d97706, #92400e);
-  box-shadow: 0 5px 14px -7px rgba(146, 64, 14, .9); transition: .14s;
-}
-.acp-b:hover { transform: translateY(-1px); box-shadow: 0 7px 18px -7px rgba(146, 64, 14, 1); }
 
-/* ── La fenêtre ──────────────────────────────────────────────────────── */
+/* ══ LE BANDEAU — direction « le filet » ══════════════════════════════════
+   Le liseré porte la couleur, le chiffre porte le poids, et la ligne du bas
+   MONTRE les gestes. « 3 modifications » n'apprenait rien : il fallait ouvrir
+   la fenêtre pour savoir ce qu'on venait de poser. */
+.acp-bandeau {
+  display: flex; align-items: center; gap: 16px;
+  margin: 0 0 18px; padding: 0;
+  border: 1px solid var(--acp-trait); border-radius: var(--r-card, 16px);
+  background: #fff; overflow: hidden;
+  box-shadow: 0 3px 14px -8px rgba(90, 60, 15, .35);
+}
+.acp-bandeau[hidden] { display: none; }
+
+.acp-filet {
+  width: 6px; align-self: stretch; flex: none;
+  background: linear-gradient(180deg, var(--acp-or), var(--acp-or-f));
+}
+
+/* Le chiffre prend la place de l'icône dès qu'il y a quelque chose à
+   compter : deux repères au même endroit se disputeraient le regard. */
+.acp-n-gros {
+  flex: none; margin-left: 14px; min-width: 34px; text-align: center;
+  font-family: var(--pg-font-display); font-size: 32px; font-weight: 600;
+  line-height: 1; color: var(--acp-or-f); font-variant-numeric: tabular-nums;
+}
+.acp-n-gros[hidden] { display: none; }
+.acp-ic {
+  width: 36px; height: 36px; flex: none; margin-left: 14px;
+  border-radius: 11px; font-size: 15px;
+  display: grid; place-items: center;
+  background: #fdf4e3; color: var(--acp-or-f);
+}
+.acp-ic[hidden] { display: none; }
+
+.acp-txt { flex: 1; min-width: 0; padding: 15px 0; }
+.acp-txt strong {
+  display: block; font-family: var(--pg-font-display);
+  font-size: 17px; font-weight: 600; color: var(--acp-encre);
+}
+.acp-txt span {
+  display: block; font-size: 13px; color: #7a6244;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ⚠️ Rapport INVERSÉ entre les deux états, comme sur la page Temps : au
+   repos le bouton est discret (on vient lire), plein dès qu'il y a quelque
+   chose à envoyer (on vient agir). */
+.acp-b {
+  flex: none; margin-right: 16px; cursor: pointer;
+  border: 1px solid var(--acp-trait); border-radius: var(--r-pilule, 999px);
+  padding: 9px 18px; font-family: inherit; font-size: 13.5px; font-weight: 600;
+  color: var(--acp-or-f); background: #fff; transition: .14s;
+}
+.acp-b:hover { background: #fdf4e3; }
+.acp-b.est-vif {
+  border-color: transparent; color: #fff;
+  background: linear-gradient(135deg, var(--acp-or-f), #7c3d09);
+  box-shadow: 0 6px 16px -8px rgba(124, 61, 9, .9);
+}
+.acp-b.est-vif:hover { transform: translateY(-1px); background: linear-gradient(135deg, #c25d0b, #6d3507); }
+
+/* ══ LA FENÊTRE ═══════════════════════════════════════════════════════════ */
 .acp { position: fixed; inset: 0; z-index: 3000; }
 .acp[hidden] { display: none; }
-.acp-fond { position: absolute; inset: 0; background: rgba(15, 23, 42, .45); }
+.acp-fond { position: absolute; inset: 0; background: rgba(23, 16, 6, .5); }
 .acp-boite {
-  position: relative; margin: 6vh auto 0; width: min(620px, 94vw);
-  max-height: 86vh; display: flex; flex-direction: column;
-  background: var(--card, #fff); border-radius: 18px; overflow: hidden;
-  box-shadow: 0 24px 60px -20px rgba(15, 23, 42, .5);
+  position: relative; margin: 5vh auto 0; width: min(680px, 94vw);
+  max-height: 88vh; display: flex; flex-direction: column;
+  background: #fff; border-radius: 22px; overflow: hidden;
+  box-shadow: 0 28px 64px -26px rgba(45, 27, 6, .66);
 }
+
+/* L'identité sur fond de NUIT, comme la fiche de notation : c'est le
+   contraste qui désigne le sujet, pas un filet de couleur. */
 .acp-tete {
-  display: flex; align-items: center; gap: 12px; flex: none;
-  padding: 15px 18px; border-bottom: 1px solid #f3e4cb;
-  background: linear-gradient(100deg, #fef3df, #fffaf1);
+  display: flex; align-items: flex-start; gap: 16px; flex: none;
+  padding: 22px 24px;
+  background: linear-gradient(118deg, var(--acp-nuit2), var(--acp-nuit));
 }
 .acp-tic {
-  width: 34px; height: 34px; flex: none; border-radius: 10px; font-size: 14px;
-  display: grid; place-items: center; background: #fff; color: #b45309;
+  width: 44px; height: 44px; flex: none; border-radius: 13px; font-size: 18px;
+  display: grid; place-items: center;
+  background: rgba(252, 211, 153, .16); color: var(--acp-or-p);
 }
-.acp-tete > div { flex: 1; min-width: 0; }
-.acp-tete h3 { margin: 0; font-size: 16px; color: #7c3d09; }
-.acp-tete p { margin: 2px 0 0; font-size: 12.5px; color: #92722f; }
+.acp-tete-t { flex: 1; min-width: 0; }
+.acp-sur {
+  margin: 0 0 2px; font-family: var(--pg-font-display); font-style: italic;
+  font-size: 13px; color: #e0b877;
+}
+.acp-tete h3 {
+  margin: 0 0 4px; font-family: var(--pg-font-display);
+  font-size: 27px; font-weight: 600; letter-spacing: -.3px; color: #fff;
+}
+.acp-tete p#acp-tsous { margin: 0; font-size: 13px; color: #c9a06a; }
+.acp-etat-pastille {
+  flex: none; align-self: center; font-size: 12px; color: #c9a06a;
+  border: 1px solid rgba(252, 211, 153, .3); border-radius: 999px;
+  padding: 5px 12px; white-space: nowrap;
+}
 .acp-x {
   flex: none; border: none; background: none; cursor: pointer;
-  font-size: 16px; color: #92722f; padding: 6px;
+  font-size: 17px; color: #c9a06a; padding: 4px 2px; align-self: flex-start;
 }
-.acp-corps { flex: 1; overflow: auto; padding: 16px 18px 18px; }
+.acp-x:hover { color: #fff; }
 
-.acp-liste { list-style: none; margin: 0 0 14px; padding: 0; }
+.acp-corps { flex: 1; overflow: auto; padding: 20px 24px 24px; }
+
+/* ── Le rail : l'ordre affiché EST l'ordre du rejeu ──────────────────── */
+.acp-ordre {
+  margin: 0 0 11px; font-family: var(--pg-font-display); font-style: italic;
+  font-size: 13.5px; color: var(--acp-sur);
+}
+.acp-liste {
+  list-style: none; margin: 0 0 20px; padding: 0 0 0 26px;
+  position: relative;
+}
+.acp-liste::before {
+  content: ''; position: absolute; left: 11px; top: 14px; bottom: 14px;
+  width: 2px; background: linear-gradient(180deg, var(--acp-or), #f2e2c6);
+}
 .acp-l {
-  display: flex; align-items: center; gap: 11px; padding: 9px 11px;
-  border: 1px solid var(--border, #e2e8f0); border-radius: 12px;
-  background: var(--card, #fff); margin-bottom: 7px;
+  position: relative; display: flex; align-items: center; gap: 14px;
+  padding: 10px 0; margin-bottom: 2px;
 }
 .acp-n {
-  width: 24px; height: 24px; flex: none; border-radius: 50%;
-  display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
-  background: #fef3df; color: #b45309;
+  position: absolute; left: -22px; width: 22px; height: 22px; flex: none;
+  border-radius: 50%; display: grid; place-items: center;
+  font-size: 11px; font-weight: 700;
+  background: #fff; border: 2px solid var(--acp-or); color: var(--acp-or-f);
 }
 .acp-l-t { flex: 1; min-width: 0; }
-.acp-l-t b { display: block; font-size: 13.5px; color: var(--ink, #0f172a); }
-.acp-l-t span { font-size: 11.5px; color: var(--muted, #64748b); }
+.acp-verbe {
+  margin: 0 0 1px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--acp-or-f);
+}
+/* C'est l'OBJET qu'on vient lire : il porte la police d'affichage. */
+.acp-objet {
+  margin: 0; font-family: var(--pg-font-display); font-size: 18px;
+  font-weight: 600; color: var(--acp-nuit);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.acp-ou { margin: 1px 0 0; font-size: 12.5px; color: var(--acp-encre2); }
 .acp-del {
-  flex: none; border: none; background: none; cursor: pointer; padding: 5px 7px;
-  font-size: 13px; color: var(--muted, #64748b); border-radius: 8px;
+  flex: none; width: 30px; height: 30px; border: none; border-radius: 9px;
+  cursor: pointer; font-size: 13px;
+  background: #f6f1e6; color: var(--acp-encre2); transition: .14s;
 }
 .acp-del:hover { background: #fee2e2; color: #b91c1c; }
 
 .acp-msg { display: block; }
 .acp-msg > span {
-  display: block; margin-bottom: 5px; font-size: 11.5px; font-weight: 700;
-  letter-spacing: .7px; text-transform: uppercase; color: var(--muted, #64748b);
+  display: block; margin-bottom: 6px; font-family: var(--pg-font-display);
+  font-style: italic; font-size: 13.5px; color: var(--acp-sur);
 }
 .acp-msg textarea {
-  width: 100%; font-family: inherit; font-size: 13.5px; padding: 8px 11px;
-  border: 1px solid var(--border-strong, #cbd5e1); border-radius: 10px;
-  resize: vertical; color: var(--ink, #0f172a); background: var(--card, #fff);
+  width: 100%; font-family: inherit; font-size: 14px; padding: 11px 14px;
+  border: 1px solid var(--acp-trait); border-radius: 13px;
+  background: var(--acp-voile); color: var(--ink, #0f172a); resize: vertical;
 }
 .acp-msg textarea:focus {
-  outline: none; border-color: #d97706; box-shadow: 0 0 0 3px rgba(217, 119, 6, .16);
+  outline: none; border-color: var(--acp-or);
+  box-shadow: 0 0 0 3px rgba(232, 168, 76, .22);
 }
 
-/* Le pied : l'irréversible à un bout, l'envoi à l'autre. */
-.acp-pied { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+/* Le pied : l'irréversible à un bout, l'envoi à l'autre — et le rapport
+   INVERSÉ entre les deux (pastille pastel sur fond vif pour l'action). */
+.acp-pied { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
 .acp-pied .sp { flex: 1; }
 .acp-danger {
-  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
-  padding: 7px 13px; border-radius: 999px; font-family: inherit;
-  font-size: 12.5px; font-weight: 600; color: #b91c1c;
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 9px 15px; border-radius: 999px; font-family: inherit;
+  font-size: 13px; font-weight: 600; color: #b91c1c;
   background: transparent; border: 1px solid transparent; transition: .14s;
 }
 .acp-danger:hover { background: #fee2e2; border-color: #fecaca; }
 .acp-ok {
-  display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
-  border: none; border-radius: 999px; padding: 8px 16px 8px 8px;
-  font-family: inherit; font-size: 13px; font-weight: 600; color: #fff;
-  background: linear-gradient(135deg, #d97706, #92400e);
-  box-shadow: 0 5px 14px -7px rgba(146, 64, 14, .9); transition: .14s;
+  display: inline-flex; align-items: center; gap: 11px; cursor: pointer;
+  border: none; border-radius: 999px; padding: 10px 22px 10px 10px;
+  font-family: inherit; font-size: 15px; font-weight: 600;
+  color: var(--acp-encre);
+  background: linear-gradient(135deg, var(--acp-or-p), var(--acp-or));
+  box-shadow: 0 10px 22px -12px rgba(184, 124, 32, .9); transition: .14s;
 }
-.acp-ok:hover { transform: translateY(-1px); }
+.acp-ok:hover { transform: translateY(-1px); box-shadow: 0 13px 26px -12px rgba(184, 124, 32, 1); }
 .acp-ok .ic {
-  width: 21px; height: 21px; flex: none; border-radius: 50%; font-size: 10px;
-  display: grid; place-items: center; background: rgba(255, 255, 255, .22);
+  width: 30px; height: 30px; flex: none; border-radius: 50%; font-size: 13px;
+  display: grid; place-items: center; background: rgba(58, 34, 6, .14);
 }
 
-.acp-vide, .acp-h4 { margin: 0 0 10px; font-size: 13.5px; color: var(--muted, #64748b); }
-.acp-h4 { font-weight: 700; color: var(--ink, #0f172a); }
+/* ── Mes propositions ────────────────────────────────────────────────── */
+.acp-vide, .acp-h4 { margin: 0 0 12px; font-size: 14px; color: var(--acp-encre2); }
+.acp-h4 {
+  font-family: var(--pg-font-display); font-size: 17px; font-weight: 600;
+  color: var(--acp-nuit);
+}
 .acp-miennes { list-style: none; margin: 0; padding: 0; }
 .acp-m {
-  padding: 10px 12px; margin-bottom: 7px; border-radius: 12px;
-  border: 1px solid var(--border, #e2e8f0); border-left-width: 4px;
+  padding: 12px 14px; margin-bottom: 8px; border-radius: 13px;
+  border: 1px solid var(--acp-trait); border-left-width: 4px;
+  background: var(--acp-voile);
 }
-.acp-m--pending  { border-left-color: #d97706; }
+.acp-m--pending  { border-left-color: var(--acp-or); }
 .acp-m--approved { border-left-color: #16a34a; }
 .acp-m--rejected { border-left-color: #dc2626; }
 .acp-m-t { display: flex; align-items: baseline; gap: 10px; }
-.acp-m-t b { flex: 1; min-width: 0; font-size: 13.5px; color: var(--ink, #0f172a); }
-.acp-etat { font-size: 11.5px; font-weight: 700; color: var(--muted, #64748b); }
+.acp-m-t b {
+  flex: 1; min-width: 0; font-family: var(--pg-font-display);
+  font-size: 16px; font-weight: 600; color: var(--acp-nuit);
+}
+.acp-etat { font-size: 11.5px; font-weight: 700; color: var(--acp-encre2); }
 .acp-m--approved .acp-etat { color: #15803d; }
 .acp-m--rejected .acp-etat { color: #b91c1c; }
-.acp-m-n { margin: 2px 0 0; font-size: 11.5px; color: var(--muted, #64748b); }
-.acp-m-c { margin: 6px 0 0; font-size: 12.5px; font-style: italic; color: var(--ink-2, #334155); }
-
-.acp-fini { text-align: center; padding: 18px 8px; }
-.acp-fini-ic { font-size: 30px; color: #16a34a; }
-.acp-fini b { display: block; margin-top: 8px; font-size: 15px; color: var(--ink, #0f172a); }
-.acp-fini p { margin: 5px 0 0; font-size: 13px; color: var(--muted, #64748b); }
-
-@media (max-width: 700px) {
-  .acp-bandeau { align-items: flex-start; }
-  .acp-b { width: 100%; }
+.acp-m-n { margin: 2px 0 0; font-size: 12px; color: var(--acp-encre2); }
+.acp-m-c {
+  margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid var(--acp-or);
+  background: #fff; font-size: 13px; font-style: italic; color: #4b3f2a;
 }
 
-/* ⚠️ Le toast est posé sur le BODY en `position: fixed` — et `body.pg` porte
-   `zoom: .8` (ui-theme). Il n'est pas positionné d'après une mesure d'écran
-   (pas de `getBoundingClientRect`), donc rien à convertir ici : il se cale
-   sur ses propres bords, que le zoom emporte avec lui. */
+.acp-fini { text-align: center; padding: 26px 8px; }
+.acp-fini-ic { font-size: 34px; color: #16a34a; }
+.acp-fini b {
+  display: block; margin-top: 10px; font-family: var(--pg-font-display);
+  font-size: 20px; font-weight: 600; color: var(--acp-nuit);
+}
+.acp-fini p { margin: 6px 0 0; font-size: 14px; color: var(--acp-encre2); }
+
+@media (max-width: 760px) {
+  .acp-bandeau { flex-wrap: wrap; }
+  .acp-b { width: calc(100% - 32px); margin: 0 16px 15px; }
+  .acp-tete { flex-wrap: wrap; }
+  .acp-etat-pastille { order: 3; }
+}
+
+/* ⚠️ Un TOAST, pas une modale : corriger une fiche, c'est cinq ou six
+   gestes, et une fenêtre à fermer entre chacun transformerait la saisie en
+   parcours d'obstacles. La modale reste pour ce qui ARRÊTE (une erreur).
+   ⚠️ Posé sur le BODY en `position: fixed` — et `body.pg` porte `zoom: .8`
+   (ui-theme). Il n'est pas positionné d'après une mesure d'écran (pas de
+   `getBoundingClientRect`), donc rien à convertir ici : il se cale sur ses
+   propres bords, que le zoom emporte avec lui. */
 .acp-toast {
   position: fixed; left: 50%; bottom: 26px; z-index: 4000;
-  display: flex; align-items: center; gap: 10px;
-  padding: 11px 18px; border-radius: 999px;
-  font-size: 13.5px; font-weight: 600; color: #fff;
-  background: linear-gradient(135deg, #b45309, #7c3d09);
-  box-shadow: 0 12px 30px -12px rgba(124, 61, 9, .9);
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 20px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; color: var(--acp-or-p);
+  background: linear-gradient(118deg, var(--acp-nuit2), var(--acp-nuit));
+  box-shadow: 0 14px 32px -14px rgba(45, 27, 6, .95);
   transform: translate(-50%, 14px); opacity: 0; pointer-events: none;
   transition: opacity .2s ease, transform .2s ease;
 }
 .acp-toast.est-la { opacity: 1; transform: translate(-50%, 0); }
-.acp-toast i { font-size: 14px; opacity: .9; }
+.acp-toast i { font-size: 14px; color: var(--acp-or); }
 @media (prefers-reduced-motion: reduce) { .acp-toast { transition: none; } }

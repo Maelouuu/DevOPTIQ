@@ -45,18 +45,35 @@
   }
 
   /* ── Le bandeau ───────────────────────────────────────────────────── */
+  /* ⚠️ Le bandeau MONTRE ce qu'on a fait, il ne se contente pas de le
+     compter. « 3 modifications » n'apprend rien : il fallait ouvrir la
+     fenêtre pour savoir ce qu'on venait de poser. Deux gestes tiennent sur la
+     ligne, le reste se dit « et n de plus ». */
+  function resume() {
+    var deux = S.gestes.slice(0, 2).map(phrase);
+    var reste = S.gestes.length - deux.length;
+    if (reste > 0) deux.push(F('et_autres', { n: reste }));
+    return deux.join(' · ');
+  }
+
   function majBandeau() {
     var b = document.getElementById('acp-bandeau');
     if (!b) return;
     b.hidden = false;
-    b.classList.toggle('est-plein', S.n > 0);
-    document.getElementById('acp-titre').textContent =
-      S.n === 0 ? T('bandeau_vide')
-                : (S.n === 1 ? T('bandeau_1') : F('bandeau_n', { n: S.n }));
+    var plein = S.n > 0;
+    b.classList.toggle('est-plein', plein);
+    // Le chiffre prend la place de l'icône dès qu'il y a quelque chose à
+    // compter : deux repères au même endroit se disputeraient le regard.
+    var gros = document.getElementById('acp-n-gros');
+    gros.hidden = !plein;
+    gros.textContent = plein ? S.n : '';
+    document.getElementById('acp-ic').hidden = plein;
+    document.getElementById('acp-titre').textContent = T('bandeau_vide');
     document.getElementById('acp-sous').textContent =
-      S.n === 0 ? T('bandeau_vide_d') : T('bandeau_d');
+      plein ? resume() : T('bandeau_vide_d');
     var bouton = document.getElementById('acp-ouvrir');
-    bouton.textContent = S.n === 0 ? T('mes_titre') : T('relire');
+    bouton.textContent = plein ? T('relire') : T('mes_titre');
+    bouton.classList.toggle('est-vif', plein);
   }
 
   async function charger() {
@@ -77,8 +94,18 @@
     if (!w) return;
     w.hidden = false;
     S.ouvert = true;
-    document.getElementById('acp-h').textContent = T('titre');
-    document.getElementById('acp-tsous').textContent = T('sous');
+    // Le titre DIT ce qu'on soumet ; la phrase « rien n'est appliqué tant
+    // que… » devient une pastille d'état à côté, et non une ligne à lire.
+    document.getElementById('acp-h').textContent =
+      S.n === 1 ? T('mes_1') : F('mes_n', { n: S.n || 0 });
+    var ou = document.getElementById('acp-tsous');
+    var noms = [];
+    S.gestes.forEach(function (g) {
+      var nom = g.activite || T('hors_activite');
+      if (noms.indexOf(nom) < 0) noms.push(nom);
+    });
+    ou.textContent = noms.length === 1 ? noms[0]
+      : (noms.length ? F('sur_n_fiches', { n: noms.length }) : T('sous'));
     rendre();
   }
 
@@ -93,20 +120,29 @@
     if (!z) return;
     if (!S.gestes.length) { rendreMiennes(z); return; }
 
+    /* ⚠️ Un RAIL numéroté, pas une liste de réglages : l'ordre affiché est
+       exactement celui du rejeu à l'application. Le verbe passe en capitales
+       au-dessus, et c'est l'OBJET qu'on vient lire — c'est lui qui porte la
+       police d'affichage. */
     var lignes = S.gestes.map(function (g, i) {
+      var bouts = String(g.op || '').split('.');
       // ⚠️ Un outil n'appartient à aucune activité : c'est le catalogue de la
       // carto. Le dire, plutôt que de laisser une ligne muette.
       var ou = g.activite ? esc(g.activite) : esc(T('hors_activite'));
       return '<li class="acp-l">'
         + '<span class="acp-n">' + (i + 1) + '</span>'
-        + '<div class="acp-l-t"><b>' + esc(phrase(g)) + '</b>'
-        + '<span>' + ou + '</span></div>'
+        + '<div class="acp-l-t">'
+        + '<p class="acp-verbe">' + esc(T('v_' + (bouts[1] || 'update'))) + ' '
+        + esc(T('f_' + (bouts[0] || 'task'))) + '</p>'
+        + '<p class="acp-objet">' + esc(g.objet || '—') + '</p>'
+        + '<p class="acp-ou">' + ou + '</p></div>'
         + '<button type="button" class="acp-del" data-retirer="' + i + '" '
         + 'aria-label="' + esc(T('retirer')) + '" title="' + esc(T('retirer')) + '">'
         + '<i class="fa-solid fa-xmark"></i></button></li>';
     }).join('');
 
-    z.innerHTML = '<ul class="acp-liste">' + lignes + '</ul>'
+    z.innerHTML = '<p class="acp-ordre">' + esc(T('ordre')) + '</p>'
+      + '<ol class="acp-liste">' + lignes + '</ol>'
       + '<label class="acp-msg"><span>' + esc(T('message')) + '</span>'
       + '<textarea id="acp-message" rows="2" placeholder="'
       + esc(T('message_ph')) + '"></textarea></label>'

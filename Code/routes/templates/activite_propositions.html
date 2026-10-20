@@ -42,6 +42,10 @@
     err:            {{ t('acp.err') | tojson }},
     mes_titre:      {{ t('acp.mes_titre') | tojson }},
     mes_vide:       {{ t('acp.mes_vide') | tojson }},
+    ordre:          {{ t('acp.ordre') | tojson }},
+    sur_n_fiches:   {{ t('acp.sur_n_fiches') | tojson }},
+    rien_ecrit:     {{ t('acp.rien_ecrit') | tojson }},
+    et_autres:      {{ t('acp.et_autres') | tojson }},
     mes_1:          {{ t('acp.mes_1') | tojson }},
     mes_n:          {{ t('acp.mes_n') | tojson }},
     attente:        {{ t('acp.attente') | tojson }},
@@ -70,7 +74,9 @@
 <script defer src="{{ url_for('static', filename='js/activite_propositions.js') }}"></script>
 
 <div class="acp-bandeau" id="acp-bandeau" hidden>
-  <span class="acp-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+  <span class="acp-filet" aria-hidden="true"></span>
+  <span class="acp-n-gros" id="acp-n-gros" hidden></span>
+  <span class="acp-ic" id="acp-ic"><i class="fa-solid fa-code-pull-request"></i></span>
   <div class="acp-txt">
     <strong id="acp-titre"></strong>
     <span id="acp-sous"></span>
@@ -83,10 +89,12 @@
   <div class="acp-boite" role="dialog" aria-modal="true" aria-labelledby="acp-h">
     <header class="acp-tete">
       <span class="acp-tic"><i class="fa-solid fa-code-pull-request"></i></span>
-      <div>
+      <div class="acp-tete-t">
+        <p class="acp-sur">{{ t('acp.titre') }}</p>
         <h3 id="acp-h"></h3>
         <p id="acp-tsous"></p>
       </div>
+      <span class="acp-etat-pastille">{{ t('acp.rien_ecrit') }}</span>
       <button type="button" class="acp-x" data-acp="fermer" aria-label="{{ t('btn.close') }}">
         <i class="fa-solid fa-xmark"></i>
       </button>

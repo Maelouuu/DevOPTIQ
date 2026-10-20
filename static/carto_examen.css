@@ -338,27 +338,76 @@ body.cex-ouverte { overflow: hidden; }
 /* ── Une proposition d'ACTIVITÉ : des gestes, pas un dessin ──────────────
    ⚠️ Elle n'a pas d'avant / après en image : une fiche d'activité n'est pas
    un diagramme. Ce qu'on examine est la liste de ce qui a été fait — et
-   c'est exactement ce qui sera rejoué, dans cet ordre. */
+   l'ORDRE affiché est exactement celui du rejeu.
+
+   ⚠️ Même vocabulaire que la fenêtre du champion (`activite_propositions.css`) :
+   ambre de gouvernance, rail numéroté, l'objet en police d'affichage. Les
+   deux écrans montrent le même objet à deux personnes ; ils ne peuvent pas
+   parler deux langues. */
 .cex-genre { color: #b45309; margin-right: 5px; font-size: .92em; }
+
+.cex-acp-tete {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 16px 18px; margin-bottom: 16px; border-radius: 16px;
+  background: linear-gradient(118deg, #4a2d0a, #2d1b06);
+}
+.cex-acp-ic {
+  width: 40px; height: 40px; flex: none; border-radius: 12px; font-size: 16px;
+  display: grid; place-items: center;
+  background: rgba(252, 211, 153, .16); color: #fcd399;
+}
+.cex-acp-t { flex: 1; min-width: 0; }
+.cex-acp-sur {
+  margin: 0 0 2px; font-family: var(--pg-font-display); font-style: italic;
+  font-size: 12.5px; color: #e0b877;
+}
+.cex-acp-tete h4 {
+  margin: 0 0 3px; font-family: var(--pg-font-display);
+  font-size: 23px; font-weight: 600; letter-spacing: -.3px; color: #fff;
+}
+.cex-acp-carto {
+  display: flex; align-items: center; gap: 7px; margin: 0;
+  font-size: 12.5px; color: #c9a06a;
+}
+.cex-acp-n {
+  flex: none; font-family: var(--pg-font-display); font-size: 30px;
+  font-weight: 600; color: #fcd399; line-height: 1.1;
+}
+
 .cex-gestes {
-  list-style: none; margin: 0 0 10px; padding: 0; counter-reset: cexg;
+  list-style: none; margin: 0 0 14px; padding: 0 0 0 26px; position: relative;
+  counter-reset: cexg;
+}
+.cex-gestes::before {
+  content: ''; position: absolute; left: 11px; top: 14px; bottom: 14px;
+  width: 2px; background: linear-gradient(180deg, #e8a84c, #f2e2c6);
 }
 .cex-g {
-  display: flex; align-items: center; gap: 11px; padding: 9px 12px;
-  margin-bottom: 6px; border-radius: 11px;
-  border: 1px solid var(--border, #e2e8f0); background: var(--card, #fff);
+  position: relative; display: flex; align-items: baseline; gap: 12px;
+  padding: 9px 0;
 }
 .cex-g::before {
   counter-increment: cexg; content: counter(cexg);
-  width: 23px; height: 23px; flex: none; border-radius: 50%;
-  display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
-  background: #fef3df; color: #b45309;
+  position: absolute; left: -22px; top: 8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  background: #fff; border: 2px solid #e8a84c; color: #b45309;
 }
 .cex-g-t { flex: 1; min-width: 0; }
-.cex-g-t b { display: block; font-size: 13.5px; color: var(--ink, #0f172a); }
-.cex-g-t span { font-size: 11.5px; color: var(--muted, #64748b); }
+.cex-g-verbe {
+  margin: 0 0 1px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase; color: #b45309;
+}
+.cex-g-objet {
+  margin: 0; font-family: var(--pg-font-display); font-size: 17px;
+  font-weight: 600; color: #2d1b06;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.cex-g-ou { flex: none; font-size: 12px; color: #8a7556; }
+
 .cex-g-note {
-  display: flex; align-items: flex-start; gap: 8px; margin: 0 0 4px;
-  font-size: 12px; color: var(--muted, #64748b);
+  display: flex; align-items: flex-start; gap: 9px; margin: 0 0 6px;
+  padding: 11px 14px; border-radius: 11px; background: #fdf4e3;
+  font-size: 13px; color: #6b5a3c;
 }
 .cex-g-note i { margin-top: 2px; color: #b45309; }

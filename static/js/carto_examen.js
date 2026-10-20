@@ -193,24 +193,31 @@
   function detailActiviteHtml(r) {
     const gestes = r.gestes || [];
     return `
-      <div class="cex-d-tete">
-        <span class="cex-chip"><i class="fa-solid fa-diagram-project"></i>${esc(r.entity_name || '—')}</span>
-        <h4><i class="fa-solid fa-list-check cex-genre"></i> ${esc(r.title || L('sans_activite'))}</h4>
-        <p class="cex-d-meta">
-          <i class="fa-solid fa-user-pen"></i>${esc(L('par').replace('%s', r.author))}
-          <span>·</span>${esc(dateCourte(r.submitted_at || r.created_at))}
-        </p>
+      <div class="cex-acp-tete">
+        <span class="cex-acp-ic"><i class="fa-solid fa-code-pull-request"></i></span>
+        <div class="cex-acp-t">
+          <p class="cex-acp-sur">${esc(L('par').replace('%s', r.author))} ·
+            ${esc(dateCourte(r.submitted_at || r.created_at))}</p>
+          <h4>${esc(r.title || L('sans_activite'))}</h4>
+          <p class="cex-acp-carto"><i class="fa-solid fa-diagram-project"></i>${esc(r.entity_name || '—')}</p>
+        </div>
+        <span class="cex-acp-n">${gestes.length}</span>
       </div>
       ${r.message ? `<blockquote class="cex-msg">${esc(r.message)}</blockquote>` : ''}
 
-      <h5 class="cex-h">${esc(gestes.length === 1 ? L('gestes_1')
-                              : F('gestes_n', { n: gestes.length }))}</h5>
       <ol class="cex-gestes">
-        ${gestes.map((g) => `
+        ${gestes.map((g) => {
+          const bouts = String(g.op || '').split('.');
+          return `
           <li class="cex-g">
-            <div class="cex-g-t"><b>${esc(phraseGeste(g))}</b>
-              <span>${esc(g.activite || L('hors_activite'))}</span></div>
-          </li>`).join('')}
+            <div class="cex-g-t">
+              <p class="cex-g-verbe">${esc(L('v_' + (bouts[1] || 'update')))}
+                ${esc(L('f_' + (bouts[0] || 'task')))}</p>
+              <p class="cex-g-objet">${esc(g.objet || '—')}</p>
+            </div>
+            <span class="cex-g-ou">${esc(g.activite || L('hors_activite'))}</span>
+          </li>`;
+        }).join('')}
       </ol>
       <p class="cex-g-note"><i class="fa-solid fa-circle-info"></i>${esc(L('gestes_note'))}</p>
 

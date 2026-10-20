@@ -24,6 +24,8 @@ from Code.extensions import db
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JS_ECRAN = os.path.join(RACINE, "static", "js", "activite_propositions.js")
 JS_EXAMEN = os.path.join(RACINE, "static", "js", "carto_examen.js")
+CSS_ECRAN = os.path.join(RACINE, "static", "activite_propositions.css")
+CSS_EXAMEN = os.path.join(RACINE, "static", "carto_examen.css")
 GABARIT = os.path.join(RACINE, "Code", "routes", "templates",
                        "activite_propositions.html")
 
@@ -529,3 +531,103 @@ class TestLeMenageEtLeBandeau:
         from Code.translations import TRANSLATIONS as T
         assert "tâches, outils et compétences" in T["fr"]["map.acces_ouvre_champion"]
         assert "tasks, tools and competencies" in T["en"]["map.acces_ouvre_champion"]
+
+
+class TestLeStyleDesPropositions:
+    """Première passe refusée : « vraiment bas étage ». Mesuré avant de
+    redessiner — bandeau de 57 px, titre 14 px, sous-titre 12,5, bouton 13 :
+    l'échelle des MÉTA, celle d'une ligne de date. Or il annonce un changement
+    de régime, et la fenêtre est le moment où l'on engage son travail devant
+    quelqu'un. Tranché sur maquettes (canvas « Propositions d'activité — le
+    style »), direction B pour le bandeau."""
+
+    def test_le_bandeau_MONTRE_les_gestes_il_ne_les_compte_pas(self, app):
+        """« 3 modifications » n'apprend rien : il fallait ouvrir la fenêtre
+        pour savoir ce qu'on venait de poser."""
+        js = _lire(JS_ECRAN)
+        assert "function resume()" in js
+        corps = js.split("function resume()", 1)[1].split("\n  }", 1)[0]
+        assert "S.gestes.slice(0, 2).map(phrase)" in corps, "deux gestes tiennent"
+        assert "et_autres" in corps, "le reste se dit, il ne disparaît pas"
+        maj = js.split("function majBandeau()", 1)[1].split("\n  }", 1)[0]
+        assert "resume()" in maj
+
+    def test_le_chiffre_PREND_LA_PLACE_de_l_icone(self, app):
+        """Deux repères au même endroit se disputeraient le regard."""
+        maj = _lire(JS_ECRAN).split("function majBandeau()", 1)[1].split("\n  }", 1)[0]
+        assert "gros.hidden = !plein" in maj
+        assert "document.getElementById('acp-ic').hidden = plein" in maj
+
+    def test_le_bouton_du_bandeau_suit_le_rapport_INVERSE(self, app):
+        """Au repos on vient LIRE (bouton discret), plein dès qu'il y a
+        quelque chose à envoyer (on vient AGIR) — le vocabulaire déjà tranché
+        sur la page Temps et la page Carte."""
+        maj = _lire(JS_ECRAN).split("function majBandeau()", 1)[1].split("\n  }", 1)[0]
+        assert "classList.toggle('est-vif', plein)" in maj
+        css = _lire(CSS_ECRAN)
+        repos = css.split("\n.acp-b {", 1)[1].split("}", 1)[0]
+        vif = css.split("\n.acp-b.est-vif {", 1)[1].split("}", 1)[0]
+        assert "background: #fff" in repos and "linear-gradient" not in repos
+        assert "linear-gradient" in vif and "#fff" in vif
+
+    def test_les_gestes_sont_un_RAIL_NUMEROTE(self, app):
+        """⚠️ L'ordre affiché EST celui du rejeu : une liste non ordonnée le
+        dirait moins, et c'est la seule chose que le coordinateur doit lire
+        avant d'appliquer."""
+        js = _lire(JS_ECRAN)
+        rendre = js.split("function rendre()", 1)[1].split("\n  }", 1)[0]
+        assert "<ol class=\"acp-liste\">" in rendre, "ordonnée, pas <ul>"
+        assert "T('ordre')" in rendre
+        # Le verbe en capitales AU-DESSUS, l'objet en police d'affichage.
+        assert 'class="acp-verbe"' in rendre and 'class="acp-objet"' in rendre
+        css = _lire(CSS_ECRAN)
+        objet = css.split("\n.acp-objet {", 1)[1].split("}", 1)[0]
+        assert "var(--pg-font-display)" in objet and "18px" in objet
+
+    def test_les_DEUX_ecrans_parlent_la_meme_langue(self, app):
+        """Le champion et le coordinateur regardent le même objet : deux
+        vocabulaires finiraient par dire deux choses du même geste."""
+        for feuille, prefixe in ((CSS_ECRAN, "acp"), (CSS_EXAMEN, "cex")):
+            css = _lire(feuille)
+            # Un en-tête sur fond de NUIT : c'est le contraste qui désigne le
+            # sujet, pas un filet de couleur.
+            assert "#2d1b06" in css and "#4a2d0a" in css, feuille
+            # Et le rail, tracé par un pseudo-élément continu.
+            assert "linear-gradient(180deg, #e8a84c" in css \
+                or "linear-gradient(180deg, var(--acp-or), #f2e2c6)" in css, feuille
+        js = _lire(JS_EXAMEN)
+        detail = js.split("function detailActiviteHtml(r)", 1)[1].split("\n  }", 1)[0]
+        assert 'class="cex-acp-tete"' in detail
+        assert 'class="cex-g-verbe"' in detail and 'class="cex-g-objet"' in detail
+
+    def test_aucune_regle_ne_lit_l_accent_doux_de_la_racine(self, app):
+        """⚠️ `--pg-accent-soft` et ses trois frères sont déclarés sur
+        `:root`, où `--pg-accent` vaut encore le gris par défaut : ils rendent
+        du GRIS sur toute l'application. Les mélanges s'écrivent sur place."""
+        import re
+        for feuille in (CSS_ECRAN, CSS_EXAMEN):
+            # ⚠️ On parle de RÈGLES : les commentaires sont retirés d'abord.
+            # Sans cela le contrôle tombe sur le commentaire qui l'explique —
+            # le piège déjà rencontré sur les clés i18n construites.
+            css = re.sub(r"/\*.*?\*/", "", _lire(feuille), flags=re.S)
+            for jeton in ("--pg-accent-soft", "--pg-accent-softer",
+                          "--pg-accent-border", "--pg-accent-glow"):
+                assert jeton not in css, "%s lit %s" % (feuille, jeton)
+
+    def test_le_toast_reste_un_toast(self, app):
+        """Corriger une fiche, c'est cinq ou six gestes : une fenêtre à fermer
+        entre chacun transformerait la saisie en parcours d'obstacles."""
+        css = _lire(CSS_ECRAN)
+        assert "\n.acp-toast {" in css
+        bloc = css.split("\n.acp-toast {", 1)[1].split("}", 1)[0]
+        assert "pointer-events: none" in bloc, "il ne vole jamais un clic"
+        assert "prefers-reduced-motion" in css
+
+    def test_les_libelles_du_style_sont_dans_les_deux_langues(self, app):
+        from Code.translations import TRANSLATIONS as T
+        for cle in ("acp.ordre", "acp.et_autres", "acp.sur_n_fiches",
+                    "acp.rien_ecrit"):
+            assert cle in T["fr"] and cle in T["en"], cle
+        # ⚠️ Lues par `activite_propositions.js`, donc convention [[n]].
+        assert "[[n]]" in T["fr"]["acp.et_autres"]
+        assert "[[n]]" in T["en"]["acp.sur_n_fiches"]
