@@ -87,6 +87,7 @@ PAGE_LABELS = {
     "test_114_propositions_activite_gaps": "Propositions sur les activités — Accès, lecture et décisions",
     "test_115_login_et_liens_taches_gaps": "Connexion et liens tâches — Branches d'échec",
     "test_116_gestion_compte_gaps":      "Gestion des comptes — Branches d'erreur et mot de passe",
+    "test_117_activities_view_liens_gaps": "Vue des Activités — Résolution des noms de liens",
     "test_56_result_capabilities":       "Compétence Principale & S/SF/HSC par Résultat",
     "test_57_mastery":                   "Niveaux de Maîtrise",
     "test_58_diagnostic":                "Diagnostic d'Écart & Plan d'Accompagnement",
