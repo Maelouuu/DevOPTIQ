@@ -27,6 +27,7 @@ PAGE_LABELS = {
     "test_13_competences":      "Compétences & Évaluations",
     "test_118_competences_gaps": "Compétences — Évaluations d'activité & synthèses",
     "test_119_carto_sharing_gaps": "Partage de Cartographie — Cas limites & vignette",
+    "test_120_qualify_outputs_gaps": "Qualification des Sorties — Cas limites",
     "test_14_cartography_editor": "Éditeur OptiqCarto",
     "test_15_activities_map":    "Cartographie des Activités",
     "test_16_import_full":       "Import Global IA (Excel)",
