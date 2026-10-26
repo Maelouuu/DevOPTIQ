@@ -113,9 +113,15 @@ contient pas), on ne repasse pas par Visio : depuis le compte concerné, bouton
 "carto": "../carto/rfq_fluidclip_corrige.optiqcarto"
 ```
 
-`apply_carto` accepte aussi bien le paquet que le diagramme brut. Le même fichier
-peut être remis à un utilisateur : dans l'app, **Gestion des entités → Importer une
-carto** recrée l'entité et sa cartographie sur son compte.
+`apply_carto` accepte aussi bien le paquet que le diagramme brut.
+
+> ⚠️ **Le paquet ne se remet plus à un utilisateur par l'interface.** Le bouton
+> « Importer une carto » de la pop-up Gestion des entités a été retiré le
+> 14/09/2026 (`tests/test_75_entite_active_partagee.py` veille à ce qu'il ne
+> revienne pas). L'API `POST /cartography/api/import` et son code navigateur
+> sont toujours là, mais plus aucun écran ne les appelle : côté interface,
+> seule l'entrée **« Importer depuis Visio » (.vsdx)** de l'éditeur subsiste.
+> Pour poser une carto sans ligne de commande, voir `sql/README.md`.
 
 ## Compléter une carto avec un Excel client
 
@@ -216,5 +222,7 @@ aptitudes et HSC.
 |---|---|
 | `plans/araymond.json` | Compte `vikrant.khadapkar@araymond.com` (manager) + entité **ARaymond — RFQ FluidClip** issue de `Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx` — 42 activités, 18 rôles, 72 connexions. |
 | `plans/pilote_fluidclip_tasks.json` | Instance pilote : injecte l'Excel client dans les **six** entités « FluidCLip » existantes (Aditya, Hubert, Madhuri, Rakesh, Vaishali, Vikrant) **sans toucher à leur carte**, et crée chez Maël **« Entité de rendu FluidClip »** — copie de la carto que ces comptes ont aujourd'hui, complétée des mêmes données, pour contrôler ce qu'ils voient. Priya Bhivare n'en avait aucune : la sienne est **créée** depuis le même modèle. Non couverts volontairement : « FluidCLip (2) » (2ᵉ copie de h.grandjean) et l'entité sans propriétaire. |
+| `sql/jeu_de_test.sql` | Le **même jeu de test**, posé par l'éditeur SQL de Neon — sans accès applicatif ni ligne de commande. Seule voie qui écrit aussi savoirs, savoir-faire, aptitudes et HSC. Voir `sql/README.md`. |
+| `import_app/jeu_de_test.xlsx` | Le **contenu** du même jeu de test par les écrans d'import (tâches, outils, compétences, comptes). La carto doit déjà être en place. Voir `import_app/README.md`. |
 | `plans/jeu_de_test.json` | **Jeu de test — Atelier Assemblage** : entité de démonstration à données fictives chez `mael.pierre.girardin@icloud.com` — 3 rôles, 8 activités entièrement renseignées (24 tâches, 7 outils, compétences, savoirs, savoir-faire, aptitudes, HSC), Inès Lemoine sur **deux** rôles et Rémi Delaunay sur un seul. Le compte propriétaire doit déjà exister. |
 | `plans/maelg_fluidclip_tasks.json` | **Compte `afdec.enterprise.services@gmail.com` uniquement** : complète sa carto FluidClip avec l'Excel client `CLIP_ RFQ Tasks` — 25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences. Ne crée ni compte ni entité. |

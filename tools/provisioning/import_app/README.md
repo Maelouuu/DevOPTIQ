@@ -1,31 +1,49 @@
 # Jeu de test — import depuis l'application
 
-Les deux fichiers de ce dossier posent le jeu de test **sans ligne de commande
-et sans toucher à la base** : tout passe par les écrans d'import de l'app. C'est
-la même entité que `plans/jeu_de_test.json`, par l'autre chemin.
+Le classeur de ce dossier pose **le contenu** du jeu de test par les écrans
+d'import de l'app, sans ligne de commande. La **cartographie**, elle, ne peut
+pas entrer par là : voir plus bas.
 
 | Fichier | Où le déposer |
 |---|---|
-| `jeu_de_test_assemblage.optiqcarto` | **Gestion des entités → Importer une carto** |
 | `jeu_de_test.xlsx` | feuilles *Tâches* et *Outils* → **page Carte**, fenêtre d'import ; feuille *Collaborateurs* → **page Comptes** |
+| `jeu_de_test_assemblage.optiqcarto` | nulle part dans l'interface aujourd'hui — voir « La carto » |
 
-## Marche à suivre
+## La carto : aucun écran ne l'importe
 
-1. **La carto.** Gestion des entités → Importer une carto →
-   `jeu_de_test_assemblage.optiqcarto`. Crée l'entité « Jeu de test — Atelier
-   Assemblage », ses 8 activités, ses 3 rôles et ses 7 connexions, et la rend
-   active. Les rôles sortent des bandes, comme après un import Visio.
-2. **Le contenu.** Page Carte → fenêtre d'import → `jeu_de_test.xlsx`. Les
-   feuilles *Tâches* et *Outils* sont reconnues telles quelles : 24 tâches,
-   7 outils, 17 compétences, et le rôle garant de chaque activité.
-3. **Les comptes.** Page Comptes → fenêtre d'import → le **même** classeur,
+L'app n'accepte qu'un **`.vsdx`** (éditeur → « Importer depuis Visio »). Le
+paquet `.optiqcarto` a son API (`POST /cartography/api/import`, qui fonctionne)
+et son code côté navigateur (`wireCartoImport` dans `static/js/activities_map.js`),
+mais **le bouton a été retiré de la pop-up Gestion des entités** le 14/09/2026,
+à la demande, comme nettoyage d'interface — `tests/test_75_entite_active_partagee.py`
+veille à ce qu'il ne revienne pas par copier-coller.
+
+Trois façons d'avoir la carto, donc :
+
+- **`../sql/jeu_de_test.sql`** dans l'éditeur SQL de Neon — pose tout d'un coup,
+  carto comprise, et c'est la seule voie qui écrit aussi savoirs, savoir-faire,
+  aptitudes et HSC ;
+- **`../plans/jeu_de_test.json`** avec `provision.py`, si on a accès à la base
+  depuis un poste ;
+- **la dessiner dans l'éditeur** : 3 bandes, 8 activités, 7 flèches — un quart
+  d'heure, et le classeur ci-dessous fait le reste.
+
+Remettre le bouton serait cinq lignes de gabarit, le reste est encore là. C'est
+une décision d'interface, pas technique.
+
+## Le contenu : le classeur
+
+1. **Tâches et outils.** Page Carte → fenêtre d'import → `jeu_de_test.xlsx`.
+   Les deux feuilles sont reconnues telles quelles, sans passer par l'étape IA :
+   24 tâches, 7 outils, 17 compétences, et le rôle garant de chaque activité.
+   Suppose que les activités existent déjà, avec les mêmes libellés.
+2. **Les comptes.** Page Comptes → fenêtre d'import → le **même** classeur,
    feuille *Collaborateurs*. Deux comptes, mot de passe `testtest`.
-4. **Le deuxième rôle d'Inès.** Gestion RH → Inès Lemoine → cocher
+3. **Le deuxième rôle d'Inès.** Gestion RH → Inès Lemoine → cocher
    **Opérateur Assemblage** en plus de **Technicien Méthodes**.
 
-L'étape 4 est manuelle parce que la feuille des comptes ne porte qu'un rôle par
-ligne, et qu'un même e-mail ne peut pas apparaître deux fois. C'est aussi la
-seule chose qui distingue ce chemin du plan de provisionnement.
+L'étape 3 est manuelle : la feuille des comptes ne porte qu'un rôle par ligne,
+et un même e-mail ne peut pas y figurer deux fois.
 
 > La feuille *Collaborateurs* est **volontairement écartée** si on la dépose sur
 > la page Carte : créer un compte engage toute l'instance, ça ne se fait que
@@ -33,15 +51,13 @@ seule chose qui distingue ce chemin du plan de provisionnement.
 
 ## Ce que ce chemin ne pose pas
 
-Savoirs, savoir-faire, aptitudes et HSC : aucun écran ne les importe
-aujourd'hui. Ils sont dans `../data/jeu_de_test_contenu.json` et seul le plan de
-provisionnement les écrit. Par ici, il faut les saisir à la main sur les fiches
-activité — ou ne pas les poser du tout, le reste suffit à la démonstration.
+Savoirs, savoir-faire, aptitudes et HSC : aucun écran ne les importe. Ils sont
+dans `../data/jeu_de_test_contenu.json`, et seuls le script SQL et le plan de
+provisionnement les écrivent.
 
 ## Régénérer les fichiers
 
-Les deux fichiers dérivent de `../carto/jeu_de_test_assemblage.json` et
-`../data/jeu_de_test_contenu.json` : modifier la source, puis regénérer. Le
-paquet `.optiqcarto` est le JSON de carto enveloppé dans
-`{format, version, entity, diagram}` — l'import accepte aussi le diagramme brut,
-mais sans l'enveloppe l'entité n'a ni nom ni description.
+Les deux dérivent de `../carto/jeu_de_test_assemblage.json` et
+`../data/jeu_de_test_contenu.json`. Les colonnes du classeur reprennent les
+synonymes reconnus par `Code/routes/import_hub.py` — c'est ce qui permet la
+lecture directe, sans étape IA.
