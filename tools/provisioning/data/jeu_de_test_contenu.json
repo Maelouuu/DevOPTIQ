@@ -1,0 +1,426 @@
+{
+  "_lisez_moi": [
+    "Contenu des activités du jeu de test, consommé par le bloc \"content\" d'un",
+    "plan de provisionnement. Les clés de \"activities\" sont les LIBELLÉS des",
+    "formes de la carto : elles doivent correspondre exactement, sinon l'activité",
+    "est signalée comme absente et ignorée.",
+    "Niveaux HSC admis par l'interface : 1 (Aptitude), 2 (Acquisition),",
+    "3 (Maîtrise), 4 (Excellence) — le libellé complet est stocké tel quel."
+  ],
+  "activities": {
+    "Analyser le besoin client": {
+      "description": "Recueillir et qualifier la demande client, vérifier la faisabilité technique et formaliser les exigences d'assemblage.",
+      "duration_minutes": 90,
+      "delay_minutes": 240,
+      "tasks": [
+        {
+          "name": "Réceptionner la demande client",
+          "description": "Enregistrer la demande et vérifier la présence des pièces jointes.",
+          "duration_minutes": 15,
+          "tools": ["ERP SAP"]
+        },
+        {
+          "name": "Qualifier les exigences techniques",
+          "description": "Confronter la demande aux capacités réelles de l'atelier.",
+          "duration_minutes": 45,
+          "tools": ["Plan 3D (CAO)"]
+        },
+        {
+          "name": "Formaliser le cahier des charges",
+          "description": "Rédiger la synthèse des exigences, validée avec le client.",
+          "duration_minutes": 30,
+          "tools": ["ERP SAP", "Plan 3D (CAO)"]
+        }
+      ],
+      "competencies": [
+        "Analyser une demande client et en extraire des exigences mesurables",
+        "Évaluer la faisabilité d'un assemblage au regard des moyens de l'atelier"
+      ],
+      "savoirs": [
+        "Normes d'assemblage mécanique applicables à l'atelier",
+        "Structure et contenu d'un cahier des charges fonctionnel"
+      ],
+      "savoir_faires": [
+        "Conduire un entretien de recueil de besoin",
+        "Rédiger une exigence technique vérifiable"
+      ],
+      "aptitudes": [
+        "Rigueur dans la formalisation écrite"
+      ],
+      "softskills": [
+        {
+          "habilete": "Écoute active",
+          "niveau": "3 (Maîtrise)",
+          "justification": "Le besoin réel est rarement celui qui est formulé en premier."
+        },
+        {
+          "habilete": "Esprit de synthèse",
+          "niveau": "2 (Acquisition)",
+          "justification": "La demande arrive dispersée entre mails, plans et appels."
+        }
+      ]
+    },
+
+    "Rédiger la gamme de montage": {
+      "description": "Décomposer l'assemblage en opérations élémentaires ordonnancées, chiffrées en temps et associées à leurs moyens.",
+      "duration_minutes": 180,
+      "delay_minutes": 480,
+      "tasks": [
+        {
+          "name": "Décomposer l'assemblage en opérations",
+          "description": "Établir la séquence opératoire à partir du plan.",
+          "duration_minutes": 60,
+          "tools": ["Plan 3D (CAO)"]
+        },
+        {
+          "name": "Chiffrer les temps opératoires",
+          "description": "Estimer chaque opération et consolider le temps gamme.",
+          "duration_minutes": 45,
+          "tools": ["Logiciel GPAO"]
+        },
+        {
+          "name": "Rédiger les instructions de poste",
+          "description": "Produire la fiche illustrée remise à l'opérateur.",
+          "duration_minutes": 60,
+          "tools": ["Logiciel GPAO", "Plan 3D (CAO)"]
+        },
+        {
+          "name": "Faire valider la gamme",
+          "description": "Soumettre la gamme à la qualité avant diffusion.",
+          "duration_minutes": 15,
+          "tools": ["ERP SAP"]
+        }
+      ],
+      "competencies": [
+        "Décomposer un assemblage en opérations élémentaires ordonnancées",
+        "Chiffrer un temps opératoire à partir d'un standard",
+        "Rédiger une instruction de poste compréhensible sans formation préalable"
+      ],
+      "savoirs": [
+        "Méthodes de chronométrage et temps standards",
+        "Règles de rédaction des instructions de poste",
+        "Nomenclature produit et codification des composants"
+      ],
+      "savoir_faires": [
+        "Construire une séquence opératoire à partir d'un plan 3D",
+        "Illustrer une instruction avec des vues éclatées exploitables"
+      ],
+      "aptitudes": [
+        "Capacité à se mettre à la place de l'opérateur"
+      ],
+      "softskills": [
+        {
+          "habilete": "Pédagogie",
+          "niveau": "3 (Maîtrise)",
+          "justification": "L'instruction doit être lisible par un intérimaire dès le premier jour."
+        },
+        {
+          "habilete": "Précision",
+          "niveau": "4 (Excellence)",
+          "justification": "Une opération oubliée dans la gamme devient un défaut série."
+        }
+      ]
+    },
+
+    "Définir les outillages": {
+      "description": "Choisir, spécifier et faire approvisionner les outillages et gabarits nécessaires à la gamme de montage.",
+      "duration_minutes": 120,
+      "delay_minutes": 2400,
+      "tasks": [
+        {
+          "name": "Identifier les besoins en outillage",
+          "description": "Déduire de la gamme les moyens manquants.",
+          "duration_minutes": 30,
+          "tools": ["Logiciel GPAO"]
+        },
+        {
+          "name": "Spécifier les gabarits",
+          "description": "Rédiger le cahier des charges des gabarits à réaliser.",
+          "duration_minutes": 60,
+          "tools": ["Plan 3D (CAO)"]
+        },
+        {
+          "name": "Lancer l'approvisionnement",
+          "description": "Créer la demande d'achat et suivre le délai fournisseur.",
+          "duration_minutes": 30,
+          "tools": ["ERP SAP"]
+        }
+      ],
+      "competencies": [
+        "Spécifier un outillage de montage à partir d'une gamme",
+        "Arbitrer entre outillage dédié et moyen standard selon le volume"
+      ],
+      "savoirs": [
+        "Catalogue des outillages standards de l'atelier",
+        "Règles de cotation applicables aux gabarits"
+      ],
+      "savoir_faires": [
+        "Rédiger une spécification d'outillage exploitable par un fournisseur",
+        "Vérifier la conformité d'un gabarit à réception"
+      ],
+      "aptitudes": [
+        "Vision anticipée des contraintes de délai"
+      ],
+      "softskills": [
+        {
+          "habilete": "Anticipation",
+          "niveau": "3 (Maîtrise)",
+          "justification": "Un gabarit se fabrique en six semaines, la série n'attend pas."
+        },
+        {
+          "habilete": "Négociation",
+          "niveau": "2 (Acquisition)",
+          "justification": "Les arbitrages budgétaires se jouent avec les achats."
+        }
+      ]
+    },
+
+    "Préparer le poste de travail": {
+      "description": "Mettre le poste en configuration : composants, outillages, documents et contrôles de sécurité avant lancement de série.",
+      "duration_minutes": 30,
+      "delay_minutes": 0,
+      "tasks": [
+        {
+          "name": "Vérifier la présence des composants",
+          "description": "Contrôler le kit par rapport à la nomenclature.",
+          "duration_minutes": 10,
+          "tools": ["Tablette atelier", "ERP SAP"]
+        },
+        {
+          "name": "Installer les outillages",
+          "description": "Monter le gabarit et régler la visseuse au couple requis.",
+          "duration_minutes": 15,
+          "tools": ["Gabarit de montage", "Visseuse dynamométrique"]
+        },
+        {
+          "name": "Contrôler la sécurité du poste",
+          "description": "Vérifier protections, éclairage et dégagements.",
+          "duration_minutes": 5,
+          "tools": ["Tablette atelier"]
+        }
+      ],
+      "competencies": [
+        "Mettre un poste d'assemblage en configuration de série",
+        "Vérifier la conformité d'un kit de composants"
+      ],
+      "savoirs": [
+        "Nomenclature des kits et codes composants",
+        "Consignes de sécurité au poste d'assemblage"
+      ],
+      "savoir_faires": [
+        "Régler une visseuse dynamométrique au couple de la gamme",
+        "Monter et caler un gabarit de montage"
+      ],
+      "aptitudes": [
+        "Attention portée aux détails"
+      ],
+      "softskills": [
+        {
+          "habilete": "Rigueur",
+          "niveau": "3 (Maîtrise)",
+          "justification": "Un composant manquant découvert en cours de série arrête la ligne."
+        },
+        {
+          "habilete": "Autonomie",
+          "niveau": "2 (Acquisition)",
+          "justification": "La préparation se fait sans encadrement en début de poste."
+        }
+      ]
+    },
+
+    "Assembler le sous-ensemble": {
+      "description": "Réaliser l'assemblage conformément à la gamme, dans le respect des couples de serrage et des temps alloués.",
+      "duration_minutes": 45,
+      "delay_minutes": 0,
+      "tasks": [
+        {
+          "name": "Positionner les composants",
+          "description": "Placer les pièces dans le gabarit selon la gamme.",
+          "duration_minutes": 10,
+          "tools": ["Gabarit de montage", "Tablette atelier"]
+        },
+        {
+          "name": "Réaliser les opérations de vissage",
+          "description": "Serrer au couple dans l'ordre prescrit par la gamme.",
+          "duration_minutes": 20,
+          "tools": ["Visseuse dynamométrique"]
+        },
+        {
+          "name": "Raccorder le faisceau",
+          "description": "Connecter et verrouiller les connecteurs.",
+          "duration_minutes": 10,
+          "tools": ["Gabarit de montage"]
+        },
+        {
+          "name": "Déclarer l'avancement",
+          "description": "Saisir la quantité produite et les aléas rencontrés.",
+          "duration_minutes": 5,
+          "tools": ["ERP SAP", "Tablette atelier"]
+        }
+      ],
+      "competencies": [
+        "Réaliser un assemblage mécanique conforme à une gamme",
+        "Appliquer un couple de serrage et en vérifier la validité",
+        "Déclarer un avancement de production dans l'ERP"
+      ],
+      "savoirs": [
+        "Couples de serrage par type de fixation",
+        "Lecture d'une gamme de montage illustrée",
+        "Règles de raccordement des connecteurs"
+      ],
+      "savoir_faires": [
+        "Enchaîner les opérations dans le temps de cycle",
+        "Détecter un serrage non conforme au ressenti"
+      ],
+      "aptitudes": [
+        "Dextérité manuelle",
+        "Endurance posturale"
+      ],
+      "softskills": [
+        {
+          "habilete": "Concentration",
+          "niveau": "3 (Maîtrise)",
+          "justification": "Le geste est répétitif, la vigilance doit rester constante."
+        },
+        {
+          "habilete": "Gestion du rythme",
+          "niveau": "2 (Acquisition)",
+          "justification": "Le temps de cycle est contraint par la cadence de la ligne."
+        }
+      ]
+    },
+
+    "Contrôler visuellement la pièce": {
+      "description": "Vérifier la conformité du sous-ensemble assemblé et isoler les pièces non conformes avant transfert.",
+      "duration_minutes": 20,
+      "delay_minutes": 0,
+      "tasks": [
+        {
+          "name": "Contrôler l'aspect",
+          "description": "Vérifier l'absence de rayures, marquages et déformations.",
+          "duration_minutes": 5,
+          "tools": ["Tablette atelier"]
+        },
+        {
+          "name": "Vérifier les points critiques",
+          "description": "Contrôler les points listés dans le plan de surveillance.",
+          "duration_minutes": 10,
+          "tools": ["Banc de contrôle"]
+        },
+        {
+          "name": "Enregistrer le résultat",
+          "description": "Saisir le contrôle et isoler les non-conformités détectées.",
+          "duration_minutes": 5,
+          "tools": ["Tablette atelier", "ERP SAP"]
+        }
+      ],
+      "competencies": [
+        "Réaliser un contrôle visuel sur la base d'un plan de surveillance",
+        "Identifier et isoler une non-conformité"
+      ],
+      "savoirs": [
+        "Critères d'acceptation visuels de l'atelier",
+        "Procédure de traitement des non-conformités"
+      ],
+      "savoir_faires": [
+        "Utiliser un banc de contrôle d'étanchéité",
+        "Renseigner une fiche de non-conformité exploitable"
+      ],
+      "aptitudes": [
+        "Acuité visuelle",
+        "Honnêteté dans la déclaration des écarts"
+      ],
+      "softskills": [
+        {
+          "habilete": "Sens de l'observation",
+          "niveau": "4 (Excellence)",
+          "justification": "Le défaut échappe à qui regarde sans chercher."
+        },
+        {
+          "habilete": "Intégrité",
+          "niveau": "4 (Excellence)",
+          "justification": "Déclarer un défaut coûte du temps : il faut le déclarer quand même."
+        }
+      ]
+    },
+
+    "Valider le dossier de production": {
+      "description": "Vérifier la complétude et la cohérence du dossier avant libération du lot.",
+      "duration_minutes": 60,
+      "delay_minutes": 120,
+      "tasks": [
+        {
+          "name": "Vérifier la traçabilité",
+          "description": "Contrôler la présence de tous les enregistrements du lot.",
+          "duration_minutes": 30,
+          "tools": ["ERP SAP"]
+        },
+        {
+          "name": "Statuer sur les non-conformités",
+          "description": "Décider retouche, dérogation ou rebut.",
+          "duration_minutes": 30,
+          "tools": ["ERP SAP", "Banc de contrôle"]
+        }
+      ],
+      "competencies": [
+        "Vérifier la complétude d'un dossier de production",
+        "Statuer sur le devenir d'une pièce non conforme"
+      ],
+      "savoirs": [
+        "Exigences de traçabilité applicables au client"
+      ],
+      "savoir_faires": [
+        "Instruire une demande de dérogation"
+      ],
+      "aptitudes": [
+        "Fermeté dans la décision"
+      ],
+      "softskills": [
+        {
+          "habilete": "Impartialité",
+          "niveau": "4 (Excellence)",
+          "justification": "La décision qualité ne se négocie pas avec la pression délai."
+        }
+      ]
+    },
+
+    "Clôturer le lot": {
+      "description": "Prononcer la libération du lot et archiver le dossier de production.",
+      "duration_minutes": 30,
+      "delay_minutes": 60,
+      "tasks": [
+        {
+          "name": "Prononcer la libération",
+          "description": "Valider le lot et déclencher l'expédition.",
+          "duration_minutes": 15,
+          "tools": ["ERP SAP"]
+        },
+        {
+          "name": "Archiver le dossier",
+          "description": "Classer les enregistrements selon la durée de rétention.",
+          "duration_minutes": 15,
+          "tools": ["ERP SAP"]
+        }
+      ],
+      "competencies": [
+        "Prononcer la libération d'un lot de production"
+      ],
+      "savoirs": [
+        "Règles d'archivage et durées de rétention"
+      ],
+      "savoir_faires": [
+        "Clôturer un ordre de fabrication dans l'ERP"
+      ],
+      "aptitudes": [
+        "Méthode dans le classement"
+      ],
+      "softskills": [
+        {
+          "habilete": "Sens des responsabilités",
+          "niveau": "4 (Excellence)",
+          "justification": "La signature de libération engage l'entreprise."
+        }
+      ]
+    }
+  }
+}

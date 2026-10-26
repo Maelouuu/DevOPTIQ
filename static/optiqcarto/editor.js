@@ -4417,9 +4417,33 @@ function exportPDF() {
 
   const svgStr = new XMLSerializer().serializeToString(exportEl);
   const encoded = encodeURIComponent(svgStr);
-  const win = window.open('', '_blank');
-  if (!win) { showToast(_L('editor.toast.popup_blocked')); return; }
-  win.document.write(`<!DOCTYPE html><html><head><title>Optiq Map — Export PDF</title>
+  // Impression via iframe masquée. La popup vierge remplie par document.write
+  // puis auto-imprimée est le motif exact des faux supports techniques : c'est
+  // ce que le Scareware Blocker d'Edge a reconnu en bloquant /cartography/editor
+  // chez le pilote. Ici l'impression part du clic de l'utilisateur, dans la page.
+  const previous = document.getElementById('pdf-print-frame');
+  if (previous) previous.remove();
+
+  const frame = document.createElement('iframe');
+  frame.id = 'pdf-print-frame';
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+
+  frame.addEventListener('load', () => {
+    const img = frame.contentDocument && frame.contentDocument.querySelector('img');
+    if (!img) { showToast(_L('editor.print_error')); return; }
+    const launch = () => {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      showToast(_L('editor.toast.pdf_done'));
+    };
+    if (img.complete) { launch(); return; }
+    img.onload  = launch;
+    img.onerror = () => showToast(_L('editor.print_error'));
+  }, { once: true });
+
+  document.body.appendChild(frame);
+  frame.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Optiq Map — Export PDF</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:287mm; height:200mm; overflow:hidden; background:#fff; }
@@ -4431,14 +4455,7 @@ function exportPDF() {
   }
 </style></head><body>
 <img src="data:image/svg+xml;charset=utf-8,${encoded}">
-<script>
-  var img = document.querySelector('img');
-  img.onload = function() { setTimeout(function() { window.print(); }, 200); };
-  img.onerror = function() { document.body.innerHTML += '<p style="color:red;padding:20px">${_L('editor.print_error')}</p>'; };
-</script>
-</body></html>`);
-  win.document.close();
-  showToast(_L('editor.toast.pdf_done'));
+</body></html>`;
 }
 
 /* ══════════════════════════════════════════════════

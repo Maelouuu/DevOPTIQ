@@ -54,7 +54,8 @@ propriétaire, carto re-synchronisée par `shape_id`/nom. Le rejouer ne duplique
       "first_name": "Prénom", "last_name": "Nom",
       "status": "manager",          // user | rh | administrateur | manager…
       "password": "…",
-      "entity": "Nom de l'entité"   // rattachement du compte
+      "entity": "Nom de l'entité",  // rattachement du compte
+      "roles": ["Rôle A", "Rôle B"] // rôles tenus, voir plus bas
     }
   ],
   "entities": [
@@ -64,7 +65,8 @@ propriétaire, carto re-synchronisée par `shape_id`/nom. Le rejouer ne duplique
       "owner_email": "prenom.nom@client.com",   // OBLIGATOIRE, voir ci-dessous
       "managers": ["prenom.nom@client.com"],
       "vsdx_filename": "Source.vsdx",           // affiché dans l'app
-      "carto": "../carto/fichier.json"          // chemin relatif AU PLAN
+      "carto": "../carto/fichier.json",         // chemin relatif AU PLAN
+      "content": "../data/fichier.json"         // contenu des activités, voir plus bas
     }
   ]
 }
@@ -152,10 +154,67 @@ ce contenu dans une carto **déjà en place** :
   l'entité n'existe pas chez ce propriétaire, le script s'arrête sans rien
   écrire, y compris si une entité du même nom existe chez quelqu'un d'autre.
 
+## Rattacher des comptes à des rôles
+
+`roles` sur un compte crée les lignes `user_roles` — c'est ce qui fait d'un
+collaborateur le **titulaire** d'un rôle, et ce que lisent la page des rôles et
+la page Compétences.
+
+```jsonc
+{ "email": "ines.lemoine@example.com", "entity": "…", "roles": ["Technicien Méthodes", "Opérateur Assemblage"] }
+```
+
+Les rôles **naissent des bandes de la carto** : l'étape passe donc après
+`apply_carto`, et un rôle nommé dans le plan mais absent de la carte est
+signalé sans être créé — `_sync_carto_to_db` supprime les rôles hors carte, il
+disparaîtrait au rejeu suivant. Un compte peut tenir plusieurs rôles.
+
+## Compléter les activités sans passer par un Excel
+
+`tasks_excel` part du tableur d'un client. Quand le contenu est écrit à la main
+— jeu de démonstration, entité de référence — le bloc `content` pointe un JSON
+et couvre en plus ce que l'Excel ne porte pas : savoirs, savoir-faire,
+aptitudes et HSC.
+
+```jsonc
+"content": "../data/jeu_de_test_contenu.json"
+```
+
+```jsonc
+{
+  "activities": {
+    "Assembler le sous-ensemble": {          // LIBELLÉ exact de la forme dans la carto
+      "description": "…",
+      "duration_minutes": 45, "delay_minutes": 0,
+      "tasks": [
+        { "name": "Réaliser les opérations de vissage", "description": "…",
+          "duration_minutes": 20, "tools": ["Visseuse dynamométrique"] }
+      ],
+      "competencies":  ["…"],
+      "savoirs":       ["…"],
+      "savoir_faires": ["…"],
+      "aptitudes":     ["…"],
+      "softskills": [
+        { "habilete": "Concentration", "niveau": "3 (Maîtrise)", "justification": "…" }
+      ]
+    }
+  }
+}
+```
+
+- Les activités sont retrouvées **par nom** : une clé qui ne correspond à aucune
+  forme de la carto est signalée et ignorée, jamais créée.
+- Les outils cités sont créés au besoin, au niveau de l'entité, puis réutilisés.
+- Niveaux HSC admis par l'interface : `1 (Aptitude)`, `2 (Acquisition)`,
+  `3 (Maîtrise)`, `4 (Excellence)` — le libellé complet est stocké tel quel.
+- Idempotent : tâches dédoublonnées par nom, items par libellé. Un rejeu
+  n'ajoute rien.
+
 ## Plans existants
 
 | Plan | Contenu |
 |---|---|
 | `plans/araymond.json` | Compte `vikrant.khadapkar@araymond.com` (manager) + entité **ARaymond — RFQ FluidClip** issue de `Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx` — 42 activités, 18 rôles, 72 connexions. |
 | `plans/pilote_fluidclip_tasks.json` | Instance pilote : injecte l'Excel client dans les **six** entités « FluidCLip » existantes (Aditya, Hubert, Madhuri, Rakesh, Vaishali, Vikrant) **sans toucher à leur carte**, et crée chez Maël **« Entité de rendu FluidClip »** — copie de la carto que ces comptes ont aujourd'hui, complétée des mêmes données, pour contrôler ce qu'ils voient. Priya Bhivare n'en avait aucune : la sienne est **créée** depuis le même modèle. Non couverts volontairement : « FluidCLip (2) » (2ᵉ copie de h.grandjean) et l'entité sans propriétaire. |
+| `plans/jeu_de_test.json` | **Jeu de test — Atelier Assemblage** : entité de démonstration à données fictives chez `mael.pierre.girardin@icloud.com` — 3 rôles, 8 activités entièrement renseignées (24 tâches, 7 outils, compétences, savoirs, savoir-faire, aptitudes, HSC), Inès Lemoine sur **deux** rôles et Rémi Delaunay sur un seul. Le compte propriétaire doit déjà exister. |
 | `plans/maelg_fluidclip_tasks.json` | **Compte `afdec.enterprise.services@gmail.com` uniquement** : complète sa carto FluidClip avec l'Excel client `CLIP_ RFQ Tasks` — 25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences. Ne crée ni compte ni entité. |

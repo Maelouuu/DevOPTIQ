@@ -1,0 +1,50 @@
+{
+  "label": "Jeu de test — Atelier Assemblage (entité de démonstration complète)",
+  "_perimetre": [
+    "Entité de démonstration à données fictives : une chaîne d'assemblage de la",
+    "demande client à la clôture du lot, 3 rôles, 8 activités entièrement",
+    "renseignées (tâches, outils, compétences, savoirs, savoir-faire, aptitudes,",
+    "HSC), et deux collaborateurs — dont un porte DEUX rôles.",
+    "",
+    "Le propriétaire doit DÉJÀ EXISTER sur l'instance : le plan ne crée pas de",
+    "compte administrateur, il se contente de lui rattacher l'entité. Si le",
+    "compte est absent, le script signale « propriétaire introuvable » et ne",
+    "touche à rien.",
+    "",
+    "Rejouable sans rien dupliquer : comptes retrouvés par e-mail, entité par nom",
+    "+ propriétaire, carto re-synchronisée par shape_id/nom, contenu dédoublonné",
+    "par libellé. Attention : la carto étant re-synchronisée à chaque passage,",
+    "les id des rôles changent — sans conséquence ici, les rôles sont retrouvés",
+    "par nom."
+  ],
+  "users": [
+    {
+      "email": "ines.lemoine@example.com",
+      "first_name": "Inès",
+      "last_name": "Lemoine",
+      "status": "user",
+      "password": "testtest",
+      "entity": "Jeu de test — Atelier Assemblage",
+      "roles": ["Technicien Méthodes", "Opérateur Assemblage"]
+    },
+    {
+      "email": "remi.delaunay@example.com",
+      "first_name": "Rémi",
+      "last_name": "Delaunay",
+      "status": "user",
+      "password": "testtest",
+      "entity": "Jeu de test — Atelier Assemblage",
+      "roles": ["Responsable Qualité"]
+    }
+  ],
+  "entities": [
+    {
+      "name": "Jeu de test — Atelier Assemblage",
+      "description": "Entité de démonstration : chaîne d'assemblage complète, de la demande client à la clôture du lot. Données fictives, utilisables librement.",
+      "owner_email": "mael.pierre.girardin@icloud.com",
+      "managers": ["mael.pierre.girardin@icloud.com"],
+      "carto": "../carto/jeu_de_test_assemblage.json",
+      "content": "../data/jeu_de_test_contenu.json"
+    }
+  ]
+}
