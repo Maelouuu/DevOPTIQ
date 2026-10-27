@@ -3193,6 +3193,54 @@ dit plutôt que d'offrir un bouton qui échoue.
 - La liste annonce **« n développeurs »** quand ils diffèrent d'un rôle à
   l'autre : afficher un seul nom serait un mensonge.
 
+### Le droit de MODIFIER un compte (2026-10-27)
+
+Demandé par le pilote. Le tableau des droits portait « Créer des comptes »
+sans son pendant : hors administrateur, `can_edit_account` ne laissait chacun
+modifier QUE son propre compte, et un coordinateur devait passer par un
+administrateur pour corriger la fiche d'un collaborateur.
+
+Huitième ligne du tableau — `modifie_comptes` — ouverte par défaut au
+**coordinateur** et à l'administrateur, fermée au champion et au simple
+utilisateur. Elle se règle comme les sept autres, **page Comptes**.
+
+⚠️ **Elle ne se règle PAS depuis la popup d'accès de la page Carte**, qui y
+renvoie sans la régler : deux écrans pour un même réglage finissent par donner
+deux réponses. C'est la règle déjà posée pour la matrice d'accès et pour le
+tableau des droits.
+
+⚠️⚠️ **On ne modifie JAMAIS le compte d'un palier PLUS HAUT que le sien.**
+`/comptes/set_password` passe par cette porte : sans cette garde, un
+coordinateur réinitialiserait le mot de passe d'un administrateur puis se
+connecterait à sa place — le droit de modifier vaudrait le droit d'être
+administrateur. Même règle que `/comptes/create`, qui refuse déjà de créer
+au-dessus de soi. Son PROPRE compte reste modifiable sans aucun droit : on
+n'a pas besoin d'une permission pour changer son mot de passe.
+
+**Ce qui ne bouge pas** : le STATUT d'autrui reste réservé à l'administrateur
+(`update_user` ne l'applique que pour lui), les rôles restent derrière
+`can_access_rh`, la suppression reste à l'administrateur seul.
+
+⚠️ **Le bouton « Modifier » de la liste est un drapeau PAR LIGNE**
+(`item.peut_modifier`), plus une condition dans le gabarit : la règle dépend
+désormais du palier de la CIBLE, et une condition unique ne peut plus la dire.
+Il est calculé par la MÊME fonction que les routes — un second avis dans le
+gabarit finirait par ne plus dire la même chose.
+
+Tests : `tests/test_81_droits_reglables.py` passe de 11 à 23 cas ; deux gardes
+retirées une par une, deux cliquets tombés (la garde de palier → 4 rouges dont
+`set_password`, le bouton revenu à l'ancienne condition → 1 rouge).
+Suite : 3474 passés sur staging, 2916 sur la base du pilote.
+
+⚠️ **Porté sur le pilote par CHERRY-PICK, pas par la recette habituelle.**
+`optiqfluent-staging` avait 44 commits de retard : rejouer l'arbre de staging
+y aurait déversé les paliers de performance, les propositions d'activité et
+les refontes des pages Temps et Compétences — ce n'est pas un patch. Le seul
+commit a été greffé sur la base du pilote, suite complète rejouée dessus, et
+l'invariant vérifié avant de pousser (`git diff --name-status
+origin/optiqfluent-staging HEAD` ne rend que les 6 fichiers). Livré à **21h58
+en Inde**, la fenêtre du soir est tenue.
+
 ### Page RH ④ : ce que chaque palier ouvre se RÈGLE (2026-09-17)
 
 L'échelle `user < champion < coordinateur < admin` est la grammaire du produit
