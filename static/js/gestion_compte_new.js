@@ -471,7 +471,7 @@
      Paramètres, ce serait perdre l'écran depuis lequel on les remettrait —
      la porte se refermerait de l'intérieur, sans poignée. */
   const ORDRE_DROITS = ['propose_carto', 'edit_carto', 'review_carto', 'manage_acces',
-                        'acces_rh', 'cree_comptes', 'parametres_admin'];
+                        'acces_rh', 'cree_comptes', 'modifie_comptes', 'parametres_admin'];
   let DR = null;
 
   async function chargerDroits() {

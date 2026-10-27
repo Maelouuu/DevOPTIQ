@@ -192,6 +192,10 @@ DROITS_DEFAUT = {
     "acces_rh":           {"user": False, "champion": False, "coordinateur": True},
     # créer des comptes depuis la page Comptes
     "cree_comptes":       {"user": False, "champion": False, "coordinateur": True},
+    # modifier un compte EXISTANT depuis la page Comptes : identité, e-mail,
+    # mot de passe. Son PROPRE compte reste modifiable sans ce droit, et le
+    # statut d'autrui reste réservé à l'administrateur (voir update_user).
+    "modifie_comptes":    {"user": False, "champion": False, "coordinateur": True},
     # ⚠️ sections d'administration des Paramètres : clé IA, URL de la base,
     # console serveur. Ouvrir cette porte donne la clé IA de l'entreprise.
     "parametres_admin":   {"user": False, "champion": False, "coordinateur": False},
@@ -341,11 +345,31 @@ def can_create_accounts(user=None):
 
 
 def can_edit_account(target_user_id, user=None):
-    """Hors administrateurs, chacun ne peut modifier QUE son propre compte."""
+    """Son PROPRE compte toujours ; celui d'autrui avec le droit `modifie_comptes`.
+
+    ⚠️ Et JAMAIS le compte d'un palier PLUS HAUT que le sien. `set_password`
+    passe par cette porte : sans cette dernière règle, un coordinateur
+    réinitialiserait le mot de passe d'un administrateur puis se connecterait
+    à sa place — le droit de modifier vaudrait le droit d'être administrateur.
+    C'est la même garde que `/comptes/create`, qui refuse de créer au-dessus
+    de soi.
+
+    L'administrateur n'est pas traité à part : sa ligne du tableau est
+    verrouillée à vrai, et il est au sommet des paliers.
+    """
+    from Code.models.models import User
+
     user = user if user is not None else current_user()
     if not user:
         return False
-    return is_admin(user) or user.id == int(target_user_id)
+    if int(target_user_id) == user.id:
+        return True
+    if not a_le_droit("modifie_comptes", user):
+        return False
+    cible = db.session.get(User, int(target_user_id))
+    if cible is None:
+        return True          # compte introuvable : la route rendra son 404
+    return niveau_status(cible.status) <= niveau(user)
 
 
 # ── Reprise des comptes existants ───────────────────────────────────────────

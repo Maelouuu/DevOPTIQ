@@ -144,7 +144,13 @@ def list_users():
         users_with_roles = [{'user': u, 'roles': sorted(par_user.get(u.id, [])),
                              'roles_detail': sorted(detail.get(u.id, []),
                                                     key=lambda x: x['name'].lower()),
-                             'famille': _famille(u.status)} for u in users]
+                             'famille': _famille(u.status),
+                             # Le droit dépend du palier de la CIBLE : il se
+                             # calcule ligne par ligne, par la MÊME fonction
+                             # que les routes — un second avis dans le gabarit
+                             # finirait par ne plus dire la même chose.
+                             'peut_modifier': _can_edit_account(u.id, me)}
+                            for u in users]
 
         familles = {f: sum(1 for x in users_with_roles if x['famille'] == f)
                     for f in ('admin', 'coordinateur', 'champion', 'user')}

@@ -308,3 +308,143 @@ class TestLesGardeFous:
         for droit, ligne in d["droits"].items():
             assert set(ligne) == {"user", "champion", "coordinateur", "admin"}, droit
             assert ligne["admin"] is True, droit
+
+# ══════════════════════════════════════════════════════════════════════
+#  5 · Modifier le compte d'un AUTRE
+# ══════════════════════════════════════════════════════════════════════
+#
+# Demandé par le pilote : un coordinateur doit pouvoir corriger la fiche d'un
+# collaborateur sans passer par un administrateur. Le droit se règle comme les
+# autres ; par défaut il est ouvert au coordinateur, fermé au champion et au
+# simple utilisateur.
+#
+# ⚠️ Le cas qui décide de tout est `test_on_ne_modifie_jamais_un_palier_plus_haut` :
+# `/comptes/set_password` passe par la MÊME porte. Sans cette règle, un
+# coordinateur réinitialiserait le mot de passe d'un administrateur puis se
+# connecterait à sa place — le droit de modifier vaudrait le droit d'être
+# administrateur.
+
+
+class TestModifierUnCompte:
+
+    def _porte(self, app, acteur, cible, comptes):
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.permissions import can_edit_account
+        with app.app_context():
+            moi = db.session.get(User, comptes[acteur])
+            return can_edit_account(comptes[cible], moi)
+
+    # ── Le défaut ───────────────────────────────────────────────────────
+    def test_par_defaut_le_coordinateur_modifie_un_autre_compte(
+            self, app, table_propre, comptes):
+        assert self._porte(app, "coordinateur", "user", comptes) is True
+        assert self._porte(app, "coordinateur", "champion", comptes) is True
+
+    def test_par_defaut_le_champion_ne_modifie_pas_un_autre_compte(
+            self, app, table_propre, comptes):
+        assert self._porte(app, "champion", "user", comptes) is False
+
+    def test_par_defaut_le_simple_utilisateur_ne_modifie_personne(
+            self, app, table_propre, comptes):
+        assert self._porte(app, "user", "champion", comptes) is False
+
+    def test_l_administrateur_modifie_tout_le_monde(self, app, table_propre, comptes):
+        for cible in ("user", "champion", "coordinateur", "admin"):
+            assert self._porte(app, "admin", cible, comptes) is True, cible
+
+    # ── Son propre compte, toujours ─────────────────────────────────────
+    def test_chacun_modifie_son_PROPRE_compte_sans_aucun_droit(
+            self, app, table_propre, comptes):
+        """Même fermé à tous les paliers, le droit ne verrouille pas sa propre
+        fiche : on n'a pas besoin d'une permission pour changer son mot de
+        passe."""
+        from Code.permissions import droits_effectifs, enregistrer_droits
+        with app.app_context():
+            table = droits_effectifs()
+            for palier in ("user", "champion", "coordinateur"):
+                table["modifie_comptes"][palier] = False
+            enregistrer_droits(table)
+        for qui in ("user", "champion", "coordinateur", "admin"):
+            assert self._porte(app, qui, qui, comptes) is True, qui
+
+    # ── Le garde-fou ────────────────────────────────────────────────────
+    def test_on_ne_modifie_jamais_un_palier_plus_haut(
+            self, app, table_propre, comptes):
+        assert self._porte(app, "coordinateur", "admin", comptes) is False
+        assert self._porte(app, "champion", "admin", comptes) is False
+
+    def test_un_pair_reste_modifiable(self, app, table_propre, comptes):
+        """Deux coordinateurs sont au même palier : l'un corrige la fiche de
+        l'autre. Ce n'est pas une montée en droits, c'est le travail."""
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.permissions import can_edit_account
+        from Code.security import hash_password
+        with app.app_context():
+            autre = User(first_name="T81", last_name="Coord2",
+                         email="t81.coord2@devoptiq.com",
+                         password=hash_password("Motdepasse123!"),
+                         status="coordinateur")
+            db.session.add(autre)
+            db.session.commit()
+            aid = autre.id
+            moi = db.session.get(User, comptes["coordinateur"])
+            try:
+                assert can_edit_account(aid, moi) is True
+            finally:
+                User.query.filter_by(id=aid).delete()
+                db.session.commit()
+
+    # ── Le réglage change vraiment le comportement ──────────────────────
+    def test_fermer_le_droit_retire_la_modification_au_coordinateur(
+            self, app, table_propre, comptes):
+        from Code.permissions import droits_effectifs, enregistrer_droits
+        with app.app_context():
+            table = droits_effectifs()
+            table["modifie_comptes"]["coordinateur"] = False
+            enregistrer_droits(table)
+        assert self._porte(app, "coordinateur", "user", comptes) is False
+        # ⚠️ L'administrateur garde la main : c'est lui qui rouvre le droit.
+        assert self._porte(app, "admin", "user", comptes) is True
+
+    def test_ouvrir_le_droit_au_champion_le_lui_donne(
+            self, app, table_propre, comptes):
+        from Code.permissions import droits_effectifs, enregistrer_droits
+        with app.app_context():
+            table = droits_effectifs()
+            table["modifie_comptes"]["champion"] = True
+            enregistrer_droits(table)
+        assert self._porte(app, "champion", "user", comptes) is True
+        # …mais jamais au-dessus de lui.
+        assert self._porte(app, "champion", "coordinateur", comptes) is False
+
+    # ── Les routes suivent la porte ─────────────────────────────────────
+    def test_set_password_suit_la_porte(self, app, client, table_propre, comptes):
+        """La route qui réinitialise un mot de passe passe par `can_edit_account` :
+        c'est elle qui rendrait une montée en droits possible."""
+        _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
+        ok = client.post("/comptes/set_password/%d" % comptes["user"],
+                         json={"password": "NouveauMdp123!"})
+        assert ok.status_code == 200, ok.get_data(as_text=True)[:200]
+
+        refus = client.post("/comptes/set_password/%d" % comptes["admin"],
+                            json={"password": "NouveauMdp123!"})
+        assert refus.status_code == 403
+
+    def test_le_bouton_Modifier_suit_la_porte(self, app, client, table_propre, comptes):
+        """Le gabarit ne redit pas la règle : il lit le drapeau calculé par la
+        MÊME fonction que les routes."""
+        _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
+        html = client.get("/comptes/").get_data(as_text=True)
+        attendu = 'data-action="modifier" data-id="%d"'
+        assert (attendu % comptes["user"]) in html
+        assert (attendu % comptes["admin"]) not in html
+
+    def test_le_droit_parait_dans_le_tableau_rendu(self, app, client, table_propre,
+                                                   comptes):
+        _en_tant_que(client, comptes["admin"], "t81.admin@devoptiq.com")
+        table = client.get("/comptes/droits").get_json()
+        assert "modifie_comptes" in table["droits"]
+        assert table["droits"]["modifie_comptes"]["admin"] is True
+        assert table["defaut"]["modifie_comptes"]["champion"] is False
