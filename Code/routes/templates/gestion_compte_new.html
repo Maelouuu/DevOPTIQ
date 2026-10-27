@@ -90,7 +90,7 @@
             {% else %}{{ t('account.status_user') }}{% endif %}
           </span>
           <div class="acc-actions">
-            {% if is_admin or u.id == current_user_id %}
+            {% if item.peut_modifier %}
             <button type="button" class="acc-ico" data-action="modifier" data-id="{{ u.id }}"
                     title="{{ t('account.btn_modify') }}" aria-label="{{ t('account.btn_modify') }}">
               <i class="fa-solid fa-pencil"></i>
@@ -386,6 +386,7 @@
     droit_manage_acces:     {{ t('droit.manage_acces') | tojson }},
     droit_acces_rh:         {{ t('droit.acces_rh') | tojson }},
     droit_cree_comptes:     {{ t('droit.cree_comptes') | tojson }},
+    droit_modifie_comptes:  {{ t('droit.modifie_comptes') | tojson }},
     droit_parametres_admin: {{ t('droit.parametres_admin') | tojson }},
     droit_parametres_admin_warn: {{ t('droit.parametres_admin_warn') | tojson }},
     admin_verrou:  {{ t('droit.admin_verrou') | tojson }},
