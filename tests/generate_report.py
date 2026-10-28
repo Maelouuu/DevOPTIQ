@@ -38,6 +38,7 @@ PAGE_LABELS = {
     "test_20_savoir_faires":     "Savoir-Faires Pratiques",
     "test_21_export":            "Export & Fichiers",
     "test_22_propose_ia":        "Propositions IA & Compétences API",
+    "test_122_propose_aptitudes_gaps": "Propositions Aptitudes — lacunes",
     "test_23_performance_perso": "Performance Personnalisée",
     "test_24_roles_view":        "Vues des Rôles & Items Activité",
     "test_98_roles_view_validation": "Vues des Rôles — Validation & Titulaires",
