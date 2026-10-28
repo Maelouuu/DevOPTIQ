@@ -448,3 +448,179 @@ class TestModifierUnCompte:
         assert "modifie_comptes" in table["droits"]
         assert table["droits"]["modifie_comptes"]["admin"] is True
         assert table["defaut"]["modifie_comptes"]["champion"] is False
+
+# ══════════════════════════════════════════════════════════════════════
+#  6 · Changer le STATUT de quelqu'un
+# ══════════════════════════════════════════════════════════════════════
+#
+# Le statut se change depuis la fiche, par qui peut modifier le compte — ce
+# n'est plus réservé aux administrateurs. Trois règles le bornent, et c'est la
+# troisième qui compte :
+#
+#   1. jamais le sien ;
+#   2. jamais au-dessus de soi ;
+#   3. ⚠️ le palier administrateur ne se DONNE ni ne se RETIRE que par un
+#      administrateur. La règle 2 couvre le don ; c'est le RETRAIT qu'elle
+#      laisse passer — sans la règle 3, un coordinateur rétrograderait un
+#      administrateur puis ferait ce qu'il veut de son compte.
+
+
+class TestChangerLeStatut:
+
+    def _regle(self, app, acteur, cible, nouveau, comptes):
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.permissions import peut_changer_statut
+        with app.app_context():
+            return peut_changer_statut(db.session.get(User, comptes[acteur]),
+                                       db.session.get(User, comptes[cible]),
+                                       nouveau)
+
+    # ── Ce que la demande ouvre ─────────────────────────────────────────
+    def test_le_coordinateur_change_le_statut_d_un_collaborateur(
+            self, app, table_propre, comptes):
+        assert self._regle(app, "coordinateur", "user", "champion", comptes) is None
+
+    def test_le_coordinateur_monte_quelqu_un_a_son_propre_palier(
+            self, app, table_propre, comptes):
+        assert self._regle(app, "coordinateur", "user", "coordinateur", comptes) is None
+
+    # ── Le palier administrateur ────────────────────────────────────────
+    def test_le_coordinateur_ne_DONNE_pas_le_palier_administrateur(
+            self, app, table_propre, comptes):
+        assert self._regle(app, "coordinateur", "user", "administrateur",
+                           comptes) == "error_status_admin_only"
+
+    def test_le_coordinateur_ne_RETIRE_pas_le_palier_administrateur(
+            self, app, table_propre, comptes):
+        """Le cas qui justifie la règle à lui seul."""
+        assert self._regle(app, "coordinateur", "admin", "user",
+                           comptes) == "error_status_admin_only"
+
+    def test_l_administrateur_donne_le_palier_administrateur(
+            self, app, table_propre, comptes):
+        assert self._regle(app, "admin", "user", "administrateur", comptes) is None
+
+    def test_l_administrateur_retire_le_palier_a_un_autre_administrateur(
+            self, app, table_propre, comptes):
+        from Code.extensions import db
+        from Code.models.models import User
+        from Code.security import hash_password
+        with app.app_context():
+            autre = User(first_name="T81", last_name="Admin2",
+                         email="t81.admin2@devoptiq.com",
+                         password=hash_password("Motdepasse123!"),
+                         status="administrateur")
+            db.session.add(autre)
+            db.session.commit()
+            aid = autre.id
+        try:
+            from Code.permissions import peut_changer_statut
+            with app.app_context():
+                moi = db.session.get(User, comptes["admin"])
+                assert peut_changer_statut(moi, db.session.get(User, aid),
+                                           "user") is None
+        finally:
+            with app.app_context():
+                User.query.filter_by(id=aid).delete()
+                db.session.commit()
+
+    # ── Jamais le sien ──────────────────────────────────────────────────
+    def test_personne_ne_change_son_PROPRE_statut(self, app, table_propre, comptes):
+        """Un administrateur qui se retire son palier perd l'écran depuis
+        lequel il le remettrait."""
+        for qui in ("user", "champion", "coordinateur", "admin"):
+            assert self._regle(app, qui, qui, "user", comptes) == "error_status_self", qui
+
+    # ── Jamais au-dessus de soi ─────────────────────────────────────────
+    def test_on_ne_monte_personne_au_dessus_de_soi(self, app, table_propre, comptes):
+        assert self._regle(app, "champion", "user", "coordinateur",
+                           comptes) == "error_status_too_high"
+
+    # ── La route applique la règle ──────────────────────────────────────
+    def _fiche(self, client, uid, statut, email):
+        return client.post("/comptes/update/%d" % uid,
+                           data={"first_name": "T81", "last_name": "Cible",
+                                 "email": email, "status": statut},
+                           headers={"Accept": "application/json"})
+
+    def test_la_route_laisse_un_coordinateur_promouvoir(
+            self, app, client, table_propre, comptes):
+        from Code.extensions import db
+        from Code.models.models import User
+        _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
+        r = self._fiche(client, comptes["user"], "champion", "t81.user@devoptiq.com")
+        assert r.status_code == 200, r.get_data(as_text=True)[:200]
+        with app.app_context():
+            from Code.permissions import famille_statut
+            assert famille_statut(db.session.get(User, comptes["user"]).status) == "champion"
+
+    def test_la_route_refuse_le_palier_administrateur_a_un_coordinateur(
+            self, app, client, table_propre, comptes):
+        from Code.extensions import db
+        from Code.models.models import User
+        _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
+        r = self._fiche(client, comptes["user"], "administrateur",
+                        "t81.user@devoptiq.com")
+        assert r.status_code == 403
+        assert r.get_json()["code"] == "error_status_admin_only"
+        # ⚠️ Et RIEN n'a été écrit — pas même le nom.
+        with app.app_context():
+            from Code.permissions import famille_statut
+            assert famille_statut(db.session.get(User, comptes["user"]).status) == "user"
+
+    def test_enregistrer_sans_toucher_au_statut_ne_refuse_rien(
+            self, app, client, table_propre, comptes):
+        """La fiche renvoie TOUJOURS le champ statut. Comparer les libellés
+        ferait échouer un simple changement de nom."""
+        _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
+        r = self._fiche(client, comptes["coordinateur"], "coordinateur",
+                        "t81.coordinateur@devoptiq.com")
+        assert r.status_code == 200, r.get_data(as_text=True)[:200]
+
+    def test_le_libelle_d_origine_survit_quand_le_palier_ne_change_pas(
+            self, app, client, table_propre, comptes):
+        """« manager » est un libellé historique du palier coordinateur : le
+        réenregistrer ne doit pas le réécrire en « coordinateur »."""
+        from Code.extensions import db
+        from Code.models.models import User
+        with app.app_context():
+            u = db.session.get(User, comptes["champion"])
+            u.status = "manager"
+            db.session.commit()
+        _en_tant_que(client, comptes["admin"], "t81.admin@devoptiq.com")
+        r = self._fiche(client, comptes["champion"], "coordinateur",
+                        "t81.champion@devoptiq.com")
+        assert r.status_code == 200
+        with app.app_context():
+            assert db.session.get(User, comptes["champion"]).status == "manager"
+
+    # ── La colonne admin du TABLEAU DES DROITS ──────────────────────────
+    def test_un_coordinateur_ne_touche_pas_la_colonne_administrateur(
+            self, app, client, table_propre, comptes):
+        """Demandé explicitement : la colonne `admin` du tableau des droits ne
+        se règle par personne — un coordinateur ne l'écrit pas, et même un
+        administrateur ne peut pas la décocher.
+
+        ⚠️ Le verrou est tenu par DEUX mécanismes, dont le second par
+        accident : `droits_effectifs` reforce la colonne à vrai, et
+        `enregistrer_droits` ne stocke que les ÉCARTS au défaut — or aucune
+        ligne de `DROITS_DEFAUT` ne porte de clé « admin », donc un
+        `admin: False` posté est « égal au défaut » et n'est jamais écrit.
+        Retirer le premier seul ne change donc RIEN, et le cliquet de ce test
+        ne mord qu'en remettant AUSSI la version naïve de l'écriture (stocker
+        la table telle qu'elle est demandée). C'est le piège : qui
+        « simplifierait » un jour la logique des écarts déverrouillerait la
+        colonne sans s'en apercevoir."""
+        from Code.permissions import droits_effectifs
+        with app.app_context():
+            table = droits_effectifs()
+        table["parametres_admin"]["admin"] = False
+
+        _en_tant_que(client, comptes["coordinateur"], "t81.coordinateur@devoptiq.com")
+        assert client.post("/comptes/droits", json={"droits": table}).status_code == 403
+
+        _en_tant_que(client, comptes["admin"], "t81.admin@devoptiq.com")
+        assert client.post("/comptes/droits", json={"droits": table}).status_code == 200
+        with app.app_context():
+            assert droits_effectifs()["parametres_admin"]["admin"] is True

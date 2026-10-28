@@ -3238,8 +3238,69 @@ y aurait déversé les paliers de performance, les propositions d'activité et
 les refontes des pages Temps et Compétences — ce n'est pas un patch. Le seul
 commit a été greffé sur la base du pilote, suite complète rejouée dessus, et
 l'invariant vérifié avant de pousser (`git diff --name-status
-origin/optiqfluent-staging HEAD` ne rend que les 6 fichiers). Livré à **21h58
+origin/optiqfluent-staging HEAD` ne rend que les 6 fichiers). Livré à **22h04
 en Inde**, la fenêtre du soir est tenue.
+
+#### Le STATUT se change depuis la fiche — sauf le palier administrateur (2026-10-28)
+
+Suite immédiate du droit ci-dessus, demandée par le pilote. `update_user`
+n'appliquait le champ `status` que pour un administrateur (`if _is_admin(moi)
+and moi.id != user.id`) : un coordinateur qui venait de recevoir le droit de
+modifier un compte pouvait donc tout corriger SAUF ce qu'on lui demandait de
+corriger — le palier de la personne.
+
+`peut_changer_statut(acteur, cible, nouveau)` (`Code/permissions.py`) est la
+source unique. Trois règles, et c'est la troisième qui compte :
+
+1. **jamais le sien** (`error_status_self`) — un administrateur qui se retire
+   son palier perd l'écran depuis lequel il le remettrait ;
+2. **jamais au-dessus de soi** (`error_status_too_high`) — exactement ce que
+   `/comptes/create` applique déjà à la création ;
+3. ⚠️ **le palier administrateur ne se DONNE ni ne se RETIRE que par un
+   administrateur** (`error_status_admin_only`). La règle 2 couvre déjà le
+   don — administrateur est le sommet ; c'est le RETRAIT qu'elle laisse
+   passer, et c'est lui qui compte : sans elle un coordinateur rétrograde un
+   administrateur, et le garde-fou de palier de `can_edit_account` s'ouvre
+   alors sur son compte — mot de passe réinitialisé, connexion à sa place.
+
+⚠️ **L'ordre des règles est une décision.** Le contrôle du palier
+administrateur passe AVANT la règle générale : quand il est en jeu, le refus
+doit dire POURQUOI, pas « au-dessus de votre niveau ». On ne corrige pas un
+refus qu'on ne comprend pas.
+
+⚠️ **On compare les PALIERS, pas les libellés.** `users.status` est du texte
+libre : « administrateur » vaut « admin », « manager » vaut « coordinateur ».
+Et la fiche renvoie TOUJOURS le champ statut — comparer les chaînes ferait
+donc échouer un simple changement de nom de famille, et réécrirait au passage
+le libellé historique d'un compte qui n'a pas changé de palier.
+
+⚠️ `can_edit_account` refuse déjà d'ouvrir la fiche d'un palier PLUS HAUT, ce
+qui couvre la règle 3 par un autre chemin. Elle est redite dans
+`peut_changer_statut` parce qu'une règle de sécurité ne doit pas dépendre
+d'une seconde, écrite ailleurs, qu'on pourrait desserrer un jour sans y
+penser.
+
+**L'écran suit la même règle** (`reglerEchelle`, `gestion_compte_new.js`) :
+les marches au-dessus de son palier restent éteintes, celle de
+l'administrateur aussi pour un non-administrateur, et toute l'échelle est
+éteinte sur la fiche d'un administrateur. Le masquage n'est pas une sécurité —
+le serveur refuse de son côté, avec le code que l'écran écrit SOUS le champ
+fautif.
+
+⚠️⚠️ **La colonne `admin` du tableau des droits est tenue par DEUX
+mécanismes, dont le second par ACCIDENT.** `droits_effectifs` la reforce à
+vrai, et `enregistrer_droits` ne stocke que les ÉCARTS au défaut — or aucune
+ligne de `DROITS_DEFAUT` ne porte de clé « admin », donc un `admin: False`
+posté est « égal au défaut » et n'est jamais écrit. Conséquence pour les
+tests : retirer le premier verrou SEUL ne change RIEN, et le cliquet ne mord
+qu'en remettant AUSSI la version naïve de l'écriture. C'est le piège — qui
+« simplifierait » un jour la logique des écarts déverrouillerait la colonne
+sans s'en apercevoir. Côté accès, un coordinateur LIT le tableau et ne
+l'écrit pas : `POST /comptes/droits` rend 403 hors administrateur.
+
+Tests : `tests/test_81_droits_reglables.py` passe de 23 à **36 cas** ; **huit
+gardes retirées une par une, huit cliquets tombés**. Suite : **3502 passés**,
+1 sauté.
 
 ### Page RH ④ : ce que chaque palier ouvre se RÈGLE (2026-09-17)
 

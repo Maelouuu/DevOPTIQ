@@ -170,20 +170,26 @@
 
   /* L'échelle des niveaux d'accès. */
   function reglerEchelle() {
-    const moiMeme = !creation() && Number(FICHE.ligne.dataset.id) === Number(CTX.moi);
+    const moiMeme    = !creation() && Number(FICHE.ligne.dataset.id) === Number(CTX.moi);
+    const cibleAdmin = !creation() && FICHE.ligne.dataset.famille === 'admin';
+    const rangAdmin  = PALIERS.indexOf('administrateur');
     $$('#acc-paliers .acc-marche').forEach((m) => {
       const niv = Number(m.dataset.niveau);
-      // ⚠️ On ne crée pas au-dessus de soi ; on ne change que si l'on est
-      // administrateur, et jamais son propre niveau. Le serveur refuse de
-      // son côté : l'échelle éteinte n'est qu'une politesse.
-      const actif = creation() ? niv <= Number(CTX.monNiveau) : (CTX.estAdmin && !moiMeme);
+      // ⚠️ Les trois mêmes règles que `peut_changer_statut`, côté serveur :
+      // jamais au-dessus de soi, jamais son propre niveau, et le palier
+      // administrateur ni donné ni retiré par un non-administrateur. Le
+      // serveur refuse de son côté — l'échelle éteinte n'est qu'une politesse.
+      const actif = niv <= Number(CTX.monNiveau)
+        && (creation() || !moiMeme)
+        && (niv < rangAdmin || CTX.estAdmin)
+        && (creation() || !cibleAdmin || CTX.estAdmin);
       m.querySelector('input').disabled = !actif;
       m.classList.toggle('is-off', !actif);
-      m.title = (!actif && creation()) ? L('status_above') : '';
+      m.title = (!actif && niv >= rangAdmin) ? L('status_above') : '';
     });
     const note = $('#acc-statut-note');
     const texte = creation() ? '' : (moiMeme ? L('status_locked_self')
-      : (CTX.estAdmin ? '' : L('status_locked_admin')));
+      : (cibleAdmin && !CTX.estAdmin ? L('status_locked_admin') : ''));
     note.hidden = !texte;
     note.querySelector('span').textContent = texte;
     majMarches();
@@ -335,6 +341,8 @@
     error_missing_password: 'err_password_short',
     error_invalid_age: 'err_invalid_age',
     error_status_too_high: 'err_status_too_high',
+    error_status_self: 'err_status_self',
+    error_status_admin_only: 'err_status_admin_only',
     error_role_unknown: 'err_role_unknown',
     error_forbidden_roles: 'err_forbidden_roles',
     error_forbidden_create: 'err_forbidden',

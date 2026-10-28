@@ -8,7 +8,8 @@ from Code.models.models import (User, Role, UserRole, Entity, CompetencyEvaluati
 from Code.security import hash_password, verify_password
 from Code.permissions import (can_create_accounts,
                               can_edit_account, current_user, is_admin,
-                              is_admin_status, is_champion_status,
+                              famille_statut, is_admin_status, is_champion_status,
+                              peut_changer_statut,
                               is_competency_manager_status, is_coordinator_status)
 
 gestion_compte_bp = Blueprint('gestion_compte', __name__, url_prefix='/comptes')
@@ -41,6 +42,8 @@ _CHAMP_EN_CAUSE = {
     'error_missing_password': 'password',
     'error_invalid_age': 'age',
     'error_status_too_high': 'status',
+    'error_status_self': 'status',
+    'error_status_admin_only': 'status',
     'error_role_unknown': 'roles',
     'error_forbidden_roles': 'roles',
 }
@@ -388,15 +391,24 @@ def update_user(user_id):
         user.last_name = nom
         user.email = email
         user.age = age
-        # Seul un administrateur change un statut : sinon n'importe qui
-        # s'auto-promeut depuis l'édition de son propre compte.
-        # ⚠️ Et pas le SIEN : un administrateur qui se retire son palier perd
-        # l'écran depuis lequel il le remettrait — la porte se refermerait de
-        # l'intérieur. C'est un autre administrateur qui le fait.
-        if _is_admin(moi) and moi.id != user.id and form.get('status'):
+        # Le statut se change depuis la fiche, par qui peut modifier le compte
+        # — ce n'est plus réservé aux administrateurs. Les trois règles vivent
+        # dans `peut_changer_statut` : jamais le sien, jamais au-dessus de soi,
+        # et le palier administrateur ne se donne ni ne se retire que par un
+        # administrateur.
+        demande = (form.get('status') or '').strip()[:20]
+        # ⚠️ On ne compare pas les LIBELLÉS mais les paliers : `status` est du
+        # texte libre, et « administrateur » vaut « admin ». Sans cela, ouvrir
+        # une fiche et l'enregistrer sans y toucher réécrirait le libellé
+        # d'origine — voire déclencherait un refus sur un changement qui n'en
+        # est pas un.
+        if demande and famille_statut(demande) != famille_statut(user.status):
+            refus = peut_changer_statut(moi, user, demande)
+            if refus:
+                return _fin(refus, http=403)
             # La colonne fait 20 caractères : un libellé plus long serait tronqué
             # par la base (ou refusé), avec des droits inexpliqués à la clé.
-            user.status = form.get('status').strip()[:20]
+            user.status = demande
 
         if new_password:
             new_hash = hash_password(new_password)
