@@ -3302,6 +3302,27 @@ Tests : `tests/test_81_droits_reglables.py` passe de 23 à **36 cas** ; **huit
 gardes retirées une par une, huit cliquets tombés**. Suite : **3502 passés**,
 1 sauté.
 
+**Report sur le pilote, par greffe, le MÊME jour.** Même recette que la
+veille : le commit de staging greffé sur la base du pilote (`cherry-pick -n`),
+CLAUDE.md écarté — la doc du pilote suit une autre lignée et la synchroniser
+y déverserait la documentation de fonctionnalités qu'il n'a pas. Les 5
+fichiers de code et le fichier de tests étaient **identiques** des deux côtés
+(seul `translations.py` diverge, de 271 lignes, et il s'est fusionné tout
+seul) ; le diff greffé a été comparé ligne à ligne à celui de staging —
+identique. Invariant vérifié avant de pousser (`git diff --name-status
+origin/optiqfluent-staging HEAD` ne rend que les 6 fichiers), suite complète
+rejouée sur la base du pilote : **2929 passés**.
+
+⚠️ **Livré à 17h20 en Inde, en pleine journée de travail** — dérogation
+explicite de l'utilisateur, demandée après l'avoir prévenu de l'heure locale.
+La règle du soir reste la bonne : un redémarrage coupe les requêtes en vol.
+Aucune conséquence observée — `/health` 200, et le JS servi porte bien
+`error_status_admin_only`, `error_status_self` et `cibleAdmin`.
+⚠️ Travaillé dans un worktree JETABLE taillé sur `origin/optiqfluent-staging`
+plutôt qu'en index temporaire : un cherry-pick qui peut conflicter a besoin
+d'un arbre de travail, et celui de la session ne devait pas bouger. Retiré
+après la livraison, avec son entrée `safe.directory`.
+
 ### Page RH ④ : ce que chaque palier ouvre se RÈGLE (2026-09-17)
 
 L'échelle `user < champion < coordinateur < admin` est la grammaire du produit
