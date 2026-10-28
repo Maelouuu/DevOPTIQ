@@ -61,6 +61,32 @@ class CustomMail(Mail):
         return connection
 
 
+def config_mail(env):
+    """Les réglages d'envoi, lus depuis un environnement.
+
+    ⚠️ `or`, et JAMAIS le second argument de `getenv` : `--set-env-vars` CRÉE la
+    variable sur Cloud Run même quand le secret GitHub n'existe pas — elle est
+    alors PRÉSENTE et VIDE, et `getenv` rend "" sans jamais regarder son défaut.
+    Mesuré, et les deux conséquences sont graves : un expéditeur vide fait
+    échouer TOUT envoi (flask_mail : « The message does not specify a sender »),
+    donc on configure le mail et rien ne part ; et un port vide fait tomber
+    `int("")` au DÉMARRAGE, c'est-à-dire un conteneur qui ne démarre plus.
+    """
+    user = env.get("MAIL_USERNAME") or None
+    pwd = env.get("MAIL_PASSWORD") or None
+    return {
+        "MAIL_SERVER": env.get("MAIL_SERVER") or "smtp.gmail.com",
+        "MAIL_PORT": int(env.get("MAIL_PORT") or 587),
+        "MAIL_USE_TLS": True,
+        "MAIL_USERNAME": user,
+        "MAIL_PASSWORD": pwd,
+        # L'expéditeur par défaut est le compte d'envoi : sans lui, Gmail
+        # refuserait de toute façon une adresse qu'il n'authentifie pas.
+        "MAIL_DEFAULT_SENDER": env.get("MAIL_DEFAULT_SENDER") or user,
+        "MAIL_CONFIGURED": bool(user and pwd),
+    }
+
+
 def create_app(test_config=None):
     static_folder = os.path.join(parent_dir, "static")
     app = Flask(__name__, static_folder=static_folder)
@@ -144,15 +170,7 @@ def create_app(test_config=None):
     # Aucun identifiant par défaut : chaque instance (client compris) fournit son
     # propre compte d'envoi via l'environnement (compte Google + mot de passe
     # d'application, cf. distribution/.env.example). Sans config → envoi désactivé.
-    _mail_user = os.getenv("MAIL_USERNAME")
-    _mail_pwd  = os.getenv("MAIL_PASSWORD")
-    app.config["MAIL_SERVER"]         = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-    app.config["MAIL_PORT"]           = int(os.getenv("MAIL_PORT", 587))
-    app.config["MAIL_USE_TLS"]        = True
-    app.config["MAIL_USERNAME"]       = _mail_user
-    app.config["MAIL_PASSWORD"]       = _mail_pwd
-    app.config["MAIL_DEFAULT_SENDER"] = os.getenv("MAIL_DEFAULT_SENDER", _mail_user)
-    app.config["MAIL_CONFIGURED"]     = bool(_mail_user and _mail_pwd)
+    app.config.update(config_mail(os.environ))
     if not app.config["MAIL_CONFIGURED"]:
         print("[MAIL] MAIL_USERNAME/MAIL_PASSWORD absents — envoi d'emails désactivé "
               "(reset de mot de passe indisponible)")

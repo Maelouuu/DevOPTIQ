@@ -6135,11 +6135,59 @@ raison. ⚠️ Un test qui se connecte POUR DE VRAI prend son propre client
   la demande de réinitialisation. Suite immédiate.
 - Le temps de réponse n'est pas égalisé : seuls les MESSAGES sont alignés.
 
+#### ⚠️⚠️ Une variable VIDE n'est pas une variable ABSENTE (2026-10-28)
+
+Trouvé en regardant la console Cloud Run **avant** de poser le moindre secret :
+les trois `MAIL_*` y étaient **déjà créées, et toutes les trois vides**. C'est
+`--set-env-vars` qui les crée — il pose ce que le workflow lui donne, et
+`${{ secrets.X }}` d'un secret inexistant rend la chaîne vide.
+
+Or `os.getenv(cle, defaut)` ne regarde son défaut que si la clé est **absente**.
+Une clé présente et vide rend `""`. Les deux conséquences ont été mesurées, et
+la première est le défaut qui aurait fait échouer toute la mise en service :
+
+- **expéditeur vide → AUCUN envoi ne part.** `flask_mail` lève
+  `AssertionError: The message does not specify a sender…` — et l'envoi vit
+  dans le `try/except` qui ne montre que le message neutre. On aurait donc posé
+  les deux secrets, et rien ne serait jamais parti, **avec à l'écran exactement
+  le même message qu'avant le correctif**. Introuvable sans les journaux.
+- **port vide → `int("")` lève au DÉMARRAGE**, dans `create_app` : le conteneur
+  ne démarre plus. C'est la panne « failed to start and listen on the port »
+  déjà vécue le 26/09, pour une variable qu'on aurait seulement laissée vide.
+
+`config_mail(env)` (`Code/app.py`) est la source unique, et lit **avec `or`**,
+jamais avec le second argument de `getenv`. Fonction de module, pas un bloc
+inline : elle s'IMPORTE, donc son contrôle tourne aussi dans l'arbre d'image —
+un test qui relit `Code/app.py` comme du texte y sauterait (c'est ce que fait
+`test_67`).
+
+ℹ️ **Les deux familles de workflow ne se comportent pas pareil**, et c'est
+voulu : staging et l'officielle REMPLACENT tout le jeu (`--set-env-vars` →
+variables créées vides), le pilote AJOUTE (`--update-env-vars`) et ne pose ses
+identifiants **que s'ils ne sont pas vides** — sinon un secret absent
+écraserait une valeur réglée à la main dans la console. Le pilote n'a donc
+jamais eu le défaut ci-dessus. Tenu par `test_72::TestLesIdentifiantsDEnvoiSontServis`.
+
+⚠️ **Et le lien du mail partait en `http://`.** Le TLS s'arrête au frontend
+Google, qui transmet `X-Forwarded-Proto: https` — mais gunicorn ne le croit que
+d'un émetteur listé dans `forwarded_allow_ips`, dont le défaut (`127.0.0.1`)
+n'est jamais l'adresse d'où Cloud Run livre la requête. `url_for(_external=True)`
+lisait donc `http`. Le lien **fonctionne** quand même (tout le TLD `.app` est en
+HSTS préchargé, le navigateur force https avant que la requête parte), mais un
+lien http écrit dans un mail est un **signal d'hameçonnage de plus** — et ce
+message en porte déjà deux. `forwarded_allow_ips` est désormais posé dans
+`gunicorn.conf.py`, resserrable par `FORWARDED_ALLOW_IPS`.
+⚠️ Sans conséquence ailleurs : `request.remote_addr` n'est lu qu'à UN endroit
+dans tout `Code/` — le repli de `_ip_client()`, déjà précédé par
+`X-Forwarded-For`.
+
 #### Mesures
 
-Suite : **3531 passés**, 1 sauté — **deux passes de suite**. Quinze gardes
-retirées une par une, **quinze cliquets tombés** (dont un qui a corrigé ma
-documentation : voir le verrou 3).
+Suite : **3539 passés**, 1 sauté. Vingt-et-une gardes retirées une par une,
+**vingt-et-un cliquets tombés** (dont un qui a corrigé ma documentation : voir
+le verrou 3). Les six derniers tiennent les variables vides, l'expéditeur, le
+port, le lien https, le mot de passe jamais écrit en clair dans un workflow et
+le pilote qui n'écrase pas une valeur posée à la main.
 ⚠️ `tools/repet_image.sh` : **3487 passés, 45 sautés** sur une passe propre,
 mais l'arbre d'image rend 0 à 2 rouges selon le passage, sur une distribution
 TOURNANTE de fichiers qui ne parlent pas de mots de passe (`test_14`,
@@ -6150,10 +6198,12 @@ celle du test qui éprouve la porte. Aucun autre fichier ne tombe. Donc la
 porte n'est pas la cause ; c'est l'instabilité connue de cette suite à base
 partagée. Écrit ici pour ne pas la rechercher une troisième fois.
 
-Tests : `tests/test_117_mot_de_passe.py` (**25 cas** — usage unique, débit,
-énumération, sessions, politique, langue, rien de sensible stocké),
-`test_35_password_reset.py` réécrit (**22 cas**), et `test_48`, `test_54`,
-`test_59`, `test_72`, `test_116` alignés.
+Tests : `tests/test_117_mot_de_passe.py` (**29 cas** — usage unique, débit,
+énumération, sessions, politique, langue, rien de sensible stocké, et les
+variables vides), `test_35_password_reset.py` réécrit (**22 cas**),
+`test_72_deploiement.py` (+4 — les identifiants servis, jamais en clair, le
+pilote qui n'écrase pas, le lien https), et `test_48`, `test_54`, `test_59`,
+`test_116` alignés.
 
 ## Notes importantes (suite)
 

@@ -617,3 +617,66 @@ class TestLeMailSuitLaLangueDuDestinataire:
             for lang in ("fr", "en"):
                 assert cle in TRANSLATIONS[lang], "%s absente en %s" % (cle, lang)
             assert TRANSLATIONS["fr"][cle] != TRANSLATIONS["en"][cle], cle
+
+
+class TestUneVariableVideNEstPasUneVariableAbsente:
+    """⚠️ Le défaut qui aurait fait échouer la mise en service.
+
+    `--set-env-vars` CRÉE la variable sur Cloud Run même quand le secret
+    GitHub n'existe pas : elle arrive PRÉSENTE et VIDE. `getenv(cle, defaut)`
+    ne regarde alors JAMAIS son défaut — une variable vide est une valeur.
+    Relevé sur la console avant d'avoir posé le moindre secret : les trois
+    MAIL_* y étaient déjà, toutes les trois vides.
+    """
+
+    def test_un_expediteur_vide_retombe_sur_le_compte_d_envoi(self):
+        from Code.app import config_mail
+        c = config_mail({"MAIL_USERNAME": "afdec@gmail.com",
+                         "MAIL_PASSWORD": "x",
+                         "MAIL_DEFAULT_SENDER": ""})
+        assert c["MAIL_DEFAULT_SENDER"] == "afdec@gmail.com"
+
+    def test_un_expediteur_vide_ferait_echouer_TOUT_envoi(self, app):
+        """La CONSÉQUENCE, mesurée — ce n'est pas un détail de confort.
+        flask_mail refuse un message sans expéditeur : on aurait posé les
+        deux secrets, et rien ne serait jamais parti, avec à l'écran le même
+        message neutre qu'avant le correctif. Introuvable sans les journaux.
+        """
+        from flask_mail import Message
+        from Code.extensions import mail
+
+        ext = app.extensions["mail"]
+        ancien, ancienne_garde = ext.default_sender, ext.suppress
+        ext.default_sender, ext.suppress = "", True   # jamais de vrai SMTP ici
+        try:
+            with app.app_context():
+                with pytest.raises(AssertionError):
+                    mail.send(Message(subject="Reset",
+                                      recipients=["qui@exemple.fr"],
+                                      body="lien"))
+        finally:
+            ext.default_sender, ext.suppress = ancien, ancienne_garde
+
+    def test_un_port_vide_ne_fait_pas_tomber_le_DEMARRAGE(self):
+        """⚠️ `int("")` lève une ValueError, et ce bloc s'exécute dans
+        `create_app` : le conteneur ne démarrerait plus du tout. C'est la
+        panne « failed to start and listen on the port » déjà vécue le
+        26/09, pour une variable qu'on aurait seulement laissée vide."""
+        from Code.app import config_mail
+        assert config_mail({"MAIL_PORT": ""})["MAIL_PORT"] == 587
+        assert config_mail({"MAIL_SERVER": ""})["MAIL_SERVER"] == "smtp.gmail.com"
+
+    def test_des_identifiants_vides_valent_PAS_CONFIGURE(self):
+        """Le repli d'origine doit survivre : sans compte d'envoi, l'écran
+        dit proprement que l'envoi n'est pas configuré."""
+        from Code.app import config_mail
+        for env in ({}, {"MAIL_USERNAME": "", "MAIL_PASSWORD": ""},
+                    {"MAIL_USERNAME": "afdec@gmail.com", "MAIL_PASSWORD": ""},
+                    {"MAIL_USERNAME": "", "MAIL_PASSWORD": "x"}):
+            assert config_mail(env)["MAIL_CONFIGURED"] is False, env
+        # ⚠️ Sans compte d'envoi il n'y a aucun expéditeur à retomber dessus —
+        # mais un compte SANS mot de passe en garde un : c'est « configuré »
+        # qui est faux là, pas l'expéditeur.
+        assert config_mail({})["MAIL_DEFAULT_SENDER"] is None
+        assert config_mail({"MAIL_USERNAME": "", "MAIL_DEFAULT_SENDER": ""}
+                           )["MAIL_DEFAULT_SENDER"] is None
