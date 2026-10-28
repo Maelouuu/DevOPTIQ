@@ -344,6 +344,41 @@ def can_create_accounts(user=None):
     return a_le_droit("cree_comptes", user)
 
 
+def peut_changer_statut(acteur, cible, nouveau_statut):
+    """Qui peut poser QUEL palier sur QUI. Rend None si c'est permis, sinon le
+    code du refus.
+
+    Trois règles, et la troisième est celle qu'on oublie :
+
+      1. **jamais le sien** — un administrateur qui se retire son palier perd
+         l'écran depuis lequel il le remettrait ;
+      2. **jamais au-dessus de soi** — exactement ce que `/comptes/create`
+         applique déjà à la création ;
+      3. ⚠️ **le palier administrateur ne se DONNE ni ne se RETIRE que par un
+         administrateur.** La règle 2 couvre déjà le don (administrateur est le
+         sommet) ; c'est le RETRAIT qu'elle laisse passer, et c'est lui qui
+         compte — sans cette règle, un coordinateur rétrograderait un
+         administrateur, puis ferait ce qu'il veut de son compte.
+
+    ⚠️ `can_edit_account` refuse déjà d'ouvrir la fiche d'un palier PLUS HAUT,
+    ce qui couvre la règle 3 par un autre chemin. Elle est redite ici parce
+    qu'une règle de sécurité ne doit pas dépendre d'une seconde, écrite
+    ailleurs, qu'on pourrait desserrer un jour sans y penser.
+    """
+    if acteur is None or cible is None:
+        return "error_forbidden_edit"
+    if int(getattr(cible, "id", 0) or 0) == int(getattr(acteur, "id", -1) or -1):
+        return "error_status_self"
+    # ⚠️ Le palier administrateur AVANT la règle générale : quand il est en
+    # jeu, le refus doit dire POURQUOI, pas « au-dessus de votre niveau ».
+    if (is_admin_status(nouveau_statut) or is_admin_status(cible.status)) \
+            and not is_admin(acteur):
+        return "error_status_admin_only"
+    if niveau_status(nouveau_statut) > niveau(acteur):
+        return "error_status_too_high"
+    return None
+
+
 def can_edit_account(target_user_id, user=None):
     """Son PROPRE compte toujours ; celui d'autrui avec le droit `modifie_comptes`.
 
