@@ -201,6 +201,47 @@ def create_app(test_config=None):
         if not _sess.get('lang'):
             _sess['lang'] = DEFAULT_LANG
 
+    @app.before_request
+    def _session_perimee():
+        """Ferme une session ouverte AVANT le dernier changement de mot de passe.
+
+        ⚠️ Sans cela, une réinitialisation change la clé du compte sans en
+        reprendre le CONTRÔLE : qui était déjà connecté — l'intrus qu'on
+        voulait précisément mettre dehors — y reste jusqu'à ce qu'il se
+        déconnecte lui-même.
+
+        ⚠️ Une session sans empreinte est acceptée tant que le compte n'a
+        jamais changé de mot de passe (`session_perimee` le dit) : sinon la
+        mise en service déconnecterait tout le monde d'un coup.
+        """
+        from flask import session as _sess, jsonify as _jsonify
+        if request.path.startswith(('/static', '/health', '/pulse')):
+            return None
+        uid = _sess.get('user_id')
+        if not uid:
+            return None
+        try:
+            from Code.models.models import User as _U
+            from Code import mot_de_passe as _mdp
+            _user = db.session.get(_U, uid)
+            if _user is None or not _mdp.session_perimee(_user, _sess.get('pwd_at')):
+                return None
+        except Exception:
+            return None     # un incident de lecture ne déconnecte personne
+        _sess.clear()
+        # ⚠️ On vide la session, mais on NE DÉTOURNE PAS les chemins du
+        # parcours de connexion. Renvoyer vers /login depuis
+        # /reset_password/<jeton> enverrait dans le mur la personne qui vient
+        # justement de cliquer son lien : sa session est périmée parce que son
+        # mot de passe a changé, et c'est exactement ce qu'elle est en train
+        # de faire. Trouvé en écrivant le test, pas à l'usage.
+        if request.path.startswith(('/login', '/logout', '/forgot_password',
+                                    '/reset_password')):
+            return None
+        if request.path.startswith('/api') or request.path.endswith('.json'):
+            return _jsonify({'error': 'session_perimee'}), 401
+        return redirect(url_for('auth.login'))
+
     # ⚠️ La porte d'ÉCRITURE — 39 fichiers de routes écrivaient sans aucun
     # contrôle d'accès (relevé le 11/10/2026). Elle est posée ICI, une fois,
     # et refuse toute méthode d'écriture à qui n'a pas le droit : une garde
@@ -486,6 +527,9 @@ def create_app(test_config=None):
         _safe_add_column("entities", "vsdx_filename", "VARCHAR(255)")
         _safe_add_column("entities", "optiqcarto_data", "TEXT")
         _safe_add_column("users", "lang", "VARCHAR(5)")
+        # Révocation des sessions au changement de mot de passe. La table
+        # `password_resets`, elle, vient de create_all (c'est un modèle).
+        _safe_add_column("users", "password_changed_at", "TIMESTAMP")
         # Table creee par create_all, mais une colonne ajoutee apres coup
         # ne l est pas : les instances deja deployees ont besoin de l ALTER.
         _safe_add_column("entity_share_offers", "deposit_kind", "VARCHAR(20)")
@@ -833,6 +877,10 @@ def create_app(test_config=None):
             from Code.models.models import UsageBeat as _UB, UsageEvent as _UE
             _UB.query.filter(_UB.ts < _dt.utcnow() - _td(days=90)).delete()
             _UE.query.filter(_UE.ts < _dt.utcnow() - _td(days=400)).delete()
+            # Les demandes de réinitialisation anciennes ne servent plus ni au
+            # débit ni à l'audit. Même traitement que les battements ci-dessus.
+            from Code.models.models import PasswordReset as _PR
+            _PR.query.filter(_PR.cree_le < _dt.utcnow() - _td(days=90)).delete()
             db.session.commit()
         except Exception as e:
             db.session.rollback()

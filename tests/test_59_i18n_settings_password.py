@@ -48,15 +48,28 @@ def _set_lang(client, lang):
 
 def _restore_auth_session(app, client):
     """Restaure la session du user seed (le client est PARTAGÉ scope=session :
-    un login dans un test remplace la session de auth_client pour toute la suite)."""
+    un login dans un test remplace la session de auth_client pour toute la suite).
+
+    ⚠️ **`pwd_at` aussi.** Les tests de cette classe se connectent pour de vrai
+    avec un AUTRE compte, et un vrai login pose l'empreinte du mot de passe de
+    CE compte. Remettre `user_id` sans toucher à l'empreinte laissait une
+    session dont les deux moitiés ne parlent pas du même compte : la porte des
+    sessions périmées la fermait, et le test suivant prenait un 403 pour une
+    raison qui n'a rien à voir avec lui. La tolérance du décor
+    (`conftest.sessions_de_test_sans_empreinte`) ne couvre pas ce cas, et elle
+    ne doit pas : une empreinte présente et fausse EST une péremption.
+    """
+    from Code import mot_de_passe as mdp
     from Code.models.models import User, Entity
     with app.app_context():
         user = User.query.filter_by(email="test@devoptiq.com").first()
         entity = Entity.query.filter_by(name="Entité Test").first()
+        empreinte = mdp.empreinte_session(user) if user else None
     with client.session_transaction() as sess:
         if user:
             sess["user_id"] = user.id
             sess["user_email"] = user.email
+            sess["pwd_at"] = empreinte
         if entity:
             sess["active_entity_id"] = entity.id
 
@@ -154,10 +167,15 @@ class TestPasswordChange:
         email = "t59.reset@devoptiq.com"
         uid = _make_user(app, email, "AvantReset1!")
         try:
-            from itsdangerous import URLSafeTimedSerializer
+            # ⚠️ Le jeton n'est plus une adresse e-mail signée : sa charge
+            # porte l'identifiant du compte et l'empreinte de son mot de passe
+            # courant, et une demande doit être enregistrée en base. On passe
+            # donc par la fabrique, qui est le seul chemin légitime.
+            from Code import mot_de_passe as mdp
+            from Code.models.models import User
             with app.app_context():
-                token = URLSafeTimedSerializer(app.config["SECRET_KEY"]).dumps(
-                    email, salt="password-reset-salt")
+                u = User.query.filter_by(email=email).first()
+                token = mdp.fabriquer_jeton(u, email)
             r = client.post(f"/reset_password/{token}",
                             data={"password": "ApresReset1!",
                                   "confirm_password": "ApresReset1!"})

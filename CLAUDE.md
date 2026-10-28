@@ -5976,6 +5976,185 @@ française sur l'écran anglais (texte ET attributs).
 
 ---
 
+### La réinitialisation de mot de passe, refaite (2026-10-28)
+
+« On a des retours comme quoi il ne marche pas. » C'était exact, et pire que
+ça : **il n'a jamais marché sur aucune des deux instances.** Sondé en direct,
+les deux rendaient la même chose pour n'importe quelle adresse :
+
+    [error] L'envoi d'email n'est pas configuré sur cette instance.
+
+C'est la branche `if not current_app.config.get("MAIL_CONFIGURED")`, et
+`MAIL_CONFIGURED` vaut `bool(MAIL_USERNAME and MAIL_PASSWORD)` — or **`MAIL_*`
+n'apparaissait dans AUCUN workflow de déploiement.** Le code était entier ; il
+n'a jamais eu de quoi envoyer.
+
+⚠️ **Et les 23 tests passaient**, parce qu'ils forcent
+`app.config["MAIL_CONFIGURED"] = True` pour atteindre les branches d'envoi.
+Même famille que le piège des clés IA de `conftest` : un contrôle qui fabrique
+la condition qu'il devrait vérifier ne vérifie rien.
+
+#### Les deux workflows ne posent pas les variables de la même façon
+
+| | commande | effet |
+|---|---|---|
+| staging / officielle | `--set-env-vars` | **remplace tout le jeu** — une variable posée à la main dans la console est effacée au déploiement suivant |
+| pilote | `--update-env-vars` | additif — une variable posée à la main survit |
+
+Les trois workflows portent donc désormais `MAIL_USERNAME`, `MAIL_PASSWORD` et
+`MAIL_DEFAULT_SENDER` (secrets GitHub du dépôt). Sans les secrets, l'écran dit
+proprement que l'envoi n'est pas configuré — c'est le repli d'origine.
+
+⚠️⚠️ **Un commentaire au milieu d'une commande à antislashs devient un
+ARGUMENT.** Posé par erreur en branchant ces variables : sept lignes
+d'explication glissées dans le `gcloud run deploy` seraient parties comme
+arguments, et le déploiement aurait échoué sur les deux instances à la fois.
+Cliquet : `test_72::TestLesCommandesDesWorkflowsNeSontPasCoupees`.
+
+#### `Code/mot_de_passe.py` — la source unique
+
+La politique était écrite à **cinq** endroits (quatre à six caractères, un à
+huit) et le jeton ne vivait que dans sa route. Tout est passé dans un module :
+`MIN_LONGUEUR` (**8**, on aligne vers le haut), `valider`, `poser`,
+`empreinte_session`, `regle_session_perimee`, `debit_depasse`,
+`fabriquer_jeton`, `lire_jeton`, `consommer`, `purger`.
+
+⚠️ **Rien de ce module ne dépend du canal d'envoi** : le même code sert
+l'instance hébergée par AFDEC et l'installation chez le client — seules les
+variables `MAIL_*` changent, et l'assistant `/setup` les demande déjà. C'est
+écrit une fois, ça marche partout.
+
+#### Le jeton : trois verrous, et il faut dire lequel fait quoi
+
+La charge était l'**adresse e-mail** signée, et rien n'était stocké : le lien
+restait valable une heure **même après** le changement de mot de passe.
+Désormais la charge porte `{u: id, e: empreinte(hash courant)}`, et une ligne
+`password_resets` accompagne chaque demande.
+
+1. la signature et l'âge — c'est tout ce que faisait la version d'avant ;
+2. **l'empreinte du mot de passe courant. C'est LUI qui interdit le rejeu**, et
+   il le fait seul : chaque écriture re-sale le hash, donc même reposer le MÊME
+   mot de passe change l'empreinte. Il couvre aussi le changement par un autre
+   chemin (un administrateur depuis la page Comptes) et vaut même si la ligne
+   en base a disparu ;
+3. la ligne en base. ⚠️ **Elle n'est PAS un second verrou contre le rejeu** —
+   le banc de cliquets l'a montré : en la retirant, aucun test de rejeu ne
+   rougissait. Elle exige qu'une demande ait été **réellement enregistrée**
+   (un jeton ressorti après la purge ne passe pas) et porte la limitation de
+   débit et la trace d'audit.
+
+⚠️ **Rien d'exploitable n'est stocké** : ni l'adresse saisie, ni le jeton, ni
+l'IP — seulement leurs empreintes SHA-256. Une lecture de la base ne doit
+rendre ni un lien utilisable, ni la liste des adresses essayées.
+⚠️ `password_resets.user_id` n'est **pas** une clé étrangère, comme
+`usage_events` : PostgreSQL applique les FK et SQLite non, donc une FK ici
+ferait échouer la suppression d'un compte en production sans qu'aucun test ne
+puisse le voir.
+
+#### La limitation de débit, et le piège Cloud Run
+
+3 demandes par adresse et 10 par IP, par quart d'heure, **comptées en base**.
+⚠️ Le motif en mémoire de `hub/app.py` ne tient pas ici : Cloud Run redescend
+à zéro instance et en relance plusieurs, chacune avec son dictionnaire.
+⚠️ **Une adresse INCONNUE est tracée aussi** : ne compter que les envois réels
+dirait, par le simple fait de ne pas ralentir, que l'adresse est inconnue.
+⚠️⚠️ **L'IP vient de `X-Forwarded-For`, pas de `request.remote_addr`** : sur
+Cloud Run celui-ci est l'IP du frontend Google, et la limite par IP
+verrouillerait l'instance ENTIÈRE au dixième essai. L'en-tête est falsifiable,
+il ne sert qu'au débit — la protection qui compte est celle par adresse.
+
+#### L'énumération : le message neutre était annulé par son voisin
+
+L'intention était bonne (« Si cette adresse correspond à un compte… ») mais le
+`try/except` de l'envoi vivait **à l'intérieur du `if user:`** : « Erreur lors
+de l'envoi de l'email » ne pouvait apparaître QUE pour un compte existant. Il
+suffisait d'essayer des adresses. L'incident part au journal, l'écran rend le
+même message dans tous les cas.
+⚠️ **Et le login disait laquelle des deux moitiés était fausse** (« Compte
+introuvable. » / « Mot de passe incorrect. ») : de quoi dresser la liste du
+personnel. Un seul message, `login.bad_credentials`.
+
+#### Les sessions se ferment — sinon on change la clé sans reprendre le logement
+
+`users.password_changed_at` (migration à chaud) + `session['pwd_at']` posé au
+login + un `before_request` dans `create_app`. Sans cela, l'intrus déjà
+connecté — celui qu'on veut précisément mettre dehors — y reste jusqu'à ce
+qu'il se déconnecte lui-même.
+⚠️ **Une session sans empreinte est acceptée tant que le compte n'a jamais
+changé de mot de passe** : sinon la mise en service déconnecterait tout le
+monde d'un coup. L'absence ne devient une péremption qu'au premier changement.
+⚠️ **Le re-hachage transparent du login ne pose PAS l'horodatage** : il
+déconnecterait chacun à sa propre connexion. Seule `mdp.poser` l'écrit.
+⚠️ **La porte NE DÉTOURNE PAS `/login`, `/logout`, `/forgot_password` ni
+`/reset_password`.** Trouvé en écrivant le test, pas à l'usage : renvoyer vers
+/login depuis un lien de réinitialisation enverrait dans le mur la personne
+qui vient de cliquer son lien — sa session est périmée PARCE QUE son mot de
+passe a changé, et c'est exactement ce qu'elle est en train de faire.
+
+#### Ce qui a coûté le plus : le décor de tests
+
+⚠️ **Trente fichiers posent `session['user_id']` à la main**, et une douzaine
+de helpers y REMPLACENT `user_id` sans toucher à l'empreinte qu'un vrai login
+a laissée. La porte les met dehors, et le symptôme ne désigne jamais sa cause :
+302 vers /login, ou 403 parce que `_current_user()` est devenu None, ou un
+`KeyError` sur une réponse JSON qui n'en est plus une — dans un fichier qui ne
+parle pas de mots de passe. Mesuré : huit rouges sur cinq fichiers.
+
+La concession vit **dans le décor**, jamais dans l'application : la porte ne
+mord que sous le levier `PWD_SESSION_STRICTE` (fixture `porte_stricte` de
+`test_117`), et la RÈGLE est éprouvée dans les deux sens directement sur
+`regle_session_perimee`, que le remplacement ne touche pas. C'est pour cela
+que `session_perimee` est un ALIAS distinct de la règle : ne jamais appeler
+`regle_session_perimee` depuis l'application, le décor ne pourrait plus rien
+tolérer.
+
+⚠️ **Et `test_35` / `test_117` doivent rendre le compte partagé INTACT** — le
+mot de passe ET `password_changed_at`, en SQL brut suivi d'un `expire_all()`
+(la session SQLAlchemy des tests est partagée, sa carte d'identité garderait
+l'ancienne valeur). Sans cela l'horodatage restait bougé pour toute la suite.
+⚠️ `auth_client` **expire** l'objet avant de lire l'horodatage, pour la même
+raison. ⚠️ Un test qui se connecte POUR DE VRAI prend son propre client
+(`app.test_client()`) : `client` et `auth_client` sont le même objet.
+
+#### Ce qui n'est pas fait, et doit être dit
+
+- ⚠️ **Il faut un mot de passe d'application Google et trois secrets GitHub**
+  (`MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`) pour que le reset
+  parte. Tant qu'ils manquent, l'écran dit proprement qu'il n'est pas
+  configuré — rien n'est cassé, mais rien ne part.
+- ⚠️ **Expéditeur Gmail + lien vers un `*.run.app`** = la signature d'un mail
+  de hameçonnage : il partira souvent en indésirables, et le message de l'app
+  le dit (« Pensez à regarder vos indésirables »). Le correctif de fond est un
+  domaine à soi avec SPF/DKIM/DMARC — **même cause structurelle que le blocage
+  Edge du pilote**. À décider, pas à deviner.
+- ⚠️ **Aucun CSRF dans toute l'application** — zéro occurrence de
+  `CSRFProtect`, `csrf_token`, `flask_wtf` dans `Code/`, et aucun réglage
+  `SESSION_COOKIE_*` (SameSite, Secure, HttpOnly). Ça dépasse le reset : c'est
+  tous les POST. Chantier à part, pas à faire en passant.
+- **La force brute du LOGIN n'est pas limitée** : `debit_depasse` ne couvre que
+  la demande de réinitialisation. Suite immédiate.
+- Le temps de réponse n'est pas égalisé : seuls les MESSAGES sont alignés.
+
+#### Mesures
+
+Suite : **3531 passés**, 1 sauté — **deux passes de suite**. Quinze gardes
+retirées une par une, **quinze cliquets tombés** (dont un qui a corrigé ma
+documentation : voir le verrou 3).
+⚠️ `tools/repet_image.sh` : **3487 passés, 45 sautés** sur une passe propre,
+mais l'arbre d'image rend 0 à 2 rouges selon le passage, sur une distribution
+TOURNANTE de fichiers qui ne parlent pas de mots de passe (`test_14`,
+`test_48`, `test_62`, `test_63`, `test_86`, `test_91`), et une seconde passe
+dans le même arbre est verte. Expérience pour trancher : la porte des sessions
+**neutralisée**, une première passe dans un arbre neuf ne rend qu'UNE erreur —
+celle du test qui éprouve la porte. Aucun autre fichier ne tombe. Donc la
+porte n'est pas la cause ; c'est l'instabilité connue de cette suite à base
+partagée. Écrit ici pour ne pas la rechercher une troisième fois.
+
+Tests : `tests/test_117_mot_de_passe.py` (**25 cas** — usage unique, débit,
+énumération, sessions, politique, langue, rien de sensible stocké),
+`test_35_password_reset.py` réécrit (**22 cas**), et `test_48`, `test_54`,
+`test_59`, `test_72`, `test_116` alignés.
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

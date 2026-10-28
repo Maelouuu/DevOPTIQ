@@ -1638,6 +1638,11 @@ TRANSLATIONS = {
         'login.label_password':         'Mot de passe',
         'login.submit':                 'Se connecter',
         'login.forgot_link':            'Mot de passe oublié ?',
+        # ⚠️ UN seul message pour « compte introuvable » et « mot de passe
+        # incorrect » : deux messages distincts disent à un inconnu quelles
+        # adresses ont un compte chez nous.
+        'login.bad_credentials':        'Adresse e-mail ou mot de passe incorrect.',
+        'login.logged_out':             'Déconnexion réussie.',
         'login.reset_title':            'Réinitialiser le mot de passe',
         'login.reset_desc':             'Entrez votre adresse email pour recevoir un lien de réinitialisation.',
         'login.reset_send':             'Envoyer le lien',
@@ -1648,10 +1653,28 @@ TRANSLATIONS = {
         'reset_pwd.label_new':          'Nouveau mot de passe',
         'reset_pwd.label_confirm':      'Confirmer le mot de passe',
         'reset_pwd.submit':             'Enregistrer le nouveau mot de passe',
-        'reset_pwd.rule_min':           'Au moins 6 caractères',
+        'reset_pwd.rule_min':           'Au moins 8 caractères',
         'reset_pwd.back':               'Retour à la connexion',
-        'reset_pwd.err_too_short':      'Le mot de passe doit contenir au moins 6 caractères.',
+        'reset_pwd.err_too_short':      'Le mot de passe doit contenir au moins 8 caractères.',
         'reset_pwd.err_mismatch':       'Les mots de passe ne correspondent pas.',
+        'reset_pwd.account':            'Compte',
+
+        # ── Réinitialisation : ce que la ROUTE renvoie ────────────────────
+        # ⚠️ `pwd.sent` est le SEUL message de retour d'une demande, qu'elle
+        # ait abouti ou non : une erreur d'envoi ne se voit que si le compte
+        # existe, donc l'annoncer révélerait son existence.
+        'pwd.need_email':               'Adresse e-mail requise.',
+        'pwd.mail_off':                 "L'envoi d'e-mail n'est pas configuré sur cette instance. Contactez votre administrateur pour réinitialiser votre mot de passe.",
+        'pwd.sent':                     "Si cette adresse correspond à un compte, un e-mail de réinitialisation vient d'être envoyé. Pensez à regarder vos indésirables.",
+        'pwd.too_many':                 "Trop de demandes pour le moment. Réessayez dans un quart d'heure.",
+        'pwd.lien_expire':              'Ce lien a expiré. Faites une nouvelle demande.',
+        'pwd.lien_invalide':            'Lien invalide. Faites une nouvelle demande.',
+        'pwd.lien_utilise':             'Ce lien a déjà servi, ou le mot de passe a changé depuis. Faites une nouvelle demande.',
+        'pwd.done':                     'Mot de passe modifié. Vous pouvez vous connecter.',
+        'pwd.err_server':               'Erreur serveur lors de la mise à jour. Réessayez.',
+        'pwd.err_not_saved':            "La modification n'a pas été enregistrée. Réessayez ou contactez votre administrateur.",
+        'pwd.mail_subject':             'Réinitialisation de votre mot de passe OptiqFluent',
+        'pwd.mail_body':                "Bonjour,\n\nUne réinitialisation de votre mot de passe OptiqFluent a été demandée.\n\nChoisissez un nouveau mot de passe ici :\n[[lien]]\n\nCe lien est valable une heure et ne peut servir qu'une seule fois.\nSi vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail : votre mot de passe actuel reste valable.\n\n-- L'équipe OptiqFluent",
 
         # ── Page Liste des activités (display_list) ───────────────────────
         'act_list.title':               'Liste des activités',
@@ -3805,6 +3828,8 @@ TRANSLATIONS = {
         'login.label_password':         'Password',
         'login.submit':                 'Sign in',
         'login.forgot_link':            'Forgot your password?',
+        'login.bad_credentials':        'Incorrect email address or password.',
+        'login.logged_out':             'Signed out.',
         'login.reset_title':            'Reset password',
         'login.reset_desc':             'Enter your email address to receive a reset link.',
         'login.reset_send':             'Send link',
@@ -3815,10 +3840,25 @@ TRANSLATIONS = {
         'reset_pwd.label_new':          'New password',
         'reset_pwd.label_confirm':      'Confirm password',
         'reset_pwd.submit':             'Save new password',
-        'reset_pwd.rule_min':           'At least 6 characters',
+        'reset_pwd.rule_min':           'At least 8 characters',
         'reset_pwd.back':               'Back to login',
-        'reset_pwd.err_too_short':      'Password must be at least 6 characters.',
+        'reset_pwd.err_too_short':      'Password must be at least 8 characters.',
         'reset_pwd.err_mismatch':       'Passwords do not match.',
+        'reset_pwd.account':            'Account',
+
+        # ── Password reset: what the ROUTE returns ───────────────────────────
+        'pwd.need_email':               'Email address required.',
+        'pwd.mail_off':                 'Email sending is not configured on this instance. Contact your administrator to reset your password.',
+        'pwd.sent':                     'If that address matches an account, a reset email has just been sent. Remember to check your spam folder.',
+        'pwd.too_many':                 'Too many requests right now. Try again in about fifteen minutes.',
+        'pwd.lien_expire':              'This link has expired. Please request a new one.',
+        'pwd.lien_invalide':            'Invalid link. Please request a new one.',
+        'pwd.lien_utilise':             'This link has already been used, or the password has changed since. Please request a new one.',
+        'pwd.done':                     'Password changed. You can now sign in.',
+        'pwd.err_server':               'Server error while saving. Please try again.',
+        'pwd.err_not_saved':            'The change was not saved. Try again or contact your administrator.',
+        'pwd.mail_subject':             'Reset your OptiqFluent password',
+        'pwd.mail_body':                "Hello,\n\nSomeone requested a reset of your OptiqFluent password.\n\nChoose a new password here:\n[[lien]]\n\nThis link is valid for one hour and can only be used once.\nIf you did not request this, ignore this email: your current password remains valid.\n\n-- The OptiqFluent team",
 
         # ── Activities list page (display_list) ───────────────────────────────
         'act_list.title':               'Activities list',

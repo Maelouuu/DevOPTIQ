@@ -286,3 +286,37 @@ class TestLesDependancesSontEpinglees:
         ne lit plus rien, les deux contrôles ci-dessus passeraient au vert en
         ne regardant RIEN."""
         assert len(self._lignes()) >= 15
+
+@sans_source
+class TestLesCommandesDesWorkflowsNeSontPasCoupees:
+    """⚠️ Une ligne qui commence par « # » APRÈS un antislash de continuation
+    n'est PAS un commentaire : le shell la passe en ARGUMENTS à la commande.
+
+    Posé par erreur le 28/10/2026 en branchant les identifiants d'e-mail :
+    sept lignes d'explication glissées au milieu d'un `gcloud run deploy`
+    seraient parties comme arguments, et le déploiement aurait échoué sur les
+    DEUX instances à la fois. Le symptôme n'aurait rien dit de la cause.
+    """
+
+    def _workflows(self):
+        return [os.path.join(WORKFLOWS, n) for n in _workflows()]
+
+    def test_il_y_a_bien_des_workflows_a_lire(self):
+        """Garde-fou de volume : si le chemin change, le contrôle ci-dessous
+        passerait au vert en ne lisant plus RIEN."""
+        assert len(self._workflows()) >= 3
+
+    def test_aucun_commentaire_au_milieu_d_une_commande_continuee(self):
+        fautes = []
+        for chemin in self._workflows():
+            lignes = io.open(chemin, encoding="utf-8").read().split("\n")
+            for i in range(len(lignes) - 1):
+                if not lignes[i].rstrip().endswith(chr(92)):
+                    continue
+                suivante = lignes[i + 1].strip()
+                if suivante.startswith("#"):
+                    fautes.append("%s:%d — %s"
+                                  % (os.path.basename(chemin), i + 2,
+                                     suivante[:60]))
+        assert not fautes, (
+            "commentaire pris pour un argument : " + " | ".join(fautes))

@@ -29,10 +29,28 @@ class TestHscLevels:
         data = r.get_json()
         assert set(data["levels"].keys()) == {"1", "2", "3", "4"}
 
-    def test_levels_default_language_french(self, auth_client):
-        r = auth_client.get("/hsc/levels")
-        data = r.get_json()
-        assert data["levels"]["4"] == "Expertise"
+    def test_levels_en_francais(self, auth_client):
+        """⚠️ La langue se POSE, elle ne s'hérite pas.
+
+        Ce cas s'appelait « default_language_french » et comparait des
+        libellés FRANÇAIS sans rien demander — alors que la langue par défaut
+        du produit est l'ANGLAIS (`DEFAULT_LANG`). Il passait parce qu'un
+        fichier exécuté avant lui avait laissé « fr » dans la session
+        partagée : son résultat dépendait de l'ordre d'exécution.
+        """
+        with auth_client.session_transaction() as sess:
+            avant = sess.get("lang")
+            sess["lang"] = "fr"
+        try:
+            r = auth_client.get("/hsc/levels")
+            data = r.get_json()
+            assert data["levels"]["4"] == "Expertise"
+        finally:
+            with auth_client.session_transaction() as sess:
+                if avant is None:
+                    sess.pop("lang", None)
+                else:
+                    sess["lang"] = avant
 
     def test_levels_accessible_without_auth(self, client):
         r = client.get("/hsc/levels")
@@ -65,6 +83,10 @@ class TestHscDescriptors:
             assert data["ok"] is True
             assert isinstance(data["id"], int)
 
+            # ⚠️ Même raison que ci-dessus : le libellé suit la langue de la
+            # session, qui ne s'hérite pas d'un autre fichier.
+            with auth_client.session_transaction() as sess:
+                sess["lang"] = "fr"
             r2 = auth_client.get(f"/hsc/descriptors/{name}")
             data2 = r2.get_json()
             assert len(data2["descriptors"]) == 1

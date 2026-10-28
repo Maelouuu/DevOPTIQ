@@ -80,6 +80,13 @@ jobs:
 
       - name: Deploy to Cloud Run (Version officielle)
         run: |
+          # Envoi d'e-mails — SANS ces deux variables, « mot de passe
+          # oublié » répond « l'envoi d'e-mail n'est pas configuré » et
+          # rien ne part. C'était le cas sur les deux instances depuis
+          # l'origine, et aucun workflow ne les posait.
+          # ⚠️ Ce workflow emploie --set-env-vars, qui REMPLACE tout le
+          # jeu : une variable posée à la main dans la console est
+          # effacée au déploiement suivant. Elle doit vivre ICI.
           gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
             --region ${{ env.REGION }} \
@@ -91,6 +98,9 @@ jobs:
             --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
             --set-env-vars "REQUIRE_LICENSE=0" \
             --set-env-vars "PROMPTS_KEY=${{ secrets.PROMPTS_KEY }}" \
+            --set-env-vars "MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}" \
+            --set-env-vars "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" \
+            --set-env-vars "MAIL_DEFAULT_SENDER=${{ secrets.MAIL_DEFAULT_SENDER }}" \
             --memory 2Gi \
             --timeout 120 \
             --quiet

@@ -52,7 +52,7 @@ class TestCreateErreurs:
         email = _email()
         r = auth_client.post("/comptes/create", headers=JSON, data={
             "first_name": "A", "last_name": "B", "email": email,
-            "password": "secret1", "age": "abc"})
+            "password": "Secret123", "age": "abc"})
         assert r.status_code == 400
         body = r.get_json()
         assert body["code"] == "error_invalid_age"
@@ -63,7 +63,7 @@ class TestCreateErreurs:
         email = _email()
         r = auth_client.post("/comptes/create", headers=JSON, data={
             "first_name": "A", "last_name": "B", "email": email,
-            "password": "secret1", "roles_ajout": ["99999999"]})
+            "password": "Secret123", "roles_ajout": ["99999999"]})
         assert r.status_code == 400
         assert r.get_json()["code"] == "error_role_unknown"
         assert not _exists(app, email)
@@ -72,7 +72,7 @@ class TestCreateErreurs:
         email = _email()
         r = auth_client.post("/comptes/create", headers=JSON, data={
             "first_name": "A", "last_name": "B", "email": email,
-            "password": "secret1", "roles_ajout": ["x", ""]})
+            "password": "Secret123", "roles_ajout": ["x", ""]})
         try:
             assert r.status_code == 200
             assert r.get_json()["ok"] is True
@@ -87,7 +87,7 @@ class TestCreateErreurs:
     def test_create_sans_json_redirige_avec_message(self, auth_client):
         r = auth_client.post("/comptes/create", data={
             "first_name": "", "last_name": "B", "email": _email(),
-            "password": "secret1"})
+            "password": "Secret123"})
         assert r.status_code == 302
         assert "error_missing_name" in r.headers["Location"]
 
