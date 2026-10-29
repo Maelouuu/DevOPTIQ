@@ -6205,6 +6205,56 @@ variables vides), `test_35_password_reset.py` réécrit (**22 cas**),
 pilote qui n'écrase pas, le lien https), et `test_48`, `test_54`, `test_59`,
 `test_116` alignés.
 
+#### Le mail suit la langue du compte — et l'inconnu vaut l'ANGLAIS (2026-10-29)
+
+La route lisait déjà `users.lang` et non la session — c'est juste : la demande
+part d'un écran de connexion, où personne n'est identifié. Mais la mesure a
+montré un trou, et c'est exactement celui que le pilote anglophone redoutait :
+
+| `users.lang` | corps du mail |
+|---|---|
+| `en`, `NULL`, `''` | anglais |
+| `fr` | français |
+| `EN`, `en-US`, `de`, `hi` | **français** |
+
+⚠️ **Toute valeur qui n'est pas EXACTEMENT `en` ou `fr` sortait en français**,
+parce que `t(cle, langue)` fait `langue if langue in TRANSLATIONS else
+_FALLBACK`, et `_FALLBACK` vaut `'fr'`. Le `or "en"` de la route ne gardait
+que le vide et le NULL.
+
+**Ce repli-là est pourtant VOULU — pour les CLÉS.** Une clé absente de
+l'anglais doit s'afficher en français plutôt qu'en clé brute (c'est écrit plus
+haut : « clé absente en EN → repli silencieux sur le français »). Deux choses
+différentes vivaient dans la même constante : le repli de clé, et le repli de
+LANGUE. Seul le second est faux — et il ne mord que là où la langue ne vient
+pas de la session validée, c'est-à-dire **au mail**, dont la langue vient d'une
+colonne de TEXTE LIBRE.
+
+`Code/translations.py::langue_destinataire(valeur)` normalise avant d'appeler
+`t()` : casse et sous-tag régional acceptés (« EN », « en-US » → anglais),
+l'inconnu vaut `LANGUE_PAR_DEFAUT`.
+- ⚠️ **`LANGUE_PAR_DEFAUT = 'en'` redit `models.DEFAULT_LANG`**, parce que
+  `translations` ne peut pas importer `models` : il n'importe aujourd'hui que
+  flask, et le sens de dépendance s'inverserait. Les deux valeurs sont donc
+  tenues égales par un test — deux sources de vérité qui dérivent en silence,
+  c'est le défaut qu'on a déjà payé sur `dashboard_rows`.
+- **Par l'application, la valeur fautive n'est PAS atteignable** :
+  `/parametres/set_language` refuse en 400 hors `_ALLOWED_LANGS`, le login
+  dérive de `default_lang_for(email)`, l'import de comptes aussi, et le
+  rattrapage au démarrage n'écrit que `en` ou `fr`. Mais une correction à la
+  main en SQL ou une restauration depuis un vieux dump peut tout contenir — et
+  la base du pilote a connu les deux.
+- ⚠️ **Le correctif de FOND n'est pas fait** : `t()` garde son repli de langue
+  français. Le changer toucherait les neuf pages d'un coup (et
+  `role_i18n.nom_affiche` passe aussi une langue explicite, même si elle vient
+  de la session, donc validée) — cela se décide en regardant l'application,
+  pas depuis la route du mail.
+
+Tests : `test_117::TestLeMailSuitLaLangueDuDestinataire` passe de 3 à 6 cas —
+les huit valeurs de la colonne jouées BOUT EN BOUT, une IP distincte par cas
+(la limite par IP ne doit pas décider du résultat d'un test sur la langue).
+**Trois cliquets, trois rouges.**
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

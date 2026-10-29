@@ -4415,6 +4415,34 @@ def t(key: str, lang: str | None = None) -> str:
     return result if result is not None else key
 
 
+# ── La langue dans laquelle on ÉCRIT à quelqu'un ────────────────────────
+# ⚠️ `t(cle, langue)` retombe sur le FRANÇAIS dès que la langue est inconnue
+# (`_FALLBACK`), et ce repli-là est voulu : une clé absente de l'anglais doit
+# s'afficher en français plutôt qu'en clé brute. Mais la langue d'un MAIL ne
+# vient pas de la session — elle vient de `users.lang`, une colonne de TEXTE
+# LIBRE (VARCHAR(5)) remplie par les réglages, le login, l'import de comptes et
+# un rattrapage au démarrage, et que rien n'empêche de corriger à la main en SQL
+# ou de restaurer depuis un ancien dump. Mesuré : « EN », « en-US », « hi »
+# sortaient tous un corps de mail FRANÇAIS. Le pilote est anglophone ; c'est
+# exactement le courrier qu'on ne veut pas lui envoyer. On normalise donc AVANT
+# d'appeler `t()`, et l'inconnu vaut l'anglais, jamais le français.
+LANGUE_PAR_DEFAUT = 'en'
+
+
+def langue_destinataire(valeur) -> str:
+    """La langue d'un message ADRESSÉ à quelqu'un, depuis son `users.lang`.
+
+    La casse et un sous-tag régional sont acceptés (« EN », « en-US » →
+    anglais) ; tout ce qui reste inconnu — vide, NULL, langue non traduite —
+    vaut `LANGUE_PAR_DEFAUT`, c'est-à-dire le défaut produit `DEFAULT_LANG`.
+    """
+    brut = (valeur or '').strip().lower().replace('_', '-')
+    if brut in TRANSLATIONS:
+        return brut
+    base = brut.split('-')[0]
+    return base if base in TRANSLATIONS else LANGUE_PAR_DEFAUT
+
+
 # ── Niveaux HSC (norme X50-766, libellés stabilisés CDC 7.2) ────────────────
 # Table unique : hsc_positioning.py la ré-exporte. Elle vit ici parce que le
 # libellé est de l'AFFICHAGE — la valeur STOCKÉE en base reste la chaîne

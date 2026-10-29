@@ -618,6 +618,75 @@ class TestLeMailSuitLaLangueDuDestinataire:
                 assert cle in TRANSLATIONS[lang], "%s absente en %s" % (cle, lang)
             assert TRANSLATIONS["fr"][cle] != TRANSLATIONS["en"][cle], cle
 
+    def test_une_langue_INCONNUE_vaut_l_anglais_jamais_le_francais(self):
+        """⚠️ `users.lang` est du TEXTE LIBRE (VARCHAR(5)) : les réglages, le
+        login et l'import de comptes n'y mettent que `fr` ou `en`, mais rien
+        n'empêche une correction en SQL ou une restauration depuis un vieux
+        dump. Mesuré avant correctif : « EN », « en-US », « de », « hi »
+        rendaient tous un corps de mail **FRANÇAIS** — c'est le repli de
+        `t()`, et c'est exactement le courrier qu'on ne veut pas envoyer au
+        pilote anglophone."""
+        from Code.translations import langue_destinataire
+        for brut in (None, "", "   ", "EN", "en-US", "en_GB", "de", "hi",
+                     "xx", "zz-ZZ", 0):
+            assert langue_destinataire(brut) == "en", repr(brut)
+        for brut in ("fr", "FR", "fr-CA", " fr "):
+            assert langue_destinataire(brut) == "fr", repr(brut)
+        assert langue_destinataire("en") == "en"
+
+    def test_le_defaut_du_mail_est_celui_DU_PRODUIT(self):
+        """⚠️ Deux sources de vérité ne doivent pas dériver en silence.
+        `translations` ne peut pas importer `models` (le sens de dépendance
+        s'inverserait, et translations n'importe aujourd'hui que flask) : la
+        valeur est donc redite, et tenue ici."""
+        from Code.translations import LANGUE_PAR_DEFAUT
+        from Code.models.models import DEFAULT_LANG
+        assert LANGUE_PAR_DEFAUT == DEFAULT_LANG
+
+    def test_le_corps_suit_users_lang_BOUT_EN_BOUT(self, client, app):
+        """Le parcours complet, pour chaque valeur que la colonne peut porter.
+
+        ⚠️ Une IP distincte par cas : la limite par IP (10 / quart d'heure)
+        ne doit pas décider du résultat d'un test sur la LANGUE.
+        """
+        from Code.extensions import db, mail
+        from Code.models.models import User
+        from Code.security import hash_password
+
+        CAS = [("en", "Hello"), ("fr", "Bonjour"), (None, "Hello"),
+               ("", "Hello"), ("EN", "Hello"), ("en-US", "Hello"),
+               ("fr-CA", "Bonjour"), ("hi", "Hello")]
+
+        app.config["MAIL_CONFIGURED"] = True
+        app.extensions["mail"].default_sender = "no-reply@devoptiq.com"
+        try:
+            for i, (stocke, attendu) in enumerate(CAS):
+                adresse = "t117.lang%d@devoptiq.com" % i
+                with app.app_context():
+                    u = User(first_name="T117", last_name="Lang",
+                             email=adresse,
+                             password=hash_password("Motdepasse123!"),
+                             status="user", lang=stocke)
+                    db.session.add(u)
+                    db.session.commit()
+                    uid = u.id
+                try:
+                    with mail.record_messages() as outbox:
+                        client.post("/forgot_password", data={"email": adresse},
+                                    headers={"X-Forwarded-For": "203.0.113.%d" % (i + 1)})
+                    assert len(outbox) == 1, "users.lang=%r : aucun mail" % (stocke,)
+                    premier = outbox[0].body.split(",")[0]
+                    assert premier == attendu, (
+                        "users.lang=%r → corps en %r, attendu %r"
+                        % (stocke, premier, attendu))
+                    assert "[[lien]]" not in outbox[0].body
+                finally:
+                    with app.app_context():
+                        User.query.filter_by(id=uid).delete()
+                        db.session.commit()
+        finally:
+            app.config["MAIL_CONFIGURED"] = False
+
 
 class TestUneVariableVideNEstPasUneVariableAbsente:
     """⚠️ Le défaut qui aurait fait échouer la mise en service.

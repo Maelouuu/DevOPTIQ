@@ -19,7 +19,7 @@ from flask_mail import Message
 from Code import mot_de_passe as mdp
 from Code.extensions import mail, db
 from Code.models.models import User
-from Code.translations import t
+from Code.translations import t, langue_destinataire
 
 auth_password_bp = Blueprint("auth_password", __name__)
 
@@ -80,11 +80,13 @@ def forgot_password():
     else:
         jeton = mdp.fabriquer_jeton(user, email, ip=ip)
         lien = url_for("auth_password.reset_password", token=jeton, _external=True)
-        langue = getattr(user, "lang", None) or "en"
+        langue = langue_destinataire(getattr(user, "lang", None))
         message = Message(subject=t("pwd.mail_subject", langue), recipients=[user.email])
-        # ⚠️ Le corps est dans la langue DU DESTINATAIRE (`user.lang`), pas
+        # ⚠️ Le corps est dans la langue DU DESTINATAIRE (`users.lang`), pas
         # dans celle de la session : la demande part d'un écran de connexion,
-        # où personne n'est identifié.
+        # où personne n'est identifié. Et la valeur est NORMALISÉE — un
+        # `users.lang` inconnu (« EN », « en-US ») rendait un corps FRANÇAIS,
+        # parce que c'est le repli de `t()`.
         message.body = t("pwd.mail_body", langue).replace("[[lien]]", lien)
         try:
             mail.send(message)
