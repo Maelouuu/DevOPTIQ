@@ -38,6 +38,7 @@
 .page--tests          { --t:#8b6fb5; }   /* lavande           */
 .page--outils         { --t:#b4603a; }   /* terre de Sienne   */
 .page--ci             { --t:#2f5fa8; }   /* crépuscule        */
+.page--courrier       { --t:#0f8a7d; }   /* verdigris         */
 
 /* Gammes du paysage peint — il sert de repli dans l'arche quand une section
    n'a pas de toile (aujourd'hui : Tests). Même dessin, gamme de la section. */
@@ -53,6 +54,7 @@
   --p6:#8b6fb5;--p7:#6d5292;--p-soleil:#f7dd8f;--p-cypres:#4a3670;--p-fleur:#f3eaff;--p-touche:#d6c6f2}
 .page--outils{--p1:#f2b64a;--p2:#f7d07c;--p3:#fbe8bd;--p4:#e08a4c;--p5:#cf6f38;
   --p6:#b4603a;--p7:#8f4728;--p-soleil:#fff0cd;--p-cypres:#5b2f17;--p-fleur:#ffdaa2;--p-touche:#ffc578}
+.page--courrier{--p1:#6fc8bd;--p2:#a2ded6;--p3:#dcf1ee;--p4:#4fb3a4;--p5:#2f8a7d;
 .page--ci{--p1:#6d8ed8;--p2:#9ab0e6;--p3:#d2ddf5;--p4:#5f7cc4;--p5:#4566ae;
   --p6:#2f5fa8;--p7:#254a85;--p-soleil:#ffe9a0;--p-cypres:#1e3560;--p-fleur:#e1e8ff;--p-touche:#a9bef0}
 
@@ -64,6 +66,7 @@
 .acc-docs,.acc-guide                 { --a:#7d8c2e; }
 .acc-outils,.acc-provisioning        { --a:#b4603a; }
 .acc-ci                              { --a:#2f5fa8; }
+.acc-courrier                        { --a:#0f8a7d; }
 .acc-prod                            { --a:#c2452f; }
 .acc-pilote                          { --a:#e0a015; }
 .acc-refonte                         { --a:#b5497e; }

@@ -22,6 +22,7 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
 from werkzeug.security import check_password_hash
 
+import courrier
 import inventaire
 import panel_client
 
@@ -309,6 +310,46 @@ def api_panel_lancer():
 @login_required
 def api_panel_run(run_id):
     return jsonify(panel_client.statut(run_id))
+
+
+# ── Module Courrier ────────────────────────────────────────────
+# Deux questions au même endroit : combien de réinitialisations de mot de passe
+# ont été demandées (lecture de `password_resets` sur chaque base), et qu'est-ce
+# qui est REVENU sur l'adresse d'envoi (IMAP). La seconde est la seule qui dise
+# qu'un mail n'est PAS arrivé — la première ne sait que ce qui a été envoyé.
+#
+# ⚠️ `endpoint="courrier"` est explicite : `page_active` vaut
+# `request.endpoint` et la nav le compare à la clé de `inventaire.PAGES`, mais
+# nommer la vue `courrier` masquerait le module du même nom dans ce fichier.
+
+@app.route("/courrier", endpoint="courrier")
+@login_required
+def page_courrier():
+    # ⚠️ Aucune lecture ici. Une base Neon froide demande ~1 s et IMAP deux à
+    # quatre secondes : le HTML ne partirait qu'après. C'est exactement ce qui
+    # faisait attendre 25 s puis afficher « l'instance ne répond pas » sur
+    # /panel. Le squelette part tout de suite, les données arrivent par
+    # `/api/courrier/*`, et chaque moitié s'affiche dès qu'elle est là.
+    return render_template("courrier.html")
+
+
+@app.route("/api/courrier/reset")
+@login_required
+def api_courrier_reset():
+    force = request.args.get("force") == "1"
+    jours = min(max(request.args.get("jours", 30, type=int), 1), 180)
+    bases = courrier.load_sources()
+    stats = courrier.cache("reset", lambda: courrier.stats_reset(bases, jours),
+                           force=force)
+    return jsonify({"instances": stats, "jours": jours,
+                    "configure": bool(bases)})
+
+
+@app.route("/api/courrier/boite")
+@login_required
+def api_courrier_boite():
+    force = request.args.get("force") == "1"
+    return jsonify(courrier.cache("boite", courrier.boite, force=force))
 
 
 @app.route("/ci")

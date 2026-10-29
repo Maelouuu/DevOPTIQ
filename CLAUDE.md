@@ -2286,6 +2286,120 @@ ajoute une ligne par cas et par exécution, sans jamais en retirer.
   prendre `TestCase.query.first()` les faisait dépendre du recensement, donc
   d'un autre test lancé avant — seuls, ils tombaient sur `None`.
 
+### Module « Courrier » du hub — ce qui part, ce qui revient (2026-10-29)
+
+`/courrier` (`hub/courrier.py`, `hub/templates/courrier.html`,
+`hub/static/courrier.css` et `.js`, accent verdigris `#0f8a7d`). Deux questions
+au même endroit, et elles ne se recouvrent pas : **combien** de
+réinitialisations de mot de passe ont été demandées, et **qu'est-ce qui est
+revenu** sur l'adresse d'envoi. La première ne sait que ce qui a été ENVOYÉ ;
+seule la seconde apprend qu'un mail n'est **pas arrivé** — c'est là
+qu'atterrissent les rejets.
+
+#### Les chiffres : la lecture, par le chemin de `pulse/`
+
+- `HUB_DBS_B64` est composée au déploiement par la **même recette que
+  `deploy-pulse.yml`** : les trois secrets connus, puis **tout service Cloud Run
+  du projet qui porte une `DATABASE_URL`**. Aucune URL n'est recopiée à la main,
+  et une branche déployée demain est suivie au prochain déploiement du hub.
+- ⚠️ **Le hub ne lisait AUCUNE base jusqu'ici** : il sonde les instances en HTTP
+  et republie les données du panel par `hub/panel_client.py`. C'est un vrai
+  élargissement de surface — assumé parce que `pulse/` a déjà ces mêmes
+  identifiants, et borné par `_lecture_seule()` : `SET TRANSACTION READ ONLY`
+  sur PostgreSQL. Rien n'écrit ici, mais ce code ouvre la base d'un CLIENT, et
+  une faute de frappe dans un futur `text(...)` ne doit pas pouvoir y toucher.
+- **L'agrégation est 100 % Python** (comme `pulse/aggregates.py`) : elle se joue
+  donc sur SQLite, sans PostgreSQL ni serveur.
+- ⚠️ **Aucune empreinte ne sort.** `password_resets` ne porte que les empreintes
+  de l'adresse saisie, du jeton et de l'IP — c'est voulu : une lecture de la
+  base ne doit rendre ni un lien utilisable, ni la liste des adresses qu'un
+  inconnu a essayées. `user_id`, lui, est en clair : le COMPTE se nomme
+  (jointure `users`, en **une** requête — un SELECT par ligne ferait autant
+  d'allers à Neon que de demandes). Une demande sur une adresse inconnue reste
+  anonyme, par construction.
+  ⚠️ Le cliquet correspondant n'a mordu qu'au SECOND essai : la première
+  injection remplaçait une colonne du SELECT que le code dépaquette dans
+  `_expire` et n'utilise jamais — rien ne fuyait, et le test restait vert à
+  juste titre. Une fuite réelle demande DEUX gestes : lire l'empreinte **et** la
+  mettre dans la réponse.
+- ⚠️ **Une instance sans la table est un ÉTAT, pas une erreur.** La
+  réinitialisation n'est déployée que sur staging et le pilote : `nouveau-point`
+  a des dizaines de commits de retard et sa base ne porte pas
+  `password_resets`. L'écran dit « pas encore déployée » ; afficher une erreur
+  de base de données enverrait chercher une panne qui n'existe pas.
+- Les instances sont lues **en parallèle** : en série, trois bases Neon froides
+  font trois fois ~1 s pour des lectures indépendantes.
+- Un seul chiffre porte une couleur, et c'est celui sur lequel on agit : les
+  demandes **restées sans suite**. Tout colorer, c'est ne rien signaler. Les
+  comptes sont triés par nombre de demandes décroissant — celui qui redemande
+  sans cesse est celui qui a un problème.
+- La série est en **barres, pas en courbe** : entre deux jours il n'y a rien à
+  lisser, ce sont des événements comptés. L'échelle est celle du maximum
+  observé, sinon toute série peu fournie serait plate.
+
+#### La boîte : lecture stricte
+
+- IMAP sur `HUB_IMAP_USER` et `HUB_IMAP_PASSWORD` (`imaplib`, `email` :
+  bibliothèque standard, aucune dépendance de plus).
+- ⚠️ **`select(readonly=True)` et `BODY.PEEK`** : rien n'est marqué comme lu,
+  rien n'est déplacé, rien n'est supprimé. Et seuls les **en-têtes** sont
+  téléchargés — ni corps, ni pièces jointes : on cherche à savoir ce qui est
+  revenu, pas à lire le courrier de quelqu'un.
+- Les messages sont classés **rejet / réponse automatique / réponse**, les
+  rejets d'abord : c'est la seule nature sur laquelle on agit.
+- ⚠️ **Il faut un SECOND mot de passe d'application**, distinct de celui qui
+  sert à envoyer : révoquer l'un ne doit pas couper l'autre. Et un mot de passe
+  d'application Google **n'est pas limitable** — il ouvre la boîte en lecture ET
+  l'envoi SMTP. C'est inhérent au procédé, pas un oubli : Google n'offre pas de
+  portée plus étroite. L'écran nomme les deux secrets et le dit.
+- Sans identifiants, la moitié s'éteint **proprement** et dit QUOI faire. Un
+  « non configuré » sec envoie chercher ailleurs.
+- ⚠️ **Une variable d'environnement VIDE n'est pas une variable absente** —
+  troisième fois que ce défaut se présente. `--update-env-vars` est additif,
+  mais il CRÉE la variable même quand le secret n'existe pas : elle arrive
+  présente et vide, et `getenv(cle, defaut)` ne regarde alors jamais son défaut.
+  Le workflow ne pose donc les deux variables que si les deux secrets sont
+  **non vides**, et `boite()` teste la VALEUR, pas la présence de la clé.
+
+#### Deux pièges du hub, dont un déjà payé
+
+- ⚠️ **Le rendu ne bloque JAMAIS sur une lecture.** C'est la leçon de `/panel` :
+  la route y interrogeait l'instance pour deux nombres et retenait le HTML le
+  temps d'un appel inter-services — 25 s d'attente, puis une page qui annonçait
+  « l'instance ne répond pas » alors que tout allait bien. Ici une base Neon
+  froide demande ~1 s et IMAP deux à quatre secondes. Le squelette part tout de
+  suite, les deux moitiés arrivent par `/api/courrier/reset` et
+  `/api/courrier/boite`, **en parallèle**, et chacune s'affiche dès qu'elle est
+  là : une boîte lente ne retient pas les chiffres. Cache court (90 s et 120 s)
+  — on vient y voir ce qui arrive MAINTENANT.
+- ⚠️ **`@app.route("/courrier", endpoint="courrier")`, explicitement.**
+  `page_active` vaut `request.endpoint` et la nav le compare à la clé de
+  `inventaire.PAGES` : sans cet `endpoint`, l'entrée de nav ne s'allumerait
+  jamais. Et la vue ne peut PAS s'appeler `courrier` — elle masquerait le module
+  du même nom dans `hub/app.py`.
+
+#### Mise au point
+
+Le banc vit dans le répertoire de travail de la session, pas dans `tools/` :
+une base SQLite semée, le hub monté en mémoire par son client de test, et on
+LIT le JSON et le HTML. ⚠️ Pas de capture d'écran — le volet de mise au point
+**ne peint pas** (transitions figées en cours de route, observateurs muets),
+c'est écrit plus haut et c'est toujours vrai. Mesuré : 6 demandes / 2 abouties /
+4 sans suite / 1 adresse inconnue, trois comptes nommés avec leur langue, une
+troisième instance « pas encore déployée », **zéro empreinte dans la réponse**,
+et la nav allumée sur `/courrier` comme éteinte ailleurs.
+
+Tests : `tests/test_124_hub_courrier.py` (25 cas ; **sept gardes retirées une
+par une, sept cliquets tombés**). ⚠️ Ils **sautent dans l'arbre d'image** : le
+hub est un service séparé et la purge bytecode retire ses `.py`, que
+`spec_from_file_location` exige. Même garde que la fixture `pulse_app`,
+`test_65`, `test_107` et `test_111` — un test qui rougit toujours n'est plus lu,
+et le jour où il a raison personne ne regarde.
+
+**Reste à faire, et c'est une action de l'utilisateur** : créer le second mot de
+passe d'application, puis poser `HUB_IMAP_USER` et `HUB_IMAP_PASSWORD` en
+secrets GitHub. Tant qu'ils manquent, les chiffres fonctionnent et la boîte dit
+calmement ce qu'il lui faut.
 
 
 ## Provisionnement — compléter une carto avec un Excel client

@@ -30,6 +30,7 @@ PAGES = [
     {"cle": "infrastructure", "titre": "Infrastructure", "route": "/infrastructure", "accent": "infra",    "icone": "serveur"},
     {"cle": "documentation", "titre": "Documentation",  "route": "/documentation", "accent": "docs",     "icone": "livre"},
     {"cle": "panel",    "titre": "Tests",          "route": "/panel",         "accent": "tests",    "icone": "ok"},
+    {"cle": "courrier", "titre": "Courrier",       "route": "/courrier",      "accent": "courrier", "icone": "courrier"},
     {"cle": "outils",   "titre": "Outils",         "route": "/outils",        "accent": "outils",   "icone": "terminal"},
     {"cle": "ci",       "titre": "Dépôt & CI",     "route": "/ci",            "accent": "ci",       "icone": "git"},
 ]

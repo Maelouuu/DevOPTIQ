@@ -1,2 +1,6 @@
 flask>=3.0,<4
 gunicorn>=22,<24
+# Lecture SEULE de `password_resets` sur la base de chaque instance
+# (hub/courrier.py) - memes versions que pulse/, qui lit les memes bases.
+SQLAlchemy>=2.0,<3
+psycopg2-binary>=2.9,<3
