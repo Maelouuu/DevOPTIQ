@@ -287,6 +287,35 @@ class TestLesDependancesSontEpinglees:
         ne regardant RIEN."""
         assert len(self._lignes()) >= 15
 
+    @pytest.mark.parametrize("service", ["hub", "pulse"])
+    def test_les_services_separes_epinglent_AUSSI(self, service):
+        """⚠️ La leçon ne valait que pour la racine, et les deux services
+        séparés sont restés en fourchette — jusqu'à ce que ça morde.
+
+        Le 2026-10-29, l'image du hub construite sur `SQLAlchemy>=2.0,<3` a
+        pris **2.1.6**, dont le pilote par défaut de `postgresql://` est
+        psycopg (v3) et non psycopg2 : toutes ses lectures de base sont
+        mortes sur « No module named 'psycopg' », sans qu'un seul commit ne
+        change le code. `pulse/` portait la même mine et serait tombé de la
+        même façon à son déploiement suivant.
+
+        ⚠️ Invisible en local : le venv de développement est resté en
+        2.0.45. Ce contrôle lit donc le FICHIER, pas l'environnement.
+        """
+        chemin = os.path.join(RACINE, service, "requirements.txt")
+        if not os.path.exists(chemin):
+            pytest.skip("%s/ absent (arbre d'image)" % service)
+        lignes = [l.strip() for l in
+                  io.open(chemin, encoding="utf-8").read().splitlines()
+                  if l.strip() and not l.strip().startswith("#")]
+        assert lignes, "%s/requirements.txt vide ?" % service
+        nus = [l for l in lignes if "==" not in l]
+        assert not nus, (
+            "%s/requirements.txt : sans version exacte, l'image change "
+            "toute seule :\n  %s"
+            % (service, "\n  ".join(nus)))
+
+
 @sans_source
 class TestLesCommandesDesWorkflowsNeSontPasCoupees:
     """⚠️ Une ligne qui commence par « # » APRÈS un antislash de continuation

@@ -64,6 +64,15 @@ def load_sources():
             continue
         if url.startswith("postgres://"):      # Neon donne parfois l'ancien schéma
             url = "postgresql://" + url[len("postgres://"):]
+        # ⚠️ Le pilote est NOMMÉ, jamais laissé au défaut de SQLAlchemy.
+        # `postgresql://` seul désignait psycopg2 en 2.0 et désigne psycopg
+        # (v3) depuis 2.1 : l'image du hub, construite sur une fourchette,
+        # a pris 2.1.6 et chaque lecture est morte sur
+        # « No module named 'psycopg' ». Invisible en local, où le venv est
+        # resté en 2.0.45. Les versions sont épinglées à côté, mais une URL
+        # qui dit son pilote ne dépend plus de ce que pip a installé.
+        if url.startswith("postgresql://"):
+            url = "postgresql+psycopg2://" + url[len("postgresql://"):]
         out.append({"name": it.get("name") or "Instance", "url": url})
     return out
 

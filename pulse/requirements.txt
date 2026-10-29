@@ -1,4 +1,14 @@
-flask>=3.0,<4
-gunicorn>=22,<24
-SQLAlchemy>=2.0,<3
-psycopg2-binary>=2.9,<3
+# ⚠️ ÉPINGLÉES À L'EXACT — voir le bloc ci-dessous.
+# Figées sur ce que la fourchette installait déjà : aucun saut de version
+# dans un correctif d'incident. (La racine est à gunicorn 26.2.0 ;
+# s'aligner dessus se décide à part, suite et image rejouées.)
+Flask==3.1.3
+gunicorn==23.0.0
+# ⚠️ ÉPINGLÉES À L'EXACT, comme requirements.txt à la racine.
+# Une fourchette fait installer « la dernière du jour » : l'image du hub a
+# pris SQLAlchemy 2.1.6, dont le pilote par défaut de `postgresql://` est
+# psycopg (v3) et non psycopg2 — toute lecture de base est morte sans qu'un
+# seul commit ne change. Monter une version est un CHANGEMENT : on la
+# modifie ici, on rejoue, on livre.
+SQLAlchemy==2.0.52
+psycopg2-binary==2.9.12

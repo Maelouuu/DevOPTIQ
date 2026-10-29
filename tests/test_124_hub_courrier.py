@@ -57,8 +57,8 @@ class TestLesBasesSuivies:
         brut = json.dumps([{"name": "Staging", "url": "postgresql://a/b"}])
         os.environ["HUB_DBS"] = brut
         try:
-            assert cr.load_sources() == [{"name": "Staging",
-                                          "url": "postgresql://a/b"}]
+            assert cr.load_sources() == [
+                {"name": "Staging", "url": "postgresql+psycopg2://a/b"}]
         finally:
             del os.environ["HUB_DBS"]
         os.environ["HUB_DBS_B64"] = base64.b64encode(brut.encode()).decode()
@@ -72,9 +72,32 @@ class TestLesBasesSuivies:
         os.environ["HUB_DBS"] = json.dumps([{"name": "X",
                                              "url": "postgres://u:p@h/d"}])
         try:
-            assert cr.load_sources()[0]["url"].startswith("postgresql://")
+            assert cr.load_sources()[0]["url"].startswith(
+                "postgresql+psycopg2://")
         finally:
             del os.environ["HUB_DBS"]
+
+    def test_le_pilote_postgresql_est_NOMME_dans_l_url(self, cr):
+        """⚠️ `postgresql://` seul désignait psycopg2 en SQLAlchemy 2.0 et
+        désigne psycopg (v3) depuis 2.1. L'image du hub, construite sur une
+        fourchette, a pris 2.1.6 : toute lecture est morte sur « No module
+        named 'psycopg' », et rien ne le montrait en local (venv en 2.0.45).
+
+        Les versions sont épinglées à côté (`test_72`), mais une URL qui dit
+        son pilote ne dépend plus du tout de ce que pip a installé.
+        """
+        os.environ["HUB_DBS"] = json.dumps(
+            [{"name": "A", "url": "postgres://u:p@h/d"},
+             {"name": "B", "url": "postgresql://u:p@h/d"},
+             {"name": "C", "url": "postgresql+psycopg://u:p@h/d"}])
+        try:
+            urls = [s["url"] for s in cr.load_sources()]
+        finally:
+            del os.environ["HUB_DBS"]
+        assert urls[0].startswith("postgresql+psycopg2://")
+        assert urls[1].startswith("postgresql+psycopg2://")
+        # Un pilote choisi exprès n'est pas réécrit.
+        assert urls[2] == "postgresql+psycopg://u:p@h/d"
 
     def test_rien_ou_illisible_ne_leve_pas(self, cr):
         """⚠️ Une variable absente, vide ou abîmée doit rendre une liste vide :

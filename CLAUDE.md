@@ -2401,6 +2401,78 @@ passe d'application, puis poser `HUB_IMAP_USER` et `HUB_IMAP_PASSWORD` en
 secrets GitHub. Tant qu'ils manquent, les chiffres fonctionnent et la boîte dit
 calmement ce qu'il lui faut.
 
+#### ⚠️⚠️ La livraison a cassé TOUT le hub, et pour deux raisons (2026-10-29)
+
+Rapporté par l'utilisateur après le déploiement : la page Courrier n'affichait
+que « Lecture impossible : No module named 'psycopg' » sur les trois instances,
+et **le reste du hub s'affichait en HTML nu** — liens soulignés, icônes noires,
+police par défaut. Deux défauts indépendants, tous deux introduits par cette
+livraison.
+
+**1 · Une règle CSS jamais fermée a emporté la feuille entière.**
+La palette d'une section tient sur **deux lignes** :
+
+```
+.page--ci{--p1:…;--p5:#4566ae;
+  --p6:…;--p-touche:#a9bef0}
+```
+
+J'ai inséré `.page--courrier{…;` juste au-dessus, **sans sa seconde ligne ni son
+accolade**. Le navigateur avale alors tout ce qui suit dans le bloc resté
+ouvert : la feuille ne s'applique plus du tout, sur toutes les pages. Mesuré
+après coup : **349 accolades ouvrantes pour 348 fermantes**.
+⚠️ Le symptôme ne désigne pas sa cause — on voit « le hub est cassé », pas « une
+accolade manque » : le défaut est à une ligne, l'effet est global.
+⚠️ **Et le test qui aurait dû le voir cherchait la PRÉSENCE d'une chaîne**
+(`.page--courrier` est bien dans le fichier), pas la VALIDITÉ du fichier. Une
+insertion se vérifie sur la STRUCTURE — c'est exactement la leçon déjà écrite
+pour les `<div>` orphelins de la doc technique, et pour les commentaires HTML de
+`test_85`. Elle vaut aussi pour le CSS.
+⚠️ Mon banc local ne pouvait pas le voir non plus : il vérifiait que
+`courrier.css` était **lié** dans la page, pas que `hub.css` **parsait** encore.
+
+**2 · `SQLAlchemy>=2.0,<3` a installé 2.1.6, qui ne parle plus psycopg2.**
+`postgresql://` désignait le pilote **psycopg2** en SQLAlchemy 2.0 ; depuis
+**2.1**, il désigne **psycopg (v3)**. L'image du hub, construite sur une
+fourchette, a pris la dernière du jour — 2.1.6 — et chaque lecture est morte sur
+« No module named 'psycopg' », alors que `psycopg2-binary` était bien installé.
+⚠️ **Invisible en local** : le venv de développement est resté en **2.0.45**. La
+suite restait verte pendant que l'image partait sur autre chose — exactement le
+piège du 2026-09-26, et exactement la raison pour laquelle le contrôle lit le
+FICHIER et pas l'environnement.
+⚠️ **La leçon du 27/09 n'avait été appliquée qu'à la racine.** `hub/` et
+`pulse/` étaient restés en fourchette : **`pulse/` portait donc la même mine** et
+serait tombé de la même façon à son prochain déploiement, sans qu'un seul commit
+ne change.
+
+Deux correctifs, et ils sont complémentaires :
+- **le pilote est NOMMÉ dans l'URL** (`postgresql+psycopg2://`, posé par
+  `load_sources`) : une URL qui dit son pilote ne dépend plus du tout de ce que
+  pip a installé. Une URL qui en désigne déjà un n'est pas réécrite ;
+- **les versions sont épinglées à l'exact** dans `hub/` et `pulse/`.
+  ⚠️ **Gelées sur ce que la fourchette installait déjà** (`Flask==3.1.3`,
+  `gunicorn==23.0.0`) : un correctif d'incident ne saute pas trois majeures de
+  gunicorn sur deux services qu'on ne peut pas éprouver ici. S'aligner sur les
+  `26.2.0` de la racine est un CHANGEMENT à part — suite ET image rejouées.
+
+**Les cliquets qui manquaient**, les deux vérifiés rouges sur le défaut remis
+tel quel :
+- `test_85::test_chaque_feuille_de_style_ferme_ses_regles` — équilibre des
+  accolades **et** règle ouverte DANS une autre, sur les 58 feuilles de l'app et
+  du hub. Commentaires et chaînes retirés d'abord (une accolade dans un
+  `content: "{"` n'est pas une accolade de structure) ; seules les at-règles
+  (`@media`, `@supports`) ont le droit d'en contenir d'autres ;
+- `test_72::test_les_services_separes_epinglent_AUSSI` — `hub/` et `pulse/`,
+  paramétré ;
+- `test_124::test_le_pilote_postgresql_est_NOMME_dans_l_url`.
+
+⚠️ **Deux fois dans la même journée, un `\n` écrit dans un heredoc a produit un
+VRAI retour à la ligne** au lieu de la séquence d'échappement — une fois dans le
+script Python embarqué de `deploy-hub.yml` (YAML invalide), une fois dans une
+chaîne de `test_72` (SyntaxError). Les deux ont été vus tout de suite parce
+qu'un contrôle les relisait. Écrire la séquence par `chr(92) + "n"`, ou passer
+par un fichier plutôt qu'un heredoc.
+
 
 ## Provisionnement — compléter une carto avec un Excel client
 
