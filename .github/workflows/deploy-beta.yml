@@ -123,8 +123,26 @@ jobs:
       - name: Deploy to Cloud Run (optiqfluent-staging)
         env:
           PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_DEFAULT_SENDER: ${{ secrets.MAIL_DEFAULT_SENDER }}
         run: |
           EXTRA=()
+          # Envoi d'e-mails. ⚠️ Ici c'est --update-env-vars (additif) et pas
+          # --set-env-vars : ce service porte des variables réglées à la main
+          # qu'un remplacement complet effacerait. Sans ces identifiants,
+          # « mot de passe oublié » ne part pas — c'était le cas chez le
+          # pilote depuis l'origine.
+          if [ -n "$MAIL_USERNAME" ] && [ -n "$MAIL_PASSWORD" ]; then
+            EXTRA+=(--update-env-vars "^##^MAIL_USERNAME=${MAIL_USERNAME}")
+            EXTRA+=(--update-env-vars "^##^MAIL_PASSWORD=${MAIL_PASSWORD}")
+            if [ -n "$MAIL_DEFAULT_SENDER" ]; then
+              EXTRA+=(--update-env-vars "^##^MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}")
+            fi
+            echo "Envoi d'e-mails : identifiants posés sur le service"
+          else
+            echo "Envoi d'e-mails : secrets MAIL_* absents — reset indisponible"
+          fi
           if [ -n "$PILOT_DATABASE_URL" ]; then
             # Même nettoyage que l'étape précédente (espaces/guillemets/CRLF)
             CLEANED=$(printf '%s' "$PILOT_DATABASE_URL" | tr -d '\r\n' \

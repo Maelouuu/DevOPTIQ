@@ -1,19 +1,33 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+"""« Mot de passe oublié » — la demande, et la pose du nouveau mot de passe.
+
+Les règles ne vivent PAS ici : elles sont dans `Code/mot_de_passe.py` (la
+politique, le jeton, le débit, la révocation des sessions), parce que la page
+Comptes et l'assistant d'installation les appliquent aussi. Cette route ne
+fait que l'enchaînement et les messages.
+
+⚠️ **Un seul message de retour à une demande.** Qu'elle aboutisse ou non, la
+réponse est `pwd.sent`. La version d'avant avait le bon message neutre… et un
+`try/except` d'envoi À L'INTÉRIEUR du `if user:` — « Erreur lors de l'envoi »
+ne pouvait donc apparaître que si le compte existait. Le message neutre était
+annulé par son voisin.
+"""
+
+from flask import (Blueprint, render_template, request, redirect, url_for,
+                   flash, current_app)
 from flask_mail import Message
-from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
-from flask import current_app
-from sqlalchemy import text
-from sqlalchemy.orm.attributes import flag_modified
-from Code.models.models import User
+
+from Code import mot_de_passe as mdp
 from Code.extensions import mail, db
-from Code.security import hash_password, verify_password
+from Code.models.models import User
+from Code.translations import t, langue_destinataire
 
 auth_password_bp = Blueprint("auth_password", __name__)
 
 
 def _find_user_by_email(email):
-    """Recherche exacte puis insensible à la casse (les emails saisis avec des
-    majuscules historiques ne doivent pas faire échouer silencieusement le reset)."""
+    """Recherche exacte puis insensible à la casse (les adresses saisies avec
+    des majuscules historiques ne doivent pas faire échouer le reset en
+    silence)."""
     from sqlalchemy import func
     user = User.query.filter_by(email=email).first()
     if user is None:
@@ -21,93 +35,110 @@ def _find_user_by_email(email):
     return user
 
 
+def _ip_client():
+    """L'adresse du demandeur, pas celle du répartiteur de charge.
+
+    ⚠️ Derrière Cloud Run, `request.remote_addr` est l'IP du frontend Google :
+    la prendre ferait compter TOUTES les demandes de tout le monde sur une
+    seule adresse, et la limite par IP verrouillerait l'instance entière au
+    dixième essai. Le vrai client est la première entrée de
+    `X-Forwarded-For`.
+
+    ⚠️ Cet en-tête est falsifiable : il ne sert QU'à la limitation de débit,
+    jamais à une décision d'accès. La protection qui compte est celle par
+    adresse e-mail, que le demandeur ne choisit pas librement.
+    """
+    xff = request.headers.get("X-Forwarded-For") or ""
+    premier = xff.split(",")[0].strip()
+    return premier or (request.remote_addr or "")
+
+
 @auth_password_bp.route("/forgot_password", methods=["POST"])
 def forgot_password():
     email = (request.form.get("email") or "").strip().lower()
     if not email:
-        flash("Adresse email requise.", "error")
+        flash(t("pwd.need_email"), "error")
         return redirect(url_for("auth.login"))
 
     if not current_app.config.get("MAIL_CONFIGURED"):
-        flash("L'envoi d'email n'est pas configuré sur cette instance. "
-              "Contactez votre administrateur pour réinitialiser votre mot de passe.", "error")
+        flash(t("pwd.mail_off"), "error")
+        return redirect(url_for("auth.login"))
+
+    ip = _ip_client()
+    if mdp.debit_depasse(email, ip):
+        # Dire « trop de demandes » ne révèle rien : le compte est tenu sur
+        # l'adresse SAISIE, qu'elle corresponde à un compte ou pas.
+        flash(t("pwd.too_many"), "error")
         return redirect(url_for("auth.login"))
 
     user = _find_user_by_email(email)
-
-    # Ne pas révéler si l'email existe ou non
-    if user:
-        serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
-        token = serializer.dumps(email, salt="password-reset-salt")
-        reset_link = url_for("auth_password.reset_password", token=token, _external=True)
-
-        msg = Message(
-            subject="Réinitialisation de votre mot de passe OptiqFluent",
-            recipients=[email],
-        )
-        msg.body = (
-            "Bonjour,\n\n"
-            "Vous avez demande la reinitialisation de votre mot de passe OptiqFluent.\n\n"
-            f"Cliquez sur ce lien pour choisir un nouveau mot de passe :\n{reset_link}\n\n"
-            "Ce lien est valable 1 heure. Si vous n'etes pas a l'origine de cette demande, ignorez cet email.\n\n"
-            "--- L'equipe OptiqFluent"
-        )
+    if user is None:
+        # On trace quand même : sans cette ligne, la limitation par adresse ne
+        # compterait que les adresses connues, et ne pas être ralenti
+        # suffirait à déduire qu'une adresse est inconnue.
+        mdp.tracer_demande(email, ip=ip)
+    else:
+        jeton = mdp.fabriquer_jeton(user, email, ip=ip)
+        lien = url_for("auth_password.reset_password", token=jeton, _external=True)
+        langue = langue_destinataire(getattr(user, "lang", None))
+        message = Message(subject=t("pwd.mail_subject", langue), recipients=[user.email])
+        # ⚠️ Le corps est dans la langue DU DESTINATAIRE (`users.lang`), pas
+        # dans celle de la session : la demande part d'un écran de connexion,
+        # où personne n'est identifié. Et la valeur est NORMALISÉE — un
+        # `users.lang` inconnu (« EN », « en-US ») rendait un corps FRANÇAIS,
+        # parce que c'est le repli de `t()`.
+        message.body = t("pwd.mail_body", langue).replace("[[lien]]", lien)
         try:
-            mail.send(msg)
+            mail.send(message)
         except Exception as e:
-            current_app.logger.error("[MAIL] Erreur envoi reset password: %s", e)
-            flash("Erreur lors de l'envoi de l'email. Reessayez dans quelques instants.", "error")
-            return redirect(url_for("auth.login"))
+            # Le message rendu est le même qu'en cas de succès — voir l'en-tête
+            # du module. L'incident part au journal, pas à l'écran.
+            current_app.logger.error("[MAIL] envoi reset impossible (user %s) : %s",
+                                     user.id, e)
 
-    flash("Si cette adresse correspond a un compte, un email de reinitialisation a ete envoye.", "success")
+    flash(t("pwd.sent"), "success")
     return redirect(url_for("auth.login"))
 
 
 @auth_password_bp.route("/reset_password/<token>", methods=["GET", "POST"])
 def reset_password(token):
-    serializer = URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
-    try:
-        email = serializer.loads(token, salt="password-reset-salt", max_age=3600)
-    except SignatureExpired:
-        flash("Ce lien a expire. Faites une nouvelle demande.", "error")
+    # Un mappage explicite, pas une transformation de chaîne : une clé
+    # fabriquée au vol s'affiche telle quelle quand elle n'existe pas, sans
+    # qu'aucune erreur ne soit levée.
+    MESSAGE = {"pwd_lien_expire":   "pwd.lien_expire",
+               "pwd_lien_invalide": "pwd.lien_invalide",
+               "pwd_lien_utilise":  "pwd.lien_utilise"}
+
+    user, suite = mdp.lire_jeton(token)
+    if user is None:
+        flash(t(MESSAGE.get(suite, "pwd.lien_invalide")), "error")
         return redirect(url_for("auth.login"))
-    except BadSignature:
-        flash("Lien invalide ou deja utilise.", "error")
-        return redirect(url_for("auth.login"))
+    ligne = suite
 
     error = None
     if request.method == "POST":
-        new_password = (request.form.get("password") or "").strip()
-        confirm      = (request.form.get("confirm_password") or "").strip()
-        if len(new_password) < 6:
-            error = "Le mot de passe doit contenir au moins 6 caracteres."
-        elif new_password != confirm:
-            error = "Les mots de passe ne correspondent pas."
+        nouveau = (request.form.get("password") or "").strip()
+        confirme = (request.form.get("confirm_password") or "").strip()
+        refus = mdp.valider(nouveau)
+        if refus:
+            error = t("reset_pwd.err_too_short")
+        elif nouveau != confirme:
+            error = t("reset_pwd.err_mismatch")
         else:
-            user = _find_user_by_email(email)
-            if user:
-                try:
-                    user.password = hash_password(new_password)
-                    flag_modified(user, "password")
-                    db.session.add(user)
-                    db.session.commit()
-                except Exception as e:
-                    db.session.rollback()
-                    current_app.logger.error("[RESET_PWD] Erreur commit: %s", e)
-                    error = "Erreur serveur lors de la mise à jour. Réessayez."
-                else:
-                    # Vérification post-commit : relire le hash en base pour ne
-                    # jamais annoncer un succès qui n'a pas été persisté.
-                    stored = db.session.execute(
-                        text("SELECT password FROM users WHERE id = :uid"), {"uid": user.id}
-                    ).scalar()
-                    if verify_password(stored, new_password):
-                        flash("Mot de passe modifie avec succes. Vous pouvez vous connecter.", "success")
-                        return redirect(url_for("auth.login"))
-                    current_app.logger.error("[RESET_PWD] Hash non persisté pour user %s", user.id)
-                    error = "La modification n'a pas été persistée. Réessayez ou contactez l'administrateur."
+            try:
+                enregistre = mdp.poser(user, nouveau)
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error("[RESET_PWD] commit impossible : %s", e)
+                error = t("pwd.err_server")
             else:
-                flash("Utilisateur introuvable.", "error")
-                return redirect(url_for("auth.login"))
+                if enregistre:
+                    # ⚠️ APRÈS l'écriture, jamais avant : consommer d'abord
+                    # brûlerait le lien sur une erreur de saisie.
+                    mdp.consommer(ligne)
+                    flash(t("pwd.done"), "success")
+                    return redirect(url_for("auth.login"))
+                current_app.logger.error("[RESET_PWD] hash non persisté (user %s)", user.id)
+                error = t("pwd.err_not_saved")
 
-    return render_template("reset_password.html", email=email, error=error)
+    return render_template("reset_password.html", email=user.email, error=error)

@@ -169,9 +169,11 @@ def api_finish():
         return jsonify({"ok": False, "error": "URL de base de données manquante."})
     if not re.match(r"[^@]+@[^@]+\.[^@]+", admin_email):
         return jsonify({"ok": False, "error": "Email administrateur invalide."})
-    if len(admin_password) < 8:
+    from Code import mot_de_passe as mdp
+    if mdp.valider(admin_password):
         return jsonify({"ok": False, "error":
-                        "Mot de passe administrateur trop court (8 caractères minimum)."})
+                        "Mot de passe administrateur trop court (%d caractères minimum)."
+                        % mdp.MIN_LONGUEUR})
     if os.getenv("REQUIRE_LICENSE", "0") == "1" and not _license_status()["valid"]:
         return jsonify({"ok": False, "error":
                         "Aucune licence valide — revenir à l'étape Licence."})

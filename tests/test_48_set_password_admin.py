@@ -141,12 +141,26 @@ class TestSetPasswordValidation:
         )
         assert r.status_code == 400
 
-    def test_6_chars_password_returns_200(self, auth_client, ids, app):
-        """Mot de passe de 6 caractères (borne exacte) → 200 (accepté)."""
+    def test_7_chars_password_returns_400(self, auth_client, ids):
+        """⚠️ Sept caractères : juste SOUS la borne, refusé.
+
+        La politique est passée de six à huit caractères, et elle vit
+        désormais à UN seul endroit (`Code/mot_de_passe.MIN_LONGUEUR`) — elle
+        était écrite ici, deux fois de plus dans la page Comptes, dans le
+        reset, et à huit dans l'assistant d'installation.
+        """
+        r = auth_client.post(
+            URL.format(user_id=ids["user_id"]),
+            json={"password": "1234567"},
+        )
+        assert r.status_code == 400
+
+    def test_8_chars_password_returns_200(self, auth_client, ids, app):
+        """Huit caractères (la borne exacte) → 200."""
         old_hash = _get_password_hash(app, ids["user_id"])
         r = auth_client.post(
             URL.format(user_id=ids["user_id"]),
-            json={"password": "123456"},
+            json={"password": "12345678"},
         )
         assert r.status_code == 200
         # Remettre le mot de passe original pour ne pas casser les autres tests
@@ -176,16 +190,24 @@ class TestSetPasswordValidation:
         )
         body = r.get_json()
         assert "error" in body
-        assert "6" in body["error"]  # mentionne la longueur minimale
+        from Code.mot_de_passe import MIN_LONGUEUR
+        assert str(MIN_LONGUEUR) in body["error"]  # mentionne la longueur minimale
 
-    def test_exact_error_message_wording(self, auth_client, ids):
-        """Le message d'erreur correspond exactement à la constante définie dans la route."""
+    def test_exact_error_message_wording(self, auth_client, ids, app):
+        """Le message vient du CATALOGUE, pas d'une phrase écrite dans la route.
+
+        ⚠️ Il était en dur, en français, dans la route : un administrateur du
+        pilote anglophone lisait donc du français au milieu de son écran.
+        """
+        from Code.translations import t
         r = auth_client.post(
             URL.format(user_id=ids["user_id"]),
             json={"password": ""},
         )
         body = r.get_json()
-        assert body["error"] == "Le mot de passe doit contenir au moins 6 caractères."
+        with app.app_context():
+            assert body["error"] in (t("reset_pwd.err_too_short", "fr"),
+                                     t("reset_pwd.err_too_short", "en"))
 
 
 # ===========================================================================
@@ -277,17 +299,27 @@ class TestSetPasswordPersistence:
         finally:
             _delete_user(app, uid)
 
-    def test_new_password_allows_login(self, auth_client, app, client, ids):
-        """Après set_password, l'utilisateur peut se connecter avec son nouveau mot de passe."""
+    def test_new_password_allows_login(self, auth_client, app, ids):
+        """Après set_password, l'utilisateur peut se connecter avec son nouveau mot de passe.
+
+        ⚠️ La connexion se fait sur un client NEUF, pas sur `client`. Les deux
+        fixtures `client` et `auth_client` sont le MÊME objet en portée
+        session : se connecter dessus avec un autre compte en remplace
+        l'identité pour tous les tests suivants, et depuis la révocation des
+        sessions au changement de mot de passe, cela rendait ce cas instable —
+        vert seul, rouge une fois sur deux dans la suite complète. Un test qui
+        se connecte pour de vrai prend son propre client.
+        """
         new_pwd = "NewLogin_Mdp42!"
         uid = _create_user(app, ids, email="newlogin@devoptiq.com", password="OldLogin!")
         try:
-            auth_client.post(
+            r0 = auth_client.post(
                 URL.format(user_id=uid),
                 json={"password": new_pwd},
             )
+            assert r0.status_code == 200, r0.get_data(as_text=True)[:200]
             # Tentative de connexion avec le nouveau mot de passe
-            r = client.post(
+            r = app.test_client().post(
                 "/login",
                 data={"email": "newlogin@devoptiq.com", "password": new_pwd},
                 follow_redirects=False,

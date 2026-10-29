@@ -510,6 +510,12 @@ class User(db.Model):
     # en français. Modifiable ensuite depuis Paramètres.
     lang = db.Column(db.String(5), nullable=False, default='en', server_default='en')
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    # ⚠️ Horodate le dernier changement de mot de passe, et RIEN d'autre : le
+    # login en pose l'empreinte en session, un `before_request` la compare, et
+    # une session ouverte avant le changement est fermée. C'est ce qui fait
+    # qu'une réinitialisation reprend le contrôle du compte au lieu de se
+    # contenter d'en changer la clé. NULL = jamais changé depuis la livraison.
+    password_changed_at = db.Column(db.DateTime, nullable=True)
 
     subordinates = db.relationship('User', backref=db.backref('manager', remote_side=[id]))
     evaluations = db.relationship('CompetencyEvaluation', back_populates='user',
@@ -1299,3 +1305,33 @@ class AppSetting(db.Model):
 
     key = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.Text, nullable=True)
+
+
+class PasswordReset(db.Model):
+    """Une demande de réinitialisation de mot de passe. UNE ligne par demande,
+    que l'adresse corresponde à un compte ou non.
+
+    Elle porte trois choses à la fois : la limitation de débit (compter les
+    demandes récentes), l'usage unique du lien (`utilise_le`), et la trace
+    d'audit — « qui a demandé une réinitialisation, quand, l'a-t-il utilisée ».
+
+    ⚠️ **Rien d'exploitable n'est stocké ici.** Ni l'adresse saisie, ni le
+    jeton, ni l'adresse IP : seulement leurs empreintes. Une lecture de la
+    base ne doit pas rendre un lien de réinitialisation utilisable, ni la
+    liste des adresses que quelqu'un a essayées.
+
+    ⚠️ `user_id` n'est **pas** une clé étrangère, comme `usage_events` et
+    `usage_beats` : PostgreSQL applique les FK et SQLite non, donc une FK ici
+    ferait échouer la suppression d'un compte en production sans qu'aucun test
+    ne puisse le voir.
+    """
+    __tablename__ = 'password_resets'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, nullable=True, index=True)
+    email_hash = db.Column(db.String(64), nullable=False, index=True)
+    jeton_hash = db.Column(db.String(64), nullable=True, index=True)
+    ip_hash = db.Column(db.String(64), nullable=True)
+    cree_le = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    expire_le = db.Column(db.DateTime, nullable=True)
+    utilise_le = db.Column(db.DateTime, nullable=True)

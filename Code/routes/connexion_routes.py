@@ -3,6 +3,8 @@ from sqlalchemy.orm.attributes import flag_modified
 from Code.models.models import User, Role, UserRole, DEFAULT_LANG, default_lang_for  # Ajout de UserRole
 from Code.extensions import db
 from Code.security import hash_password, verify_password, needs_rehash
+from Code import mot_de_passe as mdp
+from Code.translations import t
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -17,13 +19,12 @@ def login():
         # affichées Prenom.Nom@… alors qu'elles sont stockées en minuscules)
         from sqlalchemy import func
         user = User.query.filter(func.lower(User.email) == email.lower()).first()
-        if user is None:
-            flash('Compte introuvable.', 'error')
-            return redirect(url_for('auth.login'))
-
-        # Vérifier si le mot de passe correspond
-        if not verify_password(user.password, password):
-            flash('Mot de passe incorrect.', 'error')
+        # ⚠️ UN SEUL message pour les deux moitiés. « Compte introuvable. »
+        # d'un côté et « Mot de passe incorrect. » de l'autre disaient à un
+        # inconnu quelles adresses ont un compte chez nous : il suffisait
+        # d'essayer des adresses pour dresser la liste du personnel.
+        if user is None or not verify_password(user.password, password):
+            flash(t('login.bad_credentials'), 'error')
             return redirect(url_for('auth.login'))
 
         # Migration transparente : re-hache les formats historiques (scrypt…)
@@ -40,6 +41,9 @@ def login():
         # session['user_email'] restent des égalités strictes.
         session['user_email'] = user.email
         session['user_id'] = user.id  # IMPORTANT pour le filtrage des entités
+        # Empreinte du dernier changement de mot de passe : un `before_request`
+        # la compare, et ferme la session si le mot de passe a changé depuis.
+        session['pwd_at'] = mdp.empreinte_session(user)
         # Langue du compte. Les comptes créés avant l'ajout de la colonne
         # n'ont rien : on retombe sur le défaut produit (anglais), sauf pour
         # les comptes explicitement français.
@@ -61,7 +65,7 @@ def logout():
     session.pop('user_id', None)  # Nettoyer l'ID utilisateur
     session.pop('active_entity_id', None)  # Nettoyer l'entité active
     session['lang'] = DEFAULT_LANG  # l'écran de connexion repart en anglais
-    flash('Déconnexion réussie.', 'success')
+    flash(t('login.logged_out'), 'success')
     return redirect(url_for('auth.login'))
 
 

@@ -286,3 +286,108 @@ class TestLesDependancesSontEpinglees:
         ne lit plus rien, les deux contrôles ci-dessus passeraient au vert en
         ne regardant RIEN."""
         assert len(self._lignes()) >= 15
+
+@sans_source
+class TestLesCommandesDesWorkflowsNeSontPasCoupees:
+    """⚠️ Une ligne qui commence par « # » APRÈS un antislash de continuation
+    n'est PAS un commentaire : le shell la passe en ARGUMENTS à la commande.
+
+    Posé par erreur le 28/10/2026 en branchant les identifiants d'e-mail :
+    sept lignes d'explication glissées au milieu d'un `gcloud run deploy`
+    seraient parties comme arguments, et le déploiement aurait échoué sur les
+    DEUX instances à la fois. Le symptôme n'aurait rien dit de la cause.
+    """
+
+    def _workflows(self):
+        return [os.path.join(WORKFLOWS, n) for n in _workflows()]
+
+    def test_il_y_a_bien_des_workflows_a_lire(self):
+        """Garde-fou de volume : si le chemin change, le contrôle ci-dessous
+        passerait au vert en ne lisant plus RIEN."""
+        assert len(self._workflows()) >= 3
+
+    def test_aucun_commentaire_au_milieu_d_une_commande_continuee(self):
+        fautes = []
+        for chemin in self._workflows():
+            lignes = io.open(chemin, encoding="utf-8").read().split("\n")
+            for i in range(len(lignes) - 1):
+                if not lignes[i].rstrip().endswith(chr(92)):
+                    continue
+                suivante = lignes[i + 1].strip()
+                if suivante.startswith("#"):
+                    fautes.append("%s:%d — %s"
+                                  % (os.path.basename(chemin), i + 2,
+                                     suivante[:60]))
+        assert not fautes, (
+            "commentaire pris pour un argument : " + " | ".join(fautes))
+
+
+@sans_source
+class TestLesIdentifiantsDEnvoiSontServis:
+    """Le reset n'a JAMAIS fonctionné sur aucune instance, et la cause tenait
+    en une ligne : `MAIL_*` n'était passé par AUCUN workflow. Le code était
+    entier — il n'a simplement jamais eu de quoi envoyer."""
+
+    def test_les_trois_instances_passent_les_identifiants(self):
+        manquants = []
+        for nom in ("deploy-staging.yml", "deploy-officielle.yml",
+                    "deploy-beta.yml"):
+            texte = _lire(nom)
+            for var in ("MAIL_USERNAME", "MAIL_PASSWORD",
+                        "MAIL_DEFAULT_SENDER"):
+                if var not in texte:
+                    manquants.append("%s : %s" % (nom, var))
+        assert not manquants, (
+            "sans ces variables l'écran dit « envoi non configuré » : "
+            + " | ".join(manquants))
+
+    def test_ils_viennent_des_SECRETS_jamais_du_fichier(self):
+        """⚠️ Un mot de passe d'application écrit dans un workflow serait
+        public : le dépôt porte l'historique, et un secret retiré après coup
+        reste lisible dans les commits d'avant.
+
+        ⚠️ Le contrôle ne compare pas LIGNE à ligne : le pilote lie d'abord
+        ses secrets dans un bloc `env:`, puis relit la variable de shell plus
+        bas — les deux formes sont justes, c'est la VALEUR littérale qu'on
+        interdit."""
+        for nom in ("deploy-staging.yml", "deploy-officielle.yml",
+                    "deploy-beta.yml"):
+            texte = _lire(nom)
+            assert "secrets.MAIL_PASSWORD" in texte, (
+                "%s : le mot de passe d'envoi ne vient pas d'un secret" % nom)
+            for ligne in texte.split("\n"):
+                m = re.search(r"MAIL_PASSWORD=(\S*)", ligne)
+                if not m:
+                    continue
+                assert m.group(1).startswith("${"), (
+                    "%s : valeur littérale après MAIL_PASSWORD= — %s"
+                    % (nom, ligne.strip()[:80]))
+
+    def test_le_pilote_n_efface_pas_une_valeur_posee_a_la_main(self):
+        """⚠️ Les deux familles de workflow ne posent pas les variables de la
+        même façon : staging et l'officielle REMPLACENT tout le jeu
+        (`--set-env-vars`, d'où des variables créées vides quand le secret
+        manque), le pilote AJOUTE (`--update-env-vars`). Sur le pilote, passer
+        un secret vide écraserait donc une valeur réglée dans la console : la
+        pose y est conditionnée à des identifiants non vides."""
+        texte = _lire("deploy-beta.yml")
+        assert "--update-env-vars" in texte
+        assert '[ -n "$MAIL_USERNAME" ]' in texte and '[ -n "$MAIL_PASSWORD" ]' in texte, (
+            "le pilote pose les identifiants sans vérifier qu'ils existent")
+
+
+class TestLeLienDuMailPartEnHttps:
+    """⚠️ Le TLS s'arrête au frontend Google : sans cela gunicorn ne croit pas
+    `X-Forwarded-Proto`, et `url_for(_external=True)` écrit un lien `http://`
+    dans le mail — un signal d'hameçonnage de plus sur un message qui en porte
+    déjà deux (expéditeur Gmail, domaine `*.run.app`)."""
+
+    def test_gunicorn_fait_confiance_au_frontend(self):
+        # gunicorn.conf.py est conservé dans l'image (Dockerfile et
+        # tools/repet_image.sh l'exceptent tous deux de la purge bytecode) :
+        # ce contrôle tourne partout, il ne saute nulle part.
+        chemin = os.path.join(RACINE, "gunicorn.conf.py")
+        assert os.path.exists(chemin), "gunicorn.conf.py introuvable"
+        texte = io.open(chemin, encoding="utf-8").read()
+        assert "forwarded_allow_ips" in texte, (
+            "sans forwarded_allow_ips, le lien de réinitialisation part en http")

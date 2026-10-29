@@ -6,6 +6,11 @@ from Code.extensions import db
 from Code.models.models import (User, Role, UserRole, Entity, CompetencyEvaluation,
                                 TimeAnalysis, default_lang_for)
 from Code.security import hash_password, verify_password
+# ⚠️ La politique de mot de passe vit dans UN module. Elle était écrite trois
+# fois dans ce fichier (6 caractères), une fois dans le reset (6) et une fois
+# dans l'assistant (8) : cinq endroits, deux valeurs, aucune erreur levée.
+from Code import mot_de_passe as mdp
+from Code.translations import t as _t
 from Code.permissions import (can_create_accounts,
                               can_edit_account, current_user, is_admin,
                               famille_statut, is_admin_status, is_champion_status,
@@ -261,7 +266,7 @@ def create_user():
         return _fin('error_missing_name')
     if not email:
         return _fin('error_missing_email')
-    if not password or len(password) < 6:
+    if not password or mdp.valider(password):
         return _fin('error_missing_password')
     # Rôle FACULTATIF : un compte peut exister sans rôle (ex. premier admin
     # avant que les rôles de l'entité soient créés).
@@ -384,7 +389,7 @@ def update_user(user_id):
             return _fin('error_invalid_age')
 
         new_password = form.get('password', '').strip()
-        if new_password and len(new_password) < 6:
+        if new_password and mdp.valider(new_password):
             return _fin('error_missing_password')
 
         user.first_name = prenom
@@ -527,24 +532,18 @@ def set_password(user_id):
     user = User.query.get_or_404(user_id)
     data = request.get_json(silent=True) or {}
     new_password = (data.get('password') or '').strip()
-    if len(new_password) < 6:
-        return jsonify({'ok': False, 'error': 'Le mot de passe doit contenir au moins 6 caractères.'}), 400
+    if mdp.valider(new_password):
+        return jsonify({'ok': False, 'error': _t('reset_pwd.err_too_short')}), 400
+    # ⚠️ `mdp.poser` porte la relecture post-commit ET l'horodatage qui ferme
+    # les sessions ouvertes ailleurs : réinitialiser le mot de passe de
+    # quelqu'un doit aussi le déconnecter, sinon on change la clé sans
+    # reprendre le contrôle du compte.
     try:
-        user.password = hash_password(new_password)
-        flag_modified(user, 'password')
-        db.session.add(user)
-        db.session.commit()
+        enregistre = mdp.poser(user, new_password)
     except Exception as e:
         db.session.rollback()
         return jsonify({'ok': False, 'error': str(e)}), 500
-
-    # Vérification post-commit : on relit le hash réellement en base pour
-    # garantir que la modification a bien été persistée (jamais de faux succès).
-    stored = db.session.execute(
-        text("SELECT password FROM users WHERE id = :uid"), {"uid": user_id}
-    ).scalar()
-    if not verify_password(stored, new_password):
-        return jsonify({'ok': False,
-                        'error': "La modification n'a pas été persistée en base. Contactez l'administrateur."}), 500
+    if not enregistre:
+        return jsonify({'ok': False, 'error': _t('pwd.err_not_saved')}), 500
     return jsonify({'ok': True})
 
