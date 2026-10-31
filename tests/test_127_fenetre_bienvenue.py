@@ -594,6 +594,35 @@ def test_la_page_francaise_ne_laisse_filtrer_aucune_phrase_anglaise(
     assert not fuites, "phrases anglaises dans la fenêtre française : %r" % (fuites,)
 
 
+@pytest.mark.parametrize("lang,autre", [("en", "fr"), ("fr", "en")])
+def test_le_bouton_de_la_nav_est_traduit_jusque_dans_ses_attributs(
+        app, client, comptes, lang, autre):
+    """⚠️ Le bouton de réouverture n'a PAS de libellé visible : tout ce qu'il
+    dit vit dans `title` et `aria-label`. C'est exactement l'endroit qu'un
+    contrôle de traduction oublie — et le seul que lise une personne au
+    lecteur d'écran.
+
+    RATCHET : écrire le libellé en dur dans `header_buttons.html` fait virer ce
+    test au ROUGE.
+    """
+    from Code.translations import t
+
+    _connecter(app, client, comptes["admin"], lang=lang)
+    html = _page(client)
+    i = html.find('id="nav-bienvenue"')
+    assert i >= 0, "le bouton de réouverture a disparu de la page"
+    balise = html[html.rfind("<button", 0, i):html.find(">", i)]
+
+    attendu = t("welcome.reopen", lang)
+    indesirable = t("welcome.reopen", autre)
+    assert f'title="{attendu}"' in balise, (
+        "le `title` n'est pas dans la langue du compte : %r" % (balise,))
+    assert f'aria-label="{attendu}"' in balise, (
+        "l'`aria-label` n'est pas dans la langue du compte : %r" % (balise,))
+    assert indesirable not in balise, (
+        "la phrase de l'autre langue fuit dans les attributs du bouton")
+
+
 def test_la_fenetre_se_rend_bien_dans_les_deux_langues(app, client, comptes):
     """Le contrôle d'en face : les fuites se taisent aussi quand RIEN ne
     s'affiche. On vérifie donc que la fenêtre porte bien, dans chaque langue,
