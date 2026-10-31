@@ -121,6 +121,8 @@ class TestTranslateSoftskillsWithMockedClient:
             monkeypatch,
             content='[{"habilete": "Communication", "niveau": "2"}]',
         )
+        with auth_client.session_transaction() as sess:
+            sess["lang"] = "fr"
         r = auth_client.post(
             "/translate_softskills/translate",
             json={

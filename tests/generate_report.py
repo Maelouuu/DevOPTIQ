@@ -27,6 +27,7 @@ PAGE_LABELS = {
     "test_13_competences":      "Compétences & Évaluations",
     "test_118_competences_gaps": "Compétences — Évaluations d'activité & synthèses",
     "test_125_competences_items_gaps": "Compétences — Notes d'items & structure de rôle",
+    "test_126_rh_settings_gaps": "Gestion RH — Paramètres d'entreprise",
     "test_119_carto_sharing_gaps": "Partage de Cartographie — Cas limites & vignette",
     "test_120_qualify_outputs_gaps": "Qualification des Sorties — Cas limites",
     "test_121_cartography_editor_ia_resync": "Éditeur OptiqCarto — IA Architect, Resync & Suppression",

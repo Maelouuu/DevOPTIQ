@@ -660,5 +660,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-16T03:30:29"
+  },
+  {
+    "patch_uid": "2026-10-31-translate-softskills-lang-fr-force",
+    "title": "test_63 : forcer la langue FR (anglais désormais par défaut)",
+    "node_ids": [
+      "tests/test_63_cartography_translate_advanced.py::TestTranslateSoftskillsWithMockedClient::test_success_fr_maps_niveau_and_includes_outgoing_performance"
+    ],
+    "page_slug": "cartography_translate_advanced",
+    "failure_reason": "Le test échoue quand son fichier tourne seul : niveau \"2 (Developing)\" au lieu de \"2 (Acquisition)\".",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Le test supposait le français par défaut ; l anglais est la langue par défaut (before_request _default_language), il ne passait en suite complète que grâce à une langue FR laissée par un test précédent.",
+    "fix_description": "Le test pose explicitement session[lang]=fr via session_transaction.",
+    "files_changed": [
+      "tests/test_63_cartography_translate_advanced.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-31T03:21:25"
   }
 ]
