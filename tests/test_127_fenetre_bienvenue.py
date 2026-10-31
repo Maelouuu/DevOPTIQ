@@ -637,3 +637,73 @@ def test_la_fenetre_se_rend_bien_dans_les_deux_langues(app, client, comptes):
         assert attendu in html, (
             "la phrase de palier manque en %s : %r" % (lang, attendu))
         assert t("welcome.doors", lang) in html
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Elle se déploie en LARGEUR, pas en hauteur
+# ══════════════════════════════════════════════════════════════════════════
+
+def _regle(css, selecteur):
+    """Le corps d'une règle CSS, du sélecteur à son accolade fermante."""
+    i = css.find(selecteur + " {")
+    assert i >= 0, "règle introuvable : %s" % selecteur
+    return css[i:css.find("}", i)]
+
+
+def test_la_fenetre_se_deploie_en_largeur():
+    """RATCHET : repasser le corps en une seule colonne, ou rétrécir la carte,
+    fait virer ce test au ROUGE.
+
+    ⚠️ Mesuré : en colonne unique, un compte d'administrateur donnait une
+    carte de 620 x 780 px qui passait sous le pli d'un portable. En deux
+    colonnes elle fait 1000 x 701 px et tient entière jusqu'en 1280 x 800.
+    La largeur est la ressource dont on dispose — pas la hauteur.
+    """
+    css = _lire(FEUILLE)
+
+    carte = _regle(css, "#welcome-popup-card")
+    largeur = re.search(r"max-width:\s*(\d+)px", carte)
+    assert largeur, "la carte ne borne plus sa largeur"
+    assert int(largeur.group(1)) >= 900, (
+        "la carte est revenue à une colonne étroite (max-width: %spx) : "
+        "le contenu repart en hauteur" % largeur.group(1))
+
+    corps = _regle(css, "#welcome-popup-body")
+    assert "display: grid" in corps, (
+        "le corps de la fenêtre n'est plus une grille : les sections "
+        "s'empilent de nouveau")
+    pistes = re.search(r"grid-template-columns:([^;]+);", corps)
+    assert pistes, "le corps ne déclare plus ses colonnes"
+    assert pistes.group(1).count("minmax(") >= 2, (
+        "le corps n'a plus qu'une colonne : %r" % pistes.group(1).strip())
+
+
+def test_sur_un_ecran_etroit_elle_retombe_en_une_colonne():
+    """RATCHET : retirer le repli fait virer ce test au ROUGE.
+
+    Deux colonnes sur un écran étroit donnent des libellés sur quatre lignes —
+    plus HAUT que la version empilée qu'on cherchait à raccourcir. Le seuil se
+    compare à la largeur réelle de la fenêtre : les requêtes média ignorent le
+    `zoom` du body.
+    """
+    css = _lire(FEUILLE)
+    i = css.find("@media (max-width: 900px)")
+    assert i >= 0, (
+        "le repli en colonne unique a disparu : sur un écran étroit la "
+        "fenêtre garde deux colonnes illisibles")
+    bloc = css[i:css.find("\n}", i)]
+
+    assert "#welcome-popup-body" in bloc, (
+        "le repli ne touche plus le corps de la fenêtre")
+    corps = bloc[bloc.find("#welcome-popup-body"):]
+    pistes = re.search(r"grid-template-columns:([^;]+);", corps)
+    assert pistes and pistes.group(1).count("minmax(") == 1, (
+        "le corps ne retombe pas sur une seule colonne : %r"
+        % (pistes.group(1).strip() if pistes else None,))
+
+    # ⚠️ `.wp-portes:has(...)` est plus spécifique que `.wp-portes` : sans le
+    # même sélecteur ici, les portes d'un administrateur resteraient sur deux
+    # colonnes dans un écran où elles ne tiennent pas.
+    assert ".wp-portes:has(" in bloc, (
+        "le repli des portes n'a pas la spécificité de la règle qu'il "
+        "annule : elle l'emportera")

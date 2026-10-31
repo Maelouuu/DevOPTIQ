@@ -18,6 +18,12 @@
           `class`) sur CET élément : ce sont les deux attributs que leurs
           `MutationObserver` surveillent.
        3. Aucune phrase en dur : tout vient du catalogue (`welcome.*`).
+
+     ⚠️ La fenêtre est LARGE, pas haute : en-tête sur une ligne, puis DEUX
+     colonnes côte à côte. La version empilée (en-tête, attentes, nouveautés,
+     portes) dépassait l'écran d'un portable chez un administrateur. Une
+     section de plus va dans une colonne existante — une troisième colonne ne
+     tiendrait pas la largeur.
 -->
 <link rel="stylesheet" href="{{ url_for('static', filename='welcome_popup.css') }}">
 
@@ -35,91 +41,99 @@
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
 
-      <div class="wp-brand">
+      <div class="wp-hello-bloc">
         <span class="wp-logo" aria-hidden="true">
-          <svg viewBox="0 0 32 32" width="20" height="20" fill="none">
+          <svg viewBox="0 0 32 32" width="23" height="23" fill="none">
             <circle cx="15" cy="15" r="11" stroke="#ffffff" stroke-width="1.8" opacity=".95"/>
             <circle cx="15" cy="15" r="7.5" stroke="#ffffff" stroke-width="1.5" opacity=".7"/>
             <circle cx="15" cy="15" r="4" stroke="#ffffff" stroke-width="1.5" opacity=".45"/>
             <line x1="22" y1="22" x2="28" y2="28" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"/>
           </svg>
         </span>
-        <span class="wp-brand-name">Optiq</span>
+        <div class="wp-hello-txt">
+          <span class="wp-brand-name">Optiq</span>
+          <h2 class="wp-hello" id="wp-title">
+            {%- if bienvenue.prenom -%}
+              {{ t('welcome.hello') % bienvenue.prenom }}
+            {%- else -%}
+              {{ t('welcome.hello_anon') }}
+            {%- endif -%}
+          </h2>
+        </div>
       </div>
 
-      <h2 class="wp-hello" id="wp-title">
-        {%- if bienvenue.prenom -%}
-          {{ t('welcome.hello') % bienvenue.prenom }}
-        {%- else -%}
-          {{ t('welcome.hello_anon') }}
-        {%- endif -%}
-      </h2>
       <p class="wp-tier">{{ bienvenue.phrase_palier|safe }}</p>
     </div>
 
     <div id="welcome-popup-body">
 
-      {% if bienvenue.attentes %}
-      <section class="wp-bloc">
-        <h3 class="wp-label">{{ t('welcome.waiting') }}</h3>
-        {% for attente in bienvenue.attentes %}
-        <a class="wp-attente wp-attente--{{ attente.ton }}" href="{{ attente.href }}">
-          <span class="wp-attente-n">{{ attente.n }}</span>
-          <span class="wp-attente-txt">{{ attente.libelle }}</span>
-          <span class="wp-attente-fleche" aria-hidden="true">
-            <i class="fa-solid fa-arrow-right"></i>
-          </span>
-        </a>
-        {% endfor %}
-      </section>
-      {% endif %}
+      {# Colonne de gauche : ce qui a changé depuis la dernière visite. C'est
+         le changement des nouveautés qui FAIT apparaître la fenêtre — elles
+         ne doivent donc jamais se mériter un défilement. #}
+      <div class="wp-col wp-col--actu">
 
-      {# ⚠️ Les nouveautés AVANT les portes, et ce n'est pas un détail de
-         mise en page : c'est leur changement qui FAIT apparaître la fenêtre.
-         Éprouvé à l'écran, l'ordre inverse les poussait sous le pli chez un
-         administrateur — la seule partie neuve de la fenêtre était la seule
-         qu'il fallait aller chercher. Les portes, elles, ne bougent pas d'une
-         visite à l'autre : c'est à elles de défiler. #}
-      <section class="wp-bloc">
-        <h3 class="wp-label">
-          {{ t('welcome.news') }}
-          {% if bienvenue.nouveautes %}
-          <span class="wp-compte">{{ bienvenue.nouveautes|length }}</span>
-          {% endif %}
-        </h3>
-        {% if bienvenue.nouveautes %}
-        <ul class="wp-news">
-          {% for item in bienvenue.nouveautes %}
-          <li class="wp-new">
-            <span class="wp-new-ic" aria-hidden="true">
-              <i class="{{ item.icon if item.icon and item.icon.startswith('fa-')
-                            else 'fa-solid fa-sparkles' }}"></i>
+        {% if bienvenue.attentes %}
+        <section class="wp-bloc">
+          <h3 class="wp-label">{{ t('welcome.waiting') }}</h3>
+          {% for attente in bienvenue.attentes %}
+          <a class="wp-attente wp-attente--{{ attente.ton }}" href="{{ attente.href }}">
+            <span class="wp-attente-n">{{ attente.n }}</span>
+            <span class="wp-attente-txt">{{ attente.libelle }}</span>
+            <span class="wp-attente-fleche" aria-hidden="true">
+              <i class="fa-solid fa-arrow-right"></i>
             </span>
-            <span class="wp-new-txt">
-              <span class="wp-new-titre">{{ item.title }}</span>
-              <span class="wp-new-desc">{{ item.desc }}</span>
-            </span>
-          </li>
+          </a>
           {% endfor %}
-        </ul>
-        {% else %}
-        <p class="wp-vide">{{ t('welcome.news_empty') }}</p>
+        </section>
         {% endif %}
-      </section>
 
-      <section class="wp-bloc wp-bloc--dernier">
-        <h3 class="wp-label">{{ t('welcome.doors') }}</h3>
-        <ul class="wp-portes">
-          {% for porte in bienvenue.portes %}
-          <li class="wp-porte" style="--c: {{ porte.couleur }}">
-            <span class="wp-porte-ic" aria-hidden="true">
-              <i class="fa-solid {{ porte.icone }}"></i>
-            </span>
-            <span class="wp-porte-txt">{{ porte.libelle|safe }}</span>
-          </li>
-          {% endfor %}
-        </ul>
-      </section>
+        <section class="wp-bloc wp-bloc--dernier">
+          <h3 class="wp-label">
+            {{ t('welcome.news') }}
+            {% if bienvenue.nouveautes %}
+            <span class="wp-compte">{{ bienvenue.nouveautes|length }}</span>
+            {% endif %}
+          </h3>
+          {% if bienvenue.nouveautes %}
+          <ul class="wp-news">
+            {% for item in bienvenue.nouveautes %}
+            <li class="wp-new">
+              <span class="wp-new-ic" aria-hidden="true">
+                <i class="{{ item.icon if item.icon and item.icon.startswith('fa-')
+                              else 'fa-solid fa-sparkles' }}"></i>
+              </span>
+              <span class="wp-new-txt">
+                <span class="wp-new-titre">{{ item.title }}</span>
+                <span class="wp-new-desc">{{ item.desc }}</span>
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="wp-vide">{{ t('welcome.news_empty') }}</p>
+          {% endif %}
+        </section>
+
+      </div>
+
+      {# Colonne de droite : la carte des portes ouvertes à ce palier. Elle ne
+         bouge pas d'une visite à l'autre, d'où sa place en second — mais à la
+         même hauteur, pas en dessous. #}
+      <div class="wp-col wp-col--portes">
+        <section class="wp-bloc wp-bloc--dernier">
+          <h3 class="wp-label">{{ t('welcome.doors') }}</h3>
+          <ul class="wp-portes">
+            {% for porte in bienvenue.portes %}
+            <li class="wp-porte" style="--c: {{ porte.couleur }}">
+              <span class="wp-porte-ic" aria-hidden="true">
+                <i class="fa-solid {{ porte.icone }}"></i>
+              </span>
+              <span class="wp-porte-txt">{{ porte.libelle|safe }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </section>
+      </div>
 
     </div>
 

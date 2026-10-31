@@ -414,7 +414,7 @@ ensuite** repassait au français. Trois familles, corrigées ensemble :
 
 `Code/bienvenue.py` · `Code/routes/templates/welcome_popup.html` ·
 `static/welcome_popup.css` · banc `tools/devrun_bienvenue.py` ·
-tests `tests/test_127_fenetre_bienvenue.py` (30, 16 cliquets vérifiés rouges).
+tests `tests/test_127_fenetre_bienvenue.py` (36, 21 cliquets vérifiés rouges).
 
 ### ⚠️ Ce que cette section disait, et pourquoi c'était faux
 
@@ -479,16 +479,20 @@ pas de course, pas de voile au repos, pas de dépendance au réseau.
 ### Ce qu'elle montre, et à qui
 
 Tranchée sur maquettes avant d'écrire (canvas « Fenêtre de bienvenue —
-3 organisations » : Le seuil / Deux volets / La carte des portes, plus la
-direction retenue aux deux extrêmes de l'échelle). **Le seuil** l'emporte parce
-que le contenu varie du simple au quadruple selon le palier : une colonne qui
-s'allonge reste juste à 2 lignes comme à 8, là où une grille de tuiles sonne
-vide pour un `user` et où deux volets laissent une colonne à moitié pleine.
+3 organisations » : Le seuil / Deux volets / La carte des portes). **Le seuil**
+— une colonne qui s'allonge — avait été retenu parce que le contenu varie du
+simple au quadruple selon le palier, et que deux volets laissaient une colonne
+à moitié pleine pour un `user`. ⚠️ **Arbitrage revu à l'écran : trop haut.**
+620 × 780 px chez un administrateur, sous le pli d'un portable. La fenêtre est
+passée en **deux colonnes** — l'objection d'origine tenait, elle a été traitée
+plutôt que contournée (voir le troisième piège ci-dessous).
 
-Trois blocs, dans cet ordre : **ce qui vous attend** (n'apparaît que s'il y a
-quelque chose) · **les nouveautés** · **ce que votre compte ouvre**.
-⚠️ Les nouveautés AVANT les portes : c'est leur changement qui fait APPARAÎTRE
-la fenêtre, et l'ordre inverse les poussait sous le pli chez un administrateur.
+Trois blocs : à gauche **ce qui vous attend** (n'apparaît que s'il y a quelque
+chose) puis **les nouveautés** — ce qui a CHANGÉ depuis la dernière visite ; à
+droite **ce que votre compte ouvre** — la carte des portes, qui ne bouge pas
+d'une visite à l'autre. ⚠️ Les nouveautés restent avant les portes dans l'ordre
+du DOM : c'est leur changement qui fait APPARAÎTRE la fenêtre, et c'est l'ordre
+que retrouvent un lecteur d'écran, le clavier, et le repli en colonne unique.
 L'ancien volet « activité récente » (20 événements avec avant/après) est parti :
 c'est une page, pas un accueil — `/api/recent-activity` existe toujours.
 
@@ -515,7 +519,7 @@ défilait déjà et a ses flèches. Le gabarit rend la fenêtre **même fermée*
 qui permet de la rouvrir sans seconde voie de rendu en JavaScript — donc sans
 second jeu de libellés à tenir.
 
-### ⚠️ Deux pièges d'habillage, tous deux mesurés
+### ⚠️ Trois pièges d'habillage, tous mesurés
 
 - **La première refonte était illisible : blanche, grise, en tout petit.** Elle
   « collait au design system » au point d'avoir retiré toute couleur — or le
@@ -534,6 +538,22 @@ second jeu de libellés à tenir.
   **mesuré sur neuf pages**, le zoom du body ne casse PAS cette couverture — il
   ne mord que sur les coordonnées calculées en JS (voir le menu du développeur
   de compétences et la bulle du tableau des droits).
+- **Puis elle était trop HAUTE.** Même lisible et à la bonne échelle, la
+  colonne unique empilait en-tête (160 px) + attentes + nouveautés + portes.
+  **La ressource dont on dispose ici, c'est la largeur** — un voile occupe
+  l'écran entier, pas une colonne de texte. L'en-tête tient donc sur une ligne
+  (identité à gauche, phrase du palier dans un panneau translucide à droite) et
+  le corps est une grille de deux colonnes. Mesuré, administrateur FR :
+  **620 × 780 → 1000 × 701**, plus de défilement jusqu'en 1280 × 800 (19 px à
+  faire défiler en 1280 × 720, le seul cas restant), et la même taille rendue
+  sur une page non zoomée. ⚠️ **Le nombre de portes dépend du palier, et la
+  mise en page suit** : `.wp-portes` est sur UNE colonne, et passe à deux via
+  `:has(.wp-porte:nth-child(4))` — deux colonnes pour les 2 portes d'un `user`
+  laissaient un vide à droite qui avait l'air d'un défaut. `auto-fit` ne sait
+  pas faire cette bascule : il compte des pixels, pas des éléments. ⚠️ En
+  dessous de 900 px de large (largeur RÉELLE : les requêtes média ignorent le
+  zoom) tout retombe en une colonne, et le repli doit reprendre le sélecteur
+  `:has()` — sinon la règle des quatre portes, plus spécifique, l'emporte.
 
 ### ⚠️ Une clé de traduction ne s'ASSEMBLE pas
 

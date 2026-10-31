@@ -18,6 +18,14 @@
    pour se lire à SA taille, et la même partout ; la cartographie, elle, reste
    à l'échelle 1 pour ses calculs de coordonnées souris.
 
+   ⚠️ ELLE SE DÉPLOIE EN LARGEUR, PAS EN HAUTEUR. Une deuxième version l'avait
+   construite en une colonne : en-tête haut de 160 px, puis attentes,
+   nouveautés et portes empilées — chez un administrateur la carte faisait
+   780 px et passait sous le pli d'un portable. Ici l'en-tête tient sur une
+   ligne (identité à gauche, palier à droite) et le corps est une GRILLE de
+   deux colonnes. Avant d'ajouter de la hauteur, regarder s'il reste de la
+   largeur.
+
    ⚠️ `--pg-accent` n'est PAS lu ici : il est posé sur la racine de la PAGE,
    dont le voile n'est pas un descendant — il vaudrait son défaut gris.
    ════════════════════════════════════════════════════════════════════════════ */
@@ -52,7 +60,7 @@
 #welcome-popup-card {
   position: relative;
   width: 100%;
-  max-width: 620px;
+  max-width: 1000px;
   /* ⚠️ PAS de `vh` : les unités de fenêtre passent elles aussi par le `zoom`
      du body, ce qui bornait la carte à 76 % de la hauteur réelle et faisait
      passer les nouveautés sous le pli. On se mesure sur le VOILE, qui couvre
@@ -88,11 +96,16 @@ body:has(.pg-root) #welcome-popup-card {
 }
 
 /* ---- En-tête ---- */
+/* Une seule ligne : l'identité à gauche, la phrase du palier à droite. En
+   colonne elles coûtaient 160 px de hauteur pour deux lignes de texte. */
 #welcome-popup-header {
   flex: none;
   position: relative;
   overflow: hidden;
-  padding: 26px 30px 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 22px 60px 22px 30px;
   color: #ffffff;
   background:
     radial-gradient(ellipse at 88% 8%, rgba(167, 139, 250, .55) 0%, transparent 58%),
@@ -113,8 +126,8 @@ body:has(.pg-root) #welcome-popup-card {
 
 #welcome-popup-close {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 16px;
+  right: 16px;
   z-index: 2;
   width: 32px;
   height: 32px;
@@ -135,62 +148,79 @@ body:has(.pg-root) #welcome-popup-card {
   border-color: rgba(255, 255, 255, .5);
 }
 
-.wp-brand {
+.wp-hello-bloc {
   position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 15px;
 }
 .wp-logo {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 42px;
+  height: 42px;
   border-radius: var(--r-pill, 999px);
   background: rgba(255, 255, 255, .13);
   border: 1px solid rgba(255, 255, 255, .22);
 }
-.wp-brand-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: .20em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, .92);
+.wp-hello-txt {
+  min-width: 0;
 }
-
+.wp-brand-name {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .80);
+}
 .wp-hello {
-  position: relative;
-  margin: 0 0 7px;
+  margin: 0;
   font-family: var(--pg-font-display, 'Fraunces', Georgia, serif);
-  font-size: 30px;
+  font-size: 29px;
   font-weight: 600;
-  line-height: 1.12;
+  line-height: 1.1;
   color: #ffffff;
 }
+
+/* La phrase du palier : un panneau translucide, pas une ligne de plus sous le
+   titre. C'est la seule partie de l'en-tête qui change d'un compte à l'autre. */
 .wp-tier {
   position: relative;
+  flex: 0 1 42%;
+  align-self: center;
   margin: 0;
-  font-size: 15px;
+  padding: 11px 16px;
+  background: rgba(255, 255, 255, .10);
+  border: 1px solid rgba(255, 255, 255, .20);
+  border-radius: 12px;
+  font-size: 14px;
   line-height: 1.5;
-  color: rgba(237, 233, 254, .95);
+  color: rgba(237, 233, 254, .96);
 }
 .wp-tier strong {
   font-weight: 700;
   color: #ffffff;
 }
 
-/* ---- Corps ---- */
-/* ⚠️ Un compte d'administrateur a plus de contenu que l'écran : la fenêtre
-   DÉFILE, et cela doit se voir. Sans ce repli, la dernière ligne se coupait
-   net au ras du pied — on croyait à un défaut d'affichage, pas à un volet
-   qu'on peut faire glisser. */
+/* ---- Corps : deux colonnes ---- */
+/* ⚠️ Un compte d'administrateur peut encore avoir plus de contenu que l'écran :
+   la fenêtre DÉFILE, et cela doit se voir. Sans le repli du pied, la dernière
+   ligne se coupait net au ras du bord — on croyait à un défaut d'affichage,
+   pas à un volet qu'on peut faire glisser. */
 #welcome-popup-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 22px 30px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  align-items: start;
+  padding: 24px 30px 20px;
   scrollbar-width: thin;
   scrollbar-color: #ddd6fe transparent;
 }
@@ -206,11 +236,22 @@ body:has(.pg-root) #welcome-popup-card {
   background: #c4b5fd;
 }
 
+.wp-col {
+  min-width: 0;
+}
+/* Le filet sépare les deux colonnes sur toute la hauteur de la plus grande :
+   `stretch` prime sur le `align-items: start` de la grille. */
+.wp-col--portes {
+  align-self: stretch;
+  padding-left: 30px;
+  border-left: 1px solid #ede9fe;
+}
+
 .wp-bloc {
-  margin: 0 0 24px;
+  margin: 0 0 22px;
 }
 .wp-bloc--dernier {
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .wp-label {
@@ -298,10 +339,23 @@ body:has(.pg-root) #welcome-popup-card {
 }
 
 /* ---- Les portes ---- */
+/* Le nombre de portes dépend du palier, et la mise en page suit : à deux ou
+   trois (un `user`, un champion) elles tiennent sur une colonne large, une
+   ligne chacune ; à partir de quatre elles passent de front, et les huit d'un
+   administrateur tiennent en quatre lignes au lieu de huit. Deux colonnes pour
+   deux portes laissaient un vide à droite qui avait l'air d'un défaut.
+   `auto-fit` ne sait pas faire cette bascule : il compte des pixels, pas des
+   éléments — d'où le `:has()`. */
 .wp-portes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px 16px;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.wp-portes:has(.wp-porte:nth-child(4)) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 /* ⚠️ `--c` est posée sur la LIGNE par le gabarit, et lue sur la ligne : une
    propriété personnalisée se résout là où elle est DÉCLARÉE. La déclarer plus
@@ -309,8 +363,9 @@ body:has(.pg-root) #welcome-popup-card {
 .wp-porte {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 8px 0;
+  gap: 11px;
+  padding: 7px 0;
+  min-width: 0;
 }
 .wp-porte-ic {
   flex: none;
@@ -326,9 +381,10 @@ body:has(.pg-root) #welcome-popup-card {
   border: 1px solid color-mix(in srgb, var(--c, #0d9488) 24%, #ffffff);
 }
 .wp-porte-txt {
-  padding-top: 4px;
-  font-size: 14px;
-  line-height: 1.5;
+  min-width: 0;
+  padding-top: 3px;
+  font-size: 13.5px;
+  line-height: 1.45;
   color: var(--ink-2, #334155);
 }
 .wp-porte-txt strong {
@@ -350,7 +406,7 @@ body:has(.pg-root) #welcome-popup-card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 13px 15px;
+  padding: 12px 14px;
   border-bottom: 1px solid #ede9fe;
 }
 .wp-new:last-child {
@@ -399,7 +455,7 @@ body:has(.pg-root) #welcome-popup-card {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 30px 18px;
+  padding: 15px 30px 17px;
   background: #faf9ff;
   border-top: 1px solid #ede9fe;
   /* Le pied flotte au-dessus du contenu qui défile dessous. */
@@ -428,9 +484,39 @@ body:has(.pg-root) #welcome-popup-card {
   box-shadow: 0 8px 20px -6px rgba(76, 29, 149, .7);
 }
 
+/* ---- Écran étroit : on retombe en colonne ---- */
+/* ⚠️ Les requêtes média ignorent le `zoom` du body : le seuil se compare à la
+   largeur RÉELLE de la fenêtre, pas à celle que voit la mise en page. En
+   dessous de ~900 px la carte ne peut plus tenir deux colonnes lisibles — en
+   forcer deux donnerait des libellés sur quatre lignes, plus hauts que la
+   version empilée qu'on cherchait à raccourcir. */
+@media (max-width: 900px) {
+  #welcome-popup-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wp-col--actu {
+    margin-bottom: 22px;
+  }
+  .wp-col--portes {
+    padding-left: 0;
+    border-left: 0;
+  }
+  /* ⚠️ Le sélecteur reprend le `:has()` ci-dessus : sans lui, la règle des
+     quatre portes resterait la plus spécifique et l'emporterait ici. */
+  .wp-portes,
+  .wp-portes:has(.wp-porte:nth-child(4)) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #welcome-popup-header {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .wp-tier {
+    flex: 1 1 100%;
+  }
+}
+
 /* ---- Téléphone ---- */
-/* ⚠️ Les media queries ignorent le `zoom` du body : le seuil se compare à la
-   largeur RÉELLE de la fenêtre, pas à celle que voit la mise en page. */
 @media (max-width: 620px) {
   #welcome-popup-overlay {
     padding: 14px;
@@ -443,10 +529,10 @@ body:has(.pg-root) #welcome-popup-card {
     max-height: 100%;
   }
   #welcome-popup-header {
-    padding: 22px 20px 18px;
+    padding: 20px 20px 18px;
   }
   .wp-hello {
-    font-size: 26px;
+    font-size: 25px;
   }
   #welcome-popup-body {
     padding: 18px 20px 0;
