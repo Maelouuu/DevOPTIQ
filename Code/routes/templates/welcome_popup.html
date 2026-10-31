@@ -1,278 +1,202 @@
-<!-- welcome_popup.html — Popup d'accueil deux panneaux -->
+<!-- welcome_popup.html — La fenêtre de bienvenue.
+
+     ⚠️⚠️ C'est le SERVEUR qui décide de l'afficher (`Code/bienvenue.py`,
+     injecté par le processeur de contexte sous le nom `bienvenue`). Ne jamais
+     remettre cette décision dans le navigateur : elle y dépendait d'un
+     `fetch('/api/changelog')` et d'une signature en `localStorage` bâtie sur du
+     texte TRADUIT — mesuré, la fenêtre revenait dès que la langue changeait ou
+     que le stockage refusait d'écrire, et un changelog en erreur laissait un
+     voile invisible sur toute l'application.
+
+     ⚠️ Trois contraintes à ne pas casser :
+       1. `#welcome-popup-overlay` doit exister sur la page et valoir
+          `display: none` AU REPOS. `entity_share_popup.html` et
+          `carto_decision_popup.html` attendent leur tour en lisant
+          `getComputedStyle(...).display === 'none'` : un voile qui reste
+          `flex` les fait attendre indéfiniment.
+       2. La fermeture passe par un changement de l'attribut `style` (et de
+          `class`) sur CET élément : ce sont les deux attributs que leurs
+          `MutationObserver` surveillent.
+       3. Aucune phrase en dur : tout vient du catalogue (`welcome.*`).
+-->
 <link rel="stylesheet" href="{{ url_for('static', filename='welcome_popup.css') }}">
 
-<div id="welcome-popup-overlay" role="dialog" aria-modal="true" aria-labelledby="wp-title">
+{% if bienvenue and bienvenue.portes %}
+<div id="welcome-popup-overlay" role="dialog" aria-modal="true"
+     aria-labelledby="wp-title"
+     {% if bienvenue.montrer %}style="display:flex"{% endif %}>
   <div id="welcome-popup-card">
 
-    <!-- En-tête -->
     <div id="welcome-popup-header">
-      <div class="wp-light-ray"></div>
+      <div class="wp-rayon" aria-hidden="true"></div>
 
-      <button id="welcome-popup-close" title="{{ t('btn.close') }}" aria-label="{{ t('btn.close') }}">
-        <i class="fa-solid fa-xmark"></i>
+      <button type="button" id="welcome-popup-close"
+              title="{{ t('btn.close') }}" aria-label="{{ t('btn.close') }}">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
 
       <div class="wp-brand">
-        <div class="wp-logo-badge">◉</div>
-        <span class="wp-brand-name">OPTIQ</span>
+        <span class="wp-logo" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="20" height="20" fill="none">
+            <circle cx="15" cy="15" r="11" stroke="#ffffff" stroke-width="1.8" opacity=".95"/>
+            <circle cx="15" cy="15" r="7.5" stroke="#ffffff" stroke-width="1.5" opacity=".7"/>
+            <circle cx="15" cy="15" r="4" stroke="#ffffff" stroke-width="1.5" opacity=".45"/>
+            <line x1="22" y1="22" x2="28" y2="28" stroke="#4ade80" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="wp-brand-name">Optiq</span>
       </div>
 
-      <h2 class="wp-header-title" id="wp-title">{{ t('welcome.title') }}</h2>
-      <p class="wp-header-sub">{{ t('welcome.subtitle') }}</p>
+      <h2 class="wp-hello" id="wp-title">
+        {%- if bienvenue.prenom -%}
+          {{ t('welcome.hello') % bienvenue.prenom }}
+        {%- else -%}
+          {{ t('welcome.hello_anon') }}
+        {%- endif -%}
+      </h2>
+      <p class="wp-tier">{{ bienvenue.phrase_palier|safe }}</p>
     </div>
 
-    <!-- Deux panneaux -->
-    <div id="welcome-popup-panels">
+    <div id="welcome-popup-body">
 
-      <!-- Panneau gauche : Nouveautés -->
-      <div class="wp-panel" id="wp-panel-changelog">
-        <div class="wp-panel-header">
-          <div class="wp-panel-icon-wrap wp-panel-icon-violet">
-            <i class="fa-solid fa-sparkles"></i>
-          </div>
-          <span class="wp-panel-title">{{ t('welcome.news') }}</span>
-          <span class="wp-badge-new"><span class="wp-badge-dot"></span>New</span>
-        </div>
-        <div class="wp-panel-body">
-          <div id="welcome-popup-loading" class="wp-panel-loading">
-            <div class="wp-spinner"></div>
-            <span>{{ t('welcome.loading') }}</span>
-          </div>
-          <div id="welcome-popup-items" class="wp-items" style="display:none;"></div>
-        </div>
-      </div>
+      {% if bienvenue.attentes %}
+      <section class="wp-bloc">
+        <h3 class="wp-label">{{ t('welcome.waiting') }}</h3>
+        {% for attente in bienvenue.attentes %}
+        <a class="wp-attente wp-attente--{{ attente.ton }}" href="{{ attente.href }}">
+          <span class="wp-attente-n">{{ attente.n }}</span>
+          <span class="wp-attente-txt">{{ attente.libelle }}</span>
+          <span class="wp-attente-fleche" aria-hidden="true">
+            <i class="fa-solid fa-arrow-right"></i>
+          </span>
+        </a>
+        {% endfor %}
+      </section>
+      {% endif %}
 
-      <!-- Panneau droit : Activité récente -->
-      <div class="wp-panel wp-panel-right" id="wp-panel-activity">
-        <div class="wp-panel-header">
-          <div class="wp-panel-icon-wrap wp-panel-icon-teal">
-            <i class="fa-solid fa-clock-rotate-left"></i>
-          </div>
-          <span class="wp-panel-title">{{ t('welcome.recent') }}</span>
-        </div>
-        <div class="wp-panel-body">
-          <div id="wp-recent-loading" class="wp-panel-loading">
-            <div class="wp-spinner wp-spinner-teal"></div>
-            <span>{{ t('welcome.loading') }}</span>
-          </div>
-          <div id="wp-recent-items" class="wp-recent-list" style="display:none;"></div>
-        </div>
-      </div>
+      {# ⚠️ Les nouveautés AVANT les portes, et ce n'est pas un détail de
+         mise en page : c'est leur changement qui FAIT apparaître la fenêtre.
+         Éprouvé à l'écran, l'ordre inverse les poussait sous le pli chez un
+         administrateur — la seule partie neuve de la fenêtre était la seule
+         qu'il fallait aller chercher. Les portes, elles, ne bougent pas d'une
+         visite à l'autre : c'est à elles de défiler. #}
+      <section class="wp-bloc">
+        <h3 class="wp-label">
+          {{ t('welcome.news') }}
+          {% if bienvenue.nouveautes %}
+          <span class="wp-compte">{{ bienvenue.nouveautes|length }}</span>
+          {% endif %}
+        </h3>
+        {% if bienvenue.nouveautes %}
+        <ul class="wp-news">
+          {% for item in bienvenue.nouveautes %}
+          <li class="wp-new">
+            <span class="wp-new-ic" aria-hidden="true">
+              <i class="{{ item.icon if item.icon and item.icon.startswith('fa-')
+                            else 'fa-solid fa-sparkles' }}"></i>
+            </span>
+            <span class="wp-new-txt">
+              <span class="wp-new-titre">{{ item.title }}</span>
+              <span class="wp-new-desc">{{ item.desc }}</span>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="wp-vide">{{ t('welcome.news_empty') }}</p>
+        {% endif %}
+      </section>
+
+      <section class="wp-bloc wp-bloc--dernier">
+        <h3 class="wp-label">{{ t('welcome.doors') }}</h3>
+        <ul class="wp-portes">
+          {% for porte in bienvenue.portes %}
+          <li class="wp-porte" style="--c: {{ porte.couleur }}">
+            <span class="wp-porte-ic" aria-hidden="true">
+              <i class="fa-solid {{ porte.icone }}"></i>
+            </span>
+            <span class="wp-porte-txt">{{ porte.libelle|safe }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
 
     </div>
 
-    <!-- Pied -->
     <div id="welcome-popup-footer">
-      <div class="wp-divider"></div>
-      <button id="welcome-popup-cta">{{ t('welcome.cta') }}</button>
+      <span class="wp-rappel">{{ t('welcome.reopen_hint') }}</span>
+      <button type="button" id="welcome-popup-cta">{{ t('welcome.cta') }}</button>
     </div>
 
   </div>
 </div>
 
 <script>
-(function() {
-  const STORAGE_KEY = 'optiq_welcome_seen_v4';
-  const overlay    = document.getElementById('welcome-popup-overlay');
-  const closeBtn   = document.getElementById('welcome-popup-close');
-  const ctaBtn     = document.getElementById('welcome-popup-cta');
+(function () {
+  const voile  = document.getElementById('welcome-popup-overlay');
+  const fermer = document.getElementById('welcome-popup-close');
+  const cta    = document.getElementById('welcome-popup-cta');
+  if (!voile) return;
 
-  const clLoading  = document.getElementById('welcome-popup-loading');
-  const clItems    = document.getElementById('welcome-popup-items');
+  // Durée de l'estompe, alignée sur la transition CSS. Le voile ne repasse à
+  // `display:none` qu'APRÈS, sans quoi la fenêtre disparaîtrait d'un coup.
+  const ESTOMPE = 320;
+  let ouverte = voile.style.display === 'flex';
+  let rendue  = false;          // la lecture n'est annoncée qu'une fois
 
-  const rcLoading  = document.getElementById('wp-recent-loading');
-  const rcItems    = document.getElementById('wp-recent-items');
-
-  // Signature du contenu lu : tant qu'elle ne change pas, la fenêtre ne
-  // revient plus — y compris dans un nouvel onglet.
-  let signatureCourante = '';
-  function lire(cle) { try { return localStorage.getItem(cle); } catch (e) { return null; } }
-  function ecrire(cle, val) { try { localStorage.setItem(cle, val); } catch (e) { /* stockage refusé */ } }
-
-  function closePopup() {
-    overlay.classList.remove('wp-visible');
-    setTimeout(() => { overlay.style.display = 'none'; }, 450);
-    try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (e) { /* ignore */ }
-    if (signatureCourante) ecrire(STORAGE_KEY, signatureCourante);
+  function ouvrir() {
+    if (ouverte) return;
+    ouverte = true;
+    voile.style.display = 'flex';
+    requestAnimationFrame(() => requestAnimationFrame(
+      () => voile.classList.add('wp-visible')));
+    if (cta) cta.focus({preventScroll: true});
   }
 
-  closeBtn.addEventListener('click', closePopup);
-  ctaBtn.addEventListener('click', closePopup);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) closePopup(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePopup(); });
-
-  // Déjà fermée dans cet onglet (sessionStorage) ou déjà lue dans ce navigateur
-  // (localStorage, mis à jour à la fermeture) → on n'affiche rien.
-  let dejaVue = false;
-  try { dejaVue = !!sessionStorage.getItem(STORAGE_KEY); } catch (e) { /* ignore */ }
-  const dejaLue = lire(STORAGE_KEY);
-
-  if (!dejaVue) {
-    const montrer = () => {
-      if (overlay.style.display === 'flex') return;
-      overlay.style.display = 'flex';
-      requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('wp-visible')));
-    };
-
-    // Charger les nouveautés — c'est leur contenu qui décide de l'affichage :
-    // rien de neuf depuis la dernière lecture, rien à annoncer.
-    fetch('/api/changelog')
-      .then(r => r.json())
-      .then(data => {
-        signatureCourante = (data.items || [])
-          .map(i => (i.title || '') + '|' + (i.desc || '').slice(0, 40)).join('#');
-        if (dejaLue && signatureCourante && dejaLue === signatureCourante) {
-          overlay.style.display = 'none';
-          return;
-        }
-        montrer();
-        clLoading.style.display = 'none';
-        if (!data.ok || !data.items || !data.items.length) {
-          clItems.innerHTML = '<p class="wp-empty">Aucune nouveauté à afficher.</p>';
-        } else {
-          clItems.innerHTML = data.items.map(item => {
-            const iconClass = (item.icon || '').startsWith('fa-') ? item.icon : 'fa-solid fa-sparkles';
-            return `<div class="wp-item">
-              <div class="wp-item-icon-wrap">
-                <i class="${iconClass}"></i>
-              </div>
-              <div class="wp-item-content">
-                <div class="wp-item-title">${item.title || ''}</div>
-                <div class="wp-item-desc">${item.desc || ''}</div>
-              </div>
-            </div>`;
-          }).join('');
-        }
-        clItems.style.display = 'flex';
-      })
-      .catch(() => {
-        clLoading.style.display = 'none';
-        clItems.innerHTML = '<p class="wp-empty">Impossible de charger les nouveautés.</p>';
-        clItems.style.display = 'flex';
-      });
-
-    // Charger l'activité récente
-    fetch('/api/recent-activity')
-      .then(r => r.json())
-      .then(data => {
-        rcLoading.style.display = 'none';
-
-        if (!data.ok || data.empty || !data.items || !data.items.length) {
-          rcItems.innerHTML = `
-            <div class="wp-empty-state">
-              <div class="wp-empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
-              <p class="wp-empty-title">Aucun événement enregistré</p>
-              <p class="wp-empty-sub">Les prochaines modifications apparaîtront ici.</p>
-            </div>`;
-          rcItems.style.display = 'flex';
-          return;
-        }
-
-        rcItems.innerHTML = data.items.map((item, idx) => {
-          const detailHtml = _renderDetail(item.detail, item.type);
-          const hasDetail  = !!detailHtml;
-          const meta = [item.date, item.user ? `par ${_esc(item.user)}` : null].filter(Boolean).join(' · ');
-
-          return `
-            <div class="wp-ev-item wp-ev-${item.color}${hasDetail ? ' wp-ev-clickable' : ''}"
-                 data-idx="${idx}"
-                 ${hasDetail ? 'role="button" tabindex="0"' : ''}>
-              <div class="wp-ev-icon">
-                <i class="${item.icon}"></i>
-              </div>
-              <div class="wp-ev-body">
-                <div class="wp-ev-top">
-                  <span class="wp-ev-badge wp-ev-badge-${item.color}">${item.event_label}</span>
-                  ${hasDetail ? '<div class="wp-ev-chevron"><i class="fa-solid fa-chevron-down"></i></div>' : ''}
-                </div>
-                <div class="wp-ev-label">${_esc(item.label)}</div>
-                ${meta ? `<div class="wp-ev-meta">${meta}</div>` : ''}
-              </div>
-            </div>
-            ${hasDetail ? `<div class="wp-recent-detail" id="wp-detail-${idx}">${detailHtml}</div>` : ''}`;
-        }).join('');
-
-        // Gestion des clics
-        rcItems.querySelectorAll('.wp-ev-clickable').forEach(el => {
-          el.addEventListener('click', () => {
-            const detail = document.getElementById(`wp-detail-${el.dataset.idx}`);
-            const chev   = el.querySelector('.wp-ev-chevron i');
-            const open   = detail.classList.toggle('wp-detail-open');
-            if (chev) chev.style.transform = open ? 'rotate(180deg)' : '';
-          });
-          el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') el.click(); });
-        });
-
-        rcItems.style.display = 'flex';
-      })
-      .catch(() => {
-        rcLoading.style.display = 'none';
-        rcItems.innerHTML = '<p class="wp-empty">Impossible de charger l\'activité.</p>';
-        rcItems.style.display = 'flex';
-      });
-
-    const WP_I18N = {
-      fields: {{ t('welcome.fields_changed')|tojson }},
-      link:   {{ t('welcome.link_detail')|tojson }},
-      tool:   {{ t('welcome.tool')|tojson }},
-      task:   {{ t('welcome.task')|tojson }},
-      desc:   {{ t('welcome.description')|tojson }},
-      mission: {{ t('welcome.mission')|tojson }},
-      deleted: {{ t('welcome.data_deleted')|tojson }},
-      created: {{ t('welcome.data_created')|tojson }},
-      detail: {{ t('welcome.detail')|tojson }},
-      none:   {{ t('welcome.no_detail')|tojson }},
-    };
-
-    // ── Rendu du contenu de la section déroulante ──────────────────
-    function _renderDetail(detail, type) {
-      if (!detail) return '';
-
-      // Modifications avec avant/après
-      if (detail.changes && detail.changes.length > 0) {
-        const rows = detail.changes.map(ch =>
-          `<div class="wp-diff-row">
-            <span class="wp-diff-field">${_esc(ch.field)}</span>
-            <span class="wp-diff-before">${_esc(ch.before)}</span>
-            <i class="fa-solid fa-arrow-right wp-diff-arrow"></i>
-            <span class="wp-diff-after">${_esc(ch.after)}</span>
-          </div>`
-        ).join('');
-        return `<div class="wp-diff-header">${WP_I18N.fields}</div><div class="wp-diff-list">${rows}</div>`;
-      }
-
-      // Association outil → tâche
-      if (detail.tool && detail.task) {
-        return `<div class="wp-diff-header">${WP_I18N.link}</div>
-          <div class="wp-diff-list">
-            <div class="wp-diff-row"><span class="wp-diff-field">${WP_I18N.tool}</span><span class="wp-diff-value">${_esc(detail.tool)}</span></div>
-            <div class="wp-diff-row"><span class="wp-diff-field">${WP_I18N.task}</span><span class="wp-diff-value">${_esc(detail.task)}</span></div>
-          </div>`;
-      }
-
-      // Création / suppression / données
-      const lines = [];
-      if (detail.description) lines.push({k: WP_I18N.desc, v: detail.description});
-      if (detail.mission)     lines.push({k: WP_I18N.mission, v: detail.mission});
-      if (!lines.length && !detail.name) return '';
-
-      const header = type && type.endsWith('deleted') ? WP_I18N.deleted
-                   : type && type.endsWith('created') ? WP_I18N.created : WP_I18N.detail;
-      const rows = lines.map(l =>
-        `<div class="wp-diff-row">
-          <span class="wp-diff-field">${_esc(l.k)}</span>
-          <span class="wp-diff-value">${_esc(l.v)}</span>
-        </div>`
-      ).join('') || `<div class="wp-diff-row"><span class="wp-diff-value" style="color:#6b7280;font-style:italic;">${WP_I18N.none}</span></div>`;
-      return `<div class="wp-diff-header">${header}</div><div class="wp-diff-list">${rows}</div>`;
-    }
-
-    function _esc(s) {
-      if (!s) return '—';
-      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-  } else {
-    overlay.style.display = 'none';
+  function refermer() {
+    if (!ouverte) return;
+    ouverte = false;
+    voile.classList.remove('wp-visible');
+    // ⚠️ `display:none` est ce que les deux pop-ups suivantes attendent pour
+    // prendre la main : il doit tomber, même si la transition est coupée.
+    setTimeout(() => { voile.style.display = 'none'; }, ESTOMPE);
+    annoncerLue();
   }
+
+  function annoncerLue() {
+    if (rendue) return;
+    rendue = true;
+    // Le serveur écrit SA signature : rien de ce qui part d'ici ne la décide.
+    // Un échec est sans conséquence — la fenêtre reviendra une fois, c'est tout.
+    try {
+      fetch('/api/bienvenue/vue', {method: 'POST', credentials: 'same-origin'})
+        .catch(() => {});
+    } catch (e) { /* jamais bloquant */ }
+  }
+
+  if (fermer) fermer.addEventListener('click', refermer);
+  if (cta) cta.addEventListener('click', refermer);
+  voile.addEventListener('click', (e) => { if (e.target === voile) refermer(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && ouverte) refermer();
+  });
+
+  if (ouverte) {
+    requestAnimationFrame(() => requestAnimationFrame(
+      () => voile.classList.add('wp-visible')));
+  }
+
+  // La réouverture : elle ne RE-REND rien — le contenu est déjà dans la page,
+  // dans la bonne langue. C'est la raison pour laquelle le gabarit rend la
+  // fenêtre même quand elle est fermée : une seconde voie de rendu en
+  // JavaScript voudrait son propre jeu de libellés, donc deux catalogues à
+  // tenir à jour.
+  window.optiqRouvrirBienvenue = ouvrir;
+
+  // Le bouton de la barre de navigation est rendu AVANT ce script : il est
+  // donc déjà là, sans attendre `DOMContentLoaded`.
+  const bouton = document.getElementById('nav-bienvenue');
+  if (bouton) bouton.addEventListener('click', ouvrir);
 })();
 </script>
+{% endif %}

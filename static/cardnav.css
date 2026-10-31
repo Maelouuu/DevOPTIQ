@@ -295,6 +295,33 @@
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.55);
 }
+
+/* Revoir la fenêtre de bienvenue.
+   ⚠️ Volontairement RONDE et sans libellé, à côté de la déconnexion : dans
+   cette barre, une pastille rectangulaire avec un mot dessous est une PAGE.
+   Celle-ci ne mène nulle part — elle rouvre une fenêtre par-dessus la page
+   courante — et doit donc se lire comme une commande, pas comme une destination. */
+.nav-bienvenue {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  margin-left: 6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.40);
+  background: transparent;
+  color: #ffffff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .14s, border-color .14s;
+}
+.nav-bienvenue:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.55);
+}
 .logout-btn i { font-size: 12px; }
 .logout-btn span {
   opacity: 1; max-width: none; overflow: visible;

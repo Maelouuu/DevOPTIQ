@@ -1431,6 +1431,25 @@ class AppSetting(db.Model):
     value = db.Column(db.Text, nullable=True)
 
 
+class WelcomeSeen(db.Model):
+    """La fenêtre de bienvenue déjà vue par ce compte, et pour QUELLES nouveautés.
+
+    ⚠️ Cette ligne existe parce que le navigateur ne suffisait pas. La garde
+    vivait en `localStorage` : mesuré, elle lâche dès que le stockage est
+    refusé (la fenêtre revient alors dans CHAQUE nouvel onglet, sans fin) et
+    elle ne traverse pas un second poste. Le fait « déjà vue » appartient au
+    COMPTE, pas au navigateur — il se mémorise donc ici.
+
+    `signature` est l'identité des nouveautés lues, pas leur texte : voir
+    `Code/bienvenue.py`, qui la calcule sur les champs NON traduits.
+    """
+    __tablename__ = 'welcome_seen'
+
+    user_id = db.Column(db.Integer, primary_key=True)
+    signature = db.Column(db.Text, nullable=True)
+    seen_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class PasswordReset(db.Model):
     """Une demande de réinitialisation de mot de passe. UNE ligne par demande,
     que l'adresse corresponde à un compte ou non.

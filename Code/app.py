@@ -273,7 +273,24 @@ def create_app(test_config=None):
         from Code.models.models import DEFAULT_LANG
         lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
         return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label,
-                'propose_activites': _propose_activites()}
+                'propose_activites': _propose_activites(),
+                'bienvenue': _etat_bienvenue(lang)}
+
+    def _etat_bienvenue(lang):
+        """L'état de la fenêtre de bienvenue, tranché par le SERVEUR.
+
+        ⚠️ C'est ici que le défaut du nouvel onglet se corrige : la décision ne
+        dépend plus d'un `fetch` ni du stockage du navigateur (voir
+        `Code/bienvenue.py`). Un échec ne doit jamais empêcher la page de
+        s'afficher — d'où le repli silencieux sur « ne rien montrer ».
+        """
+        try:
+            from Code.bienvenue import etat
+            return etat(lang=lang)
+        except Exception:
+            return {'montrer': False, 'signature': '', 'portes': [],
+                    'attentes': [], 'nouveautes': [], 'palier': None,
+                    'phrase_palier': '', 'prenom': ''}
 
     def _propose_activites():
         """Ce compte doit-il PROPOSER ses modifications d'activité ?
@@ -739,6 +756,15 @@ def create_app(test_config=None):
             print("[DB] Table recent_events prête")
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
+
+        # La fenêtre de bienvenue mémorise par COMPTE ce qui a été lu : le
+        # navigateur ne suffisait pas (voir Code/bienvenue.py).
+        try:
+            from Code.models.models import WelcomeSeen
+            WelcomeSeen.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table welcome_seen prête")
+        except Exception as e:
+            print(f"[DB] welcome_seen check: {e}")
 
         # ── Paliers de performance (CDC — progression d'un collaborateur).
         # ⚠️ Les colonnes d'ABORD, les tables ensuite : `_safe_add_column` avale

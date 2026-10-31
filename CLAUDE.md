@@ -410,13 +410,141 @@ ensuite** repassait au français. Trois familles, corrigées ensemble :
   le sélecteur refait ne s'affichait jamais. Ces doublons ont été retirés — ne
   rien redéfinir dans `tools.js` de ce que `tasks.js` expose déjà.
 
-## Fenêtre de bienvenue
+## Fenêtre de bienvenue — refondue, et le défaut enfin MESURÉ (2026-10-31)
 
-`sessionStorage` est PAR ONGLET : « ouvrir dans un nouvel onglet » repartait d'un
-stockage vide et réaffichait la fenêtre. On mémorise maintenant dans
-`localStorage` la **signature des nouveautés lues** (titres + début des textes) :
-la fenêtre ne revient que lorsque le changelog change vraiment. Tous les accès au
-stockage sont en try/catch (navigateur qui refuse le stockage).
+`Code/bienvenue.py` · `Code/routes/templates/welcome_popup.html` ·
+`static/welcome_popup.css` · banc `tools/devrun_bienvenue.py` ·
+tests `tests/test_127_fenetre_bienvenue.py` (30, 16 cliquets vérifiés rouges).
+
+### ⚠️ Ce que cette section disait, et pourquoi c'était faux
+
+Elle affirmait : « `sessionStorage` est PAR ONGLET […] on mémorise maintenant
+dans `localStorage` la signature des nouveautés lues : la fenêtre ne revient que
+lorsque le changelog change vraiment ». **L'utilisateur voyait pourtant la
+fenêtre revenir.** Mesuré au banc (Playwright, `getItem`/`setItem` instrumentés
+avant tout script de page) :
+
+- La garde `localStorage` **tenait bien le cas simple** — dans un onglet ouvert
+  par Ctrl+clic, `sessionStorage` est vide (il n'est PAS recopié), la signature
+  correspond, la fenêtre ne revient pas. Et elle était présente sur les trois
+  branches qui se déploient. La doc n'était donc pas mensongère : elle était
+  **incomplète**, et c'est pire — elle fermait l'enquête.
+- Elle lâchait par **trois autres chemins**, tous reproduits :
+
+| scénario rejoué | la fenêtre revenait | voile invisible sur la page |
+|---|---|---|
+| Ctrl+clic, rien d'autre | non | non |
+| **la langue change** | **OUI** | oui |
+| **`localStorage` refuse d'écrire** | **OUI** | oui |
+| `/api/changelog` répond 500 | non | **OUI, définitivement** |
+
+1. **La signature était bâtie sur de la PROSE TRADUITE** (`title` + 40 premiers
+   caractères de `desc`), or `changelog.py` sert `title_en`/`desc_en` à une
+   session anglaise. Les mêmes trois nouveautés donnaient deux signatures.
+   Avec `DEFAULT_LANG = 'en'` et un écran de connexion qui repose la langue à
+   l'anglais (`connexion_routes.py`), l'écart arrivait tout seul.
+2. **Le `try/catch` autour du stockage n'était pas une protection** : il avalait
+   l'échec, et la fenêtre revenait dans CHAQUE nouvel onglet, sans fin.
+3. **`#welcome-popup-overlay` valait `display: flex` AU REPOS** (seulement
+   `opacity: 0`) et l'affichage dépendait d'un `fetch`. Un changelog en erreur
+   laissait donc un voile `inset: 0; z-index: 9999` tendu sur l'application
+   entière : **plus un seul clic ne passait, et rien ne se voyait.** Pire que le
+   défaut signalé — et les deux pop-ups qui s'enchaînent derrière attendaient
+   leur tour indéfiniment.
+
+### Ce qui remplace tout cela : le SERVEUR tranche
+
+Plus aucune décision dans le navigateur. Le processeur de contexte
+(`Code/app.py`) injecte `bienvenue` dans tous les gabarits ; `Code/bienvenue.py`
+rend `montrer`, les portes, les attentes et les nouveautés. Conséquences :
+pas de course, pas de voile au repos, pas de dépendance au réseau.
+
+- **La signature identifie, elle ne décrit pas.** Chaque entrée de
+  `static/changelog_user.json` porte un **`id`** stable ; la signature vaut
+  `"b1:" + ids joints`, lue sur le fichier **non traduit**. Reformuler un texte
+  (ou corriger l'anglais) ne fait plus revenir la fenêtre chez tout le monde.
+  ⚠️ Sans `id`, on retombe sur une empreinte du texte français : **toujours
+  mettre un `id`** en ajoutant une nouveauté.
+- **« Déjà vue » appartient au COMPTE, pas au navigateur** : table
+  `welcome_seen` (`user_id`, `signature`, `seen_at`), créée au boot comme les
+  autres. C'est la seule chose qui survive à un stockage refusé et à un second
+  poste. `POST /api/bienvenue/vue` écrit **la signature du serveur**, jamais
+  celle que le navigateur envoie.
+- **Le voile naît `display: none`.** ⚠️ Les deux fenêtres suivantes
+  (`entity_share_popup.html`, `carto_decision_popup.html`) lisent
+  `getComputedStyle(#welcome-popup-overlay).display === 'none'` pour savoir si
+  leur tour est venu, et surveillent les attributs `style` et `class`. La
+  fermeture DOIT donc reposer `style.display = 'none'` : un test le garde.
+
+### Ce qu'elle montre, et à qui
+
+Tranchée sur maquettes avant d'écrire (canvas « Fenêtre de bienvenue —
+3 organisations » : Le seuil / Deux volets / La carte des portes, plus la
+direction retenue aux deux extrêmes de l'échelle). **Le seuil** l'emporte parce
+que le contenu varie du simple au quadruple selon le palier : une colonne qui
+s'allonge reste juste à 2 lignes comme à 8, là où une grille de tuiles sonne
+vide pour un `user` et où deux volets laissent une colonne à moitié pleine.
+
+Trois blocs, dans cet ordre : **ce qui vous attend** (n'apparaît que s'il y a
+quelque chose) · **les nouveautés** · **ce que votre compte ouvre**.
+⚠️ Les nouveautés AVANT les portes : c'est leur changement qui fait APPARAÎTRE
+la fenêtre, et l'ordre inverse les poussait sous le pli chez un administrateur.
+L'ancien volet « activité récente » (20 événements avec avant/après) est parti :
+c'est une page, pas un accueil — `/api/recent-activity` existe toujours.
+
+**Les portes se lisent par `a_le_droit`, jamais par une liste de statuts** : les
+droits des trois premiers paliers se règlent depuis la page Comptes, et une
+liste figée recommencerait à annoncer des portes fermées. Deux lignes de
+plancher (consulter, suivre ses compétences) pour qu'un `user` n'ouvre pas une
+fenêtre vide. Deux droits se FONDENT quand ils vont ensemble (« enregistrer »
+couvre « proposer » ; « créer » et « modifier » un compte tiennent en une
+phrase) : mesuré, un administrateur avait dix lignes et les nouveautés passaient
+sous le pli. Compté à l'écran : **user 2 portes, champion 3, coordinateur 7,
+administrateur 8**.
+
+### Réouverture
+
+Bouton rond, icône seule, **à côté de la déconnexion** — donc HORS de
+`.card-scroll`, et **sans la classe `nav-card`**. ⚠️ Dans cette barre, un
+`nav-card` est une PAGE : une entrée parmi les pages aurait fait passer la
+fenêtre pour un écran de plus, alors qu'elle se superpose à celui qu'on
+regarde. Le logo et la déconnexion vivent déjà dans cette zone qui ne défile
+pas : c'est la place des commandes qui ne mènent nulle part. Coût mesuré :
+**une carte de page visible en moins au-delà de 1600 px, zéro en deçà** — la nav
+défilait déjà et a ses flèches. Le gabarit rend la fenêtre **même fermée**, ce
+qui permet de la rouvrir sans seconde voie de rendu en JavaScript — donc sans
+second jeu de libellés à tenir.
+
+### ⚠️ Deux pièges d'habillage, tous deux mesurés
+
+- **La première refonte était illisible : blanche, grise, en tout petit.** Elle
+  « collait au design system » au point d'avoir retiré toute couleur — or le
+  design system donne une GRAMMAIRE, pas l'ordre d'effacer. Refusée à l'écran,
+  reprise avec son bandeau indigo→violet et une pastille d'icône teintée par
+  ligne. Une fenêtre d'accueil est le premier écran qu'on voit : elle a droit à
+  une présence.
+- **Et elle était rendue à 80 %.** `body.pg` / `body:has(.pg-root)` portent
+  `zoom: .8` (ui-theme) : un « 13.5 px » y paraît 10,8 px, et la carto (non
+  zoomée) montrait la MÊME fenêtre 25 % plus grande qu'ailleurs. La carte porte
+  donc `zoom: 1.25` là où le body est zoomé — les deux se compensent, une seule
+  densité partout. ⚠️ **Et surtout : pas de `vh` ici.** Les unités de fenêtre
+  passent elles aussi par ce zoom — `calc(100vh - 48px)` bornait la carte à
+  76 % de la hauteur réelle et coupait les nouveautés. On se mesure sur le
+  VOILE (`max-height: 100%`), dont le `inset: 0` couvre bien l'écran entier :
+  **mesuré sur neuf pages**, le zoom du body ne casse PAS cette couverture — il
+  ne mord que sur les coordonnées calculées en JS (voir le menu du développeur
+  de compétences et la bulle du tableau des droits).
+
+### ⚠️ Une clé de traduction ne s'ASSEMBLE pas
+
+`tests/test_78_i18n_couverture.py` a attrapé deux fois la même faute ici : une
+clé construite par concaténation (préfixe + palier) échappe au contrôle de
+couverture, et le jour où un palier s'ajoute sa phrase s'afficherait en clair.
+Les quatre clés de palier sont donc écrites en toutes lettres dans
+`bienvenue.PHRASE_PALIER`, et la phrase est résolue en Python.
+⚠️ **Ce contrôle lit aussi les COMMENTAIRES** : il a ensuite signalé le
+commentaire qui citait la forme fautive. Ne pas écrire d'appel de traduction
+d'exemple dans un commentaire de `Code/`.
 
 ## Refonte Compétences V1.1 (CDC OPTIQ — en cours)
 

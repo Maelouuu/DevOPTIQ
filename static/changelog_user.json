@@ -1,5 +1,6 @@
 [
   {
+    "id": "nav-inter-cartos",
     "icon": "fa-solid fa-diagram-project",
     "title": "Navigation inter-cartographies",
     "desc": "En mode Connexions sur la page Cartographie, cliquez directement sur une activité liée pour basculer vers l'entité correspondante et atterrir sur l'activité en question dans la liste.",
@@ -7,6 +8,7 @@
     "desc_en": "In Connections mode on the Cartography page, click straight on a linked activity to switch to the matching entity and land on that activity in the list."
   },
   {
+    "id": "mots-de-passe",
     "icon": "fa-solid fa-key",
     "title": "Modification des mots de passe",
     "desc": "Depuis la page Comptes, vous pouvez désormais modifier le mot de passe de n'importe quel utilisateur directement, sans aucune manipulation technique.",
@@ -14,6 +16,7 @@
     "desc_en": "From the Accounts page you can now change any user’s password directly, with no technical steps."
   },
   {
+    "id": "export-excel-html",
     "icon": "fa-solid fa-file-export",
     "title": "Export Excel & rapport HTML",
     "desc": "Exportez toutes les données d'une entité en un clic depuis la Cartographie — fichier Excel multi-feuilles ou rapport HTML visuel, avec filtre optionnel par rôle.",
