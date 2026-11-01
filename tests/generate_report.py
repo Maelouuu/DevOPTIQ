@@ -24,6 +24,7 @@ PAGE_LABELS = {
     "test_10_roles":            "Rôles",
     "test_11_tools":            "Gestion des Outils",
     "test_12_gestion_rh":       "Gestion RH",
+    "test_128_rh_gaps":         "Gestion RH — Rôles, affectation & accès (compléments)",
     "test_13_competences":      "Compétences & Évaluations",
     "test_118_competences_gaps": "Compétences — Évaluations d'activité & synthèses",
     "test_125_competences_items_gaps": "Compétences — Notes d'items & structure de rôle",
