@@ -82,6 +82,7 @@ PAGE_LABELS = {
     "test_52_entity_deletion":           "Suppression d'Entité — Purge FK",
     "test_53_cadence":                   "Cadences & Cohérence des Rythmes",
     "test_54_hsc_positioning":           "Auto-positionnement HSC",
+    "test_129_cadence_hsc_gaps":         "Cadences & HSC — compléments",
     "test_55_technical_domains":         "Domaines de Technicité",
     "test_102_domain_status":            "Domaines de Technicité — Statut",
     "test_103_upload_vsdx_connexions":    "Upload Cartographie — Connexions VSDX",
