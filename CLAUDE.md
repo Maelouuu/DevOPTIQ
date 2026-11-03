@@ -6589,6 +6589,228 @@ les huit valeurs de la colonne jouées BOUT EN BOUT, une IP distincte par cas
 (la limite par IP ne doit pas décider du résultat d'un test sur la langue).
 **Trois cliquets, trois rouges.**
 
+### Seize petites choses relevées à l'usage (2026-11-03)
+
+Une liste sans sujet commun — six écrans différents — mais toutes de la même
+forme : un détail qui **mentait**, ou qui n'était **pas possible**. Deux
+d'entre elles cachaient un défaut de fond.
+
+Cliquets : `tests/test_128_retours_du_pilote.py` (63 cas), plus trois cas
+renouvelés dans `test_95`, `test_105` et `test_51` qui affirmaient ce qu'on
+vient de changer. **32 gardes retirées une par une, 32 cliquets tombés.**
+Suite : **3722 passés**, 1 sauté. Éprouvé à l'écran dans les deux langues sur
+`tools/devrun_temps.py` et `tools/devrun_competences.py`.
+
+#### ⚠️⚠️ En anglais, la page Temps comptait 60 fois trop peu
+
+Le symptôme rapporté était un libellé : « on a `j` pour jour, cela doit être
+`day` ». En le corrigeant, la cause en a découvert une autre, bien plus lourde.
+
+Les cinq sélecteurs d'unité de la page Temps étaient écrits
+`<option>{{ t('time.unit_hours') }}</option>` — **sans attribut `value`**. Or
+la valeur d'une option sans `value` EST son texte : en anglais le navigateur
+envoyait `hours`, et `UNIT_TO_MIN.get('hours', 1)` rend **1**, c'est-à-dire des
+MINUTES. Choisir « hours » ou « days » ne faisait donc rien, en silence, dans
+toute la page — analyses de projet, d'activité, de faiblesse.
+
+Le commentaire du gabarit disait pourtant la règle (« la VALEUR envoyée au
+serveur reste française »), et la fonction JS `unitSelect()`, qui construit les
+lignes par tâche, la respectait : c'est le gabarit qui ne l'appliquait pas.
+Les `value=` sont posés, et un cliquet relit `UNIT_TO_MIN` pour exiger que
+chaque clé du serveur apparaisse en `value=` dans le gabarit.
+
+⚠️ La fiche d'activité, elle, écrivait ses unités **en dur** (`>j</option>`)
+alors que les clés existaient (`acttime.unit_*`) et servaient déjà aux lignes
+par tâche, dix lignes plus bas. EN : `min` / `hrs` / `day`, FR : `min` / `h` /
+`j` — la même triade partout, page Temps comprise (« mettre min hrs day au
+lieu du nom complet »).
+
+#### ⚠️⚠️ Le coût annuel du retard comptait le travail DEUX FOIS
+
+« Pour le coût annuel du délai on ne doit pas comprendre le temps de travail
+mais juste le retard. » C'était une erreur d'arithmétique, pas de libellé :
+`V = (L + M) · P` (travail refait + attente), quand `U = L · P`. Le total de
+l'accueil valant `U + V`, il rendait **2·L·P + M·P** — le travail deux fois —
+et la carte intitulée « attente » annonçait du travail. `V = M · P`, et le
+mensuel `X = V / base` suit. Mesuré à l'écran (L = 10, M = 5, 20 %, 45
+occurrences/an) : U 7,5 h, V **3,8 h** au lieu de 11,3 h.
+
+⚠️ `T = C + (L+M)·O` (le délai moyen corrigé, par exécution) n'a **pas**
+changé : refaire du travail retarde bien la sortie. C'est le CUMUL ANNUEL qui
+ne doit pas additionner deux fois la même minute. Les deux phrases
+d'explication (`fw_desc_delay_annual`, `fw_desc_delay_month`) le disent.
+
+#### La probabilité d'une faiblesse se saisit en POURCENTAGE
+
+« 1 sur N » demandait de penser à l'envers, et un cas sur trois ne s'écrivait
+pas : 3 rend 33,3 %, jamais 30 %. `time_weakness.prob_percent` (migration à
+chaud) fait foi quand il est là.
+⚠️ `prob_denom` reste **écrit**, arrondi (`_denom_depuis_pct`), et reste
+**accepté** en entrée : des appels anciens l'envoient encore, et la suite de
+tests aussi. Quand les deux arrivent, le pourcentage gagne.
+⚠️ Une ligne écrite AVANT la colonne rend `100/N` (`_pct_stocke`) : c'est la
+traduction exacte de son denominateur, il n'y a rien à deviner.
+
+#### Un délai de production ne tombe pas sous la durée de travail
+
+`delai_plancher(B, C)` : on ne produit pas un résultat en moins de temps qu'il
+n'en demande. L'écran borne le champ **à la sortie** (pas pendant la frappe —
+effacer « 120 » pour taper « 90 » passerait par un « 1 » imposé) et dit
+pourquoi la valeur a bougé ; le serveur borne avant d'écrire, sinon la base
+garderait l'état impossible.
+⚠️ **Trois cas de la suite posaient cet état** et affirmaient les chiffres qui
+en découlent (`test_95::_calc` avec 60/20, `test_105` avec 60/30). Leur décor
+est corrigé, pas leur sujet : un test qui encode un état impossible ne garde
+rien.
+
+#### Page Temps : le rail de l'accueil MONTRE, il ne crée plus
+
+Les quatre tuiles de « Vos analyses » ouvraient l'écran de saisie **vierge** —
+ce que fait déjà « + Nouvelle analyse », à dix centimètres au-dessus — alors
+que chaque tuile porte le NOMBRE d'analyses de son type : annoncer « 3 » puis
+ouvrir une page blanche est un mensonge. `montrerGroupe(type)` déplie le
+groupe, le mémorise et le **désigne** une seconde et demie (`est-pointe`) :
+un défilement seul passe inaperçu quand le groupe est déjà à l'écran.
+
+#### Page Temps : les lignes d'une analyse de rôle sont celles du RÔLE
+
+On pouvait « Ajouter une ligne » — avec un sélecteur portant **toute la
+carto** — et supprimer une ligne au bouton : une analyse de rôle se retrouvait
+avec des activités que le rôle ne tient pas, et sans celles qu'il tient, alors
+que c'est le rôle qui définit son périmètre. L'activité est désormais un
+**libellé** (son identifiant vit sur la ligne, `tr.dataset.activityId`), la
+colonne « Actions » a disparu, et il ne reste à régler que la durée, la
+récurrence et la fréquence — ce qu'on vient vraiment estimer.
+⚠️ Les quatre récurrences étaient écrites **en dur, en français**, dans
+`addRoleRow` : elles s'affichaient telles quelles en anglais.
+
+#### Les contraintes passent SOUS les connexions
+
+Côte à côte (`2fr 1fr`), les connexions portaient déjà deux colonnes internes
+et trois en-têtes dont « Performance » : chaque libellé se repliait sur deux ou
+trois lignes, et une contrainte — qui est une phrase — sur quatre ou cinq.
+L'une sous l'autre, les deux ont toute la largeur de la carte.
+
+#### Le rôle d'une tâche se lit dans la langue de l'écran
+
+On choisissait « Doer » en anglais et le badge affichait « Réalisateur » après
+validation. La valeur **stockée** reste la chaîne française : c'est elle que le
+serveur renvoie, elle qui porte la classe CSS du badge, et la réécrire
+casserait les lignes déjà en base. Seul l'AFFICHAGE suit la langue
+(`roleStatusLabel`) — exactement la règle des niveaux HSC.
+⚠️⚠️ **`static/js/tasks_roles.js` est chargé APRÈS `tasks.js` et redéfinit
+CINQ de ses fonctions** (`showTaskRoleForm`, `hideTaskRoleForm`,
+`submitTaskRoles`, `loadTaskRolesForDisplay`, `deleteRoleFromTask`) : c'est lui
+qui gagne au rendu, et le bloc correspondant de `tasks.js` est du code MORT.
+Même piège que `tools.js` / `tasks.js`. Les deux sont corrigés — le traducteur
+est déclaré avec `function`, jamais `const` : un `const` répété dans deux
+fichiers de la même portée lève une SyntaxError et coupe tout le script.
+
+#### Supprimer un rôle : l'administrateur, et lui seul
+
+Un rôle est commun à l'entreprise (`roles_communs`) : le supprimer emporte ses
+titulaires, ses liens aux activités et aux tâches de **toutes** les cartos, et
+l'accès qu'il ouvrait. Renommer reste permis à qui le pouvait — c'est
+réversible, ceci ne l'est pas. Le bouton n'est plus rendu hors administrateur
+(`peut_supprimer`), et la route refuse de son côté : le masquage n'est pas une
+sécurité. Le `confirm()` passe par le catalogue, il était en dur en français.
+
+#### Le droit de MODIFIER un compte : il existait déjà
+
+« On a mis le créer, pas le modifier. » Vérifié sur `origin/staging` :
+`modifie_comptes` est la huitième ligne du tableau des droits depuis le
+**27/10** (commit `cfbb158cb2`), par défaut **administrateur + coordinateur**,
+champion et utilisateur fermés — exactement ce qui était demandé. Elle se règle
+**page Comptes**, section « Droits par statut » ; la popup d'accès de la page
+Carte y **renvoie sans la régler**, et c'est voulu (deux écrans pour un même
+réglage finissent par donner deux réponses).
+Ce qui a été corrigé : son libellé disait « Modifier un compte **(hors
+statut)** », ce qui n'est plus vrai depuis le 28/10 — le statut se change
+depuis la fiche, sous `peut_changer_statut`. Et la ligne a désormais son
+cliquet, qui vérifie le défaut ET que `/comptes/droits` la sert.
+
+#### Page Compétences : une flèche SANS libellé ne produit plus de sortie
+
+« Si les sorties ont une data inconnue on ne doit pas prendre le nom de la
+destination. » `_current_output_specs` le faisait : on lisait que « Usiner la
+pièce » produit « Contrôle qualité » — c'est-à-dire une autre **activité**, pas
+une donnée. Et cette fausse sortie se faisait noter, évaluer, et comptait dans
+le MINIMUM qui fait le niveau de l'activité. Une donnée dont personne n'a écrit
+le nom sur la carte n'est pas connue : on ne l'invente pas.
+⚠️ `output_ids_en_bloc` (le tableau global de la page RH) et `_destinataires`
+suivent la même règle : deux règles donneraient deux chiffres pour la même
+personne.
+⚠️ Les lignes déjà semées en base par la règle d'avant ne sont pas effacées :
+`porte_du_travail` les garde si quelqu'un y a travaillé, et elles sortent de la
+liste sinon. Le cliquet correspondant ne mordait pas tant que le décor n'en
+portait pas une — la version en bloc ne retient que des `Data` qui existent.
+
+#### Page Compétences : les cartes de rôle du bas redisaient le radar
+
+Elles REDISAIENT la liste « par rôle » posée à côté du radar : même liste, même
+ordre, même geste (un clic ouvre le rôle). Ce qu'elles portaient en plus — les
+quatre compteurs, le bouton du plan de formation — vit sur la page
+d'évaluation, celle-là même qu'un clic ouvre (depuis le 15/10). Retirées, avec
+`carteRole`.
+⚠️ **L'état vide reste** (`#cv2-sans-role`) : il vivait dans ces cartes, et sans
+lui quelqu'un sans aucun rôle n'aurait plus rien du tout à l'écran.
+
+#### Page Compétences : la norme vient de la LISTE DES ACTIVITÉS
+
+« Enlever la définition de la norme quand elles ne sont pas encore notées. La
+norme de l'entreprise est récupérée par ce que l'on a noté dans la page liste
+des activités. »
+
+Ce qu'on y note, c'est l'**indicateur de performance** d'une connexion
+sortante — la colonne « Performance » de la fiche d'activité
+(`Performance.link_id`). C'est là que l'entreprise écrit ce qu'elle attend
+d'une sortie ; la page Compétences le **lit** (`indicateurs_de_sortie`), elle
+ne le redemande pas. À défaut de repère de réussite propre, la fiche le montre
+comme standard, en disant d'où il vient.
+
+- `norme_depuis_indicateur(texte)` (`Code/paliers.py`) en tire une
+  **proposition** — valeur, unité, sens — que la première mesure pré-remplit et
+  que la personne confirme. Un indicateur illisible ne propose **rien** plutôt
+  que d'inventer un chiffre. Éprouvé sur onze écritures réelles
+  (« ≤ 48 h », « 95 % de conformité », « sous 5 jours », « at least 90 % »,
+  « within 2 days », « max 3 retouches », « 1,5 jour »…).
+  ⚠️ Le SENS se devine, et c'est le seul endroit où l'on devine : un
+  pourcentage se bat à la hausse, tout le reste à la baisse. Les marqueurs
+  explicites l'emportent toujours.
+- **La porte « Définir la norme » n'apparaît qu'une fois la sortie NOTÉE.**
+  Poser la norme bascule la sortie en régime mesuré, et la note à la main
+  cesse alors d'être saisissable : offerte sur une sortie que personne n'a
+  regardée, elle demandait d'arbitrer un chiffre attendu avant d'avoir jamais
+  jugé la chose. On juge, puis on mesure. Mesuré à l'écran : sortie notée →
+  porte présente ; sortie non notée → porte absente.
+  ⚠️ C'est bien **la première mesure** qui s'ouvre, pas la seule norme : les
+  deux se décident dans le même geste (`/paliers/premiere`), sinon le régime
+  basculerait sans qu'aucun chiffre n'ait été relevé.
+
+#### Deux pièges déjà connus, revus ici
+
+⚠️ **Le cliquet du standard minimal lit aussi les COMMENTAIRES.**
+`test_109::test_le_standard_minimal_revient_ECRIT` interdit les guillemets
+français écrits à la main dans le corps de `resultCard` (le texte cité passe
+par `<q>`, qui pose ceux de la langue du document) — et il a d'abord attrapé
+**le commentaire qui explique le correctif**. Troisième fois, après les clés
+i18n construites et le `<section>` de la doc technique.
+
+⚠️ **`playwright.fill` déplace le focus**, ce qui déclenche une borne posée sur
+`change` au milieu de la saisie : mesuré, le champ de délai contenait
+« 12010 ». C'est le banc, pas l'écran — mais le cas ne prouve alors plus rien.
+On pose les valeurs puis on émet `change` à la main.
+
+#### Deux points de la liste restent ouverts
+
+- « **dans la page temps supprimer** » : la phrase s'arrête là. Rien n'a été
+  supprimé — on ne devine pas ce qu'on retire d'un écran.
+- « les cards d'en bas sont redondantes avec celle de la légende du schéma,
+  **comme on peut <** » : la fin manque aussi, mais le début suffisait et les
+  cartes sont parties.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

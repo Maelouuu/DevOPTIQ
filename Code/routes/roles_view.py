@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, jsonify, request, session
 from sqlalchemy import text, func, bindparam
 from Code.extensions import db
 from Code.models.models import Role, Entity
+from Code.permissions import is_admin
 
 roles_view_bp = Blueprint('roles_view', __name__, url_prefix='/roles_view', template_folder='templates')
 
@@ -232,7 +233,9 @@ def view_roles():
 
     active_entity = Entity.get_active()
     active_entity_dict = {"id": active_entity.id, "name": active_entity.name} if active_entity else None
-    return render_template("roles_view.html", roles_data=roles_data, active_entity=active_entity_dict)
+    return render_template("roles_view.html", roles_data=roles_data,
+                           active_entity=active_entity_dict,
+                           peut_supprimer=is_admin())
 
 @roles_view_bp.route('/<int:role_id>/mission', methods=['PUT'])
 def update_role_mission(role_id: int):

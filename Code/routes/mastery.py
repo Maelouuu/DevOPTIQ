@@ -11,8 +11,11 @@ from Code.extensions import db
 from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
-from Code.paliers import NIVEAU_EXPERTISE, etat_sortie, mesurable
-from Code.routes.qualify_outputs import get_activity_outputs
+from Code.paliers import (NIVEAU_EXPERTISE, etat_sortie, mesurable,
+                          norme_depuis_indicateur)
+from Code.routes.qualify_outputs import (get_activity_outputs,
+                                         indicateurs_de_sortie,
+                                         _norm as _norm_sortie)
 from Code.role_i18n import nom_affiche
 
 mastery_bp = Blueprint("mastery", __name__, url_prefix="/mastery")
@@ -99,6 +102,10 @@ def activity_mastery(user_id, activity_id, role_id=None):
     # l'activité restait « à configurer ». Rien n'est mis de côté — on est
     # libre de ne pas tout évaluer d'un coup, pas d'exclure une sortie.
     results = get_activity_outputs(activity_id)
+    # ⚠️ Ce que l'entreprise attend d'une sortie est noté dans la LISTE DES
+    # ACTIVITÉS (colonne « Performance » d'une connexion sortante). Cet écran
+    # le LIT : il ne demande plus de redéfinir une norme qui existe ailleurs.
+    indicateurs = indicateurs_de_sortie(activity_id)
     per_result, levels, autos, complete = [], [], [], True
     for d in results:
         ev = _reference_eval(user_id, activity_id, d.id)
@@ -119,9 +126,12 @@ def activity_mastery(user_id, activity_id, role_id=None):
             perf["expertise"] = (ev.mastery_level == NIVEAU_EXPERTISE) if ev else False
             perf["niveau_pose"] = ev.mastery_level if ev else None
         auto = _self_eval(user_id, activity_id, d.id)
+        indic = indicateurs.get(_norm_sortie(d.name), "")
         per_result.append({
             "data_id": d.id, "name": d.name,
             "minimum_performance_text": d.minimum_performance_text or "",
+            "indicateur": indic,
+            "norme_suggeree": norme_depuis_indicateur(indic),
             "mesurable": perf is not None,
             "performance": perf,
             "self_level": auto.mastery_level if auto else None,

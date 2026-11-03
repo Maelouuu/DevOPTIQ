@@ -35,9 +35,9 @@
                            id="time-duration-{{ activity.id }}"
                            placeholder="0">
                     <select class="time-unit-select" id="time-unit-{{ activity.id }}">
-                        <option value="minutes">min</option>
-                        <option value="heures">h</option>
-                        <option value="jours">j</option>
+                        <option value="minutes">{{ t('acttime.unit_min') }}</option>
+                        <option value="heures">{{ t('acttime.unit_hour') }}</option>
+                        <option value="jours">{{ t('acttime.unit_day') }}</option>
                     </select>
                 </div>
             </div>
@@ -49,9 +49,9 @@
                            id="time-delay-{{ activity.id }}"
                            placeholder="0">
                     <select class="time-unit-select" id="delay-unit-{{ activity.id }}">
-                        <option value="minutes">min</option>
-                        <option value="heures">h</option>
-                        <option value="jours">j</option>
+                        <option value="minutes">{{ t('acttime.unit_min') }}</option>
+                        <option value="heures">{{ t('acttime.unit_hour') }}</option>
+                        <option value="jours">{{ t('acttime.unit_day') }}</option>
                     </select>
                 </div>
             </div>

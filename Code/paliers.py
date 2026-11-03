@@ -24,6 +24,7 @@ définit honnêtement, c'est un jugement. Il reste posé à la main.
 l'entreprise, le collaborateur est en écart. Tout l'aval (couleurs, couverture,
 radar, tableau RH) continue de fonctionner sans rien changer.
 """
+import re
 from datetime import date, datetime
 
 from Code.extensions import db
@@ -44,6 +45,59 @@ NIVEAU_AVANCE = 3
 # Il se pose à la main, y compris sur une sortie mesurée — sans quoi une
 # organisation ne peut jamais dire « celui-là est expert ».
 NIVEAU_EXPERTISE = 4
+
+
+def norme_depuis_indicateur(texte):
+    """Ce qu'on peut LIRE comme norme dans un indicateur de performance.
+
+    L'indicateur est du texte libre, écrit dans la liste des activités
+    (« ≤ 48 h », « 95 % de conformité », « sous 5 jours »). On en tire une
+    PROPOSITION — valeur, unité, sens — que la personne confirme : rien n'est
+    enregistré sans validation, et un indicateur illisible ne propose rien
+    plutôt que d'inventer un chiffre.
+
+    ⚠️ Le SENS se devine, et c'est le seul endroit où l'on devine : un
+    pourcentage se bat à la hausse (un taux de conformité), tout le reste à la
+    baisse (une durée, un nombre de retouches). Les marqueurs explicites
+    (« ≤ », « au moins », « at least », « max »…) l'emportent toujours.
+    """
+    if not texte:
+        return None
+    t = str(texte).strip().lower()
+    m = re.search(r"(\d+(?:[.,]\d+)?)", t)
+    if not m:
+        return None
+    try:
+        valeur = float(m.group(1).replace(",", "."))
+    except ValueError:
+        return None
+
+    reste = t[m.end():].lstrip()
+    unite = ""
+    mu = re.match(r"(%|h|j|d|min|jours?|days?|hours?|heures?|minutes?|semaines?|weeks?)\b",
+                  reste)
+    if reste[:1] == "%":
+        unite = "%"
+    elif mu:
+        unite = _UNITES.get(mu.group(1), mu.group(1))
+
+    avant = t[:m.start()]
+    if any(x in t for x in ("\u2265", ">=", "au moins", "at least", "mini", "minimum",
+                            "plus de", "superieur", "supérieur")):
+        sens = PLUS
+    elif any(x in t for x in ("\u2264", "<=", "au plus", "at most", "maxi", "maximum",
+                              "moins de", "sous", "within", "under", "max")):
+        sens = MOINS
+    else:
+        sens = PLUS if unite == "%" else MOINS
+    del avant
+    return {"valeur": valeur, "unite": unite, "sens": sens}
+
+
+_UNITES = {"jour": "j", "jours": "j", "day": "j", "days": "j", "d": "j",
+           "heure": "h", "heures": "h", "hour": "h", "hours": "h",
+           "minute": "min", "minutes": "min",
+           "semaine": "sem", "semaines": "sem", "week": "sem", "weeks": "sem"}
 
 
 def mesurable(d):

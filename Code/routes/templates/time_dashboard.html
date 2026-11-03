@@ -3,6 +3,10 @@
 <script>
   // Libellés des unités de durée. La VALEUR envoyée au serveur reste
   // française (clé de UNIT_TO_MIN) : seul l'affichage suit la langue.
+  // ⚠️ Et elle s'écrit en `value=` sur CHAQUE option. Sans attribut, la valeur
+  // d'une option EST son texte : en anglais, choisir « hours » envoyait
+  // « hours », que `UNIT_TO_MIN.get(…, 1)` lisait comme des MINUTES. Toute la
+  // page Temps comptait donc 60 fois trop peu, en silence, dans cette langue.
   // ⚠️ `lang` sert au groupement des milliers : /temps est une page complète,
   // mais la règle vaut partout — un script ne doit pas deviner la langue de
   // l'application depuis celle du navigateur.
@@ -53,7 +57,14 @@
                        tm_mod:        {{ t('time.tm_mod')|tojson }},
                        tm_maj:        {{ t('time.tm_maj')|tojson }},
                        tm_vide_grp:   {{ t('time.tm_vide_grp')|tojson }},
-                       tm_acts:       {{ t('time.tm_acts')|tojson }}};
+                       tm_acts:       {{ t('time.tm_acts')|tojson }},
+                       {# Les lignes d'une analyse de role sont construites en
+                          JS : ces quatre libelles y etaient ecrits en dur, en
+                          francais, et s'affichaient tels quels en anglais. #}
+                       rec_daily:     {{ t('time.rec_daily')|tojson }},
+                       rec_weekly:    {{ t('time.rec_weekly')|tojson }},
+                       rec_monthly:   {{ t('time.rec_monthly')|tojson }},
+                       rec_yearly:    {{ t('time.rec_yearly')|tojson }}};
 </script>
 <!-- ⚠️ AVANT time.js : c'est lui qui fournit optiqConfirm. `header_buttons`
      ne charge pas ce script, d'où les pop-up du navigateur sur cette page. -->
@@ -366,7 +377,7 @@
               <div class="inline">
                 <input id="act-duration" type="number" min="0" step="0.1" class="input" />
                 <select id="act-duration-unit" class="input">
-                  <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
+                  <option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option>
                 </select>
               </div>
 
@@ -409,13 +420,14 @@
 
             <div class="table-wrap">
               <table class="grid">
+                {# ⚠️ Plus de colonne « Actions » : les lignes sont celles du
+                   role, on n'en ajoute ni n'en retire (voir addRoleRow). #}
                 <colgroup>
                   <col class="col-activity">
                   <col class="col-num">
                   <col class="col-rec">
                   <col class="col-num-xs">
                   <col class="col-num">
-                  <col class="col-actions">
                 </colgroup>
                 <thead>
                   <tr>
@@ -427,7 +439,6 @@
                     <th>{{ t('time.col_recurrence') }}</th>
                     <th>{{ t('time.col_freq') }}</th>
                     <th>{{ t('time.col_weight') }}</th>
-                    <th>{{ t('time.col_actions') }}</th>
                   </tr>
                 </thead>
                 <tbody id="role-rows"></tbody>
@@ -435,9 +446,6 @@
             </div>
 
             <div class="row-actions">
-              <button id="btn-role-add-line" class="btn">
-                <i class="fa-solid fa-plus"></i> {{ t('time.add_row') }}
-              </button>
               <button id="btn-role-save" class="btn success">
                 <i class="fa-solid fa-save"></i> {{ t('time.save_analysis') }}
               </button>
@@ -496,7 +504,7 @@
                 <div class="inline">
                   <input id="fw-dur" type="number" step="0.1" class="input" />
                   <select id="fw-dur-unit" class="input">
-                    <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
+                    <option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option>
                   </select>
                 </div>
                 <div class="field-hint">{{ t('time.fw_hint_std_dur') }}</div>
@@ -507,10 +515,13 @@
                 <div class="inline">
                   <input id="fw-del" type="number" step="0.1" class="input" />
                   <select id="fw-del-unit" class="input">
-                    <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
+                    <option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option>
                   </select>
                 </div>
                 <div class="field-hint">{{ t('time.fw_hint_std_del') }}</div>
+                {# Dit POURQUOI la valeur a bougé : un champ qui se corrige
+                   tout seul sans rien dire passe pour un défaut de saisie. #}
+                <div class="field-hint hidden" id="fw-del-note">{{ t('time.fw_del_borne') }}</div>
               </div>
             </div>
 
@@ -552,7 +563,10 @@
 
               <div class="sc-field">
                 <label>{{ t('time.fw_prob_label') }}</label>
-                <input id="fw-n" type="number" value="1" min="1" class="input" />
+                <div class="inline">
+                  <input id="fw-n" type="number" value="100" min="0.1" max="100" step="0.1" class="input" />
+                  <span class="unit-suffix">%</span>
+                </div>
                 <div class="field-hint">{{ t('time.fw_hint_prob') | safe }}</div>
               </div>
 
@@ -561,7 +575,7 @@
                 <div class="inline">
                   <input id="fw-l" type="number" step="0.1" class="input" />
                   <select id="fw-l-unit" class="input">
-                    <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
+                    <option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option>
                   </select>
                 </div>
                 <div class="field-hint">{{ t('time.fw_hint_extra') | safe }}</div>
@@ -572,7 +586,7 @@
                 <div class="inline">
                   <input id="fw-m" type="number" step="0.1" class="input" />
                   <select id="fw-m-unit" class="input">
-                    <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
+                    <option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option>
                   </select>
                 </div>
                 <div class="field-hint">{{ t('time.fw_hint_delay') | safe }}</div>

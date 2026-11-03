@@ -57,8 +57,13 @@
           {# Ce qui ATTEND la personne — la vue d'ensemble disait où elle en
              est, jamais ce qui vient. #}
           <div class="cv2-seances hidden" id="cv2-seances"></div>
-          <div class="cv2-roles-lbl" data-i18n="roles_label">Rôles du collaborateur</div>
-          <div class="cv2-rolecards" id="cv2-rolecards"></div>
+          {# ⚠️ Les cartes de rôle du bas REDISAIENT la liste « par rôle »
+             posée à côté du radar : même liste, même ordre, même geste (un
+             clic ouvre le rôle). Elles portaient en plus les compteurs et le
+             bouton du plan — tous deux présents sur la page d'évaluation,
+             celle-là même qu'un clic ouvre. Il ne reste que l'état vide :
+             sans lui, quelqu'un sans aucun rôle n'aurait rien du tout. #}
+          <div class="cv2-vide hidden" id="cv2-sans-role"></div>
         </section>
 
 

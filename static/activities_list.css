@@ -779,20 +779,21 @@ body .toggle-icon,
 }
 
 /* ========================================
-   VUE D'ENSEMBLE - DISPOSITION CÔTE À CÔTE
+   VUE D'ENSEMBLE - UNE COLONNE
    ======================================== */
 
+/* ⚠️ Les connexions et les contraintes étaient CÔTE À CÔTE (2fr / 1fr). Les
+   connexions portent déjà deux colonnes à l'intérieur (entrantes, sortantes)
+   et la sortante a trois en-têtes dont « Performance » : sur les deux tiers
+   de la carte, chaque libellé se repliait sur deux ou trois lignes. Les
+   contraintes, elles, sont des phrases — dans un tiers de largeur elles
+   tombaient à quatre ou cinq lignes chacune. L'une SOUS l'autre, les deux
+   s'étalent sur toute la largeur de la carte. */
 .overview-side-by-side {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
     margin-top: 12px;
-}
-
-@media (max-width: 968px) {
-    .overview-side-by-side {
-        grid-template-columns: 1fr;
-    }
 }
 
 .overview-section {

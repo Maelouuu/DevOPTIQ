@@ -840,6 +840,11 @@ class TimeWeakness(db.Model):
     wait_added_qty = db.Column(db.Float, nullable=False, default=0)
     wait_added_unit = db.Column(db.String(16), nullable=False, default='minutes')
     prob_denom = db.Column(db.Integer, nullable=False, default=1)
+    # ⚠️ La probabilite se saisit en POURCENTAGE : « 1 sur N » demandait de
+    # penser a l'envers, et un cas sur trois ne s'ecrivait pas (3 rend 33,3 %).
+    # `prob_denom` est conserve — arrondi — parce que des appels anciens le
+    # lisent encore ; c'est ce pourcentage qui fait foi quand il est pose.
+    prob_percent = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 

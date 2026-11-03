@@ -653,6 +653,9 @@ def create_app(test_config=None):
         _safe_add_column("competencies", "description_en", "TEXT")
         # Paramètres entreprise : les tables historiques n'avaient pas entity_id
         _safe_add_column("entreprise_settings", "entity_id", "INTEGER")
+        # La probabilité d'une faiblesse, en pourcentage (« 1 sur N » restait
+        # écrit dans prob_denom pour les lectures anciennes)
+        _safe_add_column("time_weakness", "prob_percent", "FLOAT")
 
         # users.password : les hashes modernes (~162 car. en scrypt) dépassaient
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE

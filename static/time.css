@@ -987,3 +987,30 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   .tm-entete-actions { width: 100%; }
   .tm-b { flex: 1; justify-content: center; }
 }
+
+/* ── Le rail de l'accueil DÉSIGNE le groupe qu'il déplie ──────────────
+   Un défilement seul passe inaperçu : sans cette seconde et demie, cliquer
+   « Rôle » dans le rail n'avait l'air de rien faire quand le groupe était
+   déjà à l'écran. Même geste que les tuiles de la page Partage. */
+.tm-grp.est-pointe {
+  box-shadow: 0 0 0 2px var(--pg-accent, #d97706),
+              0 10px 26px -14px rgba(217, 119, 6, .55);
+  border-radius: 12px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tm-grp.est-pointe { animation: tm-pointe 1.5s ease-out; }
+  @keyframes tm-pointe {
+    0%   { box-shadow: 0 0 0 3px var(--pg-accent, #d97706); }
+    100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+  }
+}
+
+/* Le « % » collé à son champ : la probabilité est un pourcentage, et le dire
+   dans le libellé seul laissait taper 0,2 pour « une fois sur cinq ». */
+.unit-suffix {
+  flex: none;
+  padding: 0 2px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+}

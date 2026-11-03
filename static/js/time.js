@@ -114,11 +114,18 @@
 
   $('#tm-btn-nouvelle')?.addEventListener('click', () => ouvrirEcran('choix'));
   $$('.tm-retour').forEach(b => b.addEventListener('click', () => ouvrirAccueil()));
-  /* ⚠️ Les portes ET le rail de l'accueil, pas `[data-analyse]` tout court :
-     `#tm-travail` porte cet attribut (c'est lui qui teinte l'icone de la
-     barre), on lui poserait un ecouteur qui le rouvrirait sur lui-meme. */
-  $$('.tm-porte, .tm-rail-t').forEach(
+  /* ⚠️ Les portes, pas `[data-analyse]` tout court : `#tm-travail` porte cet
+     attribut (c'est lui qui teinte l'icone de la barre), on lui poserait un
+     ecouteur qui le rouvrirait sur lui-meme. */
+  $$('.tm-porte').forEach(
     b => b.addEventListener('click', () => { sortirEdition(); ouvrirAnalyse(b.dataset.analyse); }));
+  /* ⚠️ Le rail de l'accueil MONTRE ce qui est enregistre ; il ouvrait un
+     formulaire vierge — ce que fait deja « + Nouvelle analyse », a dix
+     centimetres au-dessus. Et chaque tuile porte le NOMBRE d'analyses de son
+     type : annoncer « 3 » puis ouvrir une page blanche est un mensonge. On
+     vient le plus souvent ici pour RELIRE. */
+  $$('.tm-rail-t').forEach(
+    b => b.addEventListener('click', () => montrerGroupe(b.dataset.analyse)));
   $('#tm-mod-sortir')?.addEventListener('click', () => {
     // Quitter la modification remet l'écran à neuf : garder la saisie
     // laisserait croire qu'elle est encore rattachée à l'analyse ouverte.
@@ -285,11 +292,43 @@
     }
   }
 
+  /* ⚠️ Un delai de production INFERIEUR a la duree de travail est impossible :
+     on ne produit pas un resultat en moins de temps qu'il n'en demande. Le
+     champ se corrige a la SORTIE, pas pendant la frappe — effacer « 120 »
+     pour taper « 90 » passerait sinon par un « 1 » impose. Le serveur borne
+     de son cote : le masquage n'est pas une regle. */
+  function minutesChamp(valeur, unite){ return toMinutes(parseFloat(valeur || '0'), unite); }
+  function borneDelaiStandard(){
+    const del = $('#fw-del'), dur = $('#fw-dur');
+    if (!del || !dur) return;
+    const durMin = minutesChamp(dur.value, v('#fw-dur-unit'));
+    const delMin = minutesChamp(del.value, v('#fw-del-unit'));
+    if (delMin >= durMin) { $('#fw-del-note')?.classList.add('hidden'); return; }
+    const k = { minutes: 1, heures: 60, jours: 1440 }[(v('#fw-del-unit') || 'minutes').toLowerCase()] || 1;
+    del.value = Math.round((durMin / k) * 10) / 10;
+    del.dataset.saisi = '1';
+    $('#fw-del-note')?.classList.remove('hidden');
+    calculFaiblesse();
+  }
+  ['#fw-del', '#fw-del-unit', '#fw-dur', '#fw-dur-unit'].forEach(
+    sel => $(sel)?.addEventListener('change', borneDelaiStandard));
+
   $('#fw-activity')?.addEventListener('change', refreshWeaknessDefaults);
   $('#fw-tasks')?.addEventListener('input', (e)=> {
     if (e.target.classList.contains('t-dur')) recalcTaskSum();
   });
   toggleFwMode();
+
+  /* La probabilite d'apparition, en POURCENTAGE.
+     ⚠️ « 1 sur N » demandait de penser a l'envers : pour dire « une fois sur
+     cinq » il fallait taper 5, et un cas sur trois ne s'ecrivait pas du tout.
+     Le serveur garde `prob_denom` (arrondi) pour les lectures anciennes, mais
+     c'est le pourcentage qui fait foi quand il est la. */
+  function probaPct(){
+    const pct = parseFloat(v('#fw-n'));
+    if (!isFinite(pct) || pct <= 0) return 100;
+    return Math.min(100, pct);
+  }
 
   function flashFeedback(id, isOk, msg) {
     const el = document.getElementById(id);
@@ -315,7 +354,7 @@
       weakness: $('#fw-k')?.value || '',
       L_work_added: n('#fw-l'), L_unit: v('#fw-l-unit') || 'minutes',
       M_wait_added: n('#fw-m'), M_unit: v('#fw-m-unit') || 'minutes',
-      N_prob_denom: parseInt(n('#fw-n') || 1, 10),
+      N_prob_pct: probaPct(),
       delay_std: n('#fw-del'), delay_unit: v('#fw-del-unit') || 'minutes',
       save
     };
@@ -612,43 +651,50 @@
   // Cache des activités filtrées pour le rôle courant
   let roleActivitiesOptions = []; // [{id, name}, ...]
 
-  function buildRoleActivitySelect(){
-    const s=document.createElement('select');
-    s.className='input';
-    if (roleActivitiesOptions.length) {
-      s.innerHTML = roleActivitiesOptions.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
-    } else {
-      // fallback (ne devrait pas arriver si /role_activities marche)
-      s.innerHTML = [...$$('#act-activity option')].map(o=>`<option value="${o.value}">${o.textContent}</option>`).join('');
-    }
-    return s;
+  /* Le nom d'une activite du role, pour l'afficher. On passe par les options
+     de l'onglet Activite en dernier recours : une analyse ENREGISTREE peut
+     porter une activite que le role ne tient plus. */
+  function nomActivite(id){
+    const a = roleActivitiesOptions.find(x => String(x.id) === String(id));
+    if (a) return a.name;
+    const o = $$('#act-activity option').find(x => String(x.value) === String(id));
+    return o ? o.textContent : '';
   }
 
+  /* ⚠️ Les lignes sont celles du ROLE, pas une liste libre. On pouvait
+     « Ajouter une ligne » (avec un selecteur portant TOUTE la carto) et
+     supprimer une ligne au bouton : une analyse de role se retrouvait avec
+     des activites que le role ne tient pas, et sans celles qu'il tient —
+     alors que c'est le role qui definit son perimetre. L'activite est donc
+     un LIBELLE, son identifiant vit sur la ligne, et il n'y a plus ni ajout
+     ni retrait. Ce qui reste reglable : la duree, la recurrence, la
+     frequence — ce qu'on vient vraiment estimer. */
   function addRoleRow(activityId=null, duration=0, _unit='minutes', recurrence='journalier', frequency=1){
     const tr = document.createElement('tr');
+    tr.dataset.activityId = activityId == null ? '' : String(activityId);
     tr.innerHTML = `
-      <td class="r-act"></td>
+      <td class="r-act">${echap(nomActivite(activityId))}</td>
       <td><input type="number" min="0" step="0.1" class="input r-dur" /></td>
       <td class="r-rec"></td>
       <td><input type="number" min="1" step="1" class="input r-freq" value="1" /></td>
       <td class="r-weight">0</td>
-      <td class="r-actions"><button class="icon-btn danger r-del" title="${echap(tl('del_ok', 'Supprimer'))}">🗑</button></td>
     `;
-    const actSel = buildRoleActivitySelect();
-    tr.querySelector('.r-act').appendChild(actSel);
 
     const recSel = document.createElement('select');
     recSel.className='input';
-    recSel.innerHTML = `<option value="journalier">Journalier</option><option value="hebdomadaire">Hebdomadaire</option><option value="mensuel">Mensuel</option><option value="annuel">Annuel</option>`;
+    recSel.innerHTML = `<option value="journalier">${echap(tl('rec_daily', 'Journalier'))}</option>`
+      + `<option value="hebdomadaire">${echap(tl('rec_weekly', 'Hebdomadaire'))}</option>`
+      + `<option value="mensuel">${echap(tl('rec_monthly', 'Mensuel'))}</option>`
+      + `<option value="annuel">${echap(tl('rec_yearly', 'Annuel'))}</option>`;
     tr.querySelector('.r-rec').appendChild(recSel);
 
-    if (activityId) actSel.value = String(activityId);
     tr.querySelector('.r-dur').value = duration || 0;
     recSel.value = recurrence || 'journalier';
     tr.querySelector('.r-freq').value = frequency || 1;
 
     async function prefillDuration(){
-      const id = actSel.value;
+      const id = tr.dataset.activityId;
+      if (!id) { recalc(); return; }
       const r = await fetch(`/temps/api/activity_defaults/${id}`);
       const j = await r.json();
       const champ = tr.querySelector('.r-dur');
@@ -670,8 +716,6 @@
       recalcRoleTotals();
     }
     tr.addEventListener('input', recalc);
-    actSel.onchange = prefillDuration;
-    tr.querySelector('.r-del').onclick = ()=>{ tr.remove(); recalcRoleTotals(); };
     roleBody?.appendChild(tr);
   }
 
@@ -717,9 +761,9 @@
   async function loadRoleActivities(roleId){
     roleBody.innerHTML = '';
     const ok = await chargerOptionsRole(roleId);
-    if (!ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
+    if (!ok) { roleBody.innerHTML = `<tr><td colspan="5" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
     if (!roleActivitiesOptions.length) {
-      roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('role_no_activity', 'Aucune activité pour ce rôle.')}</td></tr>`;
+      roleBody.innerHTML = `<tr><td colspan="5" class="muted">${tl('role_no_activity', 'Aucune activité pour ce rôle.')}</td></tr>`;
       return;
     }
     // Pré-remplir une ligne par activité du rôle (comme avant)
@@ -730,11 +774,10 @@
   }
 
   $('#role-select')?.addEventListener('change', (e)=> loadRoleActivities(e.target.value));
-  $('#btn-role-add-line')?.addEventListener('click', ()=> addRoleRow());
 
   $('#btn-role-save')?.addEventListener('click', async ()=>{
     const lines = $$('#role-rows tr').filter(tr=>tr.querySelector('.r-rec select')).map(tr=>({
-      activity_id: parseInt(tr.querySelector('.r-act select').value,10),
+      activity_id: parseInt(tr.dataset.activityId || '0', 10),
       duration: parseFloat(tr.querySelector('.r-dur').value || '0'),
       duration_unit: 'minutes',
       recurrence: tr.querySelector('.r-rec select').value,
@@ -848,7 +891,7 @@
     $('#fw-rec').value = it.recurrence;
     $('#fw-freq').value = it.frequency;
     $('#fw-k').value = it.weakness;
-    $('#fw-n').value = it.N_prob_denom;
+    $('#fw-n').value = it.N_prob_pct;
     $('#fw-l').value = it.L_work_added; $('#fw-l-unit').value = 'minutes';
     $('#fw-m').value = it.M_wait_added; $('#fw-m-unit').value = 'minutes';
     (it.tasks || []).forEach(t => {
@@ -971,6 +1014,23 @@
     if (ouvert) liste.push(g.dataset.grp);
     memoriserGroupes(liste);
   }));
+
+  /* Deplier le groupe des analyses de ce type, et l'amener sous les yeux.
+     ⚠️ Le defilement seul passe inapercu : le groupe se DESIGNE une seconde
+     et demie (meme geste que les tuiles de la page Partage). */
+  function montrerGroupe(type){
+    const g = document.querySelector('.tm-grp[data-grp="' + type + '"]');
+    if (!g) return;
+    g.classList.add('is-ouvert');
+    const liste = groupesOuverts().filter(x => x !== type);
+    liste.push(type);
+    memoriserGroupes(liste);
+    g.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    g.classList.remove('est-pointe');
+    void g.offsetWidth;        // sans quoi recliquer ne rejoue pas l'animation
+    g.classList.add('est-pointe');
+    setTimeout(() => g.classList.remove('est-pointe'), 1500);
+  }
 
   function lignesDepuis(d){
     const acts = (n) => fmtPhrase('tm_acts', '{n} act.', { n: n });

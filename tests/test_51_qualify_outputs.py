@@ -11,8 +11,9 @@ from Code.models.models import Entity, Activities, Link, Data
 
 @pytest.fixture()
 def carto(app):
-    """Entité dédiée : activité A avec 3 connexions sortantes (2 avec libellé, 1 sans),
-    activité Z sans aucune connexion sortante. Nettoyage complet après le test."""
+    """Entité dédiée : activité A avec 3 connexions sortantes (2 avec libellé,
+    1 sans — qui ne produit DONC aucune sortie), activité Z sans aucune
+    connexion sortante. Nettoyage complet après le test."""
     with app.app_context():
         ent = Entity(name="QualifOutECo")
         db.session.add(ent); db.session.flush()
@@ -26,7 +27,7 @@ def carto(app):
             Link(entity_id=ent.id, source_activity_id=a.id, target_activity_id=b.id,
                  type="flux", description="Fiche suiveuse"),
             Link(entity_id=ent.id, source_activity_id=a.id, target_activity_id=b.id,
-                 type="flux", description=None),   # sans libellé → nom du destinataire
+                 type="flux", description=None),   # sans libellé → aucune sortie
         ]
         db.session.add_all(links); db.session.commit()
         ids = {"entity_id": ent.id, "a": a.id, "b": b.id, "z": z.id}
@@ -52,8 +53,8 @@ def test_outputs_lists_outgoing_connections(client, carto):
     r = client.get(f"/qualify/outputs/{carto['a']}")
     assert r.status_code == 200
     names = {o["name"] for o in r.get_json()["outputs"]}
-    # 2 libellés + la connexion sans libellé prend le nom du destinataire
-    assert names == {"Pièce usinée", "Fiche suiveuse", "Contrôle qualité"}
+    # Les 2 libellés, et EUX SEULS : la flèche sans libellé ne produit rien.
+    assert names == {"Pièce usinée", "Fiche suiveuse"}
 
 
 def test_activity_without_outgoing_has_no_outputs(client, carto):
@@ -70,7 +71,7 @@ def test_materialization_is_idempotent(app, client, carto):
     client.get(f"/qualify/outputs/{carto['a']}")
     client.get(f"/qualify/outputs/{carto['a']}")
     with app.app_context():
-        assert Data.query.filter_by(producer_activity_id=carto["a"]).count() == 3
+        assert Data.query.filter_by(producer_activity_id=carto["a"]).count() == 2
 
 
 def test_save_qualification_persists(app, client, carto):
@@ -178,7 +179,7 @@ def test_analyze_without_ai_key_falls_back_to_qualify(client, carto, monkeypatch
     assert r.status_code == 200
     body = r.get_json()
     assert body["source"] == "no_key"
-    assert len(body["outputs"]) == 3
+    assert len(body["outputs"]) == 2
     assert all(o["suggested_nature"] is None for o in body["outputs"])
 
 
@@ -202,7 +203,7 @@ def test_analyze_with_ai_success_returns_suggested_natures(client, carto, monkey
     assert props[target["data_id"]]["suggested_minimum_performance"] == "Cote respectée"
     # les sorties non traitées par l'IA reviennent en "à qualifier"
     others = [p for did, p in props.items() if did != target["data_id"]]
-    assert len(others) == 2
+    assert len(others) == 1
     assert all(o["suggested_nature"] is None for o in others)
 
 
@@ -232,7 +233,7 @@ def test_analyze_with_ai_ignores_unknown_data_id(client, carto, monkeypatch):
     assert r.status_code == 200
     body = r.get_json()
     assert all(p["data_id"] != 999999 for p in body["outputs"])
-    assert len(body["outputs"]) == 3
+    assert len(body["outputs"]) == 2
 
 
 def test_analyze_warns_when_no_result_identified(client, carto, monkeypatch):
@@ -248,10 +249,10 @@ def test_analyze_warns_when_more_than_three_results(client, carto, monkeypatch):
     _sess(client, carto["entity_id"])
     outs = client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]
     import json as _json
-    # 3 sorties dispo, on ajoute une 4e ligne en trop (data_id invalide, sera ignorée) —
-    # pour dépasser 3 RESULT il faut au moins 4 sorties valides : on en marque 3 comme RESULT
-    # (le seuil ">3" n'est donc pas atteignable avec seulement 3 sorties, on vérifie l'absence
-    # de warning dans ce cas et la présence du champ).
+    # 2 sorties dispo, on ajoute une 3e ligne en trop (data_id invalide, sera ignorée) —
+    # pour dépasser 3 RESULT il faut au moins 4 sorties valides : le seuil ">3"
+    # n'est donc pas atteignable ici, on vérifie l'absence de warning dans ce
+    # cas et la présence du champ.
     content = _json.dumps({"outputs": [
         {"data_id": o["data_id"], "suggested_nature": "RESULT"} for o in outs
     ]})
@@ -281,22 +282,28 @@ def test_analyze_ai_exception_falls_back_with_error_source(client, carto, monkey
     body = r.get_json()
     assert body["source"] == "error"
     assert "boom" in body["error"]
-    assert len(body["outputs"]) == 3
+    assert len(body["outputs"]) == 2
     assert all(o["suggested_nature"] is None for o in body["outputs"])
 
 
 def test_chaque_sortie_dit_ou_part_sa_fleche(client, carto):
     """« Sortie » est un mot de méthode : l'écran de configuration montre la
-    FLÈCHE de la carte, avec sa destination. Une flèche sans libellé n'a pour nom
-    que celui de sa destination — on le signale, sinon l'activité aurait l'air
-    de « produire » une autre activité."""
+    FLÈCHE de la carte, avec sa destination.
+
+    ⚠️ Et une flèche SANS libellé ne produit RIEN. Elle prenait le nom de son
+    activité destinataire : on lisait que « Usiner la pièce » produit
+    « Contrôle qualité » — une autre ACTIVITÉ, pas une donnée. Cette fausse
+    sortie se faisait ensuite noter, évaluer, et comptait dans le minimum qui
+    fait le niveau de l'activité. Une donnée dont personne n'a écrit le nom
+    sur la carte n'est pas connue : on ne l'invente pas.
+    """
     _sess(client, carto["entity_id"])
     sorties = {o["name"]: o for o in
                client.get(f"/qualify/outputs/{carto['a']}").get_json()["outputs"]}
+    assert set(sorties) == {"Pièce usinée", "Fiche suiveuse"}
     assert sorties["Pièce usinée"]["vers"] == "Contrôle qualité"
     assert sorties["Pièce usinée"]["sans_libelle"] is False
-    assert sorties["Contrôle qualité"]["vers"] == "Contrôle qualité"
-    assert sorties["Contrôle qualité"]["sans_libelle"] is True
+    assert "Contrôle qualité" not in sorties
 
 
 def test_seule_la_nature_RESULTAT_est_lue_par_l_application():

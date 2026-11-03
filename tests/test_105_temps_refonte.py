@@ -408,13 +408,26 @@ class TestLesQuatreAnalysesSAtteignentDepuisLAccueil:
         for ident in ("tm-n-projet", "tm-n-activite", "tm-n-role", "tm-n-faiblesse"):
             assert ("'%s'" % ident) in js, ident
 
-    def test_le_rail_ET_les_portes_ouvrent_la_meme_chose(self):
-        """⚠️ Pas `[data-analyse]` tout court : `#tm-travail` porte cet
-        attribut (c'est lui qui teinte l'icone de la barre), on lui poserait
-        un ecouteur qui le rouvrirait sur lui-meme."""
+    def test_le_rail_MONTRE_les_analyses_les_portes_en_creent_une(self):
+        """Le rail ouvrait l'ecran de saisie VIERGE — ce que fait deja
+        « + Nouvelle analyse », a dix centimetres au-dessus — alors que
+        chaque tuile porte le NOMBRE d'analyses de son type. On vient le plus
+        souvent ici pour relire : il deplie le groupe et l'amene sous les yeux.
+
+        ⚠️ Pas `[data-analyse]` tout court : `#tm-travail` porte cet attribut
+        (c'est lui qui teinte l'icone de la barre), on lui poserait un
+        ecouteur qui le rouvrirait sur lui-meme."""
         js = _lire("static/js/time.js")
-        assert "$$('.tm-porte, .tm-rail-t')" in js
+        assert "$$('.tm-porte')" in js
+        assert "$$('.tm-rail-t')" in js
+        assert "$$('.tm-porte, .tm-rail-t')" not in js
         assert "$$('[data-analyse]')" not in js
+        # Le rail passe par `montrerGroupe`, qui deplie et designe le groupe.
+        rail = js[js.index("$$('.tm-rail-t')"):]
+        rail = rail[:rail.index(";")]
+        assert "montrerGroupe" in rail
+        assert "ouvrirAnalyse" not in rail
+        assert "function montrerGroupe(" in js
 
 
 class TestLaCarteDiLeQuiManque:
@@ -635,7 +648,9 @@ class TestOuvrirUneAnalysePourLaModifier:
             "mode": "activity", "activity_id": ids["activity_id"],
             "recurrence": "hebdomadaire", "frequency": 2,
             "duration_std": 60, "duration_unit": "minutes",
-            "delay_std": 30, "delay_unit": "minutes",
+            # ⚠️ Au-dessus de la duree : un delai inferieur est un etat
+            # impossible, et le serveur le remonte (`delai_plancher`).
+            "delay_std": 90, "delay_unit": "minutes",
             "L_work_added": 45, "L_unit": "minutes",
             "M_wait_added": 120, "M_unit": "minutes",
             "N_prob_denom": 3, "weakness": "TM-FW-105", "save": True})
@@ -646,7 +661,7 @@ class TestOuvrirUneAnalysePourLaModifier:
             it = d["item"]
             assert it["weakness"] == "TM-FW-105"
             assert it["recurrence"] == "hebdomadaire" and it["frequency"] == 2
-            assert it["duration_std"] == 60 and it["delay_std"] == 30
+            assert it["duration_std"] == 60 and it["delay_std"] == 90
             assert it["L_work_added"] == 45 and it["M_wait_added"] == 120
             assert it["N_prob_denom"] == 3
             assert it["mode"] == "activity"

@@ -140,6 +140,9 @@
       fi_suivre_d: "Donnez-lui un chiffre attendu, et son niveau se déduira de ce qu'on relève en séance.",
       pal_sans_norme_d: "Cette sortie n'a pas de chiffre attendu : son niveau se pose sur l'échelle ci-dessus. Donnez-lui la norme de l'entreprise pour la suivre en paliers mesurés.",
       pal_definir_norme: "Définir la norme de l'entreprise",
+      pal_indic: 'Indicateur de performance',
+      pal_indic_ou: 'noté sur la connexion, dans la liste des activités',
+      pal_norme_vient: "Reprise de l'indicateur noté dans la liste des activités (« [[x]] ») — corrigez-la si besoin.",
       ses_verdicts_t: 'Comment le verdict tombe',
       pal_audela_d: "un palier de mieux que l'attendu",
       pal_norme_tag: "Norme de l'entreprise",
@@ -294,7 +297,7 @@
       configured_go_eval: 'Sorties qualifiées ✓ — évaluez maintenant le niveau du collaborateur pour chaque résultat, puis enregistrez.',
       req_failed: 'Action impossible (erreur réseau ou serveur).',
       forbidden: "Vous n'avez pas le droit de noter ce collaborateur.",
-      pick_level: 'À évaluer', roles_label: 'Rôles du collaborateur',
+      pick_level: 'À évaluer',
       self_assess: "S'auto-évaluer",
       pas_configuree: "Cette activité ne produit rien dans la cartographie : aucune flèche n'en part. Il n'y a donc rien à évaluer.",
       b_held: 'Niveau tenu', b_gap: 'En écart', b_todo: 'À évaluer', b_setup: 'Sans sortie',
@@ -481,6 +484,9 @@
       fi_suivre_d: 'Give it a target figure, and its level will follow from what is measured in session.',
       pal_sans_norme_d: 'This output has no expected figure: its level is set on the scale above. Give it the company standard to follow it as measured steps.',
       pal_definir_norme: 'Set the company standard',
+      pal_indic: 'Performance indicator',
+      pal_indic_ou: 'recorded on the connection, in the activity list',
+      pal_norme_vient: 'Taken from the indicator recorded in the activity list (\u201c[[x]]\u201d) — correct it if needed.',
       ses_verdicts_t: 'How the verdict is reached',
       pal_audela_d: 'one step better than expected',
       pal_norme_tag: 'Company standard',
@@ -634,7 +640,7 @@
       configured_go_eval: 'Outputs qualified ✓ — now set the team member’s level for each result, then save.',
       req_failed: 'Action failed (network or server error).',
       forbidden: 'You are not allowed to assess this team member.',
-      pick_level: 'To assess', roles_label: "Team member's roles",
+      pick_level: 'To assess',
       self_assess: 'Self-assess',
       pas_configuree: 'This activity produces nothing on the map: no arrow leaves it. There is nothing to assess.',
       b_held: 'Level met', b_gap: 'Below target', b_todo: 'To assess', b_setup: 'No output',
@@ -881,63 +887,14 @@
     renderBilan($('#cv2-bilan'), d.totals, null);
     renderProfil(d);
     rendreSeances();
-    const box = $('#cv2-rolecards'); box.innerHTML = '';
-    if (!d.roles.length) { box.innerHTML = `<div class="cv2-vide">${esc(T('no_roles'))}</div>`; return; }
-    d.roles.forEach((r, i) => box.appendChild(carteRole(r, i)));
-  }
-
-  function carteRole(r, i) {
-    const el = document.createElement('div');
-    const teinte = r.n_activities ? (r.color || 'grey') : 'grey';
-    el.className = `cv2-rolecard cv2-rolecard--${teinte}`;
-    el.style.animation = `cv2-entre .26s ease-out ${i * 45}ms backwards`;
-
-    const etats = [
-      ['held', T('b_held'), 'green'], ['gap', T('b_gap'), 'orange'],
-      ['todo', T('b_todo'), 'blue'], ['setup', T('b_setup'), 'grey'],
-    ].filter(([k]) => r.counts[k])
-      .map(([k, lib, t]) => `<span class="cv2-etat cv2-etat--${t}"><i></i>${r.counts[k]} ${esc(lib)}</span>`)
-      .join('');
-
-    // Le niveau d'un rôle est le MINIMUM de ses activités, et il n'existe que
-    // si toutes sont évaluées : une moyenne partielle laisserait croire qu'un
-    // rôle à moitié noté est tenu.
-    const partiel = estNul(r.level) && (r.counts.todo || r.counts.setup);
-    el.innerHTML = `
-      <div class="rc-tete">
-        <div>
-          <div class="rc-nom">${esc(r.role_name)}</div>
-          <div class="rc-n">${r.n_activities} ${esc(r.n_activities === 1 ? T('r_activity_one') : T('r_activity_many'))}</div>
-        </div>
-      </div>
-      <div class="rc-jauge">${blocJauge(r.level, r.required_level, r.color, r.gap, r.level_label)}</div>
-      <div class="cv2-etats">${etats || `<span class="cv2-etat cv2-etat--grey"><i></i>${esc(T('r_none'))}</span>`}</div>
-      <div class="rc-pieds">
-        ${r.n_gap && jeSuisLeDev() ? `<button type="button" class="btn btn-ghost btn-sm" data-plan="1">${esc(T('plan_open'))}</button>` : ''}
-        <button type="button" class="btn btn-primary btn-sm" data-ouvrir="1">${esc(T('r_open'))}</button>
-      </div>`;
-    // ⚠️ Toute la carte ouvre le rôle : viser le bouton « Ouvrir » alors que la
-    // carte entière a l'air cliquable (elle se soulève au survol) est une
-    // promesse que le survol fait et que le clic ne tenait pas.
-    el.onclick = () => ouvrirRole(r);
-    el.tabIndex = 0;
-    el.setAttribute('role', 'button');
-    el.onkeydown = e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrirRole(r); }
-    };
-    const bp = el.querySelector('[data-plan]');
-    if (bp) {
-      // Le plan est une AUTRE destination : son clic ne doit pas remonter à la
-      // carte, sinon on ouvre le rôle derrière la fenêtre du plan.
-      bp.onclick = e => {
-        e.stopPropagation();
-        state.roleId = r.role_id; state.roleName = r.role_name; ouvrirPlan();
-      };
+    const vide = $('#cv2-sans-role');
+    if (vide) {
+      vide.classList.toggle('hidden', !!d.roles.length);
+      vide.textContent = d.roles.length ? '' : T('no_roles');
     }
-    return el;
   }
 
-  // Une jauge + son libellé + son écart, réutilisée par la carte de rôle et la
+  // Une jauge + son libellé + son écart, réutilisée par la ligne de rôle et la
   // ligne d'activité : la même information ne peut pas se lire de deux façons.
   function blocJauge(niveau, requis, couleur, ecart, libelle) {
     const req = estNul(requis) ? null : requis;
@@ -1647,6 +1604,16 @@
     card.dataset.dataId = r.data_id;
     const req = estNul(requis) ? null : requis;
     const preuve = (dev ? r.evidence : r.self_evidence) || '';
+    /* ⚠️ La norme ne se définit QU'APRÈS une première note à la main. Poser la
+       norme bascule la sortie en régime mesuré : offert sur une sortie que
+       personne n'a regardée, le bouton demandait d'arbitrer un chiffre attendu
+       avant d'avoir jamais jugé la chose. On juge, puis on mesure. */
+    const estNote = !estNul(maNote);
+    /* Ce que l'entreprise attend de cette sortie est noté dans la LISTE DES
+       ACTIVITES, colonne Performance de la connexion. Faute de repère de
+       réussite propre, c'est lui qui dit sur quoi on note — et c'est lui que
+       la première mesure reprendra. */
+    const standard = r.minimum_performance_text || r.indicateur || '';
 
     const officielle = blocNote({
       genre: 'off', titre: T('n_official'), tag: T('n_official_tag'),
@@ -1673,12 +1640,13 @@
         <aside class="fi-sujet">
           <p class="fi-sur">${esc(T('fi_sujet'))}</p>
           <h3 class="fi-nom">${esc(r.name)}</h3>
-          ${r.minimum_performance_text ? `<div class="fi-std">
-              <p class="fi-sur">${esc(T('std'))}</p>
+          ${standard ? `<div class="fi-std">
+              <p class="fi-sur">${esc(r.minimum_performance_text ? T('std') : T('pal_indic'))}</p>
               <!-- ⚠️ Un <q>, pas des chevrons écrits à la main : ils sont une
                    convention FRANÇAISE, et le navigateur pose les guillemets
                    de la langue du document tout seul. -->
-              <q class="fi-std-t">${esc(r.minimum_performance_text)}</q>
+              <q class="fi-std-t">${esc(standard)}</q>
+              ${r.minimum_performance_text ? '' : `<p class="fi-std-ou">${esc(T('pal_indic_ou'))}</p>`}
             </div>` : ''}
           <div class="fi-req">
             <p class="fi-sur">${esc(T('fi_requis'))}</p>
@@ -1706,7 +1674,7 @@
           <textarea class="cv2-ev${preuve ? '' : ' hidden'}" placeholder="${esc(T('evidence_ph'))}">${esc(preuve)}</textarea>
         </div>
       </div>
-      ${dev ? `<div class="fi-porte">
+      ${dev && estNote ? `<div class="fi-porte">
           <span class="ic"><i class="fa-solid fa-chart-line"></i></span>
           <div class="t"><b>${esc(T('fi_suivre'))}</b><p>${esc(T('fi_suivre_d'))}</p></div>
           <button type="button" class="fi-b" data-poser-norme>
@@ -3465,6 +3433,13 @@
   function formPremiere(zone, r) {
     const n = (r.performance && r.performance.norme) || {};
     const deja = !estNul(n.valeur);
+    /* ⚠️ La norme est RÉCUPÉRÉE de l'indicateur de performance noté dans la
+       liste des activités — on ne redemande pas un chiffre que l'entreprise a
+       déjà écrit ailleurs. C'est une proposition : rien n'est enregistré sans
+       validation, et un indicateur illisible ne propose rien plutôt que
+       d'inventer. Le serveur le lit (`norme_depuis_indicateur`) ; ici on ne
+       fait que remplir les champs. */
+    const sug = (!deja && r.norme_suggeree) || null;
     ouvrirForm(zone, {
       icone: 'fa-ruler', titre: T('pal_premiere'), sous: T('pal_premiere_d'),
       repere: !deja ? '' : `<span class="pf-rep"><span class="k">${esc(T('pal_norme'))}</span>`
@@ -3475,14 +3450,16 @@
         ? `<p class="pal-deja"><i class="fa-solid fa-lock"></i>${esc(T('pal_norme_deja_c'))}</p>`
         : `<div class="pal-champs">
              <label><span>${esc(T('pal_valeur'))}</span>
-               <input type="text" data-v inputmode="decimal"></label>
-             ${champUnite(null)}
+               <input type="text" data-v inputmode="decimal"
+                      value="${esc(sug ? fmtNb(sug.valeur) : '')}"></label>
+             ${champUnite(sug && sug.unite ? sug.unite : null)}
              <label><span>${esc(T('pal_sens'))}</span>
                <select data-s>
-                 <option value="moins">${esc(T('pal_moins'))}</option>
-                 <option value="plus">${esc(T('pal_plus'))}</option>
+                 <option value="moins"${sug && sug.sens === 'plus' ? '' : ' selected'}>${esc(T('pal_moins'))}</option>
+                 <option value="plus"${sug && sug.sens === 'plus' ? ' selected' : ''}>${esc(T('pal_plus'))}</option>
                </select></label>
-           </div>`}
+           </div>
+           ${sug ? `<p class="pal-vient"><i class="fa-solid fa-arrow-turn-down"></i>${esc(Tv('pal_norme_vient', { x: r.indicateur }))}</p>` : ''}`}
       <label class="pf-grand"><span class="pf-lbl">${esc(Tv('pal_mesure_q', { x: state.cibleNom }))}</span>
         <span class="pf-saisie"><input type="text" data-m inputmode="decimal" placeholder="—"></span></label>
       <p class="pal-suivra" data-apercu></p>`,

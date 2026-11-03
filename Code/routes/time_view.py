@@ -92,9 +92,58 @@ def heures_plein_temps(params=None):
     return float(p['hours_per_day']) * float(p['days_per_week']) * float(p['weeks_per_year'])
 
 
+def delai_plancher(duree_std_min, delai_std_min):
+    """Le delai de production ne tombe pas sous la duree de travail.
+
+    ⚠️ On ne produit pas un resultat en moins de temps qu'il n'en demande :
+    un delai standard inferieur a la duree de l'activite decrit un etat qui
+    n'existe pas, et il faussait tout ce qui suit (le delai moyen corrige, le
+    delai en cas degrade). L'ecran borne le champ a la sortie ; ici c'est la
+    regle, et c'est elle qui compte — le masquage n'en est pas une.
+    """
+    return max(float(delai_std_min or 0), float(duree_std_min or 0))
+
+
+def _lire_pct(d):
+    """Le pourcentage du payload, ou None s'il n'y en a pas.
+
+    ⚠️ `N_prob_denom` reste accepte : des appels anciens (et la suite de tests)
+    l'envoient encore. Quand les deux arrivent, le POURCENTAGE gagne.
+    """
+    brut = d.get('N_prob_pct')
+    if brut in (None, ''):
+        return None
+    try:
+        pct = float(brut)
+    except (TypeError, ValueError):
+        return None
+    if pct <= 0:
+        return None
+    return min(100.0, pct)
+
+
+def _denom_depuis_pct(pct, denom):
+    """Ce qu'on ecrit dans `prob_denom`, qui reste lu par les anciens appels."""
+    if pct is None:
+        return denom
+    return max(1, int(round(100.0 / pct)))
+
+
+def _pct_stocke(w):
+    """Le pourcentage d'une faiblesse enregistree.
+
+    Une ligne ecrite AVANT la colonne n'a que son denominateur : 1/N en est la
+    traduction exacte, il n'y a rien a deviner.
+    """
+    pct = getattr(w, 'prob_percent', None)
+    if pct:
+        return float(pct)
+    return 100.0 / max(1, int(w.prob_denom or 1))
+
+
 def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
                    travail_ajoute_min, attente_ajoutee_min, denom_proba,
-                   params=None):
+                   params=None, pct_proba=None):
     """Les variables O..AA de l'onglet Faiblesse.
 
     Extrait de `api_weakness`, qui l'appelle : le tableau de bord doit chiffrer
@@ -119,19 +168,30 @@ def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
     H = H * max(1, int(frequence or 1))
 
     B = float(duree_std_min or 0)
-    C = float(delai_std_min or 0)
+    C = delai_plancher(B, delai_std_min)
     L = float(travail_ajoute_min or 0)
     M = float(attente_ajoutee_min or 0)
     N = max(1, int(denom_proba or 1))
 
-    O = 1.0 / N
+    # ⚠️ Le POURCENTAGE fait foi quand il est la. « 1 sur N » demandait de
+    # penser a l'envers, et un cas sur trois ne s'ecrivait pas : 3 rend 33,3 %,
+    # jamais 30 %. `prob_denom` reste ecrit (arrondi) pour les lectures
+    # anciennes, mais il ne decide plus.
+    if pct_proba is not None:
+        O = min(1.0, max(0.0, float(pct_proba) / 100.0))
+    else:
+        O = 1.0 / N
     P_ = H * O
     Q = L * O
     Rv = (L + M) * O
     S = B + Q
     T = C + Rv
     U = L * P_
-    V = (L + M) * P_
+    # ⚠️ Le cout annuel du RETARD ne compte QUE l'attente. Avec (L + M), le
+    # travail refait entrait deux fois dans le total de l'accueil (U + V) et la
+    # carte « attente » annoncait du travail. Le retard, c'est le temps d'horloge
+    # qu'on fait subir en aval — pas les minutes qu'on repasse dessus.
+    V = M * P_
     base_mois = (Sa / SEMAINES_PAR_MOIS)
     W = U / base_mois if base_mois else 0
     X = V / base_mois if base_mois else 0
@@ -703,8 +763,7 @@ def api_weakness():
     L_qty = to_minutes(d.get('L_work_added', 0), d.get('L_unit') or 'minutes')
     M_qty = to_minutes(d.get('M_wait_added', 0), d.get('M_unit') or 'minutes')
     N_denom = max(1, int(d.get('N_prob_denom') or 1))
-
-    C = to_minutes(d.get('delay_std', 0), d.get('delay_unit') or 'minutes')
+    pct = _lire_pct(d)
 
     tasks_payload = d.get('tasks') or []
     if mode == 'tasks':
@@ -712,10 +771,14 @@ def api_weakness():
     else:
         B = to_minutes(d.get('duration_std', 0), d.get('duration_unit') or 'minutes')
 
+    # Le delai ne peut pas tomber sous la duree (voir `delai_plancher`) : on
+    # borne AVANT d'ecrire, sinon la base garderait l'etat impossible.
+    C = delai_plancher(B, to_minutes(d.get('delay_std', 0), d.get('delay_unit') or 'minutes'))
+
     params = get_calendar_params()
     Sa = params['weeks_per_year']
 
-    m = cout_faiblesse(B, C, rec, freq, L_qty, M_qty, N_denom, params)
+    m = cout_faiblesse(B, C, rec, freq, L_qty, M_qty, N_denom, params, pct_proba=pct)
     O, P, Q, Rv = m["O"], m["P"], m["Q"], m["R"]
     S, T, U, V = m["S"], m["T"], m["U"], m["V"]
     W, X, Y, Z, AA = m["W"], m["X"], m["Y"], m["Z"], m["AA"]
@@ -731,7 +794,8 @@ def api_weakness():
                     recurrence=rec, frequency=freq, weakness=weakness_txt,
                     work_added_qty=L_qty, work_added_unit='minutes',
                     wait_added_qty=M_qty, wait_added_unit='minutes',
-                    prob_denom=N_denom, created_at=datetime.utcnow()
+                    prob_denom=_denom_depuis_pct(pct, N_denom),
+                    prob_percent=pct, created_at=datetime.utcnow()
                 ))
             db.session.add(TimeWeakness(
                 activity_id=activity_id, task_id=None,
@@ -739,7 +803,8 @@ def api_weakness():
                 recurrence=rec, frequency=freq, weakness=weakness_txt,
                 work_added_qty=L_qty, work_added_unit='minutes',
                 wait_added_qty=M_qty, wait_added_unit='minutes',
-                prob_denom=N_denom, created_at=datetime.utcnow()
+                prob_denom=_denom_depuis_pct(pct, N_denom),
+                prob_percent=pct, created_at=datetime.utcnow()
             ))
         else:
             db.session.add(TimeWeakness(
@@ -748,7 +813,8 @@ def api_weakness():
                 recurrence=rec, frequency=freq, weakness=weakness_txt,
                 work_added_qty=L_qty, work_added_unit='minutes',
                 wait_added_qty=M_qty, wait_added_unit='minutes',
-                prob_denom=N_denom, created_at=datetime.utcnow()
+                prob_denom=_denom_depuis_pct(pct, N_denom),
+                prob_percent=pct, created_at=datetime.utcnow()
             ))
         db.session.commit()
 
@@ -799,13 +865,14 @@ def api_weakness_read(wid):
             "L_work_added": to_minutes(w.work_added_qty, w.work_added_unit),
             "M_wait_added": to_minutes(w.wait_added_qty, w.wait_added_unit),
             "N_prob_denom": int(w.prob_denom or 1),
+            "N_prob_pct": _pct_stocke(w),
             "tasks": taches,
         },
         "calc": cout_faiblesse(w.duration_std_minutes, w.delay_std_minutes,
                                w.recurrence, w.frequency,
                                to_minutes(w.work_added_qty, w.work_added_unit),
                                to_minutes(w.wait_added_qty, w.wait_added_unit),
-                               w.prob_denom),
+                               w.prob_denom, pct_proba=_pct_stocke(w)),
         "params": get_calendar_params(),
     })
 
@@ -821,12 +888,14 @@ def api_weakness_update(wid):
 
     L = to_minutes(d.get('L_work_added', 0), d.get('L_unit') or 'minutes')
     M = to_minutes(d.get('M_wait_added', 0), d.get('M_unit') or 'minutes')
-    C = to_minutes(d.get('delay_std', 0), d.get('delay_unit') or 'minutes')
     if mode == 'tasks':
         B = sum(to_minutes(t.get('duration_std', 0),
                            t.get('duration_unit') or 'minutes') for t in taches)
     else:
         B = to_minutes(d.get('duration_std', 0), d.get('duration_unit') or 'minutes')
+    C = delai_plancher(B, to_minutes(d.get('delay_std', 0),
+                                     d.get('delay_unit') or 'minutes'))
+    pct = _lire_pct(d)
 
     # Les lignes par tâche de l'ANCIENNE version s'en vont : le libellé a pu
     # changer, et c'est lui qui les rattachait.
@@ -847,7 +916,8 @@ def api_weakness_update(wid):
     w.work_added_unit = 'minutes'
     w.wait_added_qty = M
     w.wait_added_unit = 'minutes'
-    w.prob_denom = max(1, int(d.get('N_prob_denom') or 1))
+    w.prob_denom = _denom_depuis_pct(pct, max(1, int(d.get('N_prob_denom') or 1)))
+    w.prob_percent = pct
 
     if mode == 'tasks':
         for t in taches:
@@ -860,12 +930,14 @@ def api_weakness_update(wid):
                 recurrence=w.recurrence, frequency=w.frequency, weakness=w.weakness,
                 work_added_qty=L, work_added_unit='minutes',
                 wait_added_qty=M, wait_added_unit='minutes',
-                prob_denom=w.prob_denom, created_at=datetime.utcnow()))
+                prob_denom=w.prob_denom, prob_percent=w.prob_percent,
+                created_at=datetime.utcnow()))
 
     db.session.commit()
     return jsonify({
         "ok": True, "id": w.id,
-        "calc": cout_faiblesse(B, C, w.recurrence, w.frequency, L, M, w.prob_denom),
+        "calc": cout_faiblesse(B, C, w.recurrence, w.frequency, L, M,
+                               w.prob_denom, pct_proba=pct),
         "params": get_calendar_params(),
     })
 
@@ -964,7 +1036,7 @@ def api_tableau_de_bord():
                                w.recurrence, w.frequency,
                                to_minutes(w.work_added_qty, w.work_added_unit),
                                to_minutes(w.wait_added_qty, w.wait_added_unit),
-                               w.prob_denom, params)
+                               w.prob_denom, params, pct_proba=_pct_stocke(w))
             faiblesses.append({
                 "id": w.id,
                 "activity_id": w.activity_id,
