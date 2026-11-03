@@ -145,7 +145,7 @@ class TestSupprimerUnRoleEstReserveALAdministrateur:
     def role_jetable(self, app, ids):
         from Code.models.models import Role
         with app.app_context():
-            r = Role(name="T128 Jetable", entity_id=ids["entity_id"])
+            r = Role(name="T130 Jetable", entity_id=ids["entity_id"])
             db.session.add(r)
             db.session.commit()
             rid = r.id
@@ -157,14 +157,19 @@ class TestSupprimerUnRoleEstReserveALAdministrateur:
                 db.session.commit()
 
     def _en_tant_que(self, app, client, statut):
+        """⚠️ Get-or-create : deux cas de cette classe demandent le même
+        palier, et `users.email` est UNIQUE — le second tombait en
+        IntegrityError, dans un test qui ne parle pas de comptes."""
         from Code.models.models import User
         from Code.security import hash_password
+        courriel = "t130.%s@test" % statut
         with app.app_context():
-            u = User(first_name="T128", last_name=statut,
-                     email="t128.%s@test" % statut,
-                     password=hash_password("Test1234!"), status=statut)
-            db.session.add(u)
-            db.session.commit()
+            u = User.query.filter_by(email=courriel).first()
+            if u is None:
+                u = User(first_name="T130", last_name=statut, email=courriel,
+                         password=hash_password("Test1234!"), status=statut)
+                db.session.add(u)
+                db.session.commit()
             uid = u.id
         with client.session_transaction() as s:
             s["user_id"] = uid
@@ -194,13 +199,21 @@ class TestSupprimerUnRoleEstReserveALAdministrateur:
         avant = g[:i]
         assert "{% if peut_supprimer %}" in avant[-400:], avant[-400:]
 
-    def test_le_renommage_reste_ouvert(self):
-        """Le masquage n'est pas une sécurité, mais l'inverse non plus : on ne
-        ferme pas une action réversible en fermant l'autre."""
-        src = _lire("Code/routes/roles.py")
-        i = src.index("def update_role")
-        corps = src[i:src.index("def delete_role")]
-        assert "is_admin()" not in corps, corps
+    def test_le_renommage_reste_ouvert(self, app, ids, role_jetable):
+        """On ne ferme pas une action réversible en fermant l'autre.
+
+        ⚠️ Sur le COMPORTEMENT, pas sur le texte de `Code/routes/roles.py` :
+        l'arbre d'image est compilé en bytecode et n'en garde pas les sources
+        — un cas qui les relit y rougit à chaque exécution, et un contrôle qui
+        rougit toujours n'est plus lu.
+        """
+        from Code.models.models import Role
+        c = app.test_client()
+        self._en_tant_que(app, c, "coordinateur")
+        r = c.put("/roles/%d" % role_jetable, json={"name": "T130 Renomme"})
+        assert r.status_code == 200, r.data
+        with app.app_context():
+            assert db.session.get(Role, role_jetable).name == "T130 Renomme"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -326,9 +339,9 @@ class TestLaFaiblesse:
     def test_le_pourcentage_se_relit_tel_quel(self, app, auth_client, ids):
         from Code.models.models import TimeWeakness
         self._poster(auth_client, ids["activity_id"], N_prob_pct=30,
-                     weakness="T128-PCT", save=True)
+                     weakness="T130-PCT", save=True)
         with app.app_context():
-            w = TimeWeakness.query.filter_by(weakness="T128-PCT").first()
+            w = TimeWeakness.query.filter_by(weakness="T130-PCT").first()
             assert w is not None
             try:
                 assert w.prob_percent == pytest.approx(30.0)
@@ -376,9 +389,9 @@ class TestLaFaiblesse:
     def test_la_borne_sapplique_aussi_a_lecriture(self, app, auth_client, ids):
         from Code.models.models import TimeWeakness
         self._poster(auth_client, ids["activity_id"], duration_std=60,
-                     delay_std=10, weakness="T128-BORNE", save=True)
+                     delay_std=10, weakness="T130-BORNE", save=True)
         with app.app_context():
-            w = TimeWeakness.query.filter_by(weakness="T128-BORNE").first()
+            w = TimeWeakness.query.filter_by(weakness="T130-BORNE").first()
             try:
                 assert w.delay_std_minutes == 60
             finally:
@@ -538,12 +551,12 @@ class TestLaNormeVientDeLaListeDesActivites:
         from Code.routes.qualify_outputs import (indicateurs_de_sortie,
                                                  get_activity_outputs)
         with app.app_context():
-            a = Activities(name="T128 Produire", entity_id=ids["entity_id"])
-            b = Activities(name="T128 Aval", entity_id=ids["entity_id"])
+            a = Activities(name="T130 Produire", entity_id=ids["entity_id"])
+            b = Activities(name="T130 Aval", entity_id=ids["entity_id"])
             db.session.add_all([a, b])
             db.session.commit()
             lk = Link(entity_id=ids["entity_id"], source_activity_id=a.id,
-                      target_activity_id=b.id, description="Rapport T128",
+                      target_activity_id=b.id, description="Rapport T130",
                       type="flux")
             db.session.add(lk)
             db.session.commit()
@@ -551,10 +564,10 @@ class TestLaNormeVientDeLaListeDesActivites:
             db.session.commit()
             try:
                 indics = indicateurs_de_sortie(a.id)
-                assert indics == {"rapport t128": "≤ 48 h"}, indics
+                assert indics == {"rapport t130": "≤ 48 h"}, indics
                 # Et la sortie correspondante porte bien ce nom.
                 noms = {d.name for d in get_activity_outputs(a.id)}
-                assert noms == {"Rapport T128"}, noms
+                assert noms == {"Rapport T130"}, noms
             finally:
                 from Code.models.models import Data
                 for d in Data.query.filter_by(producer_activity_id=a.id).all():
@@ -574,15 +587,15 @@ class TestLaNormeVientDeLaListeDesActivites:
                                         User, UserRole, Role)
         from Code.security import hash_password
         with app.app_context():
-            u = User(first_name="T128", last_name="Eval",
-                     email="t128.eval@test", password=hash_password("Test1234!"),
+            u = User(first_name="T130", last_name="Eval",
+                     email="t130.eval@test", password=hash_password("Test1234!"),
                      status="user")
-            a = Activities(name="T128 Rediger", entity_id=ids["entity_id"])
-            b = Activities(name="T128 Relire", entity_id=ids["entity_id"])
+            a = Activities(name="T130 Rediger", entity_id=ids["entity_id"])
+            b = Activities(name="T130 Relire", entity_id=ids["entity_id"])
             db.session.add_all([u, a, b])
             db.session.commit()
             lk = Link(entity_id=ids["entity_id"], source_activity_id=a.id,
-                      target_activity_id=b.id, description="Note T128",
+                      target_activity_id=b.id, description="Note T130",
                       type="flux")
             db.session.add(lk)
             db.session.commit()
@@ -595,7 +608,7 @@ class TestLaNormeVientDeLaListeDesActivites:
                 with app.test_request_context():
                     etat = activity_mastery(u.id, a.id)
                 sortie = etat["results"][0]
-                assert sortie["name"] == "Note T128"
+                assert sortie["name"] == "Note T130"
                 assert sortie["indicateur"] == "95 % de conformité"
                 assert sortie["norme_suggeree"]["valeur"] == 95.0
                 assert sortie["norme_suggeree"]["sens"] == "plus"
@@ -628,13 +641,13 @@ def test_la_version_en_bloc_applique_la_meme_regle(app, ids):
     from Code.routes.qualify_outputs import (get_activity_outputs,
                                              output_ids_en_bloc)
     with app.app_context():
-        a = Activities(name="T128 Bloc", entity_id=ids["entity_id"])
-        b = Activities(name="T128 Bloc aval", entity_id=ids["entity_id"])
+        a = Activities(name="T130 Bloc", entity_id=ids["entity_id"])
+        b = Activities(name="T130 Bloc aval", entity_id=ids["entity_id"])
         db.session.add_all([a, b])
         db.session.commit()
         liens = [
             Link(entity_id=ids["entity_id"], source_activity_id=a.id,
-                 target_activity_id=b.id, description="Dossier T128", type="flux"),
+                 target_activity_id=b.id, description="Dossier T130", type="flux"),
             Link(entity_id=ids["entity_id"], source_activity_id=a.id,
                  target_activity_id=b.id, description=None, type="flux"),
         ]
@@ -649,7 +662,7 @@ def test_la_version_en_bloc_applique_la_meme_regle(app, ids):
             ids_bloc = output_ids_en_bloc([a.id])[a.id]
             en_bloc = {d.name for d in Data.query.filter(Data.id.in_(ids_bloc)).all()} \
                 if ids_bloc else set()
-            assert par_activite == {"Dossier T128"}, par_activite
+            assert par_activite == {"Dossier T130"}, par_activite
             assert en_bloc == par_activite, (par_activite, en_bloc)
         finally:
             for d in Data.query.filter_by(producer_activity_id=a.id).all():

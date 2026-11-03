@@ -6595,7 +6595,7 @@ Une liste sans sujet commun — six écrans différents — mais toutes de la m�
 forme : un détail qui **mentait**, ou qui n'était **pas possible**. Deux
 d'entre elles cachaient un défaut de fond.
 
-Cliquets : `tests/test_128_retours_du_pilote.py` (63 cas), plus trois cas
+Cliquets : `tests/test_130_retours_du_pilote.py` (63 cas), plus trois cas
 renouvelés dans `test_95`, `test_105` et `test_51` qui affirmaient ce qu'on
 vient de changer. **32 gardes retirées une par une, 32 cliquets tombés.**
 Suite : **3722 passés**, 1 sauté. Éprouvé à l'écran dans les deux langues sur
