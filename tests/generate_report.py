@@ -84,6 +84,7 @@ PAGE_LABELS = {
     "test_54_hsc_positioning":           "Auto-positionnement HSC",
     "test_129_cadence_hsc_gaps":         "Cadences & HSC — compléments",
     "test_131_panel_historique_gaps":    "Panel de Tests — historiques & stats",
+    "test_132_carto_liaison_propagation": "Éditeur Carto — propagation des liaisons",
     "test_55_technical_domains":         "Domaines de Technicité",
     "test_102_domain_status":            "Domaines de Technicité — Statut",
     "test_103_upload_vsdx_connexions":    "Upload Cartographie — Connexions VSDX",
