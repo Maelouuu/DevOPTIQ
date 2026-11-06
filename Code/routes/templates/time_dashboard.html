@@ -64,6 +64,7 @@
                        rec_daily:     {{ t('time.rec_daily')|tojson }},
                        rec_weekly:    {{ t('time.rec_weekly')|tojson }},
                        rec_monthly:   {{ t('time.rec_monthly')|tojson }},
+                       rec_quarterly: {{ t('time.rec_quarterly')|tojson }},
                        rec_yearly:    {{ t('time.rec_yearly')|tojson }}};
 </script>
 <!-- ⚠️ AVANT time.js : c'est lui qui fournit optiqConfirm. `header_buttons`
@@ -386,6 +387,7 @@
                 <option value="journalier">{{ t('time.rec_daily') }}</option>
                 <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
                 <option value="mensuel">{{ t('time.rec_monthly') }}</option>
+                <option value="trimestriel">{{ t('time.rec_quarterly') }}</option>
                 <option value="annuel">{{ t('time.rec_yearly') }}</option>
               </select>
 
@@ -484,6 +486,7 @@
                   <option value="journalier">{{ t('time.rec_daily') }}</option>
                   <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
                   <option value="mensuel">{{ t('time.rec_monthly') }}</option>
+                  <option value="trimestriel">{{ t('time.rec_quarterly') }}</option>
                   <option value="annuel">{{ t('time.rec_yearly') }}</option>
                 </select>
               </div>

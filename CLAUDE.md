@@ -6809,6 +6809,174 @@ On pose les valeurs puis on émet `change` à la main.
   **comme on peut <** » : la fin manque aussi, mais le début suffisait et les
   cartes sont parties.
 
+### Les retours du pilote indien, confrontés au code (2026-11-05)
+
+Classeur « OPTIQ Tool Query » — **36 lignes du 07/09 au 29/10**, par cinq
+personnes d'ARaymond. Chacune relue dans le code de `staging` plutôt que de
+mémoire. Le tri :
+
+| verdict | n | ce que ça veut dire |
+|---|---|---|
+| corrigés ici | 7 | un défaut, ou un trou d'une ligne |
+| déjà réglés sur `staging` | 12 | signalés chez eux, corrigés depuis ; le report les portera |
+| clos par eux-mêmes | 5 | leur feuille porte « Closed » et la solution |
+| à arbitrer | 12 | une fonctionnalité, un choix produit, ou une demande à préciser |
+
+Cliquets : `tests/test_131_retours_pilote_inde.py` (30 cas). **17 gardes
+retirées une par une, 17 cliquets tombés.**
+
+#### ⚠️⚠️ « AI assistance is not in english » — la cause n'était pas l'interface
+
+`chatbot.py` sert bien le prompt système en anglais (`chatbot.system.en`,
+`chatbot.mode_creer.en`). Mais `chatbot.js` construisait le **premier tour
+UTILISATEUR en français** : « Mode création activé. Je souhaite créer les
+tâches pour l'activité "X" via un entretien guidé. Commence l'interview. » Un
+modèle qui reçoit une consigne française répond en français — c'est ce que le
+pilote voyait, et aucun réglage de langue n'y changeait rien.
+
+⚠️ **Et c'était un PROMPT écrit dans le navigateur**, ce que le catalogue
+chiffré interdit (`Code/prompts/catalog.py` est exclu de l'image client et
+servi en Fernet). L'amorce est donc **retirée, pas traduite** : elle était
+redondante — `chatbot.mode_*.{lang}` est déjà ajouté au prompt système et porte
+la consigne d'ouverture (« Start with ONE SINGLE open question… »). Le client
+poste `demarrage: true` et le serveur **n'ajoute aucun tour utilisateur**.
+⚠️ Conséquence : `if not message` devient `if not message and not demarrage`,
+et l'historique ne range rien au démarrage (un tour vide se relirait à chaque
+tour suivant).
+
+L'écran, lui, passe au catalogue : **40 clés × 2 langues** (`chat.*`), les six
+attributs (`title`, `aria-label`, `placeholder`) compris — que `test_78` ne lit
+pas. `chatbot_widget.html` sort de l'inventaire de dette i18n (il y valait 5).
+⚠️ `CL()` rend la CLÉ quand elle manque, jamais un repli français : un repli en
+dur ne se voit pas, et c'est exactement ce que le pilote a signalé.
+⚠️ Le bouton d'injection porte **UNE** clé avec son nombre dedans
+(`chat.inject`, `[[n]]`) : « Injecter » + un compteur + « tâche(s) dans
+l'activité » découpait une phrase en trois, et l'ordre des mots n'est pas le
+même d'une langue à l'autre.
+⚠️ Le cliquet des deux langues lit les **DICTIONNAIRES**, pas `t()` : une clé
+absente de l'anglais retombe silencieusement sur le français, si bien que la
+première version du test restait VERTE en retirant une clé.
+
+#### ⚠️ Renommer une carto : le même défaut que `delete_entity`, resté ailleurs
+
+« Not able to change the name or rename the imported Map » (Madhuri, 24/09) et
+« in my ID I am not able to rename the map » (Arun, 29/10). `update_entity`
+cherchait `Entity.query.filter_by(id=entity_id, owner_id=user_id)` — **exacte­
+ment ce qui avait été corrigé dans `delete_entity` le 23/09**, et laissé ici.
+Or la liste des cartos mélange ses propres cartos, celles **sans propriétaire**
+et les cartos communes ouvertes à ses rôles. Le bouton « Renommer » était donc
+offert sur une carto de sa propre liste, et la réponse disait « Entité non
+trouvée ». Leur instance porte **trois cartos sans propriétaire** (#12, #28,
+#30) : c'est elles.
+
+On lit la carto par son id, puis on applique `carto_access.can_edit` — la règle
+de `/cartography/api/save`. **Une porte qui contredit la règle qu'elle fait
+respecter est un second avis, pas une porte** (la leçon de `ecriture.py`).
+
+⚠️ **Et il reste sept autres sites de la même famille**, non touchés ici :
+`upload-cartography` et l'import VSDX (lignes ~1384 et ~1584), et les quatre
+routes de liaisons cross-carto. Remplacer la propriété par `can_edit` y est
+plus qu'une ligne — remplacer le diagramme d'une carto COMMUNE relève de la
+proposition, pas de l'écriture directe. À reprendre dans une passe à part.
+
+#### Une carto VISIBLE ne se dit pas « non trouvée »
+
+« Can not delete the map » (Arun, 29/10). Le défaut de fond était corrigé
+depuis le 23/09 ; ce qui restait, c'est le **message**. Une carto commune
+ouverte à ses rôles s'affiche dans sa liste avec son bouton Supprimer, et le
+refus répondait 404 « Entité non trouvée » — on cherche alors une carto
+disparue. Le refus est juste, c'est le motif qui manquait : **403
+`pas_proprietaire`**, avec la phrase qui dit pourquoi.
+
+#### ⚠️ La récurrence TRIMESTRIELLE, et le piège de la valeur inconnue
+
+« In Time Management - quaterly recurrence is not available » (Arun, 29/10).
+Quatre récurrences seulement. Le piège : une récurrence inconnue retombe sur
+`return q`, c'est-à-dire sur l'**ANNUEL** — ajouter l'option sans le facteur
+aurait fait compter une charge trimestrielle **quatre fois trop peu, en
+silence**. Même famille que les `<option>` sans `value` du 03/11.
+
+Le facteur est posé aux **trois** endroits qui comptent :
+`annuel_minutes` (calendrier civil → 4), `cout_faiblesse`
+(`H = Sa * 4 / SEMAINES_PAR_AN`, semaines TRAVAILLÉES, la convention de ses
+voisines) et `annuelMinutes` côté navigateur.
+⚠️ **`test_105::test_une_recurrence_inconnue_ne_multiplie_rien` se servait de
+« trimestriel » comme exemple de récurrence INCONNUE** : il affirmait l'absence
+qu'on vient de combler. Son décor est corrigé (« lunaire »), pas son sujet —
+et `test_les_quatre_recurrences` devient `…_les_cinq_…`.
+⚠️ Et **un cliquet a attrapé un défaut de ma propre retouche** : la chaîne de
+remplacement passée à `re.sub` était BRUTE, donc le gabarit a reçu
+`<option value=\"trimestriel\">`, antislashs compris — l'attribut aurait été
+invalide. Une insertion se vérifie sur le rendu, pas sur le succès du script.
+
+#### Désigner le garant se propose — mais le garant SEUL
+
+« Unable to set the garentor in activity list — grant the access » (Arun,
+29/10). Depuis le 19/10 un champion qui touche aux données d'une activité sur
+une carto commune dépose une **proposition** ; le garant manquait à la liste
+(`_SEGMENTS` porte `tasks`, `gestion_outils`, `savoirs`, `constraints`… pas
+`/roles`). Il se faisait donc refuser en `lecture_seule` — le motif d'un
+`user`, alors que proposer est précisément ce qui l'en distingue.
+
+⚠️ **On n'a PAS mis `roles` dans `_SEGMENTS`** : cela rendrait proposable la
+SUPPRESSION d'un rôle, qui emporte ses titulaires et ses liens dans toutes les
+cartos et qui est réservée à l'administrateur depuis le 03/11. Seul
+`/roles/garant/activity/` est ouvert, avec sa famille (`garant`), son verbe
+(`designer`), son activité lue dans le CHEMIN et son objet = le **nom** du
+rôle (le corps ne porte qu'un `role_id`, et la proposition doit rester lisible
+si le rôle est renommé d'ici l'examen). Deux clés neuves — `acp.v_designer`,
+`acp.f_garant` — injectées dans les **DEUX** écrans (l'auteur et le
+coordinateur regardent le même geste).
+
+#### Rechercher une cartographie
+
+« Add "search" option to find chart » (Manoj, 29/10). Lu comme « trouver une
+carto » : leur instance en porte une quinzaine, dont neuf du même nom de base
+numérotées le 29/09. Un champ dans la pop-up Gestion des entités.
+⚠️ Il **MASQUE**, il ne re-rend pas la grille : la réécrire à chaque frappe
+ferait perdre le curseur du champ qu'on tape. ⚠️ Branché sur `input`, pas
+`change` — sur `change` il ne filtrerait rien pendant la frappe, sans erreur
+pour le dire. ⚠️ Et `.entity-grid-item[hidden] { display: none }` est déclaré à
+la main : `[hidden]` est une règle du NAVIGATEUR, une classe d'auteur qui pose
+un `display` l'emporte. **Quatrième fois** que ce piège mord.
+
+#### Les douze points NON implémentés, et pourquoi
+
+Deux **contredisent un choix écrit de l'app** :
+- ⚠️ « Roles are visible for all — only related map roles needs to be visible »
+  (28) est exactement le modèle quitté le 23/09 (`roles_communs.py`) : revenir
+  au cloisonnement refabriquerait les 380 lignes pour 56 noms réunies le 28/09.
+  Le besoin est réel mais il est d'**affichage** — filtrer la liste sur les
+  rôles qui portent une activité de la carto regardée.
+- « For each activity and line setting and name correction approval is not
+  required » (33) : le modèle des propositions ne distingue pas le cosmétique
+  du structurant, et c'est délibéré. Levier plus simple déjà là : cocher
+  « enregistrer directement » pour le champion dans le tableau des droits.
+
+Cinq sont des **fonctionnalités de l'éditeur** (`editor.js`, synchronisé avec
+le dépôt OptiqCarto) : ajustement automatique du texte dans les formes et les
+losanges (19, 25 — `wrapText` existe, la réduction de police non), verrou de
+proportions et anti-chevauchement VIVANT (20 — `antiOverlap` n'agit qu'à
+l'import), index des activités dans l'éditeur (30 — la vue en lecture l'a, pas
+l'éditeur ; vérifié, aucun index dedans).
+
+Trois sont des **décisions** : bloquer l'import tant que tout n'est pas
+rattaché (22 — contredit l'import partiel, l'historique et la lecture « dans
+l'autre sens », tous bâtis pour qu'on revienne finir) ; une carto par défaut
+par compte (24 — petite et cohérente, mais elle ajoute un écran) ; le temps de
+chargement (18 — **mesuré : 15,2 s de démarrage à froid** sur Cloud Run, qui
+redescend à zéro instance ; le levier est une instance toujours chaude, et il
+se paie).
+
+Deux sont **à préciser** : « Bands are not same as the template » (10 — la
+couleur a été corrigée le 30/08 ET les 12 entités du pilote réparées en base,
+or le retour date du 07/09 : il parle peut-être des noms ou de l'ordre) et
+« Activity List & Map activity name auto correct » (15 — la ligne entière, sans
+solution proposée, trois lectures possibles).
+
+Et le guide utilisateur (29) existe mais est périmé : c'est déjà le point 1 du
+« reste à faire » de la doc technique.
+
 ---
 
 ## Notes importantes (suite)

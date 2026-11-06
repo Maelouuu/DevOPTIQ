@@ -155,7 +155,20 @@
               <i class="fa-solid fa-plus"></i> {{ t('map.entity_create_btn') }}
             </button>
           </div>
+          <!-- ⚠️ Le pilote porte une quinzaine de cartos, dont neuf du même
+               nom de base numérotées par `entites_uniques` : la grille se
+               parcourait à l'œil. Le champ MASQUE, il ne re-rend pas — réécrire
+               la grille à chaque frappe ferait perdre le curseur. -->
+          <div class="em-search-row">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" id="wizard-entity-search" class="em-search-input"
+                   placeholder="{{ t('map.entity_search_ph') }}" autocomplete="off">
+          </div>
           <div class="entities-grid" id="wizard-entities-list"></div>
+          <div class="wizard-entities-empty hidden" id="wizard-entities-nomatch">
+            <i class="fa-solid fa-magnifying-glass" style="font-size:28px;opacity:.25;color:#ec4899"></i>
+            <p>{{ t('map.entity_search_none') }}</p>
+          </div>
           <div class="wizard-entities-empty hidden" id="wizard-entities-empty">
             <i class="fa-solid fa-building" style="font-size:32px;opacity:0.25;color:#ec4899"></i>
             <p>{{ t('map.entity_no_entities') }}</p>

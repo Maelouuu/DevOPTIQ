@@ -93,6 +93,14 @@ def chemin_propasable(chemin):
         return False
     if bouts[0] in _SEGMENTS:
         return True
+    # ⚠️ Le GARANT d'une activité, et LUI SEUL, parmi les routes `/roles` :
+    # mettre tout `/roles` dans `_SEGMENTS` rendrait proposable la SUPPRESSION
+    # d'un rôle, qui emporte ses titulaires et ses liens dans TOUTES les cartos
+    # et qui est réservée à l'administrateur. Désigner le garant, en revanche,
+    # est une donnée d'activité comme les autres : c'était un oubli de la
+    # liste, et le retour « Unable to set the garentor » du pilote.
+    if chemin.startswith("/roles/garant/activity/"):
+        return True
     # Deux formulaires de la fiche activité vivent sous /activities.
     return chemin.startswith(("/activities/constraints/", "/activities/data/"))
 
@@ -127,9 +135,18 @@ def lire_geste(chemin, methode, corps):
     famille = _SEGMENTS.get(tete)
     if famille is None:
         famille = "contrainte" if tete == "constraints" else "donnee"
+    # ⚠️ `/roles/garant/activity/<id>` : `bouts[0]` vaut « roles », qui n'est
+    # pas dans `_SEGMENTS` — sans ce cas la famille retombait sur « donnee » et
+    # le coordinateur lisait « Ajouter la donnée » pour une désignation de
+    # garant.
+    garant = bouts[:2] == ["roles", "garant"]
+    if garant:
+        famille = "garant"
 
     verbe = {"POST": "add", "PUT": "update", "PATCH": "update",
              "DELETE": "delete"}.get(methode, "update")
+    if garant:
+        verbe = "designer"
 
     # Les rôles d'une tâche sont un geste à part : ce n'est ni la tâche ni son
     # texte qui changent, c'est QUI la fait.
@@ -167,6 +184,9 @@ def _activite_du_chemin(famille, bouts):
     from Code.models.models import Task
     if famille == "tool":
         return None
+    if famille == "garant":
+        # /roles/garant/activity/<activity_id>
+        return _entier(bouts[-1])
     if famille == "task":
         tid = _entier(bouts[1]) if len(bouts) > 1 else None
         t = db.session.get(Task, tid) if tid else None
@@ -182,6 +202,13 @@ def _nom_objet(famille, bouts, corps):
     ⚠️ Comme pour l'historique des imports : l'objet peut être renommé ou
     supprimé d'ici l'examen, et la proposition doit rester lisible.
     """
+    if famille == "garant":
+        # Le corps ne porte qu'un `role_id` : on nomme le RÔLE, jamais son
+        # identifiant — la proposition doit rester lisible si le rôle est
+        # renommé d'ici l'examen.
+        from Code.models.models import Role
+        role = db.session.get(Role, _entier(corps.get("role_id")))
+        return role.name if role else None
     for cle in ("name", "description", "nom"):
         valeur = (corps.get(cle) or "").strip() if isinstance(corps.get(cle), str) else ""
         if valeur:

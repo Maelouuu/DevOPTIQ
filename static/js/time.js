@@ -158,6 +158,7 @@
     if (r.startsWith('jour'))  return q * dpw * wpy;
     if (r.startsWith('hebdo')) return q * wpy;
     if (r.startsWith('mens'))  return q * 12;
+    if (r.startsWith('trimestr')) return q * 4;
     return q;
   }
 
@@ -685,6 +686,7 @@
     recSel.innerHTML = `<option value="journalier">${echap(tl('rec_daily', 'Journalier'))}</option>`
       + `<option value="hebdomadaire">${echap(tl('rec_weekly', 'Hebdomadaire'))}</option>`
       + `<option value="mensuel">${echap(tl('rec_monthly', 'Mensuel'))}</option>`
+      + `<option value="trimestriel">${echap(tl('rec_quarterly', 'Trimestriel'))}</option>`
       + `<option value="annuel">${echap(tl('rec_yearly', 'Annuel'))}</option>`;
     tr.querySelector('.r-rec').appendChild(recSel);
 

@@ -117,12 +117,17 @@ class TestUneSeuleRegleDAnnualisation:
     """Elle etait ecrite dans `_role_summary` ET dans le navigateur ; le
     tableau de bord en aurait fait une troisieme."""
 
-    def test_les_quatre_recurrences(self, app):
+    def test_les_cinq_recurrences(self, app):
+        """⚠️ CINQ depuis le 05/11/2026 : le pilote estime des charges
+        trimestrielles (« In Time Management - quaterly recurrence is not
+        available »). Le trimestre compte 4 periodes par an, en calendrier
+        CIVIL comme ses voisines ici."""
         from Code.routes.time_view import annuel_minutes
         p = {"hours_per_day": 7, "days_per_week": 5, "weeks_per_year": 47}
         assert annuel_minutes(10, "journalier", p) == 10 * 5 * 47
         assert annuel_minutes(10, "hebdomadaire", p) == 10 * 47
         assert annuel_minutes(10, "mensuel", p) == 120
+        assert annuel_minutes(10, "trimestriel", p) == 40
         assert annuel_minutes(10, "annuel", p) == 10
 
     def test_une_recurrence_inconnue_ne_multiplie_rien(self, app):
@@ -130,7 +135,11 @@ class TestUneSeuleRegleDAnnualisation:
         doit se voir dans le resultat, pas s'y fondre."""
         from Code.routes.time_view import annuel_minutes
         p = {"hours_per_day": 7, "days_per_week": 5, "weeks_per_year": 47}
-        assert annuel_minutes(10, "trimestriel", p) == 10
+        # ⚠️ « trimestriel » servait ICI d'exemple de recurrence inconnue : il
+        # est reconnu depuis le 05/11/2026. On prend une valeur qui n'a aucune
+        # chance d'etre implementee, sinon le decor du test decide du sujet.
+        assert annuel_minutes(10, "lunaire", p) == 10
+        assert annuel_minutes(10, "", p) == 10
 
     def test_le_resume_d_un_role_rend_EXACTEMENT_la_meme_chose(self, app):
         """⚠️ On confronte les deux implementations sur des chiffres, pas sur
@@ -162,9 +171,10 @@ class TestUneSeuleRegleDAnnualisation:
         celle du navigateur est confrontee a celle du serveur, facteur par
         facteur."""
         js = _lire("static/js/time.js")
-        bloc = js[js.index("function annuelMinutes"):][:620]
+        bloc = js[js.index("function annuelMinutes"):][:760]
         assert "startsWith('jour')"  in bloc and "q * dpw * wpy" in bloc
         assert "startsWith('hebdo')" in bloc and "q * wpy" in bloc
+        assert "startsWith('trimestr')" in bloc and "q * 4" in bloc
         assert "startsWith('mens')"  in bloc and "q * 12" in bloc
         # Et le calcul du role ne la reecrit plus a cote.
         role = js[js.index("function recalcRoleTotals"):][:1100]

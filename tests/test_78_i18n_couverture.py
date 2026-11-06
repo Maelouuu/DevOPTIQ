@@ -600,7 +600,11 @@ class TestFrancaisEnDur:
     # gabarit → nombre de fragments français tolérés aujourd'hui.
     DETTE = {
         "projection_metier.html":       14,
-        "chatbot_widget.html":           5,
+        # ✅ 05/11/2026 — `chatbot_widget.html` SORT de l'inventaire : tout
+        # l'écran de l'assistant passe par le catalogue (`chat.*`), y
+        # compris les phrases bâties par `chatbot.js` et les six attributs
+        # (title, aria-label, placeholder) que ce contrôle ne lit pas. Le
+        # pilote (anglophone) le voyait entièrement en français.
         "license_blocked.html":          4,
         "setup_wizard.html":             2,
         "settings.html":                 1,

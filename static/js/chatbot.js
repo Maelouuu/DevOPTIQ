@@ -15,6 +15,20 @@
   let currentMode         = null;   // 'ameliorer' | 'creer'
   let _fetchController    = null;   // AbortController pour annuler les fetches en vol
 
+  /* ── Les libellés ───────────────────────────────────────────
+     ⚠️ `CL()` rend la CLÉ quand elle manque, jamais un repli français : un
+     repli en dur ne se voit pas, et c'est exactement ce que le pilote a
+     signalé. Convention de substitution : `[[n]]`, comme `acp.*`.          */
+  const L = () => (window.CHAT_I18N || {});
+  function CL(cle) { return L()[cle] || ('chat.' + cle); }
+  function CF(cle, vars) {
+    let s = CL(cle);
+    Object.keys(vars || {}).forEach(k => {
+      s = s.split('[[' + k + ']]').join(String(vars[k]));
+    });
+    return s;
+  }
+
   // ── Références DOM ─────────────────────────────────────────
   const overlay      = () => document.getElementById('chatbot-overlay');
   const msgContainer = () => document.getElementById('chatbot-messages');
@@ -23,7 +37,6 @@
   const headerTitle  = () => document.getElementById('chatbot-header-title');
   const headerSub    = () => document.getElementById('chatbot-header-subtitle');
   const injectBtn    = () => document.getElementById('chatbot-inject-btn');
-  const injectCount  = () => document.getElementById('chatbot-inject-count');
 
   // ── Ouverture du chatbot ───────────────────────────────────
   window.openChatbotFromBtn = function (btn) {
@@ -39,8 +52,8 @@
     conversationHistory = [];
     currentMode         = null;
 
-    headerTitle().textContent = `Assistant OPTIQ — ${actName}`;
-    headerSub().textContent   = 'Chargement du contexte…';
+    headerTitle().textContent = `${CL('title')} — ${actName}`;
+    headerSub().textContent   = CL('loading');
 
     _clearMessages();
     _clearDraft();
@@ -65,7 +78,7 @@
         const nbSavoirs = activityContext.savoirs  ? activityContext.savoirs.length  : 0;
         const nbHSC     = activityContext.hsc      ? activityContext.hsc.length      : 0;
         headerSub().textContent =
-          `${nbTasks} tâche(s) · ${nbSavoirs} savoir(s) · ${nbHSC} HSC`;
+          CF('ctx_counts', { t: nbTasks, s: nbSavoirs, h: nbHSC });
 
         // Proposer le choix du mode avant de démarrer la conversation
         _showModeSelection(activityContext);
@@ -73,8 +86,8 @@
       .catch(err => {
         if (err.name === 'AbortError') return;
         _removeTyping(loadingEl);
-        _appendBotMessage('❌ Impossible de charger le contexte de l\'activité : ' + err.message);
-        headerSub().textContent = 'Erreur de chargement';
+        _appendBotMessage('❌ ' + CL('err_context') + err.message);
+        headerSub().textContent = CL('err_loading');
       });
   };
 
@@ -87,15 +100,18 @@
     el.className = 'cb-msg bot cb-mode-selection';
     el.id = 'cb-mode-selection-el';
 
+    // ⚠️ Le nom de l'activité est ÉCHAPPÉ avant d'entrer dans le libellé :
+    // il est substitué dans une chaîne qui part en `innerHTML`.
+    const salut = CF('greeting', { a: '<strong>' + _esc(ctx.name) + '</strong>' });
+    const combien = hasExisting
+      ? CF('has_tasks', { n: '<strong>' + nbTasks + '</strong>' })
+      : CL('no_tasks_yet');
+
     el.innerHTML = `
       <div class="cb-mode-greeting">
-        Bonjour ! Je suis l'<strong>Assistant OPTIQ</strong> pour l'activité
-        <strong>${_esc(ctx.name)}</strong>.<br><br>
-        ${hasExisting
-          ? `Cette activité possède déjà <strong>${nbTasks} tâche(s)</strong>.`
-          : `Cette activité n'a pas encore de tâches.`
-        }
-        Que souhaitez-vous faire ?
+        ${salut}<br><br>
+        ${combien}
+        ${_esc(CL('what_now'))}
       </div>
       <div class="cb-mode-choices">
         <button
@@ -104,18 +120,17 @@
           ${!hasExisting ? 'disabled' : ''}>
           <i class="fa-solid fa-magnifying-glass-chart"></i>
           <div class="cb-mode-choice-text">
-            <strong>Revoir les tâches existantes</strong>
-            <span>${hasExisting
-              ? `Analyser et améliorer les ${nbTasks} tâche(s) selon les règles OPTIQ`
-              : 'Aucune tâche existante à revoir'
-            }</span>
+            <strong>${_esc(CL('mode_review'))}</strong>
+            <span>${_esc(hasExisting
+              ? CF('mode_review_d', { n: nbTasks })
+              : CL('mode_review_none'))}</span>
           </div>
         </button>
         <button class="cb-mode-choice" onclick="selectChatbotMode('creer')">
           <i class="fa-solid fa-wand-magic-sparkles"></i>
           <div class="cb-mode-choice-text">
-            <strong>Créer des tâches</strong>
-            <span>Définir de nouvelles tâches via un entretien guidé</span>
+            <strong>${_esc(CL('mode_create'))}</strong>
+            <span>${_esc(CL('mode_create_d'))}</span>
           </div>
         </button>
       </div>
@@ -136,19 +151,25 @@
     const nbExisting = ctx.tasks ? ctx.tasks.length : 0;
 
     // Mettre à jour le sous-titre du header
-    const modeLabel = mode === 'ameliorer' ? 'Mode révision' : 'Mode création';
-    headerSub().textContent = `${modeLabel} · ${nbExisting} tâche(s) chargée(s)`;
+    const modeLabel = CL(mode === 'ameliorer' ? 'lbl_review' : 'lbl_create');
+    headerSub().textContent = CF('loaded', { m: modeLabel, n: nbExisting });
 
-    // Construire le message d'amorce selon le mode
-    let amorce;
-    if (mode === 'ameliorer') {
-      const taskList = ctx.tasks.map(t => `"${t.name}"`).join(', ');
-      amorce = `Mode révision activé. L'activité "${ctx.name}" a ${nbExisting} tâche(s) existante(s) : ${taskList}. Analyse-les selon les règles OPTIQ et propose des améliorations détaillées.`;
-    } else {
-      amorce = `Mode création activé. Je souhaite créer les tâches pour l'activité "${ctx.name}" via un entretien guidé. Commence l'interview.`;
-    }
+    /* ⚠️⚠️ LE DÉFAUT DE FOND derrière « AI assistance is not in english ».
+       Ici était construit un message d'amorce EN FRANÇAIS — « Mode création
+       activé. Je souhaite créer les tâches pour l'activité "X" via un
+       entretien guidé. Commence l'interview. » — envoyé comme PREMIER TOUR
+       UTILISATEUR. Le prompt système, lui, est bien servi en anglais par
+       `chatbot.py` ; mais un modèle qui reçoit une consigne française répond
+       en français, et c'est ce que le pilote voyait.
 
-    _sendToBot(amorce);
+       Deux raisons de le retirer, pas seulement de le traduire :
+       1. c'est un PROMPT, et un prompt ne descend jamais dans le navigateur
+          (`Code/prompts/catalog.py` est chiffré et exclu de l'image client) ;
+       2. il était REDONDANT : `chatbot.{mode_creer|mode_ameliorer}.{lang}` est
+          déjà ajouté au prompt système et porte la consigne d'ouverture
+          (« Start with ONE SINGLE open question… »).
+       Le serveur ouvre donc la conversation sans tour utilisateur.          */
+    _sendToBot(null, true);
   };
 
   // ── Fermeture ──────────────────────────────────────────────
@@ -235,13 +256,13 @@
       })
       .catch(err => {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Erreur — réessayer';
+        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + _esc(CL('retry'));
         console.error('Inject error:', err);
       });
   };
 
   // ── Appel API chat (stateless) ────────────────────────────
-  function _sendToBot(message) {
+  function _sendToBot(message, demarrage) {
     if (!storedContext) return;
     isWaiting = true;
     _setInputEnabled(false);
@@ -253,8 +274,9 @@
       body: JSON.stringify({
         activity: storedContext,
         history:  conversationHistory.slice(-14),
-        message:  message,
+        message:  message || '',
         mode:     currentMode || 'creer',
+        demarrage: !!demarrage,
       }),
     })
       .then(r => r.json())
@@ -263,7 +285,9 @@
         if (data.error) {
           _appendBotMessage('❌ ' + data.error);
         } else {
-          conversationHistory.push({ role: 'user',      content: message });
+          // ⚠️ Au DÉMARRAGE il n'y a pas de tour utilisateur à mémoriser :
+          // en ranger un vide ferait relire « » au modèle à chaque tour.
+          if (!demarrage) conversationHistory.push({ role: 'user', content: message });
           conversationHistory.push({ role: 'assistant', content: data.assistant_message || '' });
           _appendBotMessage(data.assistant_message, data.next_questions);
           _renderDraft(data);
@@ -271,7 +295,7 @@
       })
       .catch(err => {
         _removeTyping(typingEl);
-        _appendBotMessage('❌ Erreur réseau : ' + err.message);
+        _appendBotMessage('❌ ' + CL('err_network') + err.message);
       })
       .finally(() => {
         isWaiting = false;
@@ -311,7 +335,7 @@
       // Bouton "Autre réponse…" — permet à l'utilisateur de taper librement
       const otherBtn = document.createElement('button');
       otherBtn.className = 'cb-quick-reply-btn cb-quick-reply-other';
-      otherBtn.textContent = 'Autre réponse…';
+      otherBtn.textContent = CL('other');
       otherBtn.onclick = () => {
         document.querySelectorAll('.cb-quick-replies').forEach(el => el.remove());
         inputEl()?.focus();
@@ -374,7 +398,7 @@
     if (!container) return;
 
     if (!tasks || tasks.length === 0) {
-      container.innerHTML = '<p class="cb-empty-hint">Aucune tâche encore définie.</p>';
+      container.innerHTML = '<p class="cb-empty-hint">' + _esc(CL('no_tasks')) + '</p>';
       return;
     }
 
@@ -432,22 +456,22 @@
         icon: 'fa-hourglass-half',
         color: '#f59e0b',
         bg: '#fffbeb',
-        label: 'Analyse en cours',
-        desc: 'L\'assistant recueille les informations nécessaires.',
+        label: CL('st_wait'),
+        desc: CL('st_wait_d'),
       },
       'ready_for_validation': {
         icon: 'fa-circle-check',
         color: '#22c55e',
         bg: '#f0fdf4',
-        label: 'Prêt à valider',
-        desc: 'Les tâches peuvent être injectées dans l\'activité.',
+        label: CL('st_ready'),
+        desc: CL('st_ready_d'),
       },
       'validated': {
         icon: 'fa-trophy',
         color: '#8b5cf6',
         bg: '#f5f3ff',
-        label: 'Validé',
-        desc: 'Les tâches ont été validées avec l\'utilisateur.',
+        label: CL('st_done'),
+        desc: CL('st_done_d'),
       },
     };
 
@@ -456,8 +480,8 @@
     const modeHtml = currentMode
       ? `<div class="cb-mode-badge">
           ${currentMode === 'ameliorer'
-            ? '<i class="fa-solid fa-magnifying-glass-chart"></i> Mode révision'
-            : '<i class="fa-solid fa-wand-magic-sparkles"></i> Mode création'
+            ? '<i class="fa-solid fa-magnifying-glass-chart"></i> ' + _esc(CL('lbl_review'))
+            : '<i class="fa-solid fa-wand-magic-sparkles"></i> ' + _esc(CL('lbl_create'))
           }
          </div>`
       : '';
@@ -508,7 +532,7 @@
 
   function _updateInjectBtn(tasks, status) {
     const btn   = injectBtn();
-    const count = injectCount();
+    const label = document.getElementById('chatbot-inject-label');
     if (!btn) return;
 
     const validTasks = tasks.filter(t => !t.flags?.out_of_scope);
@@ -516,7 +540,10 @@
     if (validTasks.length > 0 && (status === 'ready_for_validation' || status === 'validated')) {
       btn.classList.add('visible');
       btn.disabled = false;
-      if (count) count.textContent = validTasks.length;
+      // ⚠️ Toute la phrase, pas seulement le nombre : « Injecter » + compteur
+      // + « tâche(s) dans l'activité » découpait une phrase en trois, et
+      // l'ordre des mots n'est pas le même d'une langue à l'autre.
+      if (label) label.textContent = CF('inject', { n: validTasks.length });
     } else {
       btn.classList.remove('visible');
     }

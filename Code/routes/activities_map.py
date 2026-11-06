@@ -29,7 +29,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from Code.extensions import db
 from Code.translations import t as _t
 from Code.prompts import get_prompt, prompts_available
-from Code.models.models import Activities, Entity, Link, Data, Task, Role, CrossCartoLiaison, activity_roles, task_roles, task_tools
+from Code.models.models import Activities, Entity, Link, Data, Task, Role, User, CrossCartoLiaison, activity_roles, task_roles, task_tools
 
 from Code.routes.vsdx_conection_parser import (
     parse_vsdx_connections,
@@ -646,7 +646,13 @@ def delete_entity(entity_id):
         return jsonify({"error": "Entité non trouvée"}), 404
     from Code.permissions import is_admin
     if entity.owner_id not in (None, user_id) and not is_admin():
-        return jsonify({"error": "Entité non trouvée"}), 404
+        # ⚠️ PAS « non trouvee » : cette carto est VISIBLE dans sa liste (une
+        # carto commune ouverte a ses roles s'y affiche, avec son bouton
+        # Supprimer). Repondre qu'elle n'existe pas envoie chercher une carto
+        # disparue — c'est le retour « Can not delete the map » du pilote. Le
+        # refus est juste ; c'est le MOTIF qui manquait.
+        return jsonify({"error": _t('map.err_supprimer_refuse'),
+                        "code": "pas_proprietaire"}), 403
     
     entity_name = entity.name
     
@@ -1218,7 +1224,23 @@ def update_entity(entity_id):
     if not user_id:
         return jsonify({"error": "Non connecté"}), 401
     
-    entity = Entity.query.filter_by(id=entity_id, owner_id=user_id).first()
+    # ⚠️ MEME DEFAUT que celui corrige dans `delete_entity`, reste ici. La
+    # LISTE des cartos melange ses propres cartos, celles SANS proprietaire et
+    # les cartos COMMUNES ouvertes a ses roles (`or_(owner_id == user_id,
+    # owner_id == None)` plus haut). `owner_id = user_id` ne trouvait aucune
+    # des deux dernieres : le bouton « Renommer » etait donc offert sur une
+    # carto de sa propre liste, et la reponse disait « Entite non trouvee ».
+    # C'est le retour « Not able to rename the imported Map » du pilote — son
+    # instance porte trois cartos sans proprietaire.
+    #
+    # On lit la carto par son id, puis on applique la regle d'acces de
+    # l'application : `can_edit`, celle de `/cartography/api/save`. Une porte
+    # qui contredit la regle qu'elle fait respecter est un second avis.
+    from Code.carto_access import can_edit as _can_edit
+    entity = db.session.get(Entity, entity_id)
+    if entity is not None and not _can_edit(entity, db.session.get(User, user_id)):
+        return jsonify({"error": _t('map.err_renommer_refuse'),
+                        "code": "lecture_seule"}), 403
     
     if not entity:
         return jsonify({"error": "Entité non trouvée"}), 404

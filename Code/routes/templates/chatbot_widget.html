@@ -1,6 +1,48 @@
 <script src="/static/js/optiq_alert.js"></script>
 <!-- chatbot_widget.html — Modal Assistant OPTIQ (inclus 1 fois dans display_list.html) -->
 
+{# ⚠️ Tout l'écran passait par du français EN DUR, et `chatbot.js` aussi :
+   c'est le retour « AI assistance is not in english language » du pilote. Les
+   libellés vivent désormais dans le catalogue, et le JS les lit par `CL()`,
+   qui rend la CLÉ quand elle manque — jamais un repli français, qu'on ne
+   verrait pas.
+   ⚠️ Convention de substitution de CE fichier : `[[n]]`, comme `acp.*`. #}
+<script>
+  window.CHAT_I18N = Object.assign(window.CHAT_I18N || {}, {
+    lang:             {{ (session.get('lang') or 'fr') | tojson }},
+    title:            {{ t('chat.title') | tojson }},
+    subtitle:         {{ t('chat.subtitle') | tojson }},
+    loading:          {{ t('chat.loading') | tojson }},
+    ctx_counts:       {{ t('chat.ctx_counts') | tojson }},
+    err_context:      {{ t('chat.err_context') | tojson }},
+    err_loading:      {{ t('chat.err_loading') | tojson }},
+    err_network:      {{ t('chat.err_network') | tojson }},
+    retry:            {{ t('chat.retry') | tojson }},
+    other:            {{ t('chat.other') | tojson }},
+    no_tasks:         {{ t('chat.no_tasks') | tojson }},
+    waiting:          {{ t('chat.waiting') | tojson }},
+    greeting:         {{ t('chat.greeting') | tojson }},
+    has_tasks:        {{ t('chat.has_tasks') | tojson }},
+    no_tasks_yet:     {{ t('chat.no_tasks_yet') | tojson }},
+    what_now:         {{ t('chat.what_now') | tojson }},
+    mode_review:      {{ t('chat.mode_review') | tojson }},
+    mode_review_d:    {{ t('chat.mode_review_d') | tojson }},
+    mode_review_none: {{ t('chat.mode_review_none') | tojson }},
+    mode_create:      {{ t('chat.mode_create') | tojson }},
+    mode_create_d:    {{ t('chat.mode_create_d') | tojson }},
+    lbl_review:       {{ t('chat.lbl_review') | tojson }},
+    lbl_create:       {{ t('chat.lbl_create') | tojson }},
+    loaded:           {{ t('chat.loaded') | tojson }},
+    inject:           {{ t('chat.inject') | tojson }},
+    st_wait:          {{ t('chat.st_wait') | tojson }},
+    st_wait_d:        {{ t('chat.st_wait_d') | tojson }},
+    st_ready:         {{ t('chat.st_ready') | tojson }},
+    st_ready_d:       {{ t('chat.st_ready_d') | tojson }},
+    st_done:          {{ t('chat.st_done') | tojson }},
+    st_done_d:        {{ t('chat.st_done_d') | tojson }}
+  });
+</script>
+
 <!-- Overlay + Modal -->
 <div id="chatbot-overlay">
   <div id="chatbot-modal" role="dialog" aria-modal="true" aria-labelledby="chatbot-header-title">
@@ -11,10 +53,11 @@
         <i class="fa-solid fa-robot"></i>
       </div>
       <div class="cb-header-text">
-        <p class="cb-header-title" id="chatbot-header-title">Assistant OPTIQ</p>
-        <p class="cb-header-subtitle" id="chatbot-header-subtitle">Saisie guidée de tâches</p>
+        <p class="cb-header-title" id="chatbot-header-title">{{ t('chat.title') }}</p>
+        <p class="cb-header-subtitle" id="chatbot-header-subtitle">{{ t('chat.subtitle') }}</p>
       </div>
-      <button id="chatbot-close-btn" onclick="closeChatbot()" title="Fermer" aria-label="Fermer le chatbot">
+      <button id="chatbot-close-btn" onclick="closeChatbot()"
+              title="{{ t('chat.close') }}" aria-label="{{ t('chat.close_aria') }}">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
@@ -24,15 +67,17 @@
 
       <!-- Colonne gauche : conversation -->
       <div id="chatbot-conversation">
-        <div id="chatbot-messages" role="log" aria-live="polite" aria-label="Conversation"></div>
+        <div id="chatbot-messages" role="log" aria-live="polite"
+             aria-label="{{ t('chat.log_aria') }}"></div>
         <div id="chatbot-input-area">
           <textarea
             id="chatbot-input"
-            placeholder="Décrivez ce que vous faites dans cette activité…"
+            placeholder="{{ t('chat.input_ph') }}"
             rows="1"
             autocomplete="off"
           ></textarea>
-          <button id="chatbot-send-btn" onclick="sendMessage()" title="Envoyer (Entrée)" aria-label="Envoyer">
+          <button id="chatbot-send-btn" onclick="sendMessage()"
+                  title="{{ t('chat.send') }}" aria-label="{{ t('chat.send_aria') }}">
             <i class="fa-solid fa-paper-plane"></i>
           </button>
         </div>
@@ -45,10 +90,10 @@
         <div class="cb-draft-section">
           <div class="cb-draft-section-header">
             <i class="fa-solid fa-list-check"></i>
-            Tâches proposées
+            {{ t('chat.sec_tasks') }}
           </div>
           <div class="cb-draft-section-body" id="cb-draft-tasks-body">
-            <p class="cb-empty-hint">En attente de la conversation…</p>
+            <p class="cb-empty-hint">{{ t('chat.waiting') }}</p>
           </div>
         </div>
 
@@ -56,10 +101,10 @@
         <div class="cb-draft-section">
           <div class="cb-draft-section-header">
             <i class="fa-solid fa-gauge"></i>
-            Avancement
+            {{ t('chat.sec_status') }}
           </div>
           <div class="cb-draft-section-body" id="cb-draft-status-body">
-            <p class="cb-empty-hint">En attente de la conversation…</p>
+            <p class="cb-empty-hint">{{ t('chat.waiting') }}</p>
           </div>
         </div>
 
@@ -67,18 +112,22 @@
         <div class="cb-draft-section" id="cb-draft-branches-section" style="display:none;">
           <div class="cb-draft-section-header">
             <i class="fa-solid fa-code-branch"></i>
-            Variantes "ça dépend"
+            {{ t('chat.sec_branches') }}
           </div>
           <div class="cb-draft-section-body" id="cb-draft-branches-body"></div>
         </div>
 
-        <!-- Bouton d'injection -->
+        {# ⚠️ UNE seule clé pour le libellé, avec son nombre à l'intérieur :
+           « Injecter » + un compteur + « tâche(s) dans l'activité » découpait
+           une phrase en trois morceaux, et l'ordre des mots n'est pas le même
+           d'une langue à l'autre. Le gabarit rend la phrase avec 0 — le bouton
+           est complet au repos — et `_updateInjectBtn` la réécrit. #}
         <button id="chatbot-inject-btn" onclick="injectTasks()">
           <span>
             <i class="fa-solid fa-wand-magic-sparkles"></i>
-            Injecter <span id="chatbot-inject-count">0</span> tâche(s) dans l'activité
+            <span id="chatbot-inject-label">{{ t('chat.inject').replace('[[n]]', '0') }}</span>
           </span>
-          <span class="inject-subtitle">Les tâches validées seront ajoutées immédiatement</span>
+          <span class="inject-subtitle">{{ t('chat.inject_sub') }}</span>
         </button>
 
       </div><!-- /#chatbot-draft -->

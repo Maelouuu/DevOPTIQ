@@ -83,6 +83,8 @@ def annuel_minutes(par_periode, recurrence, params=None):
         return q * float(p['weeks_per_year'])
     if r.startswith('mens'):
         return q * 12.0
+    if r.startswith('trimestr'):
+        return q * 4.0
     return q
 
 
@@ -162,6 +164,12 @@ def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
         H = Sa
     elif rec.startswith('mens'):
         H = Sa / SEMAINES_PAR_MOIS
+    elif rec.startswith('trimestr'):
+        # ⚠️ Meme convention que ses voisines : H compte les PERIODES par an,
+        # en semaines TRAVAILLEES — c'est la base de l'onglet Faiblesse, pas
+        # le calendrier civil de `annuel_minutes`. Un trimestre vaut un quart
+        # d'annee, donc quatre fois plus de periodes que l'annuel.
+        H = Sa * 4.0 / SEMAINES_PAR_AN
     else:
         H = Sa / SEMAINES_PAR_AN
 
