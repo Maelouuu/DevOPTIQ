@@ -930,7 +930,11 @@ class TestLePanneauNeSommePlusDeuxNatures:
             assert r.status_code == 200, r.data
             j = r.get_json()
             calc = j.get("calc") or {}
-            for cle in ("B", "C", "U", "V", "Y", "AA"):
+            # ⚠️ `L` (travail refait) et `H` (exécutions de l'année)
+            # nourrissent le SCHÉMA : ils doivent exister des DEUX
+            # côtés, sinon il marche à la réouverture d'une analyse
+            # et pas pendant la saisie.
+            for cle in ("B", "C", "L", "H", "U", "V", "Y", "AA"):
                 assert cle in calc, (cle, sorted(calc))
             wid = j.get("id")
             if wid:
@@ -1131,3 +1135,246 @@ def test_aucune_balise_ne_s_affiche_en_clair():
     assert not fautifs, (
         "ces libellés portent des balises et sont rendus sans `| safe` : "
         "elles s'afficheront en clair — %r" % (fautifs,))
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  L'AIDE D'UN CHAMP VIT DERRIÈRE UN « i »
+# ══════════════════════════════════════════════════════════════════════════
+
+AIDES_DU_FORMULAIRE = (
+    "time.fw_hint_std_dur", "time.fw_hint_std_del", "time.fw_hint_desc",
+    "time.fw_hint_extra", "time.fw_hint_delay", "time.fw_hint_freq",
+    "time.fw_hint_prob", "time.fw_hint_mode",
+)
+
+
+def _css_propre():
+    """⚠️ Commentaires retirés : un cliquet qui cherche une chaîne doit borner
+    sa zone ET retirer les commentaires, sinon il lit sa propre explication.
+    Le piège a mordu cinq fois dans ce dépôt."""
+    import re
+    return re.sub(r"/\*.*?\*/", "", _lire("static/time.css"), flags=re.S)
+
+
+def _regle(css, selecteur):
+    i = css.index(selecteur)
+    return css[i:css.index("}", i)]
+
+
+class TestLAideVitDerriereUnI:
+    """« Au lieu d'écrire pour chaque saisie son explication au-dessous en
+    petit, mets tout dans des i. » Six aides sous six champs du formulaire,
+    puis dix sous dix chiffres des résultats : c'est la moitié de ce qui
+    chargeait l'écran, pour du texte qu'on lit une fois."""
+
+    def test_chaque_aide_passe_par_la_macro(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for cle in AIDES_DU_FORMULAIRE:
+            assert "aide('%s')" % cle in g, cle
+
+    def test_plus_une_seule_aide_ECRITE_sous_un_champ(self):
+        """⚠️ `#fw-del-note` survit, et c'est voulu : il dit POURQUOI la valeur
+        a bougé toute seule. Ce n'est pas l'explication d'un champ, c'est une
+        réaction à ce qu'on vient de taper — la cacher derrière un « i »
+        cacherait une correction que l'utilisateur doit voir."""
+        import re
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        zone = g[g.index('id="subtab-faiblesse"'):g.index('id="fw-results-section"')]
+        restantes = re.findall(r'class="field-hint[^"]*"', zone)
+        assert len(restantes) == 1, (
+            "il reste %d aide(s) écrite(s) sous un champ : %r"
+            % (len(restantes), restantes))
+        assert 'id="fw-del-note"' in zone
+
+    def test_la_macro_rend_le_texte_SAFE(self):
+        """⚠️ Sans `| safe`, les `<em>` de deux aides et les entités de deux
+        autres s'afficheraient EN CLAIR — le défaut relevé le 07/11 sur une
+        capture, ici pour huit libellés d'un coup."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        i = g.index("{% macro aide(cle)")
+        j = g.index("{%- endmacro %}", i)
+        assert "| safe" in g[i:j], g[i:j]
+
+    def test_aucune_aide_ne_passe_par_un_ATTRIBUT_title(self):
+        """⚠️ L'info-bulle du système sortirait par-dessus la nôtre, une
+        seconde plus tard et sans sa mise en forme — et elle n'existe pas au
+        clavier. Elle affichait de surcroît ses entités en clair : `&ldquo;`
+        n'est pas décodé dans un attribut échappé."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "tm-tps-aide" not in g
+        assert "title=\"{{ t('time.fw_hint" not in g
+
+    def test_le_texte_reste_dans_l_arbre_d_accessibilite(self):
+        """⚠️ `display: none` l'en retirerait : l'aide n'existerait plus que
+        pour la souris."""
+        corps = _regle(_css_propre(), ".tm-i-txt {")
+        assert "clip" in corps, corps
+        assert "display: none" not in corps, corps
+
+    def test_la_bulle_ne_MULTIPLIE_pas_par_le_zoom(self):
+        """⚠️⚠️ `getBoundingClientRect()` rend DÉJÀ des pixels d'écran. Le
+        motif recopié de la page Compétences multiplie la hauteur par le zoom
+        avant de la soustraire : mesuré, la bulle se posait 12 px TROP BAS —
+        exactement sa hauteur fois (1 − 0,8), donc par-dessus son bouton.
+        Seules les coordonnées qu'on ÉCRIT repassent par le zoom."""
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("function brancherAides"):
+                  js.index("function majSchemaFaiblesse")]
+        assert "b.height * z" not in bloc
+        assert "b.width * z" not in bloc
+        assert "/ z + 'px'" in bloc
+
+    def test_la_bulle_ne_vole_pas_le_clic_de_ce_qu_elle_explique(self):
+        assert "pointer-events: none" in _regle(_css_propre(), ".tm-bulle {")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  LA SECTION RÉSULTATS D'UNE FAIBLESSE
+# ══════════════════════════════════════════════════════════════════════════
+
+class TestLaSectionResultatsDUneFaiblesse:
+    """« On comprend très mal ce que l'on tente de mettre en exergue. »
+
+    Mesure d'avant : quatre groupes de même poids, dix chiffres à 20 px, dix
+    explications à 12 px (9,6 px RÉELS sous le `zoom: .8` du corps), et quatre
+    accents décoratifs — rose, orange, rouge, violet. Rien ne ressortait, et
+    surtout rien ne MONTRAIT le mécanisme.
+    """
+
+    def test_TOUS_les_id_que_le_JS_ecrit_survivent(self):
+        """Le contrat : `time.js` écrit par id. On a changé le récit, pas le
+        contrat."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for cle in ("S", "T", "U", "V", "W", "X", "Y", "Z", "AA",
+                    "fw-base-mois", "fw-results-empty", "fw-results-section"):
+            assert 'id="%s"' % cle in g, cle
+
+    def test_les_deux_lignes_du_schema_PARTAGENT_leurs_colonnes(self):
+        """⚠️⚠️ Mesuré avec une grille par ligne : la colonne « livré en » de
+        la ligne dégradée porte un « i » de plus, donc elle est plus large,
+        donc son `1fr` est plus étroit — 720 px contre 743. Deux pistes de
+        largeurs différentes ne se comparent pas, et c'est tout le propos d'un
+        schéma à l'échelle."""
+        css = _css_propre()
+        assert "grid-template-columns" in _regle(css, ".fw-chrono {")
+        assert "contents" in _regle(css, ".fw-l {")
+
+    def test_le_travail_refait_n_ALLONGE_PAS_la_piste(self):
+        """⚠️ `Y = C + M` : le modèle ne compte PAS le travail refait dans la
+        livraison. Un schéma qui l'allongerait dirait autre chose que le calcul
+        qu'il illustre — il est donc marqué À PART, dans une pastille."""
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("function majSchemaFaiblesse"):][:2600]
+        assert "const total = C + M;" in bloc, bloc[:400]
+        assert "C + L + M" not in bloc
+
+    def test_un_segment_NUL_ne_se_dessine_pas(self):
+        """⚠️ Le plancher rend visible une attente minuscule (une heure sur
+        vingt-cinq) ; sans la classe `est-nul` il dessinerait aussi un segment
+        pour une valeur de zéro."""
+        css = _css_propre()
+        assert "display: none" in _regle(css, ".fw-seg.est-nul {")
+        assert "min-width" in _regle(css, ".fw-seg:not(.est-nul) {")
+        assert "classList.toggle('est-nul', nul)" in _lire("static/js/time.js")
+
+    def test_UN_SEUL_bloc_porte_la_couleur_du_type(self):
+        """⚠️ Trois titres dans la couleur du type, c'est trois blocs de même
+        poids — exactement le défaut qu'on venait de corriger. Un écran doit
+        avoir UNE chose qu'on vient y lire : ici le coût annuel."""
+        css = _css_propre()
+        assert "var(--muted)" in _regle(css, ".fw-bloc-t {")
+        assert "var(--tm-c)" in _regle(css, ".fw-bloc--an .fw-bloc-t {")
+
+    def test_le_heros_est_PLUS_GRAND_que_le_second(self):
+        import re
+        css = _css_propre()
+
+        def taille(sel):
+            m = re.search(r"font-size:\s*([\d.]+)px", _regle(css, sel))
+            assert m, sel
+            return float(m.group(1))
+
+        hero = taille(".fw-chif--l .fw-chif-v {")
+        second = taille(".fw-chif--m .fw-chif-v {")
+        assert hero > second, (hero, second)
+        # Et au-dessus du plancher de 11 px RÉELS (le corps porte `zoom: .8`).
+        assert second * 0.8 >= 11, second
+
+    def test_la_regle_des_DEUX_NATURES_est_ECRITE_sous_les_deux_chiffres(self):
+        """⚠️ `time_view.py` l'interdit en toutes lettres — « DEUX natures,
+        jamais additionnées » — et l'écran ne la disait nulle part, juste là où
+        la tentation de les additionner se présente."""
+        from Code.translations import TRANSLATIONS
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "{{ t('time.fw_jamais') }}" in g
+        assert g.index('class="fw-duo"') < g.index('class="fw-jamais"')
+        for lg in ("fr", "en"):
+            assert TRANSLATIONS[lg].get("time.fw_jamais"), lg
+
+    def test_la_legende_ne_decrit_QUE_ce_qui_est_sur_la_piste(self):
+        """⚠️ Elle annonçait « travail refait » en rouge plein — or rien n'est
+        rouge plein sur la piste : le travail refait est marqué à part. Une
+        légende qui promet un remplissage absent envoie chercher ce qui
+        n'existe pas. Relevé sur la capture."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "fw-pt--l" not in g
+        for cle in ("fw_leg_b", "fw_leg_a", "fw_leg_m"):
+            assert "t('time.%s')" % cle in g, cle
+
+    def test_l_unite_n_est_plus_ecrite_DEUX_fois(self):
+        """⚠️ `fmtH` rend déjà « 24.0h » : le `<span>h</span>` posé à côté
+        affichait « 0.8h h ». Vu sur la capture, pas déduit."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "fw-kpi-unit" not in g
+
+    def test_le_schema_LIT_ce_que_le_serveur_renvoie(self, app):
+        """⚠️ `L` (travail refait) et `H` (exécutions de l'année) viennent du
+        serveur : `delai_plancher` borne `C`, et `H` compte en semaines
+        TRAVAILLÉES, pas en calendrier civil. Les recalculer dans le navigateur
+        en ferait une seconde implémentation, et deux implémentations d'une
+        même règle finissent par diverger."""
+        from Code.routes.time_view import cout_faiblesse
+        with app.app_context():
+            m = cout_faiblesse(120, 1440, "journalier", 1, 60, 300, 1,
+                               pct_proba=20)
+        assert m["L"] == 60
+        assert m["H"] > 0
+        assert abs(m["AA"] - m["H"] * 0.20) < 1e-6
+        js = _lire("static/js/time.js")
+        assert "m['L']" in js and "m['H']" in js
+
+    def test_les_libelles_du_schema_existent_dans_les_DEUX_langues(self):
+        from Code.translations import TRANSLATIONS
+        for cle in ("fw_sch_titre", "fw_sch_ok", "fw_sch_ko", "fw_sch_livre",
+                    "fw_sch_fois", "fw_sch_sur", "fw_leg_b", "fw_leg_a",
+                    "fw_leg_m", "fw_chip_l", "fw_chip_m", "fw_an_trav_s",
+                    "fw_an_att_s", "fw_jamais", "fw_min_titre"):
+            for lg in ("fr", "en"):
+                assert TRANSLATIONS[lg].get("time." + cle), (cle, lg)
+            assert (TRANSLATIONS["fr"]["time." + cle]
+                    != TRANSLATIONS["en"]["time." + cle]), cle
+
+    def test_le_decompte_suit_la_convention_de_CE_fichier(self):
+        """⚠️ Deux conventions coexistent : `{x}`, résolue par `fmtPhrase` dans
+        `time.js`, et `[[x]]`, celle de `acp.*` et `chat.*`. Une clé qui prend
+        la mauvaise affiche son marqueur TEL QUEL, sans que rien ne lève."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            v = TRANSLATIONS[lg]["time.fw_sch_sur"]
+            assert "{h}" in v, (lg, v)
+            assert "[[" not in v, (lg, v)
+
+    def test_le_decompte_est_INJECTE_dans_TIME_I18N(self):
+        """Sans injection, `tl()` sert son repli — ici une chaîne vide, donc un
+        décompte qui ne s'affiche jamais."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "fw_sch_sur:" in g
+        assert "t('time.fw_sch_sur')|tojson" in g
+
+    def test_le_separateur_decimal_suit_la_LANGUE(self):
+        """⚠️ « Based on 45 weeks per year, i.e. 10,4 working months. » — la
+        virgule décimale est une convention FRANÇAISE, posée en dur. Vu sur la
+        capture anglaise."""
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("const brut = (sem"):][:260]
+        assert "L.lang === 'en'" in bloc, bloc

@@ -398,7 +398,10 @@
     const base = document.getElementById('fw-base-mois');
     if (base) {
       const sem = (j.params || {}).weeks_per_year || calendarParams.weeks_per_year || 47;
-      const mois = (sem / 4.34524).toFixed(1).replace('.', ',');
+      /* ⚠️ La virgule décimale est une convention FRANÇAISE : elle
+         s'affichait telle quelle en anglais (« i.e. 10,4 working months »). */
+      const brut = (sem / 4.34524).toFixed(1);
+      const mois = L.lang === 'en' ? brut : brut.replace('.', ',');
       base.textContent = tl('fw_base_mois', 'Base : {sem} semaines par an, soit {mois} mois travaillés.')
         .replace('{sem}', sem).replace('{mois}', mois);
     }
@@ -422,6 +425,7 @@
     updateKpi('tm-fw-delai',  m['T'] != null ? fmtH(m['T']) : '—');
     updateKpi('tm-fw-mois',   fmtH(m['W'] || 0));
     majBilansFaiblesse(m);
+    majSchemaFaiblesse(m);
 
     if (save) {
       if (modif) { edition.nom = payload.weakness; majBandeauEdition(); }
@@ -532,6 +536,127 @@
   }
 
   function updateKpi(id, val){ const el = document.getElementById(id); if (el) el.textContent = String(val); }
+
+  /* ══ L'AIDE D'UN CHAMP VIT DERRIÈRE UN « i » ═══════════════════════════
+     Six aides empilées sous six champs, puis dix sous dix chiffres : c'est
+     la moitié de ce qui chargeait l'écran, pour du texte qu'on lit une fois.
+
+     ⚠️ La bulle est posée sur le BODY en `position: fixed` — la page défile
+     et le panneau de résultat est `sticky` : une bulle posée dans la carte
+     serait tronquée.
+     ⚠️⚠️ `body.pg` porte `zoom: .8` (ui-theme). Un enfant du body en
+     `fixed` voit ses coordonnées MULTIPLIÉES par ce zoom, alors que
+     `getBoundingClientRect()` les rend déjà en pixels d'écran : on divise
+     avant d'écrire `left`/`top`, et on multiplie la taille pour la comparer
+     à `window.innerWidth`. C'est la CINQUIÈME fois que ce piège se présente
+     dans cette application — tout élément posé sur le body en `fixed` doit
+     faire cette conversion.
+     ⚠️ Pas d'attribut `title` : l'info-bulle du système sortirait par-dessus
+     la nôtre, une seconde plus tard et sans sa mise en forme.             */
+  function fermerAides(){
+    document.querySelectorAll('.tm-bulle').forEach(e => e.remove());
+  }
+  document.addEventListener('click', fermerAides);
+  window.addEventListener('scroll', fermerAides, true);
+  window.addEventListener('resize', fermerAides);
+
+  function brancherAides(racine){
+    (racine || document).querySelectorAll('.tm-i').forEach(bouton => {
+      if (bouton.dataset.pret) return;           // le gabarit est servi une fois
+      bouton.dataset.pret = '1';
+      let bulle = null;
+      const fermer = () => { if (bulle) { bulle.remove(); bulle = null; } };
+      const ouvrir = () => {
+        if (bulle) return;
+        const txt = bouton.querySelector('.tm-i-txt');
+        if (!txt) return;
+        fermerAides();
+        bulle = document.createElement('div');
+        bulle.className = 'tm-bulle';
+        /* Le texte vient du CATALOGUE, pas d'une saisie : il porte des
+           `<em>` et des entités, qui doivent se rendre. */
+        bulle.innerHTML = txt.innerHTML;
+        document.body.appendChild(bulle);
+        const r = bouton.getBoundingClientRect(), b = bulle.getBoundingClientRect();
+        const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+        /* ⚠⚠ `getBoundingClientRect()` rend DEJA des pixels d'ecran — le
+           zoom y est applique. Seules les coordonnees qu'on ECRIT repassent
+           par lui : on divise a l'ecriture, et on ne multiplie nulle part.
+           Mesure avant correction : la bulle se posait 12 px trop bas, soit
+           exactement sa hauteur fois (1 - zoom). */
+        bulle.style.left = Math.max(8, Math.min(r.left - 10,
+                             window.innerWidth - b.width - 8)) / z + 'px';
+        const dessus = r.top - b.height - 10;
+        bulle.style.top = (dessus > 8 ? dessus : r.bottom + 10) / z + 'px';
+      };
+      bouton.addEventListener('mouseenter', ouvrir);
+      bouton.addEventListener('mouseleave', fermer);
+      bouton.addEventListener('focus', ouvrir);
+      bouton.addEventListener('blur', fermer);
+      bouton.addEventListener('click', e => {
+        /* ⚠️ `preventDefault` : le « i » vit DANS un `<label>`, dont le clic
+           activerait le champ. `stopPropagation` : sans lui, le gestionnaire
+           du document refermerait la bulle qu'on vient d'ouvrir.
+           ⚠️ Et le clic est nécessaire : le survol n'existe pas sur un
+           écran tactile. */
+        e.preventDefault(); e.stopPropagation();
+        bulle ? fermer() : ouvrir();
+      });
+      bouton.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        bulle ? fermer() : ouvrir();
+      });
+    });
+  }
+  if (document.readyState === 'loading')
+    document.addEventListener('DOMContentLoaded', () => brancherAides());
+  else brancherAides();
+
+  /* ══ LE SCHÉMA — il MONTRE ce que les chiffres disent ══════════════════
+     ⚠️ Il LIT `B`, `C`, `L`, `Z` (= M) et `H` que le serveur renvoie : les
+     recalculer ici ferait une seconde implémentation d'une borne
+     (`delai_plancher`) et d'un calendrier (`H` compte en semaines
+     TRAVAILLÉES), et deux implémentations d'une même règle finissent par
+     diverger.
+     ⚠️ Le travail refait est marqué À PART, pas allongé sur la piste :
+     `Y = C + M` ne le compte pas dans la livraison, et un schéma qui
+     l'allongerait dirait autre chose que le calcul qu'il illustre.      */
+  function majSchemaFaiblesse(m){
+    const pos = (x) => Math.max(0, +x || 0);
+    const B = pos(m['B']), C = pos(m['C']), L = pos(m['L']),
+          M = pos(m['Z']), H = pos(m['H']), AA = pos(m['AA']);
+    const total = C + M;
+
+    document.getElementById('fw-chrono')?.classList.toggle('hidden', !(total > 0));
+
+    /* `est-nul` ET une largeur de zéro : sans la classe, le plancher de
+       4 px (qui rend visible une attente minuscule) dessinerait un segment
+       pour une valeur de zéro. */
+    const pose = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const nul = !(val > 0) || !(total > 0);
+      el.classList.toggle('est-nul', nul);
+      el.style.width = nul ? '0'
+        : Math.min(100, val * 100 / total).toFixed(3) + '%';
+    };
+    pose('fw-sg-b1', B); pose('fw-sg-a1', C - B);
+    pose('fw-sg-b2', B); pose('fw-sg-a2', C - B); pose('fw-sg-m', M);
+
+    updateKpi('fw-sg-c', fmtH(C));
+    updateKpi('fw-sg-l', fmtH(L));
+
+    document.getElementById('fw-q-l')?.classList.toggle('hidden', !(L > 0));
+    document.getElementById('fw-q-m')?.classList.toggle('hidden', !(M > 0));
+    document.getElementById('fw-quand')?.classList.toggle('hidden', !(L > 0 || M > 0));
+
+    const part = document.getElementById('fw-freq-part');
+    if (part) part.style.width = H > 0
+      ? Math.min(100, AA * 100 / H).toFixed(2) + '%' : '0';
+    updateKpi('fw-freq-sur', H > 0
+      ? fmtPhrase('fw_sch_sur', '', { h: nombre(Math.round(H)) }) : '');
+  }
 
   /* Les bilans partiels des trois temps : on comprend la formule en la
      remplissant, au lieu de la découvrir à la fin.

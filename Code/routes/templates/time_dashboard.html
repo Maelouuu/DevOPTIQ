@@ -1,4 +1,18 @@
 {% include "header_buttons.html" %}
+{#- ⚠️ L'aide d'un champ vit DERRIÈRE un « i », plus sous le champ en petit.
+    Six aides empilées sous six champs, puis dix sous dix chiffres : c'est
+    l'écran qu'on vient de dégager.
+    ⚠️ Le texte est DANS le bouton (`.tm-i-txt`), jamais dans un attribut
+    `title` : l'info-bulle du système sortirait par-dessus la nôtre, une
+    seconde plus tard et sans sa mise en forme — et elle n'existe pas au
+    clavier. `.tm-i-txt` est masqué à l'œil mais PRÉSENT dans l'arbre
+    d'accessibilité, donc un lecteur d'écran lit l'aide sans ouvrir la bulle.
+    ⚠️ `| safe` ici une fois pour toutes : plusieurs aides portent des `<em>`
+    et des entités, qui s'afficheraient en clair sinon. Le contrôle de
+    `test_105` connaît la macro et exige qu'elle le porte. -#}
+{% macro aide(cle) -%}
+<span class="tm-i" role="button" tabindex="0"><span class="tm-i-g" aria-hidden="true">i</span><span class="tm-i-txt">{{ t(cle) | safe }}</span></span>
+{%- endmacro %}
 <link rel="stylesheet" href="{{ url_for('static', filename='time.css') }}">
 <script>
   // Libellés des unités de durée. La VALEUR envoyée au serveur reste
@@ -25,6 +39,10 @@
                        del_role_analysis: {{ t('time.del_role_analysis')|tojson }},
                        del_faiblesse: {{ t('time.tm_del_faiblesse')|tojson }},
                        fw_base_mois:  {{ t('time.fw_base_mois')|tojson }},
+                       {#- ⚠️ Convention de CE fichier : `{h}`, résolu par `fmtPhrase`.
+                           `[[h]]` est celle de `acp.*` et `chat.*` — une clé qui prend
+                           la mauvaise affiche son marqueur TEL QUEL, sans erreur. -#}
+                       fw_sch_sur:    {{ t('time.fw_sch_sur')|tojson }},
                        tab_project:   {{ t('time.tab_project')|tojson }},
                        tab_activity:  {{ t('time.tab_activity')|tojson }},
                        tab_role:      {{ t('time.tab_role')|tojson }},
@@ -509,26 +527,24 @@
                   <div class="tm-tps-mode">
                     <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> {{ t('time.fw_mode_global') }}</label>
                     <label class="chk"><input type="radio" name="fw-mode" value="tasks"> {{ t('time.fw_mode_tasks') }}</label>
-                    <span class="tm-tps-aide" title="{{ t('time.fw_hint_mode')|striptags }}">i</span>
+                    {{ aide('time.fw_hint_mode') }}
                   </div>
 
                   <div id="fw-global" class="tm-tps-duo">
                     <div class="sc-field">
-                      <label>{{ t('time.fw_std_duration') }}</label>
+                      <label>{{ t('time.fw_std_duration') }}{{ aide('time.fw_hint_std_dur') }}</label>
                       <div class="inline">
                         <input id="fw-dur" type="number" step="0.1" class="input" />
                         <select id="fw-dur-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
                       </div>
-                      <div class="field-hint">{{ t('time.fw_hint_std_dur') }}</div>
                     </div>
 
                     <div class="sc-field">
-                      <label>{{ t('time.fw_std_delay') }}</label>
+                      <label>{{ t('time.fw_std_delay') }}{{ aide('time.fw_hint_std_del') }}</label>
                       <div class="inline">
                         <input id="fw-del" type="number" step="0.1" class="input" />
                         <select id="fw-del-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
                       </div>
-                      <div class="field-hint">{{ t('time.fw_hint_std_del') }}</div>
                       {# Dit POURQUOI la valeur a bougé : un champ qui se corrige
                          tout seul sans rien dire passe pour un défaut de saisie. #}
                       <div class="field-hint hidden" id="fw-del-note">{{ t('time.fw_del_borne') }}</div>
@@ -569,27 +585,25 @@
                   <p class="tm-tps-p">{{ t('time.fw_t2_p') }}</p>
 
                   <div class="sc-field tm-tps-large">
-                    <label>{{ t('time.fw_desc_label') }}</label>
+                    <label>{{ t('time.fw_desc_label') }}{{ aide('time.fw_hint_desc') }}</label>
                     <input id="fw-k" class="input" placeholder="{{ t('time.fw_ph_desc') }}" />
                   </div>
 
                   <div class="tm-tps-duo">
                     <div class="sc-field">
-                      <label>{{ t('time.fw_extra_work') }}</label>
+                      <label>{{ t('time.fw_extra_work') }}{{ aide('time.fw_hint_extra') }}</label>
                       <div class="inline">
                         <input id="fw-l" type="number" step="0.1" class="input" />
                         <select id="fw-l-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
                       </div>
-                      <div class="field-hint">{{ t('time.fw_hint_extra') | safe }}</div>
                     </div>
 
                     <div class="sc-field">
-                      <label>{{ t('time.fw_delay_label') }}</label>
+                      <label>{{ t('time.fw_delay_label') }}{{ aide('time.fw_hint_delay') }}</label>
                       <div class="inline">
                         <input id="fw-m" type="number" step="0.1" class="input" />
                         <select id="fw-m-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
                       </div>
-                      <div class="field-hint">{{ t('time.fw_hint_delay') | safe }}</div>
                     </div>
                   </div>
 
@@ -609,7 +623,7 @@
 
                   <div class="tm-tps-duo">
                     <div class="sc-field">
-                      <label>{{ t('time.fw_recurrence_label') }}</label>
+                      <label>{{ t('time.fw_recurrence_label') }}{{ aide('time.fw_hint_freq') }}</label>
                       <div class="inline">
                         <select id="fw-rec" class="input">
                           <option value="journalier">{{ t('time.rec_daily') }}</option>
@@ -621,16 +635,14 @@
                         <input id="fw-freq" type="number" min="1" value="1" class="input w-70" />
                         <span class="unit-suffix">{{ t('time.fw_unit_times') }}</span>
                       </div>
-                      <div class="field-hint">{{ t('time.fw_hint_freq') }}</div>
                     </div>
 
                     <div class="sc-field">
-                      <label>{{ t('time.fw_prob_label') }}</label>
+                      <label>{{ t('time.fw_prob_label') }}{{ aide('time.fw_hint_prob') }}</label>
                       <div class="inline">
                         <input id="fw-n" type="number" value="100" min="0.1" max="100" step="0.1" class="input" />
                         <span class="unit-suffix">%</span>
                       </div>
-                      <div class="field-hint">{{ t('time.fw_hint_prob') | safe }}</div>
                     </div>
                   </div>
 
@@ -655,93 +667,107 @@
               {{ t('time.fw_results_empty') }}
             </div>
 
-            <div id="fw-results-section" class="fw-results-wrapper hidden">
+            <div id="fw-results-section" class="fw-res hidden">
 
-              <div class="fw-results-title">{{ t('time.results') }}</div>
+              <!-- ══ 1 · CE QUI SE PASSE ═══════════════════════════════════
+                   ⚠️ Dix chiffres de même taille sous dix explications de même
+                   taille : rien ne ressortait, et surtout rien ne MONTRAIT le
+                   mécanisme. Le schéma est à l'échelle des valeurs saisies, et
+                   il encode la distinction que tout le module tient — le
+                   travail refait et l'attente ne sont pas la même chose, donc
+                   ils n'ont pas le même remplissage. -->
+              <section class="fw-bloc fw-bloc--sch">
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-timeline"></i>{{ t('time.fw_sch_titre') }}</h3>
 
-              <div class="fw-result-group fw-group-execution">
-                <div class="fw-group-header">
-                  <i class="fa-solid fa-repeat"></i>
-                  {{ t('time.fw_execution_header') }}
-                </div>
-                <div class="fw-group-body">
-                  <div class="fw-kpi-card fw-accent-pink">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_avg_dur') }}</div>
-                    <div class="fw-kpi-value"><span id="S">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_avg_dur') }}</div>
+                <div class="fw-chrono" id="fw-chrono">
+                  <div class="fw-l">
+                    <span class="fw-l-n">{{ t('time.fw_sch_ok') }}</span>
+                    <span class="fw-piste">
+                      <span class="fw-seg fw-seg--b" id="fw-sg-b1"></span>
+                      <span class="fw-seg fw-seg--a" id="fw-sg-a1"></span>
+                    </span>
+                    <span class="fw-livre"><span class="k">{{ t('time.fw_sch_livre') }}</span><b id="fw-sg-c">—</b></span>
                   </div>
-                  <div class="fw-kpi-card fw-accent-pink">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_avg_del') }}</div>
-                    <div class="fw-kpi-value"><span id="T">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_avg_del') }}</div>
-                  </div>
-                </div>
-              </div>
 
-              <div class="fw-result-group fw-group-degraded">
-                <div class="fw-group-header">
-                  <i class="fa-solid fa-circle-exclamation"></i>
-                  {{ t('time.fw_degraded_header') }}
-                </div>
-                <div class="fw-group-body">
-                  <div class="fw-kpi-card fw-accent-orange">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_deg_delay') }}</div>
-                    <div class="fw-kpi-value"><span id="Y">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_deg_delay') }}</div>
-                  </div>
-                  <div class="fw-kpi-card fw-accent-orange">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_occ') }}</div>
-                    <div class="fw-kpi-value"><span id="Z">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_occ') }}</div>
-                  </div>
-                  <div class="fw-kpi-card fw-kpi-occurrences">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_occurrences') }}</div>
-                    <div class="fw-kpi-value"><span id="AA">—</span><span class="fw-kpi-unit">{{ t('time.fw_unit_times') }}</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_occurrences') }}</div>
+                  <div class="fw-l fw-l--ko">
+                    <span class="fw-l-n">{{ t('time.fw_sch_ko') }}</span>
+                    <span class="fw-piste">
+                      <span class="fw-seg fw-seg--b" id="fw-sg-b2"></span>
+                      <span class="fw-seg fw-seg--a" id="fw-sg-a2"></span>
+                      <span class="fw-seg fw-seg--m" id="fw-sg-m"></span>
+                    </span>
+                    <span class="fw-livre fw-livre--ko"><span class="k">{{ t('time.fw_sch_livre') }}</span><b id="Y">—</b>{{ aide('time.fw_desc_deg_delay') }}</span>
                   </div>
                 </div>
-              </div>
 
-              <div class="fw-result-group fw-group-annual">
-                <div class="fw-group-header">
-                  <i class="fa-solid fa-chart-line"></i>
-                  {{ t('time.fw_annual_header') }}
+                <!-- ⚠️ Le travail refait ne décale PAS la livraison dans ce
+                     modèle (`Y = C + M`) : il est marqué À PART, pas allongé
+                     sur la piste — sinon le schéma dirait autre chose que le
+                     calcul qu'il illustre. -->
+                <div class="fw-quand" id="fw-quand">
+                  <span class="fw-q fw-q--l" id="fw-q-l">+&nbsp;<b id="fw-sg-l">—</b>&nbsp;{{ t('time.fw_chip_l') }}</span>
+                  <span class="fw-q fw-q--m" id="fw-q-m">+&nbsp;<b id="Z">—</b>&nbsp;{{ t('time.fw_chip_m') }}{{ aide('time.fw_desc_delay_occ') }}</span>
                 </div>
-                <div class="fw-group-body">
-                  <div class="fw-kpi-card fw-accent-red">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_annual') }}</div>
-                    <div class="fw-kpi-value"><span id="U">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_annual') | safe }}</div>
-                  </div>
-                  <div class="fw-kpi-card fw-accent-red">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_annual') }}</div>
-                    <div class="fw-kpi-value"><span id="V">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_annual') | safe }}</div>
-                  </div>
-                </div>
-              </div>
 
-              <div class="fw-result-group fw-group-monthly">
-                <div class="fw-group-header">
-                  <i class="fa-solid fa-calendar-days"></i>
-                  {{ t('time.fw_monthly_header') }}
+                <div class="fw-freq">
+                  <span class="fw-freq-j"><i id="fw-freq-part"></i></span>
+                  <span class="fw-freq-t"><b id="AA">—</b>&nbsp;{{ t('time.fw_sch_fois') }}<span class="fw-freq-sur" id="fw-freq-sur"></span>{{ aide('time.fw_desc_occurrences') }}</span>
                 </div>
-                <div class="fw-group-body">
-                  <div class="fw-kpi-card fw-accent-violet">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_monthly') }}</div>
-                    <div class="fw-kpi-value"><span id="W">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_month') }}</div>
+
+                <div class="fw-leg">
+                  <span><i class="fw-pt fw-pt--b"></i>{{ t('time.fw_leg_b') }}</span>
+                  <span><i class="fw-pt fw-pt--a"></i>{{ t('time.fw_leg_a') }}</span>
+                  <span><i class="fw-pt fw-pt--m"></i>{{ t('time.fw_leg_m') }}</span>
+                </div>
+              </section>
+
+              <!-- ══ 2 · LE COÛT ANNUEL — le héros ═════════════════════════
+                   Un écran doit avoir UNE chose qu'on vient y lire. C'est le
+                   travail refait sur l'année : c'est lui que le reste de
+                   l'application compare à la charge. L'attente le suit, plus
+                   petite — elle compte autrement, pas moins. -->
+              <section class="fw-bloc fw-bloc--an">
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-chart-line"></i>{{ t('time.fw_annual_header') }}</h3>
+                <div class="fw-duo">
+                  <div class="fw-chif fw-chif--l">
+                    <span class="fw-chif-k">{{ t('time.fw_kpi_extra_annual') }}{{ aide('time.fw_desc_extra_annual') }}</span>
+                    <span class="fw-chif-v" id="U">—</span>
+                    <span class="fw-chif-s">{{ t('time.fw_an_trav_s') }}</span>
                   </div>
-                  <div class="fw-kpi-card fw-accent-violet">
-                    <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_monthly') }}</div>
-                    <div class="fw-kpi-value"><span id="X">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_month') }}</div>
+                  <div class="fw-chif fw-chif--m">
+                    <span class="fw-chif-k">{{ t('time.fw_kpi_delay_annual') }}{{ aide('time.fw_desc_delay_annual') }}</span>
+                    <span class="fw-chif-v" id="V">—</span>
+                    <span class="fw-chif-s">{{ t('time.fw_an_att_s') }}</span>
                   </div>
                 </div>
-                <!-- ⚠️ La base de calcul, écrite : « annuel ÷ 12 » est la lecture
-                     naturelle, et ce n'est pas ce que fait le calcul. -->
-                <div class="fw-group-base" id="fw-base-mois"></div>
-              </div>
+                <p class="fw-jamais"><i class="fa-solid fa-triangle-exclamation"></i>{{ t('time.fw_jamais') }}</p>
+              </section>
+
+              <!-- ══ 3 · RAMENÉ À L'EXÉCUTION ET AU MOIS ═══════════════════ -->
+              <section class="fw-bloc fw-bloc--min">
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-divide"></i>{{ t('time.fw_min_titre') }}</h3>
+                <div class="fw-quatre">
+                  <div class="fw-min">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_avg_dur') }}{{ aide('time.fw_desc_avg_dur') }}</span>
+                    <span class="fw-min-v" id="S">—</span>
+                  </div>
+                  <div class="fw-min">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_avg_del') }}{{ aide('time.fw_desc_avg_del') }}</span>
+                    <span class="fw-min-v" id="T">—</span>
+                  </div>
+                  <div class="fw-min fw-min--l">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_extra_monthly') }}{{ aide('time.fw_desc_extra_month') }}</span>
+                    <span class="fw-min-v" id="W">—</span>
+                  </div>
+                  <div class="fw-min fw-min--m">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_delay_monthly') }}{{ aide('time.fw_desc_delay_month') }}</span>
+                    <span class="fw-min-v" id="X">—</span>
+                  </div>
+                </div>
+                <!-- ⚠️ La base de calcul, écrite : « annuel ÷ 12 » est la
+                     lecture naturelle, et ce n'est pas ce que fait le calcul. -->
+                <div class="fw-base" id="fw-base-mois"></div>
+              </section>
 
             </div>
           </div>

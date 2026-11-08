@@ -206,11 +206,13 @@ def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
     Y = C + M
     Z = M
     AA = P_
-    # ⚠️ `B` et `C` sont rendus pour que les bilans partiels de l'écran les
-    # LISENT au lieu de les recalculer : `C` est borné par `delai_plancher`,
-    # et une seconde implémentation de cette borne dans le navigateur
-    # finirait par en diverger.
-    return {"B": B, "C": C,
+    # ⚠️ `B`, `C`, `L` et `H` sont rendus pour que le SCHEMA et les bilans
+    # de l'écran les LISENT au lieu de les recalculer : `C` est borné par
+    # `delai_plancher`, et `H` compte les exécutions de l'année (dont `AA`
+    # ratees). Une seconde implémentation dans le navigateur finirait par en
+    # diverger. `L` est le travail refait : le schéma le marque A PART,
+    # parce que `Y = C + M` ne le compte pas dans la livraison.
+    return {"B": B, "C": C, "L": L, "H": H,
             "O": O, "P": P_, "Q": Q, "R": Rv, "S": S, "T": T,
             "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA}
 
@@ -835,14 +837,14 @@ def api_weakness():
         "ok": True,
         "mode": mode,
         "activity_id": activity_id,
-        # ⚠️ `B` et `C` sont DANS `calc`, pas seulement a cote : l'autre route
-        # (`/api/weakness/<id>`) renvoie `cout_faiblesse` tel quel, donc avec
-        # eux. Deux routes qui rendent un `calc` de forme differente font que
-        # l'ecran marche a la reouverture d'une analyse et pas pendant la
-        # saisie — c'est exactement ce qui est arrive au bilan du temps 2.
-        "calc": {"B": B, "C": C,
-                 "O": O, "P": P, "Q": Q, "R": Rv, "S": S, "T": T, "U": U,
-                 "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA},
+        # ⚠⚠ `cout_faiblesse` TEL QUEL, jamais une liste de cles recopiee.
+        # L'autre route (`/api/weakness/<id>`) le renvoie ainsi : une liste
+        # figee ici fait que les deux routes rendent un `calc` de forme
+        # differente des qu'une cle s'ajoute — l'ecran marche alors a la
+        # reouverture d'une analyse et pas pendant la saisie, ce qui est
+        # exactement ce qui est arrive au bilan du temps 2. Et c'est ce qui
+        # serait arrive a `L` et `H`, que le schema lit.
+        "calc": m,
         "B_minutes": B, "C_minutes": C,
         "params": get_calendar_params()
     })

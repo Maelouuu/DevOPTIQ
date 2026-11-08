@@ -7330,6 +7330,112 @@ les trois temps numérotés et traduits, la bascule de mode, les deux bilans
 remplis, les cinq chiffres du panneau, zéro erreur JS, zéro fuite française
 sur l'écran anglais.
 
+#### L'aide passe derrière un « i », et les Résultats deviennent un SCHÉMA (2026-11-08)
+
+« Au lieu d'écrire pour chaque saisie son explication au-dessous en petit, mets
+tout dans des i », et « la section résultat d'une faiblesse : on comprend très
+mal ce que l'on tente de mettre en exergue — tous les textes ont la même taille
+donc rien ne ressort, et les couleurs rendent plus joli mais ne servent pas à
+mettre en lumière les résultats ». Les deux reproches étaient mesurables.
+
+**L'aide : huit sous les champs, dix sous les chiffres.** Une macro Jinja
+`aide(cle)` les porte toutes — écrite une fois, elle garantit la même forme
+partout, et son `| safe` couvre d'un coup les deux aides qui portent des `<em>`
+et les deux qui portent des entités.
+- ⚠️ **Pas d'attribut `title`** : l'info-bulle du système sortirait par-dessus la
+  nôtre, une seconde plus tard et sans sa mise en forme, et elle n'existe pas au
+  clavier. Celle du mode (`fw_hint_mode`) affichait de surcroît ses entités **en
+  clair** — `&ldquo;` n'est pas décodé dans un attribut échappé.
+- ⚠️ **`#fw-del-note` reste ÉCRIT**, et c'est voulu : il dit POURQUOI la valeur
+  a bougé toute seule. Ce n'est pas l'explication d'un champ, c'est une réaction
+  à ce qu'on vient de taper — derrière un « i », on cacherait une correction que
+  l'utilisateur doit voir.
+- ⚠️ Le texte vit dans le bouton (`.tm-i-txt`), **masqué par `clip`, jamais par
+  `display: none`** : il doit rester dans l'arbre d'accessibilité, sinon l'aide
+  n'existe plus que pour la souris. La bulle est en `pointer-events: none` — elle
+  ne doit jamais voler le clic de ce qu'elle explique.
+- `fw_hint_desc` existait dans le catalogue et n'était employé nulle part : le
+  champ « Description de la faiblesse » le porte enfin.
+
+⚠⚠ **Et le motif recopié de la page Compétences pose la bulle 12 px TROP
+BAS.** `getBoundingClientRect()` rend **déjà** des pixels d'écran — le `zoom: .8`
+y est appliqué ; seules les coordonnées qu'on **écrit** repassent par lui.
+`brancherInfo` (competences_v2.js) multiplie pourtant la hauteur par le zoom
+avant de la soustraire. Mesuré ici : bas de bulle à 558 px pour un bouton dont
+le haut est à 556 — soit sa hauteur fois (1 − 0,8), donc **par-dessus son propre
+bouton**. Après correction : 546, les 10 px demandés.
+ℹ️ L'horizontal, lui, était juste des deux côtés (0,0 px d'écart) : le `* z` n'y
+intervient que dans une borne qui ne mord presque jamais. C'est pour cela que la
+mesure de 2026-09-17 ne l'avait pas vu — elle ne portait que sur l'horizontal.
+
+**Les Résultats : DEUX encodages, et deux seulement.**
+Avant : quatre groupes de même poids, dix chiffres à 20 px, dix explications à
+12 px (**9,6 px RÉELS** sous le zoom du corps, sous le plancher de l'échelle
+typographique) et quatre accents décoratifs — rose, orange, rouge, violet.
+
+Après, la même grammaire du schéma jusqu'aux chiffres : **travail = plein**,
+**attente = hachuré**, **ce qui coûterait de toute façon = gris**. C'est la
+distinction que `time_view.py` interdit de confondre depuis le 03/11 — « DEUX
+natures, jamais additionnées » ; elle se VOIT, maintenant. Et la règle est
+écrite sous les deux chiffres annuels, là où la tentation de les additionner se
+présente.
+
+**Le schéma** — deux pistes à l'échelle (normale, dégradée), la livraison qui
+glisse de `C` à `Y`, la fréquence en proportion (« 45 fois par an sur les 225
+exécutions »).
+- ⚠⚠ **Le travail refait est marqué À PART, pas allongé sur la piste** :
+  `Y = C + M` — le modèle ne le compte PAS dans la livraison. Un schéma qui
+  l'allongerait dirait autre chose que le calcul qu'il illustre. Il porte sa
+  propre pastille, qui dit en toutes lettres « la livraison ne bouge pas pour
+  autant ».
+- ⚠⚠ **Les deux lignes partagent UNE grille** (`display: contents` sur chacune).
+  Mesuré avec une grille par ligne : la colonne « livré en » de la ligne
+  dégradée porte un « i » de plus, donc elle est plus large, donc son `1fr`
+  valait **720 px contre 743**. Deux pistes de largeurs différentes ne se
+  comparent pas, et c'est tout le propos d'un schéma à l'échelle.
+- ⚠️ **Un plancher de 4 px** sur les segments non nuls : l'attente ajoutée vaut
+  souvent 4 % du total (une heure sur vingt-cinq) et serait invisible — or c'est
+  elle qu'on vient voir. La classe `est-nul` empêche ce plancher de dessiner un
+  segment pour une valeur de zéro.
+- ⚠️ **La légende ne décrit QUE la piste.** Elle annonçait « travail refait »
+  en rouge plein, or rien n'est rouge plein sur la piste : une légende qui promet
+  un remplissage absent envoie chercher ce qui n'existe pas. Relevé sur la
+  capture.
+- ⚠️ `L` et `H` sont **rendus par le serveur** (`cout_faiblesse`) : `C` est borné
+  par `delai_plancher` et `H` compte en semaines TRAVAILLÉES — les recalculer
+  dans le navigateur en ferait une seconde implémentation.
+- ⚠⚠ Et la route POST **recopiait une liste de clés figée** là où l'autre renvoie
+  `cout_faiblesse` tel quel : `L` et `H` n'auraient existé que d'un côté, et le
+  schéma aurait marché à la réouverture d'une analyse et pas pendant la saisie —
+  exactement le défaut du bilan du temps 2. Elle rend `m` directement.
+
+**La hiérarchie**, mesurée à l'écran (le corps porte `zoom: .8`) :
+
+| élément | avant (réel) | après (réel) |
+|---|---|---|
+| le chiffre héros (travail refait / an) | 16 px | **36,8 px** |
+| le second (attente / an) | 16 px | 25,6 px |
+| livraison du schéma | — | 15,2 px |
+| les quatre chiffres divisés | 16 px | 16,8 px |
+| les explications | 9,6 px | *derrière un « i »* |
+
+⚠️ **UN seul bloc porte la couleur du type** — le coût annuel. Les trois titres
+dans le rouge, c'était trois blocs de même poids, le défaut qu'on venait de
+corriger. Un écran doit avoir UNE chose qu'on vient y lire.
+
+**Deux défauts trouvés PAR la capture, indépendants de la refonte :**
+- ⚠️ **L'unité était écrite deux fois** : `fmtH` rend déjà « 24.0h » et un
+  `<span class="fw-kpi-unit">h</span>` était posé à côté — « 0.8h h ».
+- ⚠️ **« Based on 45 weeks per year, i.e. 10,4 working months. »** : la virgule
+  décimale est une convention FRANÇAISE, posée en dur par `.replace('.', ',')`.
+
+Tests : `test_105` passe de 78 à **99 cas** ; **22 gardes retirées une par une,
+22 cliquets tombés**. Suite : **3 873 passés**, 1 sauté ; `repet_image`
+**3 802 passés** + 72 sautés. Éprouvé au banc dans les deux langues, de 900 à
+1600 px :
+pistes alignées au pixel, bulle à 0,0 px de son bouton, aucun débordement
+horizontal, zéro erreur JS, zéro fuite française sur l'écran anglais.
+
 ---
 
 ## Notes importantes (suite)

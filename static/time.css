@@ -326,95 +326,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 }
 .fw-results-empty i { font-size: 14px; }
 
-.fw-results-title {
-  font-size: 13px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  color: var(--ink-2);
-  margin-bottom: -6px;
-}
-
-.fw-results-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.fw-result-group {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--card);
-}
-
-/* Sévérité : neutre (exécution/mensuel) → ambre (dégradé) → rouge (annuel) */
-.fw-result-group.fw-group-degraded  { border-color: #fde68a; }
-.fw-result-group.fw-group-annual    { border-color: #fecaca; }
-
-.fw-group-header {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-.fw-group-execution .fw-group-header { background: var(--card-2); color: var(--ink-2); }
-.fw-group-degraded  .fw-group-header { background: #fffbeb; color: #92400e; }
-.fw-group-annual    .fw-group-header { background: #fef2f2; color: #991b1b; }
-.fw-group-monthly   .fw-group-header { background: var(--card-2); color: var(--ink-2); }
-
-.fw-group-body {
-  display: grid;
-  gap: 0;
-  grid-template-columns: repeat(2, 1fr);
-  border-top: 1px solid var(--border);
-}
-.fw-group-degraded .fw-group-body  { grid-template-columns: repeat(3, 1fr); }
-.fw-group-monthly .fw-group-body   { grid-template-columns: repeat(2, 1fr); }
-
-.fw-kpi-card {
-  padding: 12px 16px;
-  border-right: 1px solid var(--border);
-}
-.fw-kpi-card:last-child { border-right: none; }
-
-.fw-kpi-card .fw-kpi-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--muted);
-  margin-bottom: 5px;
-}
-.fw-kpi-card .fw-kpi-value {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--ink);
-  line-height: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-.fw-kpi-card .fw-kpi-unit {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
-}
-.fw-kpi-card .fw-kpi-desc {
-  font-size: 12px;
-  color: var(--faint);
-  line-height: 1.35;
-  margin-top: 5px;
-}
-
-/* Couleur = sévérité, à taille égale (plus de « 40px » décoratif) */
-.fw-kpi-card.fw-accent-orange .fw-kpi-value { color: #b45309; }
-.fw-kpi-card.fw-accent-red .fw-kpi-value { color: #b91c1c; }
-
-.fw-kpi-card.fw-kpi-occurrences { background: var(--card-2); }
 
 /* ---- Summary pill : résultat clé de l'onglet Activité ---- */
 .summary-pill {
@@ -513,11 +424,9 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 /* ---- Responsive ---- */
 @media (max-width: 980px) {
   .form-grid, .form-grid.fg-2cols, .subcard-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
-  .fw-group-body { grid-template-columns: 1fr 1fr !important; }
 }
 @media (max-width: 560px) {
   .container { padding: 0 12px 32px; }
-  .fw-group-body { grid-template-columns: 1fr !important; }
   .kpis { grid-template-columns: 1fr; }
 }
 
@@ -1275,4 +1184,285 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 @media (max-width: 760px) {
   .tm-barre { flex-wrap: wrap; }
   .tm-barre-sub { font-size: 12.5px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   L'AIDE D'UN CHAMP VIT DERRIÈRE UN « i »
+
+   Six aides empilées sous six champs du formulaire, puis dix sous dix
+   chiffres des résultats : c'est la moitié de ce qui chargeait l'écran, et
+   c'est du texte qu'on lit UNE fois.
+
+   ⚠️ Pas d'attribut `title` : l'info-bulle du système sortirait par-dessus
+   la nôtre, une seconde plus tard et sans sa mise en forme — et elle
+   n'existe pas au clavier. Le piège est déjà écrit pour la matrice RH.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.tm-i {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 17px; height: 17px; flex: none;
+  margin-left: 6px; vertical-align: -3px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--tm-c, #64748b) 38%, var(--card));
+  background: color-mix(in srgb, var(--tm-c, #64748b) 10%, var(--card));
+  color: color-mix(in srgb, var(--tm-c, #64748b) 78%, #000);
+  font-size: 11px; font-weight: 700; line-height: 1;
+  cursor: help;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.tm-i:hover, .tm-i:focus-visible {
+  background: var(--tm-c, #64748b);
+  border-color: var(--tm-c, #64748b);
+  color: #fff; outline: none;
+}
+
+/* ⚠️ `clip` et PAS `display: none` : l'aide doit rester dans l'arbre
+   d'accessibilité, sinon elle n'existe plus que pour la souris. */
+.tm-i-txt {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ⚠️ Posée sur le BODY en `position: fixed` (voir `brancherAides`) : la
+   page défile et le panneau de résultat est `sticky` — une bulle posée
+   dans la carte serait tronquée.
+   ⚠️ `pointer-events: none` : elle ne doit jamais voler le clic de ce
+   qu'elle explique. */
+.tm-bulle {
+  position: fixed; z-index: 4000;
+  max-width: 330px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: #1e293b; color: #e2e8f0;
+  font-size: 13.5px; line-height: 1.45;
+  box-shadow: 0 14px 30px -12px rgba(15, 23, 42, .6);
+  pointer-events: none;
+}
+.tm-bulle em { font-style: normal; font-weight: 700; color: #fcd34d; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   LA SECTION RÉSULTATS D'UNE FAIBLESSE — refondue
+
+   ⚠️ Avant : quatre groupes de même poids, dix chiffres à 20 px, dix
+   explications à 12 px (9,6 px RÉELS sous le `zoom: .8` du corps, sous le
+   plancher de l'échelle typographique), et quatre accents décoratifs —
+   rose, orange, rouge, violet. Rien ne ressortait, et les couleurs ne
+   servaient aucune lecture : elles faisaient joli.
+
+   Après, DEUX encodages et deux seulement, tenus du schéma aux chiffres :
+     · TRAVAIL = plein, dans le rouge du type ;
+     · ATTENTE = hachuré, le même rouge dilué ;
+     · ce qui coûterait de toute façon = gris.
+   C'est la distinction que `time_view.py` interdit de confondre — « DEUX
+   natures, jamais additionnées ». Elle se VOIT, maintenant.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.fw-res { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+
+.fw-bloc {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px);
+  background: var(--card);
+  padding: 15px 18px 17px;
+}
+.fw-bloc-t {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 14px;
+  font-size: 15px; font-weight: 700;            /* 12 px réels */
+  text-transform: uppercase; letter-spacing: .06em;
+  /* ⚠⚠ Trois titres dans la couleur du type, c'est trois blocs de même
+     poids — exactement le défaut qu'on vient de corriger. SEUL le bloc du
+     coût annuel porte la couleur : c'est lui qu'on vient lire. */
+  color: var(--muted);
+}
+.fw-bloc--an .fw-bloc-t { color: var(--tm-c); }
+.fw-bloc-t i { font-size: 13px; opacity: .85; }
+
+/* ── 1 · le schéma, à l'échelle des valeurs saisies ────────────────── */
+/* ⚠⚠ UNE seule grille pour les DEUX lignes, et `display: contents` sur
+   chacune. Mesuré avec une grille par ligne : la colonne « livré en » de la
+   ligne dégradée porte un « i » de plus, donc elle est plus large, donc son
+   `1fr` est plus étroit — 743 px contre 720. Deux pistes de largeurs
+   différentes ne se comparent pas, et c'est tout le propos d'un schéma à
+   l'échelle. */
+.fw-chrono {
+  display: grid;
+  grid-template-columns: 172px 1fr auto;
+  align-items: center; gap: 11px 12px;
+}
+.fw-l { display: contents; }
+.fw-l-n { font-size: 14px; color: var(--ink-2); }   /* 11,2 px réels */
+.fw-l--ko .fw-l-n {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tm-c) 80%, #000);
+}
+
+/* Le fond pointillé montre la place que la ligne NE prend PAS : c'est lui
+   qui rend le décalage de la livraison lisible d'un coup d'œil. */
+.fw-piste {
+  display: flex; align-items: stretch;
+  height: 26px; border-radius: 7px; overflow: hidden;
+  background: repeating-linear-gradient(90deg,
+      transparent 0 6px, color-mix(in srgb, var(--ink) 7%, transparent) 6px 7px);
+}
+.fw-seg { height: 26px; }
+.fw-seg.est-nul { display: none; }
+/* ⚠️ Un plancher de 4 px : l'attente ajoutée vaut souvent 4 % du total
+   (une heure sur vingt-cinq) et son segment serait invisible — or c'est
+   LUI qu'on vient voir. Le tracé reste à l'échelle, il ne descend
+   simplement pas sous le seuil du visible. */
+.fw-seg:not(.est-nul) { min-width: 4px; }
+
+.fw-seg--b { background: #94a3b8; }
+.fw-seg--a { background: #e2e8f0; }
+.fw-seg--m {
+  background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 62%, #fff) 0 5px,
+      color-mix(in srgb, var(--tm-c) 20%, #fff) 5px 10px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tm-c) 48%, #fff);
+}
+
+.fw-livre { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.fw-livre .k { font-size: 12.5px; color: var(--muted); }
+.fw-livre b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 19px; font-weight: 700;            /* 15,2 px réels */
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.fw-livre--ko b { color: var(--tm-c); }
+
+/* Les deux pastilles disent ce que la piste ne PEUT pas dire : l'une des
+   deux natures ne décale pas la livraison. */
+.fw-quand { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0 184px; }
+.fw-q {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 13.5px; line-height: 1.3;
+}
+.fw-q b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.fw-q--l {
+  background: color-mix(in srgb, var(--tm-c) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 32%, var(--card));
+  color: color-mix(in srgb, var(--tm-c) 82%, #000);
+}
+.fw-q--m {
+  background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 14%, var(--card)) 0 5px,
+      color-mix(in srgb, var(--tm-c) 5%, var(--card)) 5px 10px);
+  border: 1px solid color-mix(in srgb, var(--tm-c) 26%, var(--card));
+  color: color-mix(in srgb, var(--tm-c) 72%, #000);
+}
+
+.fw-freq {
+  display: flex; align-items: center; gap: 13px;
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.fw-freq-j {
+  flex: 0 0 172px; height: 10px;
+  border-radius: 999px; background: #e2e8f0; overflow: hidden;
+}
+.fw-freq-j i { display: block; height: 100%; background: var(--tm-c); }
+.fw-freq-t {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  font-size: 14px; color: var(--ink-2);
+}
+.fw-freq-t b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--tm-c);
+}
+.fw-freq-sur { font-size: 13.5px; color: var(--muted); }
+
+.fw-leg { display: flex; flex-wrap: wrap; gap: 7px 18px; margin-top: 15px; }
+.fw-leg span {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--muted);
+}
+.fw-pt { width: 13px; height: 13px; border-radius: 4px; flex: none; }
+.fw-pt--b { background: #94a3b8; }
+.fw-pt--a { background: #e2e8f0; border: 1px solid var(--border); }
+.fw-pt--m {
+  background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 62%, #fff) 0 4px,
+      color-mix(in srgb, var(--tm-c) 20%, #fff) 4px 8px);
+  border: 1px solid color-mix(in srgb, var(--tm-c) 45%, #fff);
+}
+
+/* ── 2 · le héros : UNE chose qu'on vient lire ─────────────────────── */
+.fw-bloc--an { border-color: color-mix(in srgb, var(--tm-c) 30%, var(--card)); }
+.fw-duo { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+.fw-chif { padding: 14px 17px 15px; border-radius: 12px; }
+.fw-chif--l {
+  background: linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 14%, var(--card)),
+      color-mix(in srgb, var(--tm-c) 5%, var(--card)));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 32%, var(--card));
+}
+.fw-chif--m { background: var(--card-2); border: 1px solid var(--border); }
+.fw-chif-k {
+  display: flex; align-items: center;
+  font-size: 13.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted);
+}
+.fw-chif--l .fw-chif-k { color: color-mix(in srgb, var(--tm-c) 72%, #000); }
+.fw-chif-v {
+  display: block; margin: 7px 0 6px;
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.04;
+}
+.fw-chif--l .fw-chif-v { font-size: 46px; color: var(--tm-c); }   /* 36,8 réels */
+.fw-chif--m .fw-chif-v { font-size: 32px; color: var(--ink-2); }  /* 25,6 réels */
+.fw-chif-s { display: block; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+
+/* La règle que l'écran taisait : on la lit sous les deux chiffres, là où
+   la tentation de les additionner se présente. */
+.fw-jamais {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 13px 0 0; padding: 9px 13px;
+  border-radius: 9px;
+  background: #fffbeb; border: 1px solid #fde68a;
+  color: #92400e; font-size: 13.5px; line-height: 1.45;
+}
+.fw-jamais i { margin-top: 2px; flex: none; }
+
+/* ── 3 · le second plan : la même information, divisée ─────────────── */
+.fw-bloc--min { background: var(--card-2); }
+.fw-quatre {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--border); border: 1px solid var(--border);
+  border-radius: 11px; overflow: hidden;
+}
+.fw-min { background: var(--card); padding: 11px 13px 12px; }
+.fw-min-k {
+  display: flex; align-items: center; min-height: 32px;
+  font-size: 13.5px; line-height: 1.3; color: var(--muted);   /* 10,8 px réels */
+}
+.fw-min-v {
+  display: block; margin-top: 5px;
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 21px; font-weight: 700;            /* 16,8 px réels */
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.fw-min--l .fw-min-v { color: var(--tm-c); }
+.fw-min--m .fw-min-v { color: var(--ink-2); }
+.fw-base { margin-top: 11px; font-size: 13px; color: var(--muted); }
+
+/* ⚠️ En px RÉELS : les requêtes média ignorent le `zoom: .8` du corps. */
+@media (max-width: 1150px) {
+  .fw-duo { grid-template-columns: 1fr; }
+  .fw-quatre { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 820px) {
+  .fw-l { grid-template-columns: 1fr; gap: 6px; }
+  .fw-quand { margin-left: 0; }
+  .fw-freq { flex-wrap: wrap; }
+  .fw-quatre { grid-template-columns: 1fr; }
 }
