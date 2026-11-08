@@ -6822,7 +6822,7 @@ mémoire. Le tri :
 | clos par eux-mêmes | 5 | leur feuille porte « Closed » et la solution |
 | à arbitrer | 12 | une fonctionnalité, un choix produit, ou une demande à préciser |
 
-Cliquets : `tests/test_131_retours_pilote_inde.py` (30 cas). **17 gardes
+Cliquets : `tests/test_135_retours_pilote_inde.py` (30 cas). **17 gardes
 retirées une par une, 17 cliquets tombés.**
 
 #### ⚠️⚠️ « AI assistance is not in english » — la cause n'était pas l'interface
