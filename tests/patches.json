@@ -678,5 +678,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-31T03:21:25"
+  },
+  {
+    "patch_uid": "2026-11-04-journal-compteurs-non-numeriques",
+    "title": "Journal du panel : un compteur non numérique faisait planter la page",
+    "node_ids": [
+      "tests/test_131_panel_historique_gaps.py::TestJournalDefensif::test_progression_illisible_est_ramenee_a_zero"
+    ],
+    "page_slug": "panel_historique_gaps",
+    "failure_reason": "GET /testpanel/journal renvoyait 500 quand une entrée de journal.json avait new_tests en chaîne.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le gabarit comparait e.new_tests > 1 sans conversion ; seul le total agrégé était converti avec int().",
+    "fix_description": "journal_page() normalise new_tests/tests_fixed/patches en entiers (0 si illisible) avant le rendu.",
+    "files_changed": [
+      "Code/routes/test_panel.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-04T03:22:36"
   }
 ]

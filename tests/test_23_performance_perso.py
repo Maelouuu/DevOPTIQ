@@ -215,6 +215,45 @@ class TestUpdatePerf:
         assert r2.status_code == 200
         assert r2.get_json()["ok"] is True
 
+    def test_update_status_change_without_date_sets_today(self, auth_client, ids):
+        """Passer à « validée » sans date fournie remplit la date du jour."""
+        r = _create(auth_client, ids["user_id"], ids["activity_id"], "Date auto")
+        item = r.get_json()["item"]
+        rc = auth_client.put(
+            f"/performance_perso/update/{item['id']}",
+            data=json.dumps({"validation_date": ""}),
+            content_type="application/json",
+        )
+        assert not rc.get_json()["item"]["validation_date"]
+        r2 = auth_client.put(
+            f"/performance_perso/update/{item['id']}",
+            data=json.dumps({"validation_status": "oui"}),
+            content_type="application/json",
+        )
+        assert r2.status_code == 200
+        out = r2.get_json()["item"]
+        assert out["validation_status"] == "validee"
+        assert out["validation_date"]
+
+    def test_update_unexpected_error_returns_500(self, auth_client, ids, monkeypatch):
+        """Une erreur inattendue en base est convertie en 500 update_failed."""
+        r = _create(auth_client, ids["user_id"], ids["activity_id"], "Erreur 500")
+        perf_id = r.get_json()["item"]["id"]
+        from Code.extensions import db
+
+        def boom():
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(db.session, "commit", boom)
+        r2 = auth_client.put(
+            f"/performance_perso/update/{perf_id}",
+            data=json.dumps({"content": "Modifié"}),
+            content_type="application/json",
+        )
+        monkeypatch.undo()
+        assert r2.status_code == 500
+        assert r2.get_json()["error"] == "update_failed"
+
     def test_update_nonexistent_returns_404(self, auth_client):
         r = auth_client.put(
             "/performance_perso/update/999999",

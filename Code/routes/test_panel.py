@@ -789,6 +789,12 @@ def journal_page():
     # Les entrées sont stockées les plus récentes en premier (le helper les
     # insère en tête) — on garde l'ordre du fichier.
     entries = data['entries']
+    for e in entries:
+        for k in ('new_tests', 'tests_fixed', 'patches'):
+            try:
+                e[k] = int(e.get(k) or 0)
+            except (TypeError, ValueError):
+                e[k] = 0
     agg = {
         'runs':        len(entries),
         'new_tests':   sum(int(e.get('new_tests') or 0) for e in entries),
