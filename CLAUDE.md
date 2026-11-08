@@ -7436,6 +7436,48 @@ Tests : `test_105` passe de 78 à **99 cas** ; **22 gardes retirées une par une
 pistes alignées au pixel, bulle à 0,0 px de son bouton, aucun débordement
 horizontal, zéro erreur JS, zéro fuite française sur l'écran anglais.
 
+##### Finition : trois phrases de moins, et le badge qui ne mordait plus
+
+- **Les trois phrases des temps sont parties** (`fw_t1_p`, `fw_t2_p`,
+  `fw_t3_p`, clés comprises) : elles décrivaient ce que l'écran montre déjà.
+  La question et les champs disent tout.
+- **La règle des deux natures passe derrière le « i » de SA section** (le
+  titre du coût annuel) : elle parle des deux chiffres que cette section
+  annonce, et le bandeau ambre qui la portait prenait une ligne entière pour
+  une phrase qu'on lit une fois.
+
+⚠️⚠️ **Un « i » de 17 px ne TIENT PAS dans une ligne de 14,5 px.** Mesuré sur
+les sept libellés du formulaire : il débordait de **2,6 px** par le bas, se
+retrouvait à **0,0 px** du champ qui suit — donc il le touchait, exactement ce
+que la capture de l'utilisateur montrait — et était décentré de **3,8 px** par
+rapport à son texte. Un libellé qui porte un « i » est donc une ligne **FLEX**
+(`#tm-travail label:has(> .tm-i)`) : le badge se centre sur le texte au lieu
+d'être posé sur la ligne de base. Mesuré après : **0 débordement, 0
+chevauchement, 0,0 px de décentrage, 4,6 px jusqu'au champ**.
+ℹ️ Les hôtes déjà flex (`.fw-chif-k`, `.fw-min-k`…) étaient, eux, centrés au
+dixième près — c'est ce qui a désigné la cause.
+
+⚠️ **Six injections MORTES dans `TIME_I18N`** : les libellés des trois temps y
+étaient posés « au cas où », et `time.js` ne les lit nulle part (les sections
+vivent dans le gabarit). Les trois `_p` ayant quitté le catalogue, elles
+affichaient en plus une clé inconnue — et c'est `test_78` qui l'a vu.
+
+**L'anglais, vérifié écran par écran** (banc + Playwright, pas à l'œil) :
+accueil replié ET déplié, écran de choix, les quatre écrans de saisie, le mode
+« par tâches » de la faiblesse, la section Résultats et le texte des bulles.
+**6 348 textes relevés** (contenu + `title`, `aria-label`, `placeholder`),
+confrontés aux **1 475 phrases françaises** du catalogue dont l'anglais
+diffère, les DONNÉES du banc écartées. Résultat : **0 fuite française, 0 clé
+brute, 0 unité française sur 389 options de `<select>` vérifiées**.
+⚠️ Le collecteur lisait d'abord le texte des `<script>` — l'injection
+`TIME_I18N` y figure en clair, d'où 561 fausses « clés brutes ». Un détecteur
+qui parcourt le DOM doit sauter `script`, `style`, `noscript`, `template`.
+
+Tests : `test_105` passe de 99 à **101 cas** ; **3 gardes retirées une par une,
+3 cliquets tombés** (les phrases revenues, la règle rendue au bandeau, le
+libellé qui redevient une ligne de base). Suite : **3 875 passés**, 1 sauté ;
+`repet_image` **3 804 passés** + 72 sautés.
+
 ---
 
 ## Notes importantes (suite)

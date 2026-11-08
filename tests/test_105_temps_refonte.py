@@ -815,14 +815,24 @@ class TestLesTroisTemps:
         """⚠️ On lit les DICTIONNAIRES, pas `t()` : une clé absente de
         l'anglais retombe silencieusement sur le français."""
         from Code.translations import TRANSLATIONS
-        cles = ["time.fw_t1_q", "time.fw_t1_p", "time.fw_t2_q", "time.fw_t2_p",
-                "time.fw_t3_q", "time.fw_t3_p"]
+        cles = ["time.fw_t1_q", "time.fw_t2_q", "time.fw_t3_q"]
         for langue in ("fr", "en"):
             manquantes = [c for c in cles if c not in TRANSLATIONS[langue]]
             assert not manquantes, (langue, manquantes)
         identiques = [c for c in cles
                       if TRANSLATIONS["fr"][c] == TRANSLATIONS["en"][c]]
         assert not identiques, identiques
+
+    def test_les_trois_PHRASES_des_temps_ont_disparu(self):
+        """Elles décrivaient ce que l'écran montre déjà : la question et les
+        champs disent tout. Trois lignes de gris en moins, dans un formulaire
+        qu'on venait justement de dégager."""
+        from Code.translations import TRANSLATIONS
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "tm-tps-p" not in g
+        for cle in ("time.fw_t1_p", "time.fw_t2_p", "time.fw_t3_p"):
+            for lg in ("fr", "en"):
+                assert cle not in TRANSLATIONS[lg], (cle, lg)
 
     def test_TOUS_les_id_du_formulaire_survivent(self):
         """⚠️ C'est le contrat : `time.js` écrit par id et bascule
@@ -1227,6 +1237,19 @@ class TestLAideVitDerriereUnI:
     def test_la_bulle_ne_vole_pas_le_clic_de_ce_qu_elle_explique(self):
         assert "pointer-events: none" in _regle(_css_propre(), ".tm-bulle {")
 
+    def test_un_i_TIENT_dans_son_libelle(self):
+        """⚠⚠ Mesuré avant : un « i » de 17 px dans une ligne de 14,5 px
+        débordait de **2,6 px** par le bas, se retrouvait à **0,0 px** du champ
+        qui suit — donc il le TOUCHAIT — et était décentré de 3,8 px par
+        rapport à son texte. Le libellé qui en porte un est donc une ligne
+        FLEX : le badge est centré sur le texte au lieu d'être posé sur la
+        ligne de base. Mesuré après : 0 débordement, 0 chevauchement, 0,0 px de
+        décentrage, 4,6 px jusqu'au champ."""
+        css = _css_propre()
+        corps = _regle(css, "#tm-travail label:has(> .tm-i) {")
+        assert "flex" in corps and "center" in corps, corps
+        assert "vertical-align: -3px" not in css
+
 
 # ══════════════════════════════════════════════════════════════════════════
 #  LA SECTION RÉSULTATS D'UNE FAIBLESSE
@@ -1300,14 +1323,16 @@ class TestLaSectionResultatsDUneFaiblesse:
         # Et au-dessus du plancher de 11 px RÉELS (le corps porte `zoom: .8`).
         assert second * 0.8 >= 11, second
 
-    def test_la_regle_des_DEUX_NATURES_est_ECRITE_sous_les_deux_chiffres(self):
+    def test_la_regle_des_DEUX_NATURES_vit_derriere_le_i_de_SA_section(self):
         """⚠️ `time_view.py` l'interdit en toutes lettres — « DEUX natures,
-        jamais additionnées » — et l'écran ne la disait nulle part, juste là où
-        la tentation de les additionner se présente."""
+        jamais additionnées » — et l'écran ne la disait nulle part. Elle vit
+        derrière le « i » du titre du coût annuel : c'est cette section qui
+        annonce les deux chiffres qu'on serait tenté d'additionner."""
         from Code.translations import TRANSLATIONS
         g = _lire("Code/routes/templates/time_dashboard.html")
-        assert "{{ t('time.fw_jamais') }}" in g
-        assert g.index('class="fw-duo"') < g.index('class="fw-jamais"')
+        i = g.index("{{ t('time.fw_annual_header') }}")
+        assert "aide('time.fw_jamais')" in g[i:i + 140], g[i:i + 180]
+        assert "fw-jamais" not in g
         for lg in ("fr", "en"):
             assert TRANSLATIONS[lg].get("time.fw_jamais"), lg
 

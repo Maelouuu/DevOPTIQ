@@ -1042,7 +1042,9 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   color: var(--ink);
   margin: 0 0 3px;
 }
-.tm-tps-p { font-size: 13.5px; color: var(--ink-2); margin: 0 0 14px; }
+/* Les trois phrases des temps sont parties : elles décrivaient ce que
+   l'écran montre déjà. La question suffit. */
+.tm-tps-q { margin-bottom: 14px; }
 
 .tm-tps-mode {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
@@ -1202,7 +1204,7 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-i {
   display: inline-flex; align-items: center; justify-content: center;
   width: 17px; height: 17px; flex: none;
-  margin-left: 6px; vertical-align: -3px;
+  margin-left: 6px; vertical-align: middle;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--tm-c, #64748b) 38%, var(--card));
   background: color-mix(in srgb, var(--tm-c, #64748b) 10%, var(--card));
@@ -1211,6 +1213,15 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   cursor: help;
   transition: background .15s, border-color .15s, color .15s;
 }
+/* ⚠⚠ Un « i » de 17 px dans une ligne de 14,5 px ne tient PAS dans la
+   boîte du libellé : mesuré, il débordait de 2,6 px par le bas, se retrouvait
+   à 0,0 px du champ qui suit — donc il le touchait — et était décentré de
+   3,8 px par rapport au texte. Un libellé qui porte un « i » devient donc une
+   ligne FLEX : le badge est centré sur le texte au lieu d'être posé sur la
+   ligne de base, et le bloc ne déborde plus. Les hôtes déjà flex
+   (`.fw-chif-k`, `.fw-min-k`…) étaient, eux, centrés au dixième près. */
+#tm-travail label:has(> .tm-i) { display: flex; align-items: center; }
+
 .tm-i:hover, .tm-i:focus-visible {
   background: var(--tm-c, #64748b);
   border-color: var(--tm-c, #64748b);
@@ -1422,16 +1433,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .fw-chif--m .fw-chif-v { font-size: 32px; color: var(--ink-2); }  /* 25,6 réels */
 .fw-chif-s { display: block; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
 
-/* La règle que l'écran taisait : on la lit sous les deux chiffres, là où
-   la tentation de les additionner se présente. */
-.fw-jamais {
-  display: flex; align-items: flex-start; gap: 9px;
-  margin: 13px 0 0; padding: 9px 13px;
-  border-radius: 9px;
-  background: #fffbeb; border: 1px solid #fde68a;
-  color: #92400e; font-size: 13.5px; line-height: 1.45;
-}
-.fw-jamais i { margin-top: 2px; flex: none; }
 
 /* ── 3 · le second plan : la même information, divisée ─────────────── */
 .fw-bloc--min { background: var(--card-2); }

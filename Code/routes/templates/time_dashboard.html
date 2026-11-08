@@ -87,12 +87,6 @@
                        sub_activite:  {{ t('time.sub_activite')|tojson }},
                        sub_role:      {{ t('time.sub_role')|tojson }},
                        sub_faiblesse: {{ t('time.sub_faiblesse')|tojson }},
-                       fw_t1_q:       {{ t('time.fw_t1_q')|tojson }},
-                       fw_t1_p:       {{ t('time.fw_t1_p')|tojson }},
-                       fw_t2_q:       {{ t('time.fw_t2_q')|tojson }},
-                       fw_t2_p:       {{ t('time.fw_t2_p')|tojson }},
-                       fw_t3_q:       {{ t('time.fw_t3_q')|tojson }},
-                       fw_t3_p:       {{ t('time.fw_t3_p')|tojson }},
                        fw_bilan_2:    {{ t('time.fw_bilan_2')|tojson }},
                        fw_bilan_3:    {{ t('time.fw_bilan_3')|tojson }},
                        rec_yearly:    {{ t('time.rec_yearly')|tojson }}};
@@ -522,7 +516,6 @@
                 <span class="tm-tps-n" aria-hidden="true">1</span>
                 <div class="tm-tps-c">
                   <h3 class="tm-tps-q">{{ t('time.fw_t1_q') }}</h3>
-                  <p class="tm-tps-p">{{ t('time.fw_t1_p') }}</p>
 
                   <div class="tm-tps-mode">
                     <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> {{ t('time.fw_mode_global') }}</label>
@@ -582,7 +575,6 @@
                 <span class="tm-tps-n" aria-hidden="true">2</span>
                 <div class="tm-tps-c">
                   <h3 class="tm-tps-q">{{ t('time.fw_t2_q') }}</h3>
-                  <p class="tm-tps-p">{{ t('time.fw_t2_p') }}</p>
 
                   <div class="sc-field tm-tps-large">
                     <label>{{ t('time.fw_desc_label') }}{{ aide('time.fw_hint_desc') }}</label>
@@ -619,7 +611,6 @@
                 <span class="tm-tps-n" aria-hidden="true">3</span>
                 <div class="tm-tps-c">
                   <h3 class="tm-tps-q">{{ t('time.fw_t3_q') }}</h3>
-                  <p class="tm-tps-p">{{ t('time.fw_t3_p') }}</p>
 
                   <div class="tm-tps-duo">
                     <div class="sc-field">
@@ -727,7 +718,7 @@
                    l'application compare à la charge. L'attente le suit, plus
                    petite — elle compte autrement, pas moins. -->
               <section class="fw-bloc fw-bloc--an">
-                <h3 class="fw-bloc-t"><i class="fa-solid fa-chart-line"></i>{{ t('time.fw_annual_header') }}</h3>
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-chart-line"></i>{{ t('time.fw_annual_header') }}{{ aide('time.fw_jamais') }}</h3>
                 <div class="fw-duo">
                   <div class="fw-chif fw-chif--l">
                     <span class="fw-chif-k">{{ t('time.fw_kpi_extra_annual') }}{{ aide('time.fw_desc_extra_annual') }}</span>
@@ -740,7 +731,6 @@
                     <span class="fw-chif-s">{{ t('time.fw_an_att_s') }}</span>
                   </div>
                 </div>
-                <p class="fw-jamais"><i class="fa-solid fa-triangle-exclamation"></i>{{ t('time.fw_jamais') }}</p>
               </section>
 
               <!-- ══ 3 · RAMENÉ À L'EXÉCUTION ET AU MOIS ═══════════════════ -->
