@@ -65,6 +65,10 @@
                        rec_weekly:    {{ t('time.rec_weekly')|tojson }},
                        rec_monthly:   {{ t('time.rec_monthly')|tojson }},
                        rec_quarterly: {{ t('time.rec_quarterly')|tojson }},
+                       sub_projet:    {{ t('time.sub_projet')|tojson }},
+                       sub_activite:  {{ t('time.sub_activite')|tojson }},
+                       sub_role:      {{ t('time.sub_role')|tojson }},
+                       sub_faiblesse: {{ t('time.sub_faiblesse')|tojson }},
                        fw_t1_q:       {{ t('time.fw_t1_q')|tojson }},
                        fw_t1_p:       {{ t('time.fw_t1_p')|tojson }},
                        fw_t2_q:       {{ t('time.fw_t2_q')|tojson }},
@@ -308,7 +312,12 @@
         <i class="fa-solid fa-arrow-left"></i> {{ t('time.tm_retour') }}
       </button>
       <span class="tm-barre-ic" id="tm-barre-ic"></span>
-      <h2 class="tm-barre-titre" id="tm-barre-titre"></h2>
+      {# La bande porte le NOM du type et ce à quoi l'analyse sert : sans la
+         seconde ligne, elle ne dirait rien que l'écran ne montre déjà. #}
+      <span class="tm-barre-txt">
+        <h2 class="tm-barre-titre" id="tm-barre-titre"></h2>
+        <span class="tm-barre-sub" id="tm-barre-sub"></span>
+      </span>
       <!-- ⚠️ Sans ce repère on ne sait pas si « Enregistrer » va créer une
            analyse de plus ou remplacer celle qu'on vient d'ouvrir. -->
       <span class="tm-mod hidden" id="tm-mod">
@@ -702,12 +711,12 @@
                   <div class="fw-kpi-card fw-accent-red">
                     <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_annual') }}</div>
                     <div class="fw-kpi-value"><span id="U">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_annual') }}</div>
+                    <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_annual') | safe }}</div>
                   </div>
                   <div class="fw-kpi-card fw-accent-red">
                     <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_annual') }}</div>
                     <div class="fw-kpi-value"><span id="V">—</span><span class="fw-kpi-unit">h</span></div>
-                    <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_annual') }}</div>
+                    <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_annual') | safe }}</div>
                   </div>
                 </div>
               </div>

@@ -1063,9 +1063,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 #tm-travail .tm-saisie .chk { font-size: 14.5px; }
 
 /* -- la couleur du type, dans la carte et les sous-cartes -- */
-#tm-travail .tm-saisie > .subtab-panel.active > .card {
-  border-top: 3px solid var(--tm-c);
-}
 #tm-travail .tm-saisie .subcard {
   border-left: 3px solid var(--tm-c);
   padding: 13px 16px 15px;
@@ -1184,4 +1181,98 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   .tm-temps { padding-left: 32px; }
   .tm-tps-n { left: -32px; width: 24px; height: 24px; font-size: 13px; }
   .tm-temps::before { left: 11px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   LA BANDE — ce que la direction A portait, et qui manquait.
+
+   ⚠️ Ce qui avait été livré n'était pas A : un filet de 3 px sur la carte, et
+   des règles sur `.subcard` que les écrans Projet, Activité et Rôle N'ONT PAS
+   (ils sont faits d'un `.form-grid` nu). D'où un écran inchangé — « trop de
+   blanc trop de gris ». La couleur du type doit entrer par une SURFACE, pas
+   par un trait.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.tm-barre {
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border-radius: var(--r-card, 14px);
+  background: linear-gradient(135deg, var(--tm-c),
+              color-mix(in srgb, var(--tm-c) 56%, #000));
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--tm-c) 75%, #000);
+}
+.tm-barre-txt { min-width: 0; display: grid; gap: 1px; }
+#tm-travail .tm-barre-titre { color: #fff; font-size: 24px; }
+.tm-barre-sub {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, .86);
+  line-height: 1.35;
+}
+/* ⚠️ La pastille reprenait la couleur du type en APLAT : sur une bande de la
+   même couleur, elle disparaissait. Même spécificité que la règle par type
+   (#id + attribut + classe), déclarée plus bas — c'est elle qui gagne. */
+#tm-travail .tm-barre .tm-barre-ic {
+  background: rgba(255, 255, 255, .22);
+  border: 1px solid rgba(255, 255, 255, .34);
+  width: 34px; height: 34px; font-size: 14px;
+}
+#tm-travail .tm-barre .tm-retour {
+  background: rgba(255, 255, 255, .16);
+  border-color: rgba(255, 255, 255, .34);
+  color: #fff;
+}
+#tm-travail .tm-barre .tm-retour:hover { background: rgba(255, 255, 255, .26); }
+#tm-travail .tm-barre .tm-mod {
+  background: rgba(255, 255, 255, .17);
+  border-color: rgba(255, 255, 255, .34);
+  color: #fff;
+}
+#tm-travail .tm-barre .tm-mod button { color: #fff; }
+
+/* -- la zone de saisie porte une TEINTE, pas un trait --
+   ⚠️ `.form-grid` est la seule structure des écrans Projet, Activité et Rôle :
+   sans elle dans ce sélecteur, trois écrans sur quatre restaient blancs. */
+#tm-travail .tm-saisie .form-grid,
+#tm-travail .tm-saisie .subcard {
+  background: color-mix(in srgb, var(--tm-c) 6%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 20%, var(--card));
+  border-left: 3px solid var(--tm-c);
+  border-radius: 12px;
+  padding: 15px 17px;
+}
+#tm-travail .tm-saisie .form-grid { margin-bottom: 14px; }
+#tm-travail .tm-saisie .form-grid > label { font-weight: 700; }
+
+/* -- le bouton primaire prend la couleur du TYPE --
+   ⚠️ Il lisait `--pg-accent` : l'accent de la PAGE, ambre pour Temps. D'où un
+   bouton orange au bas d'un formulaire violet. Et son ombre lisait
+   `--pg-accent-glow`, l'un des quatre dérivés déclarés sur `:root` où
+   `--pg-accent` vaut encore le gris par défaut : elle était GRISE. */
+#tm-travail .btn.success {
+  background: linear-gradient(135deg, var(--tm-c),
+              color-mix(in srgb, var(--tm-c) 62%, #000));
+  box-shadow: 0 5px 16px -6px color-mix(in srgb, var(--tm-c) 70%, #000);
+}
+
+/* -- le panneau de droite : un bandeau teinté, et le chiffre en couleur -- */
+#tm-travail .tm-res { padding-top: 0; overflow: hidden; }
+#tm-travail .tm-res-tete.is-actif {
+  margin: 0 -18px 15px;
+  padding: 13px 18px;
+  background: color-mix(in srgb, var(--tm-c) 11%, var(--card));
+  border-bottom: 1px solid color-mix(in srgb, var(--tm-c) 24%, var(--card));
+  color: color-mix(in srgb, var(--tm-c) 78%, #000);
+  font-size: 12.5px;
+}
+#tm-travail .tm-res-bloc .tm-grand { color: var(--tm-c); }
+#tm-travail .tm-res-lignes b { font-size: 15px; }
+#tm-travail .tm-res-lignes > div { font-size: 13.5px; }
+
+/* Le rail des trois temps se détache sur la teinte, pas sur du blanc. */
+#tm-travail .tm-tps-n { box-shadow: 0 0 0 4px var(--card-2, #f8fafc); }
+
+@media (max-width: 760px) {
+  .tm-barre { flex-wrap: wrap; }
+  .tm-barre-sub { font-size: 12.5px; }
 }

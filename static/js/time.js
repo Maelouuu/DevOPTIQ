@@ -97,6 +97,10 @@
     $$('.tm-res-bloc').forEach(b => b.classList.toggle('is-actif', b.dataset.pour === type));
     const titre = $('#tm-barre-titre');
     if (titre) titre.textContent = tl(a.cle, type);
+    // La bande dit AUSSI à quoi sert l'analyse : « Activité » tout seul ne
+    // distingue pas un écran de saisie d'un titre de page.
+    const sous = $('#tm-barre-sub');
+    if (sous) sous.textContent = tl('sub_' + type, '');
     const ic = $('#tm-barre-ic');
     if (ic) ic.innerHTML = '<i class="fa-solid ' + a.ic + '"></i>';
     const ecran = $('#tm-travail');

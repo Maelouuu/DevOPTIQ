@@ -1009,3 +1009,125 @@ class TestLaCouleurDuTypeEtLaTypographie:
         for jeton in ("--pg-accent-soft", "--pg-accent-softer",
                       "--pg-accent-border", "--pg-accent-glow"):
             assert jeton not in bloc, jeton
+
+
+class TestLaBandeColoree:
+    """⚠️ Ce qui avait été livré d'abord n'était PAS la direction A : un filet
+    de 3 px sur la carte, et des règles sur `.subcard` que les écrans Projet,
+    Activité et Rôle N'ONT PAS — ils sont faits d'un `.form-grid` nu. Trois
+    écrans sur quatre restaient donc blancs, et l'utilisateur a renvoyé une
+    capture identique à l'avant. La couleur doit entrer par une SURFACE.
+    """
+
+    def test_la_bande_porte_la_couleur_du_type(self):
+        css = _lire("static/time.css")
+        i = css.index("LA BANDE")
+        bloc = css[i:]
+        j = bloc.index(".tm-barre {")
+        regle = bloc[j:bloc.index("}", j)]
+        assert "linear-gradient" in regle, regle
+        assert "var(--tm-c)" in regle, regle
+        assert "border-radius" in regle, regle
+
+    def test_la_bande_dit_A_QUOI_SERT_l_analyse(self):
+        """« Activité » tout seul ne distingue pas un écran de saisie d'un
+        titre de page."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert 'id="tm-barre-sub"' in g
+        js = _lire("static/js/time.js")
+        assert "tl('sub_' + type" in js, "le sous-titre n'est pas rempli"
+
+        from Code.translations import TRANSLATIONS
+        for type_ in ("projet", "activite", "role", "faiblesse"):
+            cle = "time.sub_%s" % type_
+            for langue in ("fr", "en"):
+                assert cle in TRANSLATIONS[langue], (cle, langue)
+            assert TRANSLATIONS["fr"][cle] != TRANSLATIONS["en"][cle], cle
+
+        g2 = _lire("Code/routes/templates/time_dashboard.html")
+        for type_ in ("projet", "activite", "role", "faiblesse"):
+            assert "sub_%s:" % type_ in g2, type_
+
+    def test_la_zone_de_saisie_est_TEINTEE_y_compris_sans_sous_carte(self):
+        """⚠️ LE cliquet de l'omission. `.form-grid` est la SEULE structure des
+        écrans Projet, Activité et Rôle : absente de cette liste de sélecteurs,
+        trois écrans sur quatre restent blancs — c'est exactement ce qui est
+        arrivé, et l'utilisateur a renvoyé une capture identique à l'avant.
+
+        ⚠️⚠️ Il a fallu TROIS écritures pour qu'il garde quelque chose :
+          1. ancré sur le texte du commentaire qui explique la règle — or ce
+             commentaire cite `.form-grid`, donc il lisait sa propre
+             explication et restait VERT en retirant le sélecteur ;
+          2. ancré sur un bout de corps (`6%`) que `.tm-tps-mode` partage, donc
+             il regardait la mauvaise règle.
+        On cherche la règle qui teinte les SOUS-CARTES, et on exige que
+        `.form-grid` partage sa liste de sélecteurs.
+        """
+        import re
+        css = re.sub(r"/\*.*?\*/", "", _lire("static/time.css"), flags=re.S)
+
+        regles = [(sel.strip(), corps)
+                  for sel, corps in re.findall(r"([^{}]+)\{([^{}]*)\}", css)]
+        teintes = [(sel, corps) for sel, corps in regles
+                   if "#tm-travail" in sel and ".subcard" in sel
+                   and "background" in corps and "--tm-c" in corps]
+        assert teintes, "aucune règle ne teinte la zone de saisie"
+
+        sel, corps = teintes[0]
+        assert ".form-grid" in sel, (
+            "la zone de saisie des écrans SANS sous-carte (Projet, Activité, "
+            "Rôle) n'est pas teintée — sélecteurs : %r" % sel)
+        assert "border-left" in corps, corps
+
+    def test_le_bouton_primaire_prend_la_couleur_du_TYPE(self):
+        """⚠️ Il lisait `--pg-accent` — l'accent de la PAGE, ambre pour Temps —
+        d'où un bouton orange au bas d'un formulaire violet. Et son ombre
+        lisait `--pg-accent-glow`, l'un des quatre dérivés qui rendent du GRIS
+        sur `:root`."""
+        css = _lire("static/time.css")
+        i = css.index("#tm-travail .btn.success")
+        regle = css[i:css.index("}", i)]
+        assert "var(--tm-c)" in regle, regle
+        assert "--pg-accent" not in regle, regle
+
+    def test_le_panneau_de_droite_porte_la_couleur(self):
+        css = _lire("static/time.css")
+        i = css.index("#tm-travail .tm-res-tete.is-actif")
+        regle = css[i:css.index("}", i)]
+        assert "var(--tm-c)" in regle, regle
+        assert "#tm-travail .tm-res-bloc .tm-grand { color: var(--tm-c); }" in css
+
+    def test_la_pastille_ne_disparait_pas_dans_la_bande(self):
+        """⚠️ Elle reprenait la couleur du type EN APLAT : sur une bande de la
+        même couleur, elle s'effaçait. Il faut la même spécificité que la règle
+        par type (#id + attribut + classe), déclarée plus bas."""
+        css = _lire("static/time.css")
+        i = css.index("#tm-travail .tm-barre .tm-barre-ic")
+        regle = css[i:css.index("}", i)]
+        assert "rgba(255, 255, 255" in regle, regle
+        # Et elle doit venir APRÈS la règle par type, sinon elle ne gagne pas.
+        assert i > css.index('#tm-travail[data-analyse="faiblesse"] .tm-barre-ic')
+
+
+def test_aucune_balise_ne_s_affiche_en_clair():
+    """⚠️ Deux descriptions portaient des `<em>` et étaient rendues SANS
+    `| safe` : les balises s'affichaient TELLES QUELLES à l'écran. L'une
+    datait d'avant, l'autre a été écrite le 03/11 — et le défaut ne s'est vu
+    que sur une capture.
+
+    RATCHET : retirer un `| safe` d'une clé qui porte une balise fait virer ce
+    test au ROUGE.
+    """
+    import re
+    from Code.translations import TRANSLATIONS
+    g = _lire("Code/routes/templates/time_dashboard.html")
+    rendu = re.compile(r"\{\{\s*t\('([a-z0-9_.]+)'\)\s*(\|\s*safe\s*)?\}\}")
+    fautifs = []
+    for m in rendu.finditer(g):
+        cle, sauf = m.group(1), m.group(2)
+        valeur = TRANSLATIONS["fr"].get(cle, "")
+        if "<" in valeur and not sauf:
+            fautifs.append(cle)
+    assert not fautifs, (
+        "ces libellés portent des balises et sont rendus sans `| safe` : "
+        "elles s'afficheront en clair — %r" % (fautifs,))

@@ -7250,8 +7250,81 @@ sous-requête de `count()`) : **un cliquet qui cherche une chaîne doit borner
 la zone** — un fichier assez gros contient presque toujours un homonyme de ce
 qu'on croit garder.
 
-Tests : `tests/test_105_temps_refonte.py` passe de 57 à **71 cas** ; **13
-gardes retirées une par une, 13 cliquets tombés**. Éprouvé au banc
+#### ⚠️⚠️ Ce qui a été livré d'abord n'ÉTAIT PAS la direction A
+
+L'utilisateur a renvoyé deux captures côte à côte — la maquette, puis l'écran
+réel — avec « on a exactement les mêmes soucis qu'avant, trop de blanc trop de
+gris ». Il avait raison, et la cause est précise :
+
+- la maquette A portait une **BANDE COLORÉE** en tête du formulaire. Elle n'a
+  pas été construite : la carte a reçu un **filet de 3 px**, c'est tout ;
+- le reste des règles visait `.subcard` — or les écrans **Projet, Activité et
+  Rôle n'en ont AUCUNE** : ils sont faits d'un `.form-grid` nu. Trois écrans
+  sur quatre n'ont donc rien reçu.
+
+⚠️ **La leçon** : la couleur d'un type entre par une **SURFACE**, pas par un
+trait. Et une règle d'habillage doit viser les structures qui existent
+VRAIMENT dans chaque écran — relire le gabarit de chacun, pas supposer qu'ils
+se ressemblent.
+
+⚠️ **Et la leçon de méthode** : j'avais vérifié le rendu par du texte (compter
+les `.tm-tps-n`, lire les tailles calculées) sans jamais REGARDER une capture.
+Tout ce que je mesurais était juste ; ce qui manquait n'était pas mesuré. Pour
+un travail d'habillage, la capture d'écran n'est pas un luxe — c'est le seul
+contrôle qui porte sur ce qu'on livre.
+
+Ce qui est en place depuis :
+
+- **`.tm-barre` est devenue la bande** — dégradé de `--tm-c`, texte blanc,
+  pastille et bouton Retour translucides, et une **seconde ligne** qui dit à
+  quoi sert l'analyse (`time.sub_<type>`, quatre clés). Sans elle, la bande ne
+  dirait rien que l'écran ne montre déjà.
+  ⚠️ La pastille reprenait la couleur du type EN APLAT : sur une bande de la
+  même couleur, elle disparaissait. Son override a la même spécificité que la
+  règle par type (`#id` + attribut + classe) et est déclaré PLUS BAS.
+- **La zone de saisie est teintée** : `.form-grid` **et** `.subcard`, fond à
+  6 % de la couleur, liseré de 3 px à gauche.
+- **Le bouton primaire prend la couleur du TYPE.** Il lisait `--pg-accent` —
+  l'accent de la PAGE, ambre pour Temps — d'où un bouton **orange au bas d'un
+  formulaire violet**. Et son ombre lisait `--pg-accent-glow`, l'un des quatre
+  dérivés qui rendent du GRIS sur `:root`.
+- **Le panneau de droite** porte un bandeau teinté et son grand chiffre en
+  couleur.
+
+#### ⚠️ Deux descriptions affichaient leurs balises EN CLAIR
+
+Vu sur la capture, pas déduit : `fw_desc_extra_annual` et
+`fw_desc_delay_annual` portent des `<em>` et étaient rendues **sans
+`| safe`** — « Total des minutes de `<em>`travail supplémentaire`</em>` que
+génère… » s'affichait tel quel. La première datait d'avant ; la seconde a été
+écrite le 03/11 en recopiant le défaut.
+
+Un cliquet général le tient désormais : **toute clé rendue sans `| safe` dont
+la valeur contient une balise fait virer le test au ROUGE**, pour tout le
+gabarit.
+
+#### ⚠️⚠️ Le cliquet qui comptait a mis TROIS écritures à garder quelque chose
+
+`test_la_zone_de_saisie_est_TEINTEE_y_compris_sans_sous_carte` vise exactement
+l'omission d'origine. Il est resté VERT deux fois en la remettant :
+
+1. **ancré sur le texte du COMMENTAIRE** qui explique la règle — or ce
+   commentaire cite `.form-grid`. Il lisait sa propre explication. (Cinquième
+   occurrence de ce piège dans ce dépôt.)
+2. **ancré sur un bout de corps** (`color-mix(… 6%, …)`) que `.tm-tps-mode`
+   partage : il regardait la mauvaise règle.
+
+Il cherche maintenant la règle qui teinte les SOUS-CARTES, dans un CSS dont
+les commentaires sont retirés, et exige que `.form-grid` partage sa **liste de
+sélecteurs**.
+
+⚠️ Règle générale, troisième fois en trois jours : **un cliquet qui cherche
+une chaîne doit borner sa zone ET retirer les commentaires** — un fichier
+assez gros contient presque toujours un homonyme de ce qu'on croit garder.
+
+Tests : `tests/test_105_temps_refonte.py` passe de 57 à **78 cas** ; **20
+gardes retirées une par une, 20 cliquets tombés**. Les quatre écrans relus sur
+CAPTURE, pas seulement mesurés. Éprouvé au banc
 (`tools/devrun_temps.py`, port libre) dans les deux langues avec Playwright :
 les trois temps numérotés et traduits, la bascule de mode, les deux bilans
 remplis, les cinq chiffres du panneau, zéro erreur JS, zéro fuite française
