@@ -978,23 +978,84 @@ def test_les_seances_a_tenir_sont_annoncees(app, comptes):
             db.session.commit()
 
 
-def test_la_fenetre_ne_charge_JAMAIS_toute_la_table_des_seances():
+def test_la_fenetre_ne_charge_JAMAIS_toute_la_table_des_seances(app, comptes):
     """⚠️ `_sessions_lisibles` rend `SessionEvaluation.query.all()` pour un
-    statut élevé. Cette fenêtre est rendue à CHAQUE page : un COUNT indexé,
-    jamais ce chargement."""
-    src = _lire(os.path.join(RACINE, "Code", "bienvenue.py"))
-    # ⚠️ On retire les COMMENTAIRES avant de chercher : celui qui explique
-    # POURQUOI on n'appelle pas `_sessions_lisibles` cite son nom, et ce
-    # contrôle s'est d'abord attrapé lui-même. Quatrième occurrence de ce
-    # piège dans ce dépôt (les clés i18n construites, le `<section>` de la doc
-    # technique, les guillemets du standard minimal).
-    code = re.sub(r"(?m)^\s*#.*$", "", src)
-    code = re.sub(r'"""(?:.|\n)*?"""', "", code)
-    assert "_sessions_lisibles" not in code, (
-        "la fenêtre de bienvenue charge toutes les sessions à chaque page")
-    i = code.find("SessionEvaluation")
-    assert i > 0 and ".count()" in code[i:i + 700], (
-        "le compte des séances n'est pas un COUNT")
+    statut élevé — et cette fenêtre est rendue à CHAQUE page. Il faut un COUNT
+    filtré, jamais ce chargement.
+
+    ⚠️ Ce cliquet lisait d'abord la SOURCE de `bienvenue.py` : vert en local,
+    ROUGE à chaque exécution dans l'arbre d'image, qui est compilé en bytecode
+    (le piège de `repet_image`, déjà payé par `test_65`, `test_107` et
+    `test_111`). Il regarde désormais les REQUÊTES envoyées — portable, et plus
+    fort : il mordrait aussi sur un chargement écrit autrement.
+
+    RATCHET : remplacer le COUNT par `_sessions_lisibles` fait virer ce test au
+    ROUGE.
+    """
+    from datetime import date, timedelta
+
+    from sqlalchemy import event
+
+    from Code.extensions import db
+    from Code.models.models import SessionEvaluation
+
+    # Deux séances qui ne regardent PAS l'acteur : un chargement global les
+    # verrait, un COUNT filtré ne les compte pas.
+    with app.app_context():
+        pour_autrui = [
+            SessionEvaluation(user_id=comptes["user"],
+                              developpeur_user_id=comptes["champion"],
+                              date_prevue=date.today() + timedelta(days=1),
+                              statut="prevue"),
+            SessionEvaluation(user_id=comptes["user"],
+                              developpeur_user_id=comptes["champion"],
+                              date_prevue=date.today() + timedelta(days=3),
+                              statut="prevue"),
+        ]
+        db.session.add_all(pour_autrui)
+        db.session.commit()
+        ids = [s.id for s in pour_autrui]
+
+    try:
+        with app.app_context():
+            moteur = db.engine
+            vues = []
+
+            def espion(conn, cur, stmt, params, ctx, many):
+                vues.append(" ".join(str(stmt).split()).lower())
+
+            event.listen(moteur, "before_cursor_execute", espion)
+            try:
+                with app.test_request_context("/"):
+                    from flask import session
+                    session["user_id"] = comptes["coordinateur"]
+                    from Code import bienvenue
+                    bienvenue.attentes()
+            finally:
+                event.remove(moteur, "before_cursor_execute", espion)
+
+        sur_seances = [q for q in vues if "sessions_evaluation" in q]
+        assert sur_seances, "les séances ne sont pas lues du tout"
+        for q in sur_seances:
+            assert "count(" in q, (
+                "la fenêtre CHARGE les séances au lieu de les compter : %r" % q)
+            # ⚠️ On lit la clause WHERE, pas la requête entière : `count()`
+            # enveloppe la sélection, et sa sous-requête liste TOUTES les
+            # colonnes de la table — `developpeur_user_id` y figurait donc même
+            # sans aucun filtre, et cette assertion ne pouvait pas mordre
+            # (vérifié : le cas restait vert en retirant le filtre).
+            assert " where " in q, (
+                "le compte des séances n'est pas filtré du tout : %r" % q)
+            ou = q.split(" where ", 1)[1]
+            assert "developpeur_user_id" in ou, (
+                "le compte des séances n'est pas filtré sur son porteur : %r" % ou)
+    finally:
+        with app.app_context():
+            for sid in ids:
+                obj = db.session.get(SessionEvaluation, sid)
+                if obj is not None:
+                    db.session.delete(obj)
+            db.session.commit()
 
 
 def test_les_auteurs_sont_lus_en_UNE_requete(app, comptes, decor_props):

@@ -7087,9 +7087,37 @@ façon, parce que `carto_access.can_review` interroge la base une fois par
 proposition. **Ce coût-là lui appartient, il est antérieur, et le cliquet n'est
 pas là pour le maquiller.**
 
+#### ⚠️⚠️ Deux cliquets qui ne gardaient rien, et c'est l'arbre d'image qui l'a dit
+
+**1 · Un test qui relit une SOURCE `.py` rougit dans l'arbre d'image.**
+`test_la_fenetre_ne_charge_JAMAIS_toute_la_table_des_seances` lisait
+`Code/bienvenue.py` pour y interdire `_sessions_lisibles` : **vert en local,
+rouge dans `tools/repet_image.sh`**, qui est compilé en bytecode. Cinquième
+occurrence (après la fixture `pulse_app`, `test_65`, `test_107`, `test_111`) —
+et la première que j'ai écrite en connaissant le piège, après l'avoir corrigée
+la veille dans `test_105`.
+
+Réécrit sur le **COMPORTEMENT** plutôt que sauté : il espionne les REQUÊTES
+envoyées pendant `attentes()`. Portable, et plus fort — il mordrait aussi sur
+un chargement écrit autrement. C'est la règle à préférer : *un contrôle qui
+saute ne garde rien, un contrôle réécrit sur le comportement y gagne.*
+
+**2 · `count()` enveloppe la requête, et sa sous-requête liste TOUTES les
+colonnes.** La version réécrite affirmait d'abord
+`"developpeur_user_id" in requete` — or SQLAlchemy rend
+`SELECT count(*) FROM (SELECT sessions_evaluation.id, …,
+sessions_evaluation.developpeur_user_id, … FROM …) AS anon_1` : la colonne y
+figure **même sans aucun filtre**. Vérifié : le cas restait VERT en retirant le
+filtre. L'assertion porte désormais sur ce qui suit le `WHERE`.
+
+⚠️ Règle qui en découle : **une assertion sur le TEXTE d'une requête doit viser
+la clause**, jamais la requête entière — la liste des colonnes y met tous les
+noms de la table.
+
 Tests : `tests/test_127_fenetre_bienvenue.py` passe de 36 à **56 cas** ;
-**17 gardes retirées une par une, 17 cliquets tombés** (dont deux dont
-l'injection visait d'abord à côté — voir ci-dessus).
+**19 gardes retirées une par une, 19 cliquets tombés** — dont trois dont
+l'injection visait d'abord à côté, et deux assertions qui ne gardaient rien
+(voir ci-dessus). Suite complète : **3790 passés**, 1 sauté.
 
 ### Les formulaires de la page Temps : trois directions, rien d'implémenté
 
