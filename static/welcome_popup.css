@@ -545,3 +545,105 @@ body:has(.pg-root) #welcome-popup-card {
     width: 100%;
   }
 }
+
+
+/* ══ Propositions reçues ══════════════════════════════════════════════
+   La seule chose de cette fenêtre sur laquelle quelqu'un d'autre attend une
+   réponse : elle porte donc l'AMBRE de la gouvernance, comme le bandeau des
+   propositions d'activité et la fenêtre d'examen. Le reste de la fenêtre est
+   en indigo→violet ; l'écart est voulu, c'est lui qui désigne.
+
+   ⚠️ Aucune règle ici ne lit `--pg-accent-soft` ni ses frères : déclarés sur
+   `:root` où `--pg-accent` vaut encore le gris par défaut, ils rendent du GRIS
+   sur toute l'application. Les mélanges sont écrits sur place.             */
+.wp-bloc--props {
+  padding: 13px 14px 14px;
+  background: linear-gradient(170deg, #fffbeb 0%, #fffdf6 100%);
+  border: 1px solid #fcd34d;
+  border-radius: 13px;
+}
+.wp-label--props { color: #92400e; margin-bottom: 10px; }
+.wp-compte--props {
+  background: #b45309;
+  border-color: #b45309;
+  color: #ffffff;
+}
+.wp-props-portee {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #a16207;
+}
+
+.wp-props { list-style: none; margin: 0; padding: 0; }
+.wp-prop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-top: 1px solid #fde9b8;
+}
+.wp-prop:first-child { border-top: 0; padding-top: 0; }
+.wp-prop-ic {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #fcd34d;
+  color: #b45309;
+  font-size: 11.5px;
+}
+/* ⚠️ `min-width: 0` : sans lui, un nom de carto long pousse la ligne et c'est
+   la fenêtre entière qui s'élargit. */
+.wp-prop-txt { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+.wp-prop-qui {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wp-prop-quoi {
+  font-size: 12px;
+  color: #8a6520;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wp-props-reste {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-style: italic;
+  color: #a16207;
+}
+.wp-props-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 11px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #b45309, #92400e);
+  border-radius: var(--r-btn, 9px);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 2px 10px -4px rgba(146, 64, 14, .5);
+  transition: filter .16s ease, box-shadow .16s ease;
+}
+.wp-props-cta:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 14px -4px rgba(146, 64, 14, .55);
+}
+.wp-props-cta i { font-size: 11.5px; }
+
+@media (max-width: 900px) {
+  .wp-props-portee { margin-left: 0; }
+}

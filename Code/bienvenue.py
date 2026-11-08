@@ -184,46 +184,199 @@ def _palier(user):
 
 # ── Ce qui ATTEND la personne ──────────────────────────────────────────────
 
+#: Combien de propositions on NOMME avant de dire « et n de plus ». La fenêtre
+#: est large, pas haute : trois lignes passent, dix la feraient défiler — et
+#: c'est la file d'examen qui est faite pour les lire toutes.
+PROPOSITIONS_NOMMEES = 3
+
+
+def _deux_files(user):
+    """Les propositions EN ATTENTE que ce compte peut trancher, les deux files.
+
+    ⚠️⚠️ MÊMES sources que le bandeau de la page Carte (`_examen_en_attente`) :
+    `carto_sharing.propositions_a_examiner` ET
+    `activite_propositions.propositions_a_examiner`. La fenêtre n'en lisait
+    qu'UNE — un coordinateur pouvait donc lire « 2 à arbitrer » ici et « 5 »
+    sur le bandeau, pour la même attente. Les deux fonctions rendent [] tout
+    de suite pour qui ne tranche pas : le coût reste nul pour les autres
+    paliers, et c'est ce qui permet de calculer ceci à chaque page.
+    """
+    if user is None:
+        return [], []
+    cartos, fiches = [], []
+    try:
+        from Code.routes.carto_sharing import propositions_a_examiner as _c
+        cartos = list(_c(user))
+    except Exception:
+        pass
+    try:
+        from Code.routes.activite_propositions import propositions_a_examiner as _f
+        fiches = list(_f(user))
+    except Exception:
+        pass
+    return cartos, fiches
+
+
+def _quand(cr):
+    """L'horodatage de dépôt, quelle que soit la file.
+
+    ⚠️ Les deux modèles ne nomment pas cette colonne pareil : `created_at` pour
+    une proposition de carto, `submitted_at` pour une proposition de fiche.
+    """
+    return getattr(cr, "submitted_at", None) or getattr(cr, "created_at", None)
+
+
+def propositions_recues(user=None, lang=None):
+    """Les propositions qu'on attend de ce compte, NOMMÉES — pas comptées.
+
+    Un chiffre n'apprend rien : il faut ouvrir la file pour savoir ce qu'on
+    vient de recevoir. Chaque ligne dit qui a proposé, sur quelle carto, et ce
+    que ça touche. La fenêtre rend `{n, lignes, reste, href}` ; `lignes` est
+    vide pour qui ne tranche pas, et le gabarit ne rend alors aucune section.
+    """
+    user = user if user is not None else current_user()
+    vide = {"n": 0, "lignes": [], "reste": 0, "cartos": 0,
+            "href": "/activities/map"}
+    if user is None:
+        return vide
+
+    cartos, fiches = _deux_files(user)
+    if not cartos and not fiches:
+        return vide
+
+    brut = ([(cr, "carto") for cr in cartos] + [(cr, "fiche") for cr in fiches])
+    # Le plus ANCIEN d'abord : c'est celui qui attend depuis le plus longtemps.
+    brut.sort(key=lambda p: (_quand(p[0]) is None, _quand(p[0])))
+
+    # ⚠️ Les auteurs en UNE requête. `cr.author` dans la boucle ferait un aller
+    # par proposition, sur une fenêtre rendue à chaque page.
+    noms = {}
+    try:
+        from Code.models.models import User as _U
+        ids = {cr.author_id for cr, _g in brut if cr.author_id}
+        if ids:
+            for u in _U.query.filter(_U.id.in_(ids)).all():
+                noms[u.id] = ((u.first_name or "").strip() + " "
+                              + (u.last_name or "").strip()).strip() or u.email
+    except Exception:
+        pass
+
+    lignes = []
+    for cr, genre in brut[:PROPOSITIONS_NOMMEES]:
+        if genre == "fiche":
+            try:
+                from Code.propositions_activite import gestes
+                combien = len(gestes(cr))
+            except Exception:
+                combien = 0
+            quoi = t('welcome.props_fiche', lang) % combien
+        else:
+            quoi = t('welcome.props_carto', lang)
+        lignes.append({
+            "genre": genre,
+            "auteur": noms.get(cr.author_id) or t('welcome.props_anon', lang),
+            "carto": (cr.entity.name if cr.entity else ""),
+            "quoi": quoi,
+        })
+
+    return {"n": len(brut), "lignes": lignes,
+            "reste": max(0, len(brut) - len(lignes)),
+            "cartos": len({cr.entity_id for cr, _g in brut}),
+            "href": "/activities/map"}
+
+
 def attentes(user=None, lang=None):
     """Ce sur quoi on attend une action de ce compte, ou [].
 
     ⚠️ Les cartos qu'on vous PROPOSE ne sont pas ici : `entity_share_popup.html`
     s'ouvre juste après celle-ci et les annonce lui-même. Les répéter ferait dire
     deux fois la même chose à deux fenêtres qui s'enchaînent.
+
+    ⚠️ Les propositions À TRANCHER n'y sont plus non plus : elles ont leur
+    propre section, qui les NOMME (`propositions_recues`). Une ligne « 5
+    propositions à arbitrer » au-dessus d'une section qui les liste redirait la
+    même chose deux fois.
+
+    ⚠️ Tout ce qui est ici se paie à CHAQUE page (la fenêtre est rendue même
+    fermée, pour que sa réouverture n'ait pas besoin d'une seconde voie de
+    rendu). D'où la règle : des COUNT indexés, et rien qui charge une table.
     """
     user = user if user is not None else current_user()
     if user is None:
         return []
     liste = []
 
-    # Les propositions à trancher — MÊME source que le bandeau de la page Carte
-    # (`propositions_a_examiner`), pour que les deux chiffres ne divergent pas.
+    # ── Les décisions tombées sur VOS propositions, pas encore lues ────
+    # ⚠️ Les DEUX files, là aussi : seule celle de la carto était comptée, et
+    # une décision sur une proposition de FICHE ne s'annonçait donc nulle part
+    # ici (sa pop-up dédiée la portait seule).
+    n = 0
+    for modele in _modeles_propositions():
+        try:
+            n += (modele.query
+                  .filter(modele.author_id == user.id,
+                          modele.status.in_(("approved", "rejected")),
+                          modele.author_seen_at.is_(None))
+                  .count())
+        except Exception:
+            pass
+    if n:
+        liste.append({"cle": "decisions", "n": n, "ton": "neutre",
+                      "libelle": t('welcome.wait.decisions', lang),
+                      "href": "/activities/map"})
+
+    # ── Votre brouillon, pas encore envoyé ─────────────────────────────
+    # Le geste le plus facile à oublier : on range trois modifications, on
+    # change de page, et personne ne les examinera jamais.
     try:
-        from Code.routes.carto_sharing import propositions_a_examiner
-        n = len(propositions_a_examiner(user))
+        from Code.models.models import ActivityChangeRequest
+        from Code.propositions_activite import gestes
+        brouillons = (ActivityChangeRequest.query
+                      .filter(ActivityChangeRequest.author_id == user.id,
+                              ActivityChangeRequest.status == "draft")
+                      .all())
+        n = sum(len(gestes(cr)) for cr in brouillons)
         if n:
-            liste.append({"cle": "arbitrer", "n": n, "ton": "attention",
-                          "libelle": t('welcome.wait.review', lang),
-                          "href": "/activities/map"})
+            liste.append({"cle": "brouillon", "n": n, "ton": "attention",
+                          "libelle": t('welcome.wait.draft', lang),
+                          "href": "/activities/view"})
     except Exception:
         pass
 
-    # Les décisions tombées sur VOS propositions, pas encore lues.
+    # ── Les séances d'évaluation que VOUS tenez ────────────────────────
+    # ⚠️ Un COUNT indexé (`date_prevue`), pas `_sessions_lisibles` : celui-ci
+    # charge TOUTES les sessions pour un statut élevé, ce qui n'est pas une
+    # requête à faire sur chaque page de l'application.
     try:
-        from Code.models.models import CartoChangeRequest
-        n = (CartoChangeRequest.query
-             .filter(CartoChangeRequest.author_id == user.id,
-                     CartoChangeRequest.status.in_(("approved", "rejected")),
-                     CartoChangeRequest.author_seen_at.is_(None))
+        from datetime import date, timedelta
+        from Code.models.models import SessionEvaluation
+        n = (SessionEvaluation.query
+             .filter(SessionEvaluation.developpeur_user_id == user.id,
+                     SessionEvaluation.statut == "prevue",
+                     SessionEvaluation.date_prevue <= date.today() + timedelta(days=7))
              .count())
         if n:
-            liste.append({"cle": "decisions", "n": n, "ton": "neutre",
-                          "libelle": t('welcome.wait.decisions', lang),
-                          "href": "/activities/map"})
+            liste.append({"cle": "seances", "n": n, "ton": "neutre",
+                          "libelle": t('welcome.wait.sessions', lang),
+                          "href": "/competences/"})
     except Exception:
         pass
 
     return liste
+
+
+def _modeles_propositions():
+    """Les deux modèles de proposition, quand ils sont importables."""
+    sortie = []
+    for chemin in ("CartoChangeRequest", "ActivityChangeRequest"):
+        try:
+            import Code.models.models as m
+            modele = getattr(m, chemin, None)
+            if modele is not None:
+                sortie.append(modele)
+        except Exception:
+            pass
+    return sortie
 
 
 # ── Déjà vue, ou non ───────────────────────────────────────────────────────
@@ -307,6 +460,8 @@ def etat(user=None, lang=None):
     user = user if user is not None else current_user()
     if user is None:
         return {"montrer": False, "signature": "", "portes": [], "attentes": [],
+                "propositions": {"n": 0, "lignes": [], "reste": 0, "cartos": 0,
+                                 "href": "/activities/map"},
                 "nouveautes": [], "palier": None, "prenom": ""}
 
     signature = signature_nouveautes()
@@ -321,6 +476,7 @@ def etat(user=None, lang=None):
         "signature": signature,
         "portes": portes_ouvertes(user, lang),
         "attentes": attentes(user, lang),
+        "propositions": propositions_recues(user, lang),
         "nouveautes": nouveautes(lang),
         "palier": palier,
         "phrase_palier": t(PHRASE_PALIER.get(palier, "welcome.tier.user"), lang),

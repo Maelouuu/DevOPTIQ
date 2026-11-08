@@ -503,9 +503,33 @@ def test_le_script_ne_fabrique_aucun_texte():
         "échapperaient au catalogue")
 
 
+#: Longueur minimale d'un fragment cherché dans le HTML.
+#: ⚠️ Un fragment court est un FAUX POSITIF garanti : « et %s de plus » laissait
+#: le morceau « et », qu'on retrouve dans n'importe quel texte anglais. Six
+#: signes est le seuil où un fragment cesse d'apparaître par hasard.
+FRAGMENT_MIN = 6
+
+
+def _fragments(valeur):
+    """Les morceaux FIXES d'un libellé à trou, du plus long au plus court.
+
+    ⚠️ On lit TOUS les morceaux, pas seulement celui d'avant le `%s` : un
+    libellé dont le nombre vient en premier (« %s autres en attente ») n'avait
+    aucun préfixe, et sortait donc entièrement du contrôle.
+    """
+    return sorted((m.strip() for m in valeur.split("%s")),
+                  key=len, reverse=True)
+
+
 def _valeurs_welcome():
     """Les couples (fr, en) des clés `welcome.*` qui DIFFÈRENT d'une langue à
-    l'autre — les seules sur lesquelles une fuite se voie."""
+    l'autre — les seules sur lesquelles une fuite se voie.
+
+    Pour un libellé à trou, on retient son fragment fixe le plus long, à
+    condition qu'il atteigne `FRAGMENT_MIN`. Une clé dont aucun fragment n'est
+    assez long sort du contrôle : `test_les_libelles_neufs_existent_dans_LES_DEUX_langues`
+    garde alors qu'elle est bien traduite.
+    """
     from Code.translations import TRANSLATIONS
 
     couples = []
@@ -515,10 +539,10 @@ def _valeurs_welcome():
         en = TRANSLATIONS["en"].get(cle)
         if not isinstance(fr, str) or not isinstance(en, str):
             continue
-        # « Bonjour %s » : on compare le morceau fixe.
-        fr_fixe, en_fixe = fr.split("%s")[0].strip(), en.split("%s")[0].strip()
-        if fr_fixe and en_fixe and fr_fixe != en_fixe:
-            couples.append((cle, fr_fixe, en_fixe))
+        frs = [m for m in _fragments(fr) if len(m) >= FRAGMENT_MIN]
+        ens = [m for m in _fragments(en) if len(m) >= FRAGMENT_MIN]
+        if frs and ens and frs[0] != ens[0]:
+            couples.append((cle, frs[0], ens[0]))
     return couples
 
 
@@ -563,6 +587,22 @@ def test_toutes_les_cles_welcome_existent_en_anglais():
     manquantes = [c for c in TRANSLATIONS["fr"]
                   if c.startswith("welcome.") and c not in TRANSLATIONS["en"]]
     assert not manquantes, "clés sans traduction anglaise : %r" % (manquantes,)
+
+
+def test_le_detecteur_lit_AUSSI_les_suffixes():
+    """⚠️ Il ne comparait que le morceau d'AVANT le `%s`. Un libellé dont le
+    nombre vient en premier — « %s modification(s) de fiche » — n'avait donc
+    aucun préfixe, et sortait entièrement du contrôle de fuite.
+
+    RATCHET : revenir à `fr.split("%s")[0]` fait virer ce test au ROUGE.
+    """
+    couverts = {cle for cle, _fr, _en in _valeurs_welcome()}
+    assert "welcome.props_fiche" in couverts, (
+        "un libellé dont le nombre vient en premier échappe au contrôle")
+    # Et le seuil écarte bien les fragments trop courts pour signifier quoi
+    # que ce soit : « et » se retrouve dans n'importe quel texte anglais.
+    for _cle, fr, en in _valeurs_welcome():
+        assert len(fr) >= FRAGMENT_MIN and len(en) >= FRAGMENT_MIN, (fr, en)
 
 
 @pytest.mark.parametrize("palier", list(PALIERS))
@@ -707,3 +747,380 @@ def test_sur_un_ecran_etroit_elle_retombe_en_une_colonne():
     assert ".wp-portes:has(" in bloc, (
         "le repli des portes n'a pas la spécificité de la règle qu'il "
         "annule : elle l'emportera")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Ce qu'elle montre de CONCRET : les propositions reçues
+#
+#  ⚠️⚠️ Le défaut de fond réparé ici : `attentes()` ne lisait qu'UNE des deux
+#  files de propositions (`carto_sharing`), alors que le bandeau de la page
+#  Carte lit les DEUX — un coordinateur pouvait donc lire « 2 à arbitrer »
+#  dans cette fenêtre et « 5 » sur le bandeau, pour la même attente.
+# ══════════════════════════════════════════════════════════════════════════
+
+@pytest.fixture
+def decor_props(app, comptes):
+    """Une carto commune du champion, et des propositions en attente dessus.
+
+    ⚠️ Tout est détruit en partant : une carto laissée COMMUNE devient le repli
+    « aucune entité active » des fichiers suivants, et une proposition en
+    attente ferait apparaître un bandeau dans des tests qui ne parlent pas de
+    gouvernance.
+    """
+    from Code.extensions import db
+    from Code.models.models import (ActivityChangeRequest, CartoChangeRequest,
+                                    Entity)
+
+    with app.app_context():
+        ent = Entity(name="T127 carto commune", owner_id=comptes["champion"],
+                     is_shared=True)
+        db.session.add(ent)
+        db.session.commit()
+        eid = ent.id
+    yield {"entity": eid, "auteur": comptes["champion"]}
+    with app.app_context():
+        CartoChangeRequest.query.filter_by(entity_id=eid).delete()
+        ActivityChangeRequest.query.filter_by(entity_id=eid).delete()
+        e = db.session.get(Entity, eid)
+        if e is not None:
+            db.session.delete(e)
+        db.session.commit()
+
+
+def _proposer_carto(app, eid, auteur, n=1):
+    from Code.extensions import db
+    from Code.models.models import CartoChangeRequest
+    with app.app_context():
+        for i in range(n):
+            db.session.add(CartoChangeRequest(
+                entity_id=eid, author_id=auteur, status="pending",
+                title="T127 carte %d" % i, diagram="{}"))
+        db.session.commit()
+
+
+def _proposer_fiche(app, eid, auteur, gestes=2, statut="pending"):
+    import json as _json
+    from Code.extensions import db
+    from Code.models.models import ActivityChangeRequest
+    actions = [{"op": "task.add", "objet": "T127 tache %d" % i}
+               for i in range(gestes)]
+    with app.app_context():
+        cr = ActivityChangeRequest(entity_id=eid, author_id=auteur,
+                                   status=statut, actions=_json.dumps(actions))
+        db.session.add(cr)
+        db.session.commit()
+        return cr.id
+
+
+def _props(app, user_id, lang="fr"):
+    from Code import bienvenue
+    with app.test_request_context("/"):
+        from flask import session
+        session["user_id"] = user_id
+        session["lang"] = lang
+        return bienvenue.propositions_recues(lang=lang)
+
+
+def _attentes(app, user_id, lang="fr"):
+    from Code import bienvenue
+    with app.test_request_context("/"):
+        from flask import session
+        session["user_id"] = user_id
+        session["lang"] = lang
+        return bienvenue.attentes(lang=lang)
+
+
+def test_les_DEUX_files_de_propositions_sont_lues(app, comptes, decor_props):
+    """⚠️ Le cliquet du défaut : en ne lisant que `carto_sharing`, on compte 2
+    au lieu de 3 — et la fenêtre contredit le bandeau de la page Carte."""
+    _proposer_carto(app, decor_props["entity"], decor_props["auteur"], n=2)
+    _proposer_fiche(app, decor_props["entity"], decor_props["auteur"])
+
+    vu = _props(app, comptes["coordinateur"])
+    assert vu["n"] == 3, vu
+    genres = sorted(l["genre"] for l in vu["lignes"])
+    assert genres == ["carto", "carto", "fiche"], genres
+
+
+def test_le_compte_annonce_est_celui_des_DEUX_sources(app, comptes, decor_props):
+    """L'invariant, pas une seconde implémentation : ce que la fenêtre annonce
+    doit valoir ce que rendent les deux fonctions dont le bandeau se sert."""
+    _proposer_carto(app, decor_props["entity"], decor_props["auteur"], n=2)
+    _proposer_fiche(app, decor_props["entity"], decor_props["auteur"])
+
+    from Code.permissions import current_user
+    with app.test_request_context("/"):
+        from flask import session
+        session["user_id"] = comptes["coordinateur"]
+        from Code.routes.activite_propositions import (
+            propositions_a_examiner as fiches)
+        from Code.routes.carto_sharing import propositions_a_examiner as cartos
+        acteur = current_user()
+        attendu = len(cartos(acteur)) + len(fiches(acteur))
+        from Code import bienvenue
+        assert bienvenue.propositions_recues()["n"] == attendu
+
+
+def test_chaque_proposition_est_NOMMEE_pas_comptee(app, comptes, decor_props):
+    """Un chiffre n'apprend rien : il fallait ouvrir la file pour savoir ce
+    qu'on venait de recevoir."""
+    _proposer_fiche(app, decor_props["entity"], decor_props["auteur"], gestes=2)
+    ligne = _props(app, comptes["coordinateur"])["lignes"][0]
+    assert ligne["auteur"] and ligne["auteur"] != "", ligne
+    assert "Bienvenue" in ligne["auteur"], ligne          # nom de famille du décor
+    assert ligne["carto"] == "T127 carto commune", ligne
+    assert "2" in ligne["quoi"], ligne                    # deux gestes
+
+
+def test_au_dela_de_trois_elle_dit_et_n_de_plus(app, comptes, decor_props):
+    """La fenêtre est LARGE, pas haute : dix lignes la feraient défiler, et
+    c'est la file d'examen qui est faite pour les lire toutes."""
+    from Code.bienvenue import PROPOSITIONS_NOMMEES
+    _proposer_carto(app, decor_props["entity"], decor_props["auteur"],
+                    n=PROPOSITIONS_NOMMEES + 2)
+    vu = _props(app, comptes["coordinateur"])
+    assert len(vu["lignes"]) == PROPOSITIONS_NOMMEES, vu
+    assert vu["reste"] == 2, vu
+    assert vu["n"] == PROPOSITIONS_NOMMEES + 2, vu
+
+
+def test_rien_pour_qui_ne_tranche_pas(app, comptes, decor_props):
+    """Les deux sources rendent [] tout de suite pour qui ne valide pas : la
+    section n'existe donc pas, et son coût est nul pour ces paliers."""
+    _proposer_carto(app, decor_props["entity"], decor_props["auteur"], n=2)
+    for palier in ("user", "champion"):
+        vu = _props(app, comptes[palier])
+        assert vu["lignes"] == [], (palier, vu)
+        assert vu["n"] == 0, (palier, vu)
+
+
+def test_on_ne_s_alerte_pas_soi_meme(app, comptes, decor_props):
+    from Code.extensions import db
+    from Code.models.models import CartoChangeRequest
+    with app.app_context():
+        db.session.add(CartoChangeRequest(
+            entity_id=decor_props["entity"], author_id=comptes["coordinateur"],
+            status="pending", title="T127 la mienne", diagram="{}"))
+        db.session.commit()
+    assert _props(app, comptes["coordinateur"])["n"] == 0
+
+
+def test_la_section_ne_redit_pas_ce_que_les_attentes_disaient(app, comptes,
+                                                              decor_props):
+    """⚠️ La ligne « n propositions à arbitrer » a cédé la place à la section
+    qui les NOMME. Les deux ensemble diraient deux fois la même chose, et son
+    libellé est devenu une clé morte."""
+    _proposer_carto(app, decor_props["entity"], decor_props["auteur"], n=2)
+    cles = [a["cle"] for a in _attentes(app, comptes["coordinateur"])]
+    assert "arbitrer" not in cles, cles
+
+    from Code.translations import TRANSLATIONS
+    for langue in ("fr", "en"):
+        assert "welcome.wait.review" not in TRANSLATIONS[langue], langue
+
+
+def test_les_decisions_comptent_les_DEUX_files(app, comptes, decor_props):
+    """⚠️ Seule celle de la carto l'était : une décision sur une proposition de
+    FICHE ne s'annonçait nulle part ici."""
+    from Code.extensions import db
+    from Code.models.models import ActivityChangeRequest, CartoChangeRequest
+    with app.app_context():
+        db.session.add(CartoChangeRequest(
+            entity_id=decor_props["entity"], author_id=comptes["champion"],
+            status="approved", title="T127 tranchee", diagram="{}"))
+        db.session.commit()
+    _proposer_fiche(app, decor_props["entity"], comptes["champion"],
+                    statut="rejected")
+
+    att = {a["cle"]: a["n"] for a in _attentes(app, comptes["champion"])}
+    assert att.get("decisions") == 2, att
+
+
+def test_un_brouillon_non_envoye_est_annonce(app, comptes, decor_props):
+    """Le geste le plus facile à oublier : on range trois modifications, on
+    change de page, et personne ne les examinera jamais."""
+    _proposer_fiche(app, decor_props["entity"], comptes["champion"],
+                    gestes=3, statut="draft")
+    att = {a["cle"]: a["n"] for a in _attentes(app, comptes["champion"])}
+    assert att.get("brouillon") == 3, att
+
+
+def test_un_brouillon_VIDE_ne_s_annonce_pas(app, comptes, decor_props):
+    """On compte les GESTES, pas les lignes : un brouillon ouvert et vide
+    n'attend rien de personne."""
+    _proposer_fiche(app, decor_props["entity"], comptes["champion"],
+                    gestes=0, statut="draft")
+    cles = [a["cle"] for a in _attentes(app, comptes["champion"])]
+    assert "brouillon" not in cles, cles
+
+
+def test_les_seances_a_tenir_sont_annoncees(app, comptes):
+    from datetime import date, timedelta
+
+    from Code.extensions import db
+    from Code.models.models import SessionEvaluation
+    with app.app_context():
+        s = SessionEvaluation(user_id=comptes["user"],
+                              developpeur_user_id=comptes["coordinateur"],
+                              date_prevue=date.today() + timedelta(days=2),
+                              statut="prevue")
+        db.session.add(s)
+        db.session.commit()
+        sid = s.id
+    try:
+        att = {a["cle"]: a["n"] for a in _attentes(app, comptes["coordinateur"])}
+        assert att.get("seances") == 1, att
+    finally:
+        with app.app_context():
+            obj = db.session.get(SessionEvaluation, sid)
+            if obj is not None:
+                db.session.delete(obj)
+            db.session.commit()
+
+
+def test_la_fenetre_ne_charge_JAMAIS_toute_la_table_des_seances():
+    """⚠️ `_sessions_lisibles` rend `SessionEvaluation.query.all()` pour un
+    statut élevé. Cette fenêtre est rendue à CHAQUE page : un COUNT indexé,
+    jamais ce chargement."""
+    src = _lire(os.path.join(RACINE, "Code", "bienvenue.py"))
+    # ⚠️ On retire les COMMENTAIRES avant de chercher : celui qui explique
+    # POURQUOI on n'appelle pas `_sessions_lisibles` cite son nom, et ce
+    # contrôle s'est d'abord attrapé lui-même. Quatrième occurrence de ce
+    # piège dans ce dépôt (les clés i18n construites, le `<section>` de la doc
+    # technique, les guillemets du standard minimal).
+    code = re.sub(r"(?m)^\s*#.*$", "", src)
+    code = re.sub(r'"""(?:.|\n)*?"""', "", code)
+    assert "_sessions_lisibles" not in code, (
+        "la fenêtre de bienvenue charge toutes les sessions à chaque page")
+    i = code.find("SessionEvaluation")
+    assert i > 0 and ".count()" in code[i:i + 700], (
+        "le compte des séances n'est pas un COUNT")
+
+
+def test_les_auteurs_sont_lus_en_UNE_requete(app, comptes, decor_props):
+    """⚠️ `cr.author` dans la boucle ferait un aller par proposition, sur une
+    fenêtre rendue à CHAQUE page de l'application.
+
+    ⚠️ Le décor sème TROIS auteurs différents : avec un seul, `ids` n'a qu'un
+    élément et une requête par ligne rend exactement le même compte — le
+    cliquet restait vert en remettant le défaut (vérifié).
+    """
+    from sqlalchemy import event
+
+    from Code.extensions import db
+    from Code.models.models import CartoChangeRequest
+
+    auteurs = [comptes["champion"], comptes["user"], comptes["admin"]]
+    with app.app_context():
+        for i, auteur in enumerate(auteurs * 2):
+            db.session.add(CartoChangeRequest(
+                entity_id=decor_props["entity"], author_id=auteur,
+                status="pending", title="T127 cout %d" % i, diagram="{}"))
+        db.session.commit()
+
+    with app.app_context():
+        moteur = db.engine
+        vues = []
+
+        def espion(conn, cur, stmt, params, ctx, many):
+            vues.append(" ".join(str(stmt).split()))
+
+        event.listen(moteur, "before_cursor_execute", espion)
+        try:
+            with app.test_request_context("/"):
+                from flask import session
+                session["user_id"] = comptes["coordinateur"]
+                from Code import bienvenue
+                vu = bienvenue.propositions_recues()
+        finally:
+            event.remove(moteur, "before_cursor_execute", espion)
+
+    assert vu["n"] == 6, vu
+    # Les noms des auteurs : UNE seule requête, et elle les demande ENSEMBLE.
+    sur_users = [q for q in vues
+                 if "FROM users" in q and "users.id IN" in q]
+    assert len(sur_users) == 1, (
+        "les auteurs sont lus en %d requête(s) au lieu d'une : %r"
+        % (len(sur_users), sur_users[:3]))
+    # Et les trois noms sont bien là : on ne lit pas qu'un auteur sur trois.
+    noms = {l["auteur"] for l in vu["lignes"]}
+    assert len(noms) >= 2, noms
+
+
+def test_les_libelles_neufs_existent_dans_LES_DEUX_langues():
+    """⚠️ On lit les DICTIONNAIRES, pas `t()` : une clé absente de l'anglais
+    retombe SILENCIEUSEMENT sur le français, et le contrôle passerait."""
+    from Code.translations import TRANSLATIONS
+    neuves = ["welcome.props", "welcome.props_open", "welcome.props_more",
+              "welcome.props_cartos", "welcome.props_carto",
+              "welcome.props_fiche", "welcome.props_anon",
+              "welcome.wait.draft", "welcome.wait.sessions"]
+    for langue in ("fr", "en"):
+        manquantes = [c for c in neuves if c not in TRANSLATIONS[langue]]
+        assert not manquantes, (langue, manquantes)
+    identiques = [c for c in neuves
+                  if TRANSLATIONS["fr"][c] == TRANSLATIONS["en"][c]]
+    assert not identiques, identiques
+
+
+def test_les_libelles_a_trou_gardent_leur_marqueur():
+    """`%s` résolu en Python, comme `welcome.hello` — pas `[[n]]`, qui est la
+    convention des catalogues lus par le JavaScript."""
+    from Code.translations import TRANSLATIONS
+    for cle in ("welcome.props_more", "welcome.props_cartos",
+                "welcome.props_fiche"):
+        for langue in ("fr", "en"):
+            valeur = TRANSLATIONS[langue][cle]
+            assert "%s" in valeur, (cle, langue, valeur)
+            assert "[[" not in valeur, (cle, langue, valeur)
+
+
+def test_la_section_vit_dans_la_colonne_DE_GAUCHE():
+    """⚠️ La contrainte du gabarit : « une section de plus va dans une colonne
+    existante — une troisième colonne ne tiendrait pas la largeur »."""
+    g = _lire(GABARIT)
+    debut = g.index('class="wp-col wp-col--actu"')
+    fin = g.index('class="wp-col wp-col--portes"')
+    colonne = g[debut:fin]
+    assert "wp-bloc--props" in colonne, (
+        "la section des propositions n'est pas dans la colonne de gauche")
+    # Et AVANT les nouveautés : c'est la seule chose sur laquelle on attend
+    # une réponse de ce compte.
+    assert colonne.index("wp-bloc--props") < colonne.index("welcome.news"), (
+        "les propositions passent après les nouveautés")
+    assert g.count('class="wp-col') == 2, (
+        "une troisième colonne est apparue dans la fenêtre")
+
+
+def test_la_section_n_est_pas_rendue_quand_il_n_y_a_rien(app, client, comptes):
+    """Une section d'alerte qui s'affiche à vide cesse d'être lue."""
+    _connecter(app, client, comptes["coordinateur"])
+    html = _page(client)
+    assert "wp-bloc--props" not in html
+
+
+def test_la_section_est_rendue_dans_les_deux_langues(app, client, comptes,
+                                                     decor_props):
+    _proposer_carto(app, decor_props["entity"], decor_props["auteur"], n=1)
+    for langue, mot in (("fr", "Propositions reçues"),
+                        ("en", "Proposals received")):
+        _connecter(app, client, comptes["coordinateur"], lang=langue)
+        html = _page(client)
+        assert "wp-bloc--props" in html, langue
+        assert mot in html, langue
+        # Aucune clé brute, aucun marqueur laissé en plan.
+        assert "welcome.props" not in html, langue
+        assert ">%s<" not in html, langue
+
+
+def test_l_habillage_de_la_section_ne_lit_pas_l_accent_de_la_RACINE():
+    """⚠️ `--pg-accent-soft` et ses frères sont déclarés sur `:root`, où
+    `--pg-accent` vaut encore le gris par défaut : ils rendent du GRIS sur
+    toute l'application."""
+    css = _lire(FEUILLE)
+    sans_commentaires = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    i = sans_commentaires.find(".wp-bloc--props")
+    assert i > 0, "l'habillage de la section est absent"
+    for jeton in ("--pg-accent-soft", "--pg-accent-softer",
+                  "--pg-accent-border", "--pg-accent-glow"):
+        assert jeton not in sans_commentaires[i:], jeton

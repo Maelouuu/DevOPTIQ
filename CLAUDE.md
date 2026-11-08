@@ -6977,6 +6977,157 @@ solution proposée, trois lectures possibles).
 Et le guide utilisateur (29) existe mais est périmé : c'est déjà le point 1 du
 « reste à faire » de la doc technique.
 
+### La fenêtre de bienvenue dit enfin ce qui ATTEND (2026-11-08)
+
+« Je le trouve un peu vide avec son nouveau design. » C'était exact, et la
+cause n'était pas l'habillage : `attentes()` ne portait que **deux** lignes,
+toutes deux des COMPTEURS, et toutes deux lues sur une seule des deux files de
+propositions.
+
+#### ⚠️⚠️ Le défaut de fond : une seule file sur deux était lue
+
+`attentes()` interrogeait `carto_sharing.propositions_a_examiner` et
+`CartoChangeRequest`. Or le bandeau de la page Carte (`_examen_en_attente`) lit
+les **DEUX** files depuis le 19/10, avec un commentaire qui dit pourquoi : « le
+coordinateur décide au même endroit, et un bandeau qui n'en compterait qu'une
+laisserait l'autre dormir ». La fenêtre, elle, en ignorait une : un
+coordinateur pouvait lire **« 2 à arbitrer » ici et « 5 » sur le bandeau**,
+pour la même attente. Même défaut sur les décisions : une décision tombée sur
+une proposition de FICHE ne s'annonçait nulle part dans la fenêtre.
+
+`_deux_files(user)` est désormais la source, et les décisions bouclent sur
+`_modeles_propositions()`. Les deux fonctions sources rendent `[]` tout de
+suite pour qui ne tranche pas — c'est ce qui permet de calculer ceci à chaque
+page.
+
+#### Les propositions sont NOMMÉES, pas comptées
+
+`propositions_recues()` rend `{n, lignes, reste, cartos, href}`. Chaque ligne
+dit **qui** a proposé, sur **quelle carto**, et **ce que ça touche** (« la
+cartographie » ou « 2 modification(s) de fiche »). Un chiffre n'apprenait
+rien : il fallait ouvrir la file pour savoir ce qu'on venait de recevoir.
+
+- ⚠️ **Plafond à `PROPOSITIONS_NOMMEES = 3`**, puis « et n autres en attente ».
+  La fenêtre est LARGE, pas haute (c'est écrit dans son gabarit) : dix lignes
+  la feraient défiler, et c'est la file d'examen qui est faite pour les lire
+  toutes.
+- ⚠️ **Les auteurs en UNE requête.** `cr.author` dans la boucle ferait un aller
+  par proposition, sur une fenêtre rendue à CHAQUE page.
+- ⚠️ **La ligne « n propositions à arbitrer » a disparu** des attentes : elle
+  redirait ce que la section NOMME juste au-dessus. `welcome.wait.review` est
+  retirée du catalogue, elle n'était plus lue par personne.
+- ⚠️ `_quand(cr)` : les deux modèles ne nomment pas la colonne pareil —
+  `created_at` pour une carto, `submitted_at` pour une fiche. Le plus ANCIEN
+  d'abord : c'est celui qui attend depuis le plus longtemps.
+
+#### Deux attentes concrètes de plus
+
+- **le brouillon non envoyé** : on range trois modifications, on change de
+  page, et personne ne les examinera jamais. ⚠️ On compte les **GESTES**, pas
+  les lignes : un brouillon ouvert et vide n'attend rien de personne.
+- **les séances d'évaluation à tenir** dans les sept jours.
+  ⚠️ **Un COUNT indexé sur `date_prevue`, JAMAIS `_sessions_lisibles`** :
+  celui-ci rend `SessionEvaluation.query.all()` pour un statut élevé, et cette
+  fenêtre est rendue à chaque page de l'application.
+
+#### ⚠️ Tout ce qui est ici se paie à CHAQUE page
+
+`etat()` calcule le CONTENU même quand `montrer` est faux — c'est ce qui permet
+au bouton de réouverture de ne rien re-rendre, donc de n'avoir qu'un seul jeu
+de libellés. La règle qui en découle, et qui est désormais écrite dans le
+docstring d'`attentes()` : **des COUNT indexés, et rien qui charge une table.**
+
+#### L'habillage : l'ambre de la gouvernance
+
+La section porte l'**ambre**, comme le bandeau des propositions d'activité et
+la fenêtre d'examen ; le reste de la fenêtre est en indigo→violet. L'écart est
+voulu, c'est lui qui désigne la seule chose de cet écran sur laquelle quelqu'un
+d'autre attend une réponse.
+
+- ⚠️ Elle vit **dans la colonne de gauche**, en tête, et avant les nouveautés.
+  Le gabarit le dit : « une section de plus va dans une colonne existante — une
+  troisième colonne ne tiendrait pas la largeur ». Un cliquet compte les
+  colonnes.
+- ⚠️ **Aucune règle neuve ne lit `--pg-accent-soft`** ni ses trois frères :
+  déclarés sur `:root` où `--pg-accent` vaut encore le gris par défaut, ils
+  rendent du GRIS. Les mélanges sont écrits sur place.
+- ⚠️ `min-width: 0` sur le texte d'une ligne : sans lui, un nom de carto long
+  élargit la fenêtre entière.
+
+#### ⚠️ Le détecteur de fuites de langue ne lisait que les PRÉFIXES
+
+En ajoutant `welcome.props_more` = « et %s de plus », les huit cas de fuite de
+langue sont passés au ROUGE : `_valeurs_welcome()` comparait
+`fr.split("%s")[0]`, donc le fragment **« et »** — deux lettres, qu'on retrouve
+dans n'importe quel texte anglais. Le détecteur a été **renforcé** plutôt que
+contourné : il lit maintenant TOUS les fragments fixes (suffixes compris) et
+ne retient que ceux d'au moins `FRAGMENT_MIN = 6` signes.
+
+⚠️ Effet de bord bienvenu : un libellé dont le nombre vient EN PREMIER
+(« %s modification(s) de fiche ») n'avait aucun préfixe et sortait donc
+**entièrement** du contrôle. Il y rentre.
+
+#### ⚠️ Et le piège du COMMENTAIRE, pour la quatrième fois
+
+`test_la_fenetre_ne_charge_JAMAIS_toute_la_table_des_seances` interdit
+`_sessions_lisibles` dans `bienvenue.py` — et il s'est d'abord attrapé
+lui-même, sur le commentaire qui explique POURQUOI on ne l'appelle pas. Les
+commentaires et les docstrings sont retirés avant la recherche. (Les trois
+occurrences précédentes : les clés i18n construites, le `<section>` de la doc
+technique, les guillemets du standard minimal.)
+
+#### ⚠️ Un cliquet de coût peut ne rien garder
+
+`test_les_auteurs_sont_lus_en_UNE_requete` est resté **VERT** en remettant une
+requête par ligne : toutes les propositions du décor venaient du MÊME auteur,
+donc `ids` n'avait qu'un élément et le compte ne changeait pas. Le décor sème
+désormais TROIS auteurs, et le test regarde la requête des auteurs
+(`FROM users … users.id IN`) au lieu du total — le total, lui, grandit de toute
+façon, parce que `carto_access.can_review` interroge la base une fois par
+proposition. **Ce coût-là lui appartient, il est antérieur, et le cliquet n'est
+pas là pour le maquiller.**
+
+Tests : `tests/test_127_fenetre_bienvenue.py` passe de 36 à **56 cas** ;
+**17 gardes retirées une par une, 17 cliquets tombés** (dont deux dont
+l'injection visait d'abord à côté — voir ci-dessus).
+
+### Les formulaires de la page Temps : trois directions, rien d'implémenté
+
+« Ils sont vraiment trop blanc gris et écrit en petit. » Mesuré avant de
+dessiner, dans `static/time.css` puis multiplié par le `zoom: .8` que
+`ui-theme.css` pose sur `body.pg` :
+
+| élément | feuille | écran |
+|---|---|---|
+| titre de sous-carte | 13 px | **10,4 px** |
+| libellé de champ | 12,5 px | **10 px** |
+| valeur saisie | 13,5 px | **10,8 px** |
+| phrase d'aide | 12 px | **9,6 px** |
+
+La phrase d'aide est donc **sous le plancher de 11 px** de l'échelle
+typographique du design system. Et les quatre formulaires partagent
+`--card-2` + `--border` : rien ne dit lequel on remplit, alors que les quatre
+couleurs existent déjà (`--tm-projet` `#64748b`, `--tm-activite` `#7c3aed`,
+`--tm-role` `#d97706`, `--tm-faiblesse` `#dc2626`) et servent aux portes de
+l'accueil.
+
+Trois directions proposées sur maquettes à l'échelle, **avant d'écrire une
+ligne** — c'est la méthode retenue pour tout ce qui se juge en trois secondes,
+et la quatrième fois qu'elle évite une demi-journée écrite pour rien :
+**A · le bandeau** (la couleur du type en tête, typo remontée, structure
+intacte, une demi-journée), **B · ce que je dis / ce qui s'en déduit** (feuille
+de calcul, panneau de sortie collé à droite), **C · les trois temps** (le
+formulaire Faiblesse pose en réalité trois questions, et rien ne le dit).
+
+⚠️ Point relevé pour B : la faiblesse se calcule déjà en direct **au serveur**,
+en différé de 420 ms (treize variables ; la réécrire dans le navigateur en
+ferait une seconde implémentation). Un panneau « qui bouge pendant la frappe »
+veut donc dire *420 ms après*.
+
+Avis rendu : **A pour les quatre, puis C sur la Faiblesse seule** — c'est le
+seul des quatre dont le défaut n'est pas l'habillage mais dix champs à plat
+pour une formule à treize variables. En attente de l'arbitrage.
+
 ---
 
 ## Notes importantes (suite)

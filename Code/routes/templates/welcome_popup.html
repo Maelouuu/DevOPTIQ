@@ -72,6 +72,44 @@
          ne doivent donc jamais se mériter un défilement. #}
       <div class="wp-col wp-col--actu">
 
+        {# ⚠️ EN TÊTE : c'est la seule chose de cette fenêtre sur laquelle
+           quelqu'un d'autre attend une réponse. Et elle NOMME les propositions
+           au lieu de les compter — un chiffre obligeait à ouvrir la file pour
+           savoir ce qu'on venait de recevoir. Rendue seulement s'il y en a :
+           `propositions_recues` rend une liste vide pour qui ne tranche pas,
+           donc la section n'existe pas pour les autres paliers. #}
+        {% if bienvenue.propositions and bienvenue.propositions.lignes %}
+        <section class="wp-bloc wp-bloc--props">
+          <h3 class="wp-label wp-label--props">
+            {{ t('welcome.props') }}
+            <span class="wp-compte wp-compte--props">{{ bienvenue.propositions.n }}</span>
+            {% if bienvenue.propositions.cartos > 1 %}
+            <span class="wp-props-portee">{{ t('welcome.props_cartos') % bienvenue.propositions.cartos }}</span>
+            {% endif %}
+          </h3>
+          <ul class="wp-props">
+            {% for p in bienvenue.propositions.lignes %}
+            <li class="wp-prop">
+              <span class="wp-prop-ic" aria-hidden="true">
+                <i class="fa-solid {{ 'fa-diagram-project' if p.genre == 'carto' else 'fa-list-check' }}"></i>
+              </span>
+              <span class="wp-prop-txt">
+                <span class="wp-prop-qui">{{ p.auteur }}</span>
+                <span class="wp-prop-quoi">{{ p.quoi }}{% if p.carto %} &middot; {{ p.carto }}{% endif %}</span>
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% if bienvenue.propositions.reste %}
+          <p class="wp-props-reste">{{ t('welcome.props_more') % bienvenue.propositions.reste }}</p>
+          {% endif %}
+          <a class="wp-props-cta" href="{{ bienvenue.propositions.href }}">
+            <span>{{ t('welcome.props_open') }}</span>
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        </section>
+        {% endif %}
+
         {% if bienvenue.attentes %}
         <section class="wp-bloc">
           <h3 class="wp-label">{{ t('welcome.waiting') }}</h3>
