@@ -1014,3 +1014,174 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   font-weight: 700;
   color: var(--muted, #64748b);
 }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIRECTION A — la couleur du type entre dans le formulaire, et la
+   typographie remonte au-dessus du plancher.
+
+   ⚠️ Pourquoi : `body.pg` porte `zoom: .8` (ui-theme). Un « 12,5 px » écrit
+   ici arrive donc à 10 px sous les yeux, et une aide à 12 px à 9,6 px —
+   SOUS le plancher de 11 px de l'échelle typographique du design system.
+   C'est ce qui donnait le sentiment de « trop petit », et c'était mesurable.
+   Les tailles ci-dessous sont choisies pour que ce qu'on LIT (question,
+   libellé, valeur) passe ce plancher une fois le zoom appliqué.
+
+   ⚠️ Tout est scopé à `#tm-travail` : ces sélecteurs (`.subcard`, `.input`,
+   `.field-hint`) servent aussi à l'accueil, qui garde sa densité.
+   ══════════════════════════════════════════════════════════════════════ */
+
+#tm-travail[data-analyse="projet"]    { --tm-c: var(--tm-projet); }
+#tm-travail[data-analyse="activite"]  { --tm-c: var(--tm-activite); }
+#tm-travail[data-analyse="role"]      { --tm-c: var(--tm-role); }
+#tm-travail[data-analyse="faiblesse"] { --tm-c: var(--tm-faiblesse); }
+#tm-travail                           { --tm-c: var(--tm-ambre); }
+
+/* -- ce qu'on lit -- */
+#tm-travail .tm-saisie .form-grid label,
+#tm-travail .tm-saisie .sc-field > label,
+#tm-travail .tm-saisie .fg-2cols label {
+  font-size: 14.5px;                 /* 11,6 px réels */
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+#tm-travail .tm-saisie .input,
+#tm-travail .tm-saisie select,
+#tm-travail .tm-saisie input[type="text"],
+#tm-travail .tm-saisie input[type="number"] {
+  font-size: 15px;                   /* 12 px réels */
+  padding: 9px 11px;
+}
+#tm-travail .tm-saisie .field-hint,
+#tm-travail .tm-saisie .muted,
+#tm-travail .tm-saisie .hint {
+  font-size: 13.5px;                 /* 10,8 px réels, contre 9,6 */
+  color: var(--ink-2);
+  margin-top: 5px;
+}
+#tm-travail .tm-saisie .chk { font-size: 14.5px; }
+
+/* -- la couleur du type, dans la carte et les sous-cartes -- */
+#tm-travail .tm-saisie > .subtab-panel.active > .card {
+  border-top: 3px solid var(--tm-c);
+}
+#tm-travail .tm-saisie .subcard {
+  border-left: 3px solid var(--tm-c);
+  padding: 13px 16px 15px;
+}
+#tm-travail .tm-saisie .subcard h3 {
+  font-size: 15px;                   /* 12 px réels */
+  letter-spacing: .06em;
+  color: var(--tm-c);
+  margin-bottom: 12px;
+}
+#tm-travail .tm-saisie .subcard h3 i { color: var(--tm-c); font-size: 14px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIRECTION C — le formulaire Faiblesse en TROIS TEMPS.
+
+   Il posait dix champs à plat ; il pose en réalité trois questions. Le rail
+   numéroté donne l'ordre de lecture, et chaque temps porte son bilan partiel :
+   on comprend la formule en la remplissant, au lieu de la découvrir à la fin.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.tm-fw-tete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.tm-fw-tete > label { flex: none; }
+.tm-fw-tete > select { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+
+.tm-temps { position: relative; padding-left: 38px; padding-top: 16px; }
+/* Le rail : il part de la première pastille et meurt sous la dernière. */
+.tm-temps::before {
+  content: "";
+  position: absolute;
+  left: 13px; top: 30px; bottom: 18px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--tm-c),
+              color-mix(in srgb, var(--tm-c) 22%, transparent));
+  border-radius: 2px;
+}
+.tm-tps { position: relative; margin-bottom: 18px; }
+.tm-tps:last-child { margin-bottom: 0; }
+.tm-tps-n {
+  position: absolute;
+  left: -38px; top: 0;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--tm-c);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 15px; font-weight: 700;
+  /* L'anneau blanc détache la pastille du rail qui passe derrière. */
+  box-shadow: 0 0 0 4px var(--card);
+}
+.tm-tps-c {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px);
+  padding: 14px 17px 16px;
+}
+.tm-tps-q {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 19px; font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 3px;
+}
+.tm-tps-p { font-size: 13.5px; color: var(--ink-2); margin: 0 0 14px; }
+
+.tm-tps-mode {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 8px 12px; margin-bottom: 14px;
+  background: color-mix(in srgb, var(--tm-c) 6%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 22%, var(--card));
+  border-radius: 10px;
+}
+.tm-tps-aide {
+  width: 18px; height: 18px; flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; cursor: help;
+}
+
+.tm-tps-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; }
+.tm-tps-large { margin-bottom: 14px; }
+.w-70 { max-width: 76px; flex: none; }
+
+/* ⚠️ Le bilan partiel est MASQUÉ tant qu'aucun calcul n'a abouti : un bilan
+   à zéro se lit comme un résultat. Il porte la couleur du type — c'est la
+   même information que le panneau de droite, dite au fil de la saisie. */
+.tm-tps-bilan {
+  margin-top: 14px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tm-c) 9%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 28%, var(--card));
+  font-size: 14px;
+  color: color-mix(in srgb, var(--tm-c) 72%, #000);
+}
+.tm-tps-bilan b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 18px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Le titre du panneau de droite suit le type : il est devenu un bloc. */
+.tm-res-tete.tm-res-bloc.is-actif { display: block; }
+
+@media (max-width: 1000px) {
+  .tm-tps-duo { grid-template-columns: 1fr; }
+  .tm-temps { padding-left: 32px; }
+  .tm-tps-n { left: -32px; width: 24px; height: 24px; font-size: 13px; }
+  .tm-temps::before { left: 11px; }
+}

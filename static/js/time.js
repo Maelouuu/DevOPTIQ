@@ -405,10 +405,19 @@
     document.getElementById('fw-results-empty')?.classList.add('hidden');
     document.getElementById('fw-results-section')?.classList.remove('hidden');
 
-    // Le panneau colle a droite : le cout ANNUEL en tete, deux secondaires.
-    updateKpi('tm-fw-an',   fmtH((m['U'] || 0) + (m['V'] || 0)));
-    updateKpi('tm-fw-mois', fmtH((m['W'] || 0) + (m['X'] || 0)));
-    updateKpi('tm-fw-occ',  m['AA'] != null ? Math.round(m['AA']) : '—');
+    /* ⚠️⚠️ Le panneau collé à droite ADDITIONNAIT le travail refait et
+       l'attente — `U + V` sous un seul libellé « Coût annuel », et `W + X`
+       pour le mois. Or `time_view.py` dit l'inverse en toutes lettres : « DEUX
+       natures, jamais additionnées […] les sommer donnait 84 % de la charge
+       pour 5 % réels ». Le tableau de bord de l'accueil les sépare depuis le
+       03/11 ; cet écran-ci ne le faisait pas. Cinq chiffres nommés, aucun
+       mélange.                                                              */
+    updateKpi('tm-fw-an',     fmtH(m['U'] || 0));
+    updateKpi('tm-fw-retard', fmtH(m['V'] || 0));
+    updateKpi('tm-fw-occ',    m['AA'] != null ? Math.round(m['AA']) : '—');
+    updateKpi('tm-fw-delai',  m['T'] != null ? fmtH(m['T']) : '—');
+    updateKpi('tm-fw-mois',   fmtH(m['W'] || 0));
+    majBilansFaiblesse(m);
 
     if (save) {
       if (modif) { edition.nom = payload.weakness; majBandeauEdition(); }
@@ -519,6 +528,34 @@
   }
 
   function updateKpi(id, val){ const el = document.getElementById(id); if (el) el.textContent = String(val); }
+
+  /* Les bilans partiels des trois temps : on comprend la formule en la
+     remplissant, au lieu de la découvrir à la fin.
+
+     ⚠️ Ils LISENT ce que le serveur renvoie (`C` est borné par
+     `delai_plancher`, `Y` est le délai du cas dégradé) : refaire ces calculs
+     ici en ferait une seconde implémentation, et deux implémentations d'une
+     même règle finissent par diverger.
+     ⚠️ Masqués tant qu'aucun calcul n'a abouti — un bilan à zéro se lit comme
+     un résultat.                                                            */
+  function majBilansFaiblesse(m){
+    const poser = (id, texte) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = texte || '';
+      el.classList.toggle('hidden', !texte);
+    };
+    const a = (x) => '<b>' + echap(fmtH(x || 0)) + '</b>';
+
+    poser('fw-bilan-2', (m['Y'] != null && m['C'] != null)
+      ? fmtPhrase('fw_bilan_2', '', { degrade: a(m['Y']), normal: a(m['C']) })
+      : '');
+
+    poser('fw-bilan-3', (m['AA'] != null)
+      ? fmtPhrase('fw_bilan_3', '', { n: '<b>' + Math.round(m['AA']) + '</b>',
+                                      travail: a(m['U']), retard: a(m['V']) })
+      : '');
+  }
 
   function recalcProjectTotals() {
     const rows = $$('#project-rows tr');

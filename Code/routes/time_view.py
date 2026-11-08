@@ -206,7 +206,12 @@ def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
     Y = C + M
     Z = M
     AA = P_
-    return {"O": O, "P": P_, "Q": Q, "R": Rv, "S": S, "T": T,
+    # ⚠️ `B` et `C` sont rendus pour que les bilans partiels de l'écran les
+    # LISENT au lieu de les recalculer : `C` est borné par `delai_plancher`,
+    # et une seconde implémentation de cette borne dans le navigateur
+    # finirait par en diverger.
+    return {"B": B, "C": C,
+            "O": O, "P": P_, "Q": Q, "R": Rv, "S": S, "T": T,
             "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA}
 
 
@@ -830,7 +835,14 @@ def api_weakness():
         "ok": True,
         "mode": mode,
         "activity_id": activity_id,
-        "calc": {"O": O, "P": P, "Q": Q, "R": Rv, "S": S, "T": T, "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA},
+        # ⚠️ `B` et `C` sont DANS `calc`, pas seulement a cote : l'autre route
+        # (`/api/weakness/<id>`) renvoie `cout_faiblesse` tel quel, donc avec
+        # eux. Deux routes qui rendent un `calc` de forme differente font que
+        # l'ecran marche a la reouverture d'une analyse et pas pendant la
+        # saisie — c'est exactement ce qui est arrive au bilan du temps 2.
+        "calc": {"B": B, "C": C,
+                 "O": O, "P": P, "Q": Q, "R": Rv, "S": S, "T": T, "U": U,
+                 "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA},
         "B_minutes": B, "C_minutes": C,
         "params": get_calendar_params()
     })

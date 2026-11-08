@@ -7152,9 +7152,110 @@ en différé de 420 ms (treize variables ; la réécrire dans le navigateur en
 ferait une seconde implémentation). Un panneau « qui bouge pendant la frappe »
 veut donc dire *420 ms après*.
 
-Avis rendu : **A pour les quatre, puis C sur la Faiblesse seule** — c'est le
-seul des quatre dont le défaut n'est pas l'habillage mais dix champs à plat
-pour une formule à treize variables. En attente de l'arbitrage.
+Arbitrage rendu : **A pour les quatre, C pour la Faiblesse, et le panneau de
+B conservé** — « il permet de faire un résumé clair et limpide de ce qui se
+passe ». Livré le 08/11.
+
+### La saisie de la page Temps : A + C livrées, et le panneau réparé (2026-11-08)
+
+#### ⚠️⚠️ Le panneau de droite RE-ADDITIONNAIT le travail et l'attente
+
+Le panneau demandé existait déjà — `<aside class="tm-res">`, collant, un bloc
+par type — mais son bloc Faiblesse écrivait `fmtH(m['U'] + m['V'])` sous un
+seul libellé « Coût annuel », et `W + X` pour le mois. **Du travail refait et
+du temps d'horloge dans un même nombre**, alors que `time_view.py` dit
+l'inverse en toutes lettres depuis le 03/11 :
+
+> ⚠️ DEUX natures, jamais additionnées : `travail_min` est du travail refait,
+> comparable à la charge ; `attente_min` est du temps d'horloge, qui ne coûte
+> de travail à personne. Les sommer donnait « 84 % de la charge » pour 5 %
+> réels.
+
+Le tableau de bord de l'accueil les sépare ; cet écran-là ne le faisait pas.
+**Deux écrans de la même page disaient deux choses.** Le panneau porte
+désormais **cinq chiffres NOMMÉS** — travail refait / an, retard subi en aval
+/ an, occurrences ratées / an, délai moyen corrigé, travail refait / mois
+travaillé — et son titre suit le type (« Ce que ça coûte » pour la faiblesse,
+« Résultat » pour les trois autres, par le MÊME `data-pour` que les blocs).
+
+⚠️ Trois libellés ont donc changé de SENS, pas seulement de mot : `tm_fw_an`,
+`tm_fw_mois` et `tm_fw_occ` nommaient une somme.
+
+#### ⚠️ Les deux routes de la faiblesse rendaient un `calc` de forme différente
+
+`POST /temps/api/weakness` **reconstruisait** le dict avec une liste de clés
+figée ; `GET /temps/api/weakness/<id>` renvoie `cout_faiblesse` tel quel. Le
+bilan partiel du temps 2 marchait donc à la réouverture d'une analyse et
+**pas pendant la saisie** — vu à l'écran, pas déduit. `B` et `C` sont
+désormais dans `calc` des deux côtés, et un cliquet compare les deux formes.
+
+#### Direction C — les trois temps
+
+Le formulaire posait dix champs à plat ; il pose trois questions, et rien ne
+le disait : *quand tout va bien, combien ça coûte* · *et quand ça rate* ·
+*combien de fois par an*. Rail numéroté, et **un bilan partiel par temps** —
+on comprend la formule en la remplissant au lieu de la découvrir à la fin.
+
+- ⚠️ **Tous les `id` survivent** : `time.js` écrit par id, et bascule
+  `#fw-global` / `#fw-tasks` selon le mode. On a changé l'ordre et le récit,
+  jamais le contrat. Un cliquet liste les vingt ids.
+- ⚠️ **Le mode « par tâches » ne CACHE pas le bloc global** : il le laisse
+  visible et passe `#fw-dur` en lecture seule, parce que c'est la somme des
+  tâches qui l'alimente. Mon banc vérifiait d'abord la mauvaise chose.
+- ⚠️ Les bilans sont **masqués tant qu'aucun calcul n'a abouti** : un bilan à
+  zéro se lit comme un résultat.
+- ⚠️ Ils **lisent** ce que le serveur renvoie (`C` est borné par
+  `delai_plancher`, `Y` est le délai du cas dégradé) : les recalculer dans le
+  navigateur en ferait une seconde implémentation.
+- ⚠️ **Convention de substitution** : `time.js` résout `{cle}` par
+  `fmtPhrase(cle, defaut, vals)` — pas `[[cle]]`, qui est celle de `acp.*` et
+  `chat.*`. Une clé qui prend la mauvaise affiche son marqueur TEL QUEL, et
+  rien ne lève d'erreur. Un cliquet le tient dans les deux sens.
+
+#### Direction A — la couleur du type, et la typographie mesurée
+
+Les quatre couleurs existaient déjà comme jetons (`--tm-projet` `#64748b`,
+`--tm-activite` `#7c3aed`, `--tm-role` `#d97706`, `--tm-faiblesse` `#dc2626`)
+et ne servaient qu'aux portes de l'accueil. `#tm-travail[data-analyse="…"]`
+pose maintenant `--tm-c`, que la carte, les sous-cartes et le rail des temps
+consomment.
+
+Les tailles, **mesurées à l'écran** avant et après (le corps porte
+`zoom: .8`, donc tout est rendu à 80 %) :
+
+| élément | avant (réel) | après (réel) |
+|---|---|---|
+| question / titre de sous-carte | 10,4 px | **15,2 px** |
+| libellé de champ | 10,0 px | **11,6 px** |
+| valeur saisie | 10,8 px | **12,0 px** |
+| phrase d'aide | 9,6 px | **10,8 px** |
+
+⚠️ Le plancher de l'échelle typographique du design system est **11 px
+RÉELS**, soit 13,75 px écrits dans une page zoomée à .8. Ce qu'on LIT le passe
+désormais ; l'aide reste juste en dessous, assumé — elle est secondaire, et
+elle a gagné 12 %.
+⚠️ Tout est scopé à `#tm-travail` : `.subcard`, `.input` et `.field-hint`
+servent aussi à l'accueil, qui garde sa densité.
+
+#### ⚠️ Un cliquet qui ne gardait rien : `css.index` sur toute la feuille
+
+`test_les_quatre_types_posent_leur_couleur` cherchait
+`#tm-travail[data-analyse="role"]` dans `static/time.css` entier —
+`css.index` tombait sur une règle **préexistante** (`.tm-barre-ic`, plus haut
+dans le fichier), et le cas restait **VERT** en cassant la règle neuve. Il
+cherche désormais dans le bloc « DIRECTION A ».
+
+⚠️ Règle qui en découle, et c'est la deuxième fois en deux jours (après la
+sous-requête de `count()`) : **un cliquet qui cherche une chaîne doit borner
+la zone** — un fichier assez gros contient presque toujours un homonyme de ce
+qu'on croit garder.
+
+Tests : `tests/test_105_temps_refonte.py` passe de 57 à **71 cas** ; **13
+gardes retirées une par une, 13 cliquets tombés**. Éprouvé au banc
+(`tools/devrun_temps.py`, port libre) dans les deux langues avec Playwright :
+les trois temps numérotés et traduits, la bascule de mode, les deux bilans
+remplis, les cinq chiffres du panneau, zéro erreur JS, zéro fuite française
+sur l'écran anglais.
 
 ---
 

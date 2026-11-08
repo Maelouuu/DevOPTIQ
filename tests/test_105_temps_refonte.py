@@ -789,3 +789,223 @@ class TestLaListeTientALEcran:
         assert 'class="tm-b tm-b--doux"' in entete
         assert 'class="tm-b tm-b--prim"' in entete
         assert 'class="btn' not in entete, entete
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  La saisie : direction A (les quatre types) et C (les trois temps)
+#
+#  « Ils sont vraiment trop blanc gris et écrit en petit. » Mesuré avant de
+#  redessiner : `body.pg` porte `zoom: .8`, donc un libellé écrit 12,5 px
+#  arrivait à 10 px sous les yeux, et une aide à 12 px à 9,6 px — SOUS le
+#  plancher de 11 px de l'échelle typographique du design system.
+# ══════════════════════════════════════════════════════════════════════════
+
+class TestLesTroisTemps:
+    """Le formulaire Faiblesse posait dix champs à plat. Il pose trois
+    questions, et rien ne le disait."""
+
+    def test_les_trois_temps_sont_numerotes(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert g.count('class="tm-tps-n"') == 3, g.count('tm-tps-n')
+        assert g.count('class="tm-tps-q"') == 3
+        for n in ("1", "2", "3"):
+            assert '>%s</span>' % n in g, n
+
+    def test_les_trois_questions_existent_dans_les_deux_langues(self):
+        """⚠️ On lit les DICTIONNAIRES, pas `t()` : une clé absente de
+        l'anglais retombe silencieusement sur le français."""
+        from Code.translations import TRANSLATIONS
+        cles = ["time.fw_t1_q", "time.fw_t1_p", "time.fw_t2_q", "time.fw_t2_p",
+                "time.fw_t3_q", "time.fw_t3_p"]
+        for langue in ("fr", "en"):
+            manquantes = [c for c in cles if c not in TRANSLATIONS[langue]]
+            assert not manquantes, (langue, manquantes)
+        identiques = [c for c in cles
+                      if TRANSLATIONS["fr"][c] == TRANSLATIONS["en"][c]]
+        assert not identiques, identiques
+
+    def test_TOUS_les_id_du_formulaire_survivent(self):
+        """⚠️ C'est le contrat : `time.js` écrit par id et bascule
+        `#fw-global` / `#fw-tasks` selon le mode. On a changé l'ordre et le
+        récit, jamais le contrat."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for cle in ("fw-activity", "fw-rec", "fw-freq", "fw-global", "fw-dur",
+                    "fw-dur-unit", "fw-del", "fw-del-unit", "fw-del-note",
+                    "fw-tasks", "fw-task-rows", "fw-task-sum", "fw-k", "fw-n",
+                    "fw-l", "fw-l-unit", "fw-m", "fw-m-unit", "btn-fw-save",
+                    "fw-feedback"):
+            assert 'id="%s"' % cle in g, cle
+        assert g.count('name="fw-mode"') == 2
+
+    def test_les_bilans_partiels_sont_MASQUES_au_repos(self):
+        """Un bilan à zéro se lit comme un résultat."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for ident in ("fw-bilan-2", "fw-bilan-3"):
+            i = g.index('id="%s"' % ident)
+            debut = g.rfind("<div", 0, i)
+            assert "hidden" in g[debut:i], ident
+
+    def test_les_bilans_suivent_la_convention_de_CE_fichier(self):
+        """⚠️ Deux conventions coexistent dans l'application : `{x}`, résolue
+        par `fmtPhrase` dans `time.js`, et `[[x]]`, celle de `acp.*` et
+        `chat.*`. Une clé qui prend la mauvaise affiche son marqueur TEL QUEL,
+        et rien ne lève d'erreur."""
+        from Code.translations import TRANSLATIONS
+        for cle, marqueurs in (("time.fw_bilan_2", ("{degrade}", "{normal}")),
+                               ("time.fw_bilan_3", ("{n}", "{travail}", "{retard}"))):
+            for langue in ("fr", "en"):
+                valeur = TRANSLATIONS[langue][cle]
+                for m in marqueurs:
+                    assert m in valeur, (cle, langue, m)
+                assert "[[" not in valeur, (cle, langue)
+
+    def test_les_libelles_des_temps_sont_injectes_dans_TIME_I18N(self):
+        """Sans injection, `tl()` sert son repli — ici une chaîne vide, donc
+        un bilan qui ne s'affiche jamais."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for cle in ("fw_bilan_2", "fw_bilan_3"):
+            assert "%s:" % cle in g, cle
+            assert "t('time.%s')|tojson" % cle in g, cle
+
+
+class TestLePanneauNeSommePlusDeuxNatures:
+    """⚠️⚠️ Le défaut de fond. Le panneau collé à droite écrivait `U + V` sous
+    un seul libellé « Coût annuel » — du travail refait ET du temps d'horloge
+    dans un même nombre — alors que `time_view.py` dit l'inverse en toutes
+    lettres (« DEUX natures, jamais additionnées […] les sommer donnait 84 %
+    de la charge pour 5 % réels ») et que le tableau de bord de l'accueil les
+    sépare depuis le 03/11. Deux écrans de la même page disaient deux choses.
+    """
+
+    def test_les_cinq_chiffres_sont_NOMMES(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for ident in ("tm-fw-an", "tm-fw-retard", "tm-fw-occ", "tm-fw-delai",
+                      "tm-fw-mois"):
+            assert 'id="%s"' % ident in g, ident
+
+    def test_le_navigateur_n_additionne_plus_le_travail_et_l_attente(self):
+        js = _lire("static/js/time.js")
+        bloc = js[js.index("updateKpi('tm-fw-an'"):][:460]
+        assert "m['U'] || 0" in bloc, bloc
+        assert "+ (m['V']" not in bloc, bloc
+        assert "+ (m['X']" not in bloc, bloc
+        assert "tm-fw-retard" in bloc and "m['V']" in bloc, bloc
+
+    def test_les_libelles_ne_nomment_plus_une_somme(self):
+        from Code.translations import TRANSLATIONS
+        for cle in ("time.tm_fw_an", "time.tm_fw_mois", "time.tm_fw_occ",
+                    "time.tm_fw_retard", "time.tm_fw_delai", "time.tm_fw_titre"):
+            for langue in ("fr", "en"):
+                assert cle in TRANSLATIONS[langue], (cle, langue)
+        assert "refait" in TRANSLATIONS["fr"]["time.tm_fw_an"]
+        assert "redone" in TRANSLATIONS["en"]["time.tm_fw_an"]
+
+    def test_les_DEUX_routes_rendent_un_calc_de_MEME_forme(self, app, auth_client):
+        """⚠️ L'une reconstruisait `calc` avec une liste de clés figée, l'autre
+        renvoie `cout_faiblesse` tel quel. Le bilan du temps 2 marchait donc à
+        la réouverture d'une analyse et PAS pendant la saisie — vérifié à
+        l'écran avant d'être corrigé.
+        """
+        from Code.extensions import db
+        from Code.models.models import Activities, Entity
+
+        with app.app_context():
+            ent = Entity(name="T105 calc commun")
+            db.session.add(ent)
+            db.session.flush()
+            act = Activities(name="T105 activite calc", entity_id=ent.id)
+            db.session.add(act)
+            db.session.commit()
+            aid, eid = act.id, ent.id
+
+        corps = {"activity_id": aid, "mode": "activity",
+                 "recurrence": "hebdomadaire", "frequency": 2,
+                 "duration_std": 120, "duration_unit": "minutes",
+                 "delay_std": 120, "delay_unit": "minutes",
+                 "weakness": "T105", "prob_percent": 20,
+                 "work_added": 10, "work_unit": "minutes",
+                 "wait_added": 5, "wait_unit": "minutes", "save": True}
+        try:
+            r = auth_client.post("/temps/api/weakness", json=corps)
+            assert r.status_code == 200, r.data
+            j = r.get_json()
+            calc = j.get("calc") or {}
+            for cle in ("B", "C", "U", "V", "Y", "AA"):
+                assert cle in calc, (cle, sorted(calc))
+            wid = j.get("id")
+            if wid:
+                r2 = auth_client.get("/temps/api/weakness/%d" % wid)
+                assert r2.status_code == 200, r2.data
+                calc2 = r2.get_json().get("calc") or {}
+                assert set(calc) == set(calc2), (
+                    "les deux routes rendent des `calc` de formes differentes : "
+                    "%r" % (set(calc) ^ set(calc2),))
+        finally:
+            with app.app_context():
+                from Code.models.models import TimeWeakness
+                TimeWeakness.query.filter_by(activity_id=aid).delete()
+                Activities.query.filter_by(id=aid).delete()
+                e = db.session.get(Entity, eid)
+                if e is not None:
+                    db.session.delete(e)
+                db.session.commit()
+
+
+class TestLaCouleurDuTypeEtLaTypographie:
+    """Direction A : les quatre couleurs existaient déjà comme jetons et ne
+    servaient qu'aux portes de l'accueil."""
+
+    def test_les_quatre_types_posent_leur_couleur(self):
+        """⚠️ On cherche DANS le bloc neuf. `css.index` sur toute la feuille
+        tombait sur une règle préexistante — `#tm-travail[data-analyse="role"]
+        .tm-barre-ic`, plus haut — et le cas restait VERT en cassant la règle
+        qu'il croyait garder (vérifié).
+        """
+        css = _lire("static/time.css")
+        bloc = css[css.index("DIRECTION A"):]
+        for type_, jeton in (("projet", "--tm-projet"), ("activite", "--tm-activite"),
+                             ("role", "--tm-role"), ("faiblesse", "--tm-faiblesse")):
+            regle = '#tm-travail[data-analyse="%s"]' % type_
+            i = bloc.find(regle + " ")
+            assert i > 0, "la règle de couleur de %s manque au bloc" % type_
+            ligne = bloc[i:bloc.index("\n", i)]
+            assert "--tm-c" in ligne and jeton in ligne, (type_, ligne)
+
+    def test_la_typographie_de_la_SAISIE_passe_le_plancher(self):
+        """⚠️ `body.pg` porte `zoom: .8` : ce qu'on écrit ici est rendu à 80 %.
+        Le plancher de l'échelle du design system est 11 px RÉELS — donc
+        13,75 px écrits. Les éléments qu'on LIT doivent le passer.
+        """
+        import re
+        css = _lire("static/time.css")
+        bloc = css[css.index("DIRECTION A"):]
+        tailles = {}
+        for sel, cle in ((".sc-field > label", "label"),
+                         (".tm-saisie .input", "valeur"),
+                         (".tm-saisie .field-hint", "aide")):
+            i = bloc.find(sel)
+            assert i > 0, sel
+            m = re.search(r"font-size:\s*([0-9.]+)px", bloc[i:i + 400])
+            assert m, sel
+            tailles[cle] = float(m.group(1))
+        assert tailles["label"] >= 13.75, tailles
+        assert tailles["valeur"] >= 13.75, tailles
+        # L'aide est secondaire : elle remonte sans forcément passer le
+        # plancher, mais plus jamais à 12 px (9,6 réels).
+        assert tailles["aide"] >= 13.0, tailles
+
+    def test_le_titre_du_panneau_suit_le_type(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert g.count('class="tm-res-tete tm-res-bloc"') == 4, g
+        assert "t('time.tm_fw_titre')" in g
+
+    def test_aucune_regle_neuve_ne_lit_l_accent_de_la_RACINE(self):
+        """⚠️ `--pg-accent-soft` et ses frères sont déclarés sur `:root`, où
+        `--pg-accent` vaut encore le gris par défaut : ils rendent du GRIS sur
+        toute l'application."""
+        import re
+        css = _lire("static/time.css")
+        bloc = re.sub(r"/\*.*?\*/", "", css[css.index("DIRECTION A"):], flags=re.S)
+        for jeton in ("--pg-accent-soft", "--pg-accent-softer",
+                      "--pg-accent-border", "--pg-accent-glow"):
+            assert jeton not in bloc, jeton
