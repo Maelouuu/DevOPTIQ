@@ -7566,6 +7566,155 @@ brute, 0 unité française sur 518 options.
 Suite : **3 884 passés**, 1 sauté ; `repet_image` **3 813 passés** +
 72 sautés.
 
+### Quatre retours du pilote corrigés — et trois étaient PETITS (2026-11-10)
+
+Sur les douze points laissés ouverts le 09/11, l'utilisateur en a tranché
+quatre, chacun avec la solution recommandée. Les huit autres attendent sa
+réflexion ou un arbitrage avec son collègue — **ne pas y toucher**.
+
+⚠️⚠️ **La leçon de la passe : lire le code AVANT de chiffrer.** Le 05/11
+j'avais rangé les cinq demandes « éditeur » en bloc comme « du vrai travail
+d'éditeur », **sans ouvrir `editor.js`**. En le lisant ligne par ligne, trois
+des quatre points retenus se sont révélés petits : un défaut de mesure d'une
+ligne, un panneau qui existait déjà, et deux champs numériques.
+
+#### #25 — une largeur de texte se MESURE, et TROIS sites l'estimaient
+
+`renderConnections` dimensionnait le fond blanc d'une étiquette de flèche à
+`maxLineLen * 6` — six pixels par caractère — pour un texte rendu en
+`font-size: 14`. Mesuré au navigateur : **7,94 px** en moyenne. Le fond était
+donc trop étroit, et **les lettres qui dépassaient n'avaient plus rien
+derrière elles : elles tombaient sur le trait**. C'est mot pour mot le
+« words are getting overlapped on the line if exceed than specific length »
+du pilote — l'écart grandit avec la longueur.
+
+Mesuré sur la carto du banc : **80 étiquettes sur 83 débordaient** (pire
+12,8 px de chaque côté) → **0 sur 83**.
+
+⚠️ **Le cliquet a trouvé DEUX AUTRES sites** que celui signalé : `labelNode`
+(la pop-up de placement des losanges, texte en 9,5 px) et
+`setLabelsAlongArrows` — là, la largeur sert à ménager une marge aux deux
+bouts de la flèche, et sous-estimée elle laisse l'étiquette glisser sur la
+forme d'extrémité.
+
+⚠️ Deux défauts de plus dans le même bloc : **aucune marge** (8 px de chaque
+côté désormais — sans elle, même à la bonne largeur la première et la dernière
+lettre touchent le bord), et `lineH = 13` pour une police de **14** : les deux
+lignes d'une étiquette à deux lignes se chevauchaient.
+
+ℹ️ `mesurerTexte` réutilise UN contexte de canevas. Vérifié au banc : sa
+mesure et `getComputedTextLength` coïncident à **0,1 px** près — c'est ce qui
+rend la méthode juste. Les deux polices de mesure DOIVENT suivre ce que le
+rendu SVG écrit : une mesure faite dans une autre police ne mesure rien.
+
+#### #19 — le texte d'une forme : trois défauts, dont un jamais signalé
+
+1. ⚠️ `wrapText(..., maxLines = 4)` finit par `.slice(0, maxLines)` :
+   **au-delà de quatre lignes, la fin du libellé disparaissait sans rien
+   dire** — pas d'ellipse, pas de signal.
+2. La hauteur n'était **jamais** vérifiée : `totalH` était calculé puis
+   ignoré. Quatre lignes à 18 px font 95 px dans une forme de 90.
+3. Aucune marge intérieure, et `0.52·w` pour un losange est la largeur **à
+   mi-hauteur** : les lignes du haut et du bas sortaient sur les côtés.
+
+`ajusterTexteForme` cherche la plus **grande** police qui tienne (de
+`s.fontSize` à 10 px), en largeur ET en hauteur, et au plancher pose une
+**ellipse**. `_largeurUtile` rend la largeur **par ligne** : un losange est un
+quadrilatère, sa demi-largeur à la distance `dy` du centre vaut
+`(w/2)·(1 − 2·dy/h)`.
+
+Mesuré sur la même carto, 73 formes et 170 lignes :
+**5 lignes trop larges (pire 34 px) → 0**, **2 piles trop hautes (21 px) → 0**,
+**3 libellés tronqués en silence → 0** (une seule ellipse visible).
+
+⚠️ **La marge est PROPORTIONNELLE** (`min(10, w·0,12, h·0,12)`) : mesuré, sur
+un renvoi de 50 px, 10 px de chaque côté donnent 40 % de la forme à du vide,
+et un mot courant n'y tient plus même à la police plancher.
+
+⚠️ **On ne GROSSIT jamais** une police réglée plus petite à la main :
+`plancher = Math.min(POLICE_MIN, base)`.
+
+⚠️ **Un cache** (`_cacheForme`, clé = libellé + boîte + police + type) : la
+pose est recalculée à chaque image pendant un glissé, et elle ne change pas.
+Vidé au-delà de 2 000 entrées plutôt qu'invalidé à la main.
+
+⚠️⚠️ **`getBBox()` d'un `<text>` n'est PAS sa largeur d'avance** : 52,3 px
+pour un texte qui en mesure 40,1 (les glyphes débordent de leur chasse).
+Mesurer un débordement avec `getBBox` fabrique des faux positifs — cinq ici,
+que j'ai failli « corriger ». La bonne mesure est `getComputedTextLength`,
+celle-là même que la mise en page emploie.
+
+#### #30 — l'index des activités EXISTAIT déjà
+
+`renderCanvasMap` construit groupes, bandes, formes triées et connexions,
+chaque ligne sélectionnant la forme, la centrant et ouvrant les Propriétés ;
+son conteneur `#canvas-map-list` est dans **les deux** gabarits. Il vivait
+**tout en bas** du panneau gauche, après les six lignes de légende, et **sans
+champ de recherche** — « like read only view », c'était ça qui manquait.
+
+Il remonte **avant la légende** (une légende se lit une fois, un index sert à
+chaque recherche de forme) et prend son champ et son compte.
+
+⚠️ Il **masque**, il ne re-rend pas : `render()` reconstruit déjà la liste, et
+la redessiner à chaque frappe ferait perdre le curseur du champ qu'on tape.
+⚠️ Il écoute `input`, pas `change` : sur `change` il ne filtrerait rien
+pendant la frappe, sans la moindre erreur pour le dire.
+⚠️ `_filtrerIndex()` est rappelé à la fin de `renderCanvasMap` — sinon taper
+puis déplacer une forme rendrait tout visible à nouveau.
+⚠️ Une **section dont toutes les lignes sont masquées se masque aussi**,
+sinon on lit « Formes » suivi de rien.
+⚠️ `.cmap-item[hidden]` est déclaré à la main : `[hidden]` est une règle du
+NAVIGATEUR, une classe d'auteur qui pose un `display` l'emporte. **Cinquième
+fois** que ce piège se présente dans ce dépôt.
+⚠️ Le champ existe dans les **deux** gabarits parce que `editor.js` câble sans
+garde — un id absent interrompt TOUTE l'init, chargement de la carto compris
+(`tests/test_49_carto_dom_contract.py`).
+
+#### #22 — l'import NOMME ce qu'il laisse dehors
+
+L'écran de vérification montrait déjà les compteurs et une tuile « à
+rattacher », mais le bouton « Importer » n'était conditionné par **rien** : on
+pouvait cliquer sans l'avoir regardée. Une confirmation nomme désormais ce qui
+restera dehors — 8 activités au plus, puis « et n autres » — **avec le compte
+de tâches par activité**.
+
+⚠️ Ce compte n'est pas décoratif : « 3 tâches ne seront pas importées »
+au-dessus de DEUX noms (vu au banc) ne disait pas ce qu'on lisait — les noms
+sont des **activités**, pas les tâches.
+⚠️ On ne **bloque** pas : refuser 60 tâches parce que 3 ne s'apparient pas
+serait un recul, et l'historique, l'écran de vérification et la lecture
+« dans l'autre sens » sont tous bâtis pour qu'on revienne finir.
+⚠️ Seules les **tâches** ont un rattachement à faire : un rôle ou un outil n'a
+pas d'activité à retrouver.
+⚠️ L'**ambre** de la tuile « à rattacher », pas le rose-violet de l'IA : c'est
+un avertissement, pas une proposition.
+
+#### ⚠️ Quatre cliquets ne gardaient RIEN au premier essai
+
+- le découpage sur bornes **retirait les commentaires AVANT** de chercher une
+  borne qui EST un commentaire ;
+- `"'…'" in corps` passait, parce que l'ellipse sert **aussi à mesurer** la
+  place qu'elle prendra : ce qui compte est qu'elle soit **posée** sur la
+  dernière ligne ;
+- `"zoneH" in corps` restait vrai avec une borne remplacée (il y en a deux) :
+  on exige désormais que **chaque** `Math.floor(… / …)` divise `zoneH` ;
+- `"c.noms" in corps` restait vrai avec `c.noms.length`.
+
+Tests : `tests/test_137_pilote_quatre_corrections.py` (**45 cas**) ;
+**26 défauts remis un par un, 26 cliquets tombés**. `editor.js` et `style.css`
+resynchronisés dans le dépôt OptiqCarto. Éprouvé au banc
+(`tools/devrun_import.py`) dans les deux langues : l'index (182 éléments →
+3 sur 182 → Aucun résultat), la confirmation d'import, le retour à la liste,
+et l'import réel (5 tâches écrites, 3 laissées).
+
+Suite : **3 929 passés**, 1 sauté ; `repet_image` **3 858 passés** + 72 sautés.
+⚠️ Un rouge en chemin, **sans rapport** : `test_61_pulse::test_summarize_daily_and_pages`
+rougit entre 00:00 et ~00:08 à Paris. Sa fixture sème à `now(utc) − 1/6/8 min` et
+`aggregates.summarize` range les journées en heure de PARIS : les événements tombent
+alors dans la veille alors que `today = daily[-1]` est la nouvelle journée. Il passe
+seul (16/16) et la passe suivante est verte. Correctif d'une ligne, non fait ici :
+caler le `NOW` de la fixture en milieu de journée plutôt qu'à l'heure réelle.
+
 ---
 
 ## Notes importantes (suite)

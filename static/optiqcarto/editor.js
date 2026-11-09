@@ -597,6 +597,149 @@ function renderLegend() {
 }
 
 /* ══════════════════════════════════════════════════
+   MESURE DU TEXTE
+   ══════════════════════════════════════════════════ */
+
+/* ⚠️ Le texte se MESURE, il ne s'estime pas au nombre de caractères.
+   Le fond blanc d'une étiquette de flèche était dimensionné à 6 px par
+   caractère pour un texte rendu en 14 px — mesuré, un caractère en fait
+   7,94 en moyenne. Les lettres qui dépassaient n'avaient donc plus rien
+   derrière elles et tombaient sur le trait : c'est le « words are getting
+   overlapped on the line if exceed than specific length » du pilote.
+   Un SEUL contexte de canevas, réutilisé : measureText coûte moins d'une
+   microseconde, mais en créer un par appel coûterait cher. */
+let _mesureCtx = null;
+function mesurerTexte(texte, police) {
+  const t = String(texte == null ? '' : texte);
+  if (_mesureCtx === null) {
+    const cv = document.createElement('canvas');
+    _mesureCtx = (cv.getContext && cv.getContext('2d')) || false;
+  }
+  // Sans canevas (très vieux navigateur), on retombe sur une estimation —
+  // mais sur la bonne : 7,9 px par caractère à 14 px, pas 6.
+  if (!_mesureCtx) return t.length * 7.9;
+  _mesureCtx.font = police;
+  return _mesureCtx.measureText(t).width;
+}
+
+/* ⚠️ Ces deux polices DOIVENT suivre ce que le rendu SVG écrit plus bas.
+   Une mesure faite dans une autre police ne mesure rien. */
+const POLICE_ETIQUETTE = '600 14px "Segoe UI", sans-serif';
+// La pop-up de placement des losanges écrit plus petit, et en gras quand
+// la flèche est mise en avant : on mesure dans la plus LARGE des deux.
+const POLICE_PLACEMENT = '700 9.5px "Segoe UI", sans-serif';
+function policeForme(taille) {
+  return '700 ' + taille + 'px "Segoe UI", system-ui, sans-serif';
+}
+const MARGE_ETIQUETTE = 8;   // de chaque côté du texte d'une étiquette
+const MARGE_FORME     = 10;  // marge intérieure d'une forme
+const POLICE_MIN      = 10;  // plancher : en dessous, on pose une ellipse
+const INTERLIGNE      = 1.32;
+
+/* Largeur utile de la i-ème ligne sur n, dans cette forme.
+   ⚠️ Un losange n'offre pas la même largeur partout : à la distance dy de son
+   centre, sa demi-largeur vaut (w/2)·(1 − 2·dy/h). L'ancien code prenait
+   0,52·w — la largeur à MI-HAUTEUR — pour TOUTES les lignes, si bien que
+   celles du haut et du bas sortaient sur les côtés. C'est « in a diamond ». */
+/* ⚠️ La marge est PROPORTIONNELLE : mesuré au banc, 10 px de chaque côté sur
+   un renvoi de 50 px laissent 30 px de texte — 40 % de la forme donnée à du
+   vide, et un mot courant n'y tient plus même à la police plancher. */
+function _margeForme(s) {
+  return Math.min(MARGE_FORME, s.w * 0.12, s.h * 0.12);
+}
+
+function _largeurUtile(s, i, n, taille) {
+  const marge = _margeForme(s);
+  if (s.type !== 'decision') return Math.max(0, s.w - 2 * marge);
+  const lineH = taille * INTERLIGNE;
+  const dy = Math.abs((i - (n - 1) / 2) * lineH) + lineH / 2;  // le bord le plus éloigné
+  const demi = (s.w / 2) * Math.max(0, 1 - (2 * dy) / s.h);
+  return Math.max(0, 2 * demi - 2 * marge);
+}
+
+/* Découpe le libellé en AU PLUS n lignes qui tiennent à cette taille.
+   Rend null quand ça ne tient pas : l'appelant essaie alors une ligne de
+   plus, puis une police plus petite. */
+function _decouperDansForme(s, taille, n) {
+  const mots = String(s.label || '').split(/\s+/).filter(Boolean);
+  if (!mots.length) return [];
+  const police = policeForme(taille);
+  const lignes = [];
+  let cur = '';
+  for (const mot of mots) {
+    const essai = cur ? cur + ' ' + mot : mot;
+    if (mesurerTexte(essai, police) <= _largeurUtile(s, lignes.length, n, taille)) { cur = essai; continue; }
+    if (!cur) return null;                       // un mot seul, déjà trop large
+    lignes.push(cur);
+    if (lignes.length >= n) return null;
+    cur = mot;
+    if (mesurerTexte(cur, police) > _largeurUtile(s, lignes.length, n, taille)) return null;
+  }
+  if (cur) lignes.push(cur);
+  return lignes.length <= n ? lignes : null;
+}
+
+/* Le dernier recours : au plancher, on garde ce qui tient et on pose une
+   ELLIPSE. ⚠️ L'ancien `wrapText` finissait par `.slice(0, 4)` — au-delà de
+   quatre lignes, la fin du libellé DISPARAISSAIT sans rien dire. Un texte
+   coupé doit se voir. */
+function _couperAvecEllipse(s, taille, n) {
+  const police = policeForme(taille);
+  const mots = String(s.label || '').split(/\s+/).filter(Boolean);
+  const lignes = [];
+  let cur = '', i = 0;
+  while (i < mots.length && lignes.length < n) {
+    const essai = cur ? cur + ' ' + mots[i] : mots[i];
+    if (!cur || mesurerTexte(essai, police) <= _largeurUtile(s, lignes.length, n, taille)) { cur = essai; i++; continue; }
+    lignes.push(cur); cur = '';
+  }
+  if (cur && lignes.length < n) { lignes.push(cur); cur = ''; }
+  if ((i < mots.length || cur) && lignes.length) {
+    const dispo = _largeurUtile(s, lignes.length - 1, n, taille);
+    let fin = lignes[lignes.length - 1];
+    while (fin && mesurerTexte(fin + '…', police) > dispo) fin = fin.slice(0, -1);
+    lignes[lignes.length - 1] = fin.replace(/\s+$/, '') + '…';
+  }
+  return lignes;
+}
+
+/* ⚠️ Trois défauts corrigés ensemble, dont un que personne n'avait signalé :
+   1. la hauteur n'était JAMAIS vérifiée — 4 lignes à 18 px font 95 px dans
+      une forme de 90, et le texte sortait par le haut et par le bas ;
+   2. au-delà de 4 lignes, le texte était coupé EN SILENCE ;
+   3. aucune marge intérieure, et un losange mesuré à mi-hauteur.
+   On cherche la plus GRANDE police qui tienne, en largeur ET en hauteur. */
+const _cacheForme = new Map();
+function ajusterTexteForme(s) {
+  const base = Math.max(6, s.fontSize || 13);
+  const plancher = Math.min(POLICE_MIN, base);   // ne jamais GROSSIR ce qui a été réglé à la main
+  const cle = [s.label, s.w, s.h, base, s.type].join('\u0001');
+  const vu = _cacheForme.get(cle);
+  if (vu) return vu;
+
+  const zoneH = Math.max(0, s.h - 2 * _margeForme(s));
+  let pose = null;
+  for (let taille = base; taille >= plancher && !pose; taille -= 1) {
+    const nMax = Math.max(1, Math.floor(zoneH / (taille * INTERLIGNE)));
+    for (let n = 1; n <= nMax; n++) {
+      const lignes = _decouperDansForme(s, taille, n);
+      if (lignes) { pose = { lignes, taille, lineH: taille * INTERLIGNE, tronque: false }; break; }
+    }
+  }
+  if (!pose) {
+    const n = Math.max(1, Math.floor(zoneH / (plancher * INTERLIGNE)));
+    pose = { lignes: _couperAvecEllipse(s, plancher, n), taille: plancher,
+             lineH: plancher * INTERLIGNE, tronque: true };
+  }
+  // Le cache sert le GLISSÉ : une forme qu'on déplace est redessinée à chaque
+  // image, et sa pose ne change pas tant que son libellé et sa boîte sont les
+  // mêmes. On le vide quand il grossit plutôt que d'invalider à la main.
+  if (_cacheForme.size > 2000) _cacheForme.clear();
+  _cacheForme.set(cle, pose);
+  return pose;
+}
+
+/* ══════════════════════════════════════════════════
    RENDER — CONNECTIONS
    ══════════════════════════════════════════════════ */
 
@@ -857,10 +1000,17 @@ function renderConnections() {
     // Toujours SUR la flèche (perp=0), aligné sur la direction dominante (H ou V).
     if (c.label) {
       const labelLines = c.label.split('\n');
-      const maxLineLen = Math.max(...labelLines.map(l => l.length));
-      const lw = Math.max(20, maxLineLen * 6);
-      const lineH = 13;
-      const lh = lineH * labelLines.length + (labelLines.length > 1 ? 3 : 0);
+      // ⚠️ Largeur MESURÉE, plus estimée à 6 px par caractère : le fond
+      // était trop étroit d'un quart, et les lettres qui dépassaient
+      // tombaient sur le trait. La marge est nécessaire aussi — sans elle,
+      // même à la bonne largeur, la première et la dernière lettre touchent
+      // le bord et le trait passe au ras des jambages.
+      const largeurTexte = Math.max(...labelLines.map(l => mesurerTexte(l, POLICE_ETIQUETTE)));
+      const lw = Math.max(20, Math.ceil(largeurTexte) + MARGE_ETIQUETTE * 2);
+      // ⚠️ 18, pas 13 : un interligne INFÉRIEUR à la police faisait se
+      // chevaucher les deux lignes d'une étiquette sur deux lignes.
+      const lineH = 18;
+      const lh = lineH * labelLines.length + 6;
       let lx, ly, angle = 0;
 
       // Déterminer la direction dominante de la flèche (H ou V)
@@ -1238,11 +1388,13 @@ function renderShapes() {
 
     // ── Label ────────────────────────────────────
     if (s.label) {
-      // Diamond gets a tighter text zone (inscribed square ~ 0.5 of w)
-      const textZoneW = s.type === 'decision' ? s.w * 0.52 : s.w;
-      const maxChars = Math.max(4, Math.floor(textZoneW / (s.fontSize * 0.62)));
-      const lines = wrapText(s.label, maxChars);
-      const lineH = s.fontSize * 1.32;
+      // ⚠️ La pose est MESURÉE : la police se réduit jusqu'à ce que le
+      // libellé tienne en largeur ET en hauteur, et au plancher on pose
+      // une ellipse plutôt que de couper en silence. Voir
+      // `ajusterTexteForme`, qui porte le détail des trois défauts.
+      const pose = ajusterTexteForme(s);
+      const lines = pose.lignes;
+      const lineH = pose.lineH;
       const totalH = lines.length * lineH;
       const startY = s.y + s.h / 2 - totalH / 2 + lineH / 2;
 
@@ -1253,7 +1405,7 @@ function renderShapes() {
           'text-anchor': 'middle',
           'dominant-baseline': 'middle',
           fill: s.textColor,
-          'font-size': s.fontSize,
+          'font-size': pose.taille,
           'font-family': 'Segoe UI, system-ui, sans-serif',
           'font-weight': '700',
           'pointer-events': 'none',
@@ -1838,6 +1990,46 @@ function render() {
    RENDER — CANVAS MAP (left panel live list)
    ══════════════════════════════════════════════════ */
 
+/* ── Recherche dans l'index du canevas ───────────────────────
+   ⚠️ Elle MASQUE les lignes, elle ne redessine pas la liste : `render()` la
+   reconstruit déjà à chaque image, et la reconstruire à chaque frappe ferait
+   perdre le curseur du champ qu'on tape.
+   ⚠️ Et elle écoute `input`, pas `change` : branchée sur `change`, elle ne
+   filtrerait rien PENDANT la frappe, sans la moindre erreur pour le dire. */
+let _filtreIndex = '';
+
+function _normIndex(t) {
+  return String(t == null ? '' : t)
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function _filtrerIndex() {
+  const list = document.getElementById('canvas-map-list');
+  if (!list) return;
+  const q = _normIndex(_filtreIndex);
+  let section = null, vusSection = 0, total = 0, montres = 0;
+  for (const el of Array.from(list.children)) {
+    if (el.classList.contains('left-section-label')) {
+      // ⚠️ Une section dont toutes les lignes sont masquées n'annonce plus
+      // rien : on la masque aussi, sinon on lit « Formes » suivi de rien.
+      if (section) section.hidden = vusSection === 0;
+      section = el; vusSection = 0;
+      continue;
+    }
+    total++;
+    const ok = !q || _normIndex(el.textContent).includes(q);
+    el.hidden = !ok;
+    if (ok) { vusSection++; montres++; }
+  }
+  if (section) section.hidden = vusSection === 0;
+
+  const compte = document.getElementById('cmap-count');
+  if (!compte) return;
+  compte.textContent = q
+    ? (montres ? _L('editor.cmap_sur', montres, total) : _L('editor.cmap_vide'))
+    : (total === 1 ? _L('editor.cmap_total_1') : _L('editor.cmap_total', total));
+}
+
 function renderCanvasMap() {
   const list = document.getElementById('canvas-map-list');
   if (!list) return;
@@ -1976,6 +2168,10 @@ function renderCanvasMap() {
       list.appendChild(item);
     });
   }
+
+  // La liste vient d'être reconstruite : le filtre en cours doit s'y
+  // reposer, sinon taper puis déplacer une forme rendrait tout visible.
+  _filtrerIndex();
 }
 
 /* ══════════════════════════════════════════════════
@@ -6989,7 +7185,9 @@ function _startDiamondPlacement(onDone) {
     const pos = has ? { x: c.labelOffset.x, y: c.labelOffset.y } : (() => { const p = _pointAlongPath(pts, 0.5); return { x: p.x, y: p.y }; })();
     if (pos.x < vx - 30 || pos.x > vx + WINW + 30 || pos.y < vy - 30 || pos.y > vy + WINH + 30) return null;
     const lines = (c.label || '').split('\n');
-    const lw = Math.max(20, Math.max(...lines.map(l => l.length)) * 6 + 6), lh = 12 * lines.length + 6;
+    // ⚠️ Mesurée, comme l'étiquette du canevas : une largeur de texte ne
+    // s'estime pas au nombre de caractères.
+    const lw = Math.max(20, Math.ceil(Math.max(...lines.map(l => mesurerTexte(l, POLICE_PLACEMENT)))) + 12), lh = 12 * lines.length + 6;
     const g = document.createElementNS(NS, 'g'); g.style.cursor = 'grab';
     g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
     const rect = document.createElementNS(NS, 'rect');
@@ -7330,7 +7528,9 @@ function setLabelsAlongArrows(t) {
     let total = 0;
     for (let i = 0; i < pts.length - 1; i++) total += Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].y - pts[i].y);
     const lines = (c.label || '').split('\n');
-    const lw = Math.max(24, Math.max(...lines.map(l => l.length)) * 6.5 + 10);
+    // ⚠️ Mesurée : sous-estimée, la marge menagée aux deux bouts est trop
+    // courte et l'étiquette peut glisser sur la forme d'extrémité.
+    const lw = Math.max(24, Math.ceil(Math.max(...lines.map(l => mesurerTexte(l, POLICE_ETIQUETTE)))) + 10);
     const marginFrac = total > 0 ? Math.min(0.42, (lw / 2 + 16) / total) : 0.42;
     const tEff = marginFrac + t * (1 - 2 * marginFrac); // t=0 → origine dégagée, t=1 → pointe dégagée
     const p = _pointAlongPath(pts, tEff);
@@ -7827,6 +8027,10 @@ function init() {
   });
 
   // Panel collapse
+  document.getElementById('cmap-search').addEventListener('input', (e) => {
+    _filtreIndex = e.target.value || '';
+    _filtrerIndex();
+  });
   document.getElementById('btn-close-left-panel').addEventListener('click', () => setLeftPanelOpen(false));
   document.getElementById('btn-close-props').addEventListener('click', () => setPropsOpen(false));
   document.getElementById('btn-left-panel-open').addEventListener('click', () => setLeftPanelOpen(!leftPanelOpen));

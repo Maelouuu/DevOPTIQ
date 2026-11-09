@@ -161,6 +161,14 @@
   <div class="panel-prelayer panel-prelayer--2"></div>
 </div>
 <button id="btn-close-left-panel" style="display:none"></button>
+{# ⚠️ Le MÊME champ que dans l'éditeur : editor.js câble ses écouteurs
+   sans garde, un id absent d'un gabarit interrompt TOUTE l'init — carto
+   comprise. Et le viewer y gagne la recherche lui aussi. #}
+<div class="cmap-chercher">
+  <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+  <input type="search" id="cmap-search" autocomplete="off" placeholder="{{ t('editor.cmap_search') }}" aria-label="{{ t('editor.cmap_search') }}">
+  <span id="cmap-count" class="cmap-count"></span>
+</div>
 <div id="canvas-map-scroll"><div id="canvas-map-list"></div></div>
 </aside>
 <aside id="properties"><div class="panel-prelayers" aria-hidden="true">
