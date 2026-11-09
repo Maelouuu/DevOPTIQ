@@ -7478,6 +7478,94 @@ Tests : `test_105` passe de 99 à **101 cas** ; **3 gardes retirées une par une
 libellé qui redevient une ligne de base). Suite : **3 875 passés**, 1 sauté ;
 `repet_image` **3 804 passés** + 72 sautés.
 
+#### Le nom d'une analyse, et les deux bandes qui disaient la même chose (2026-11-09)
+
+**1 · « Je n'ai pas l'impression que l'on puisse modifier le nom d'une
+analyse. »** Il se modifiait depuis toujours, et les trois routes l'écrivent
+(`PUT /api/project/<id>`, `PATCH /api/role_analysis/<id>`,
+`PUT /api/weakness/<id>`) — des cas de `test_105` le tenaient déjà. C'était
+un défaut de DÉCOUVRABILITÉ, et il tenait à deux choses :
+
+- ⚠️ **Le champ ne portait qu'un `placeholder`**, poussé tout à DROITE d'un
+  `card-head` par un `spacer`. Ouvert pour modification, le champ est REMPLI :
+  plus de placeholder non plus, donc une simple boîte de texte sans étiquette
+  au bout d'un en-tête. Projet et Rôle étaient dans ce cas ; la Faiblesse
+  avait déjà son libellé (`fw_desc_label`), et l'analyse d'ACTIVITÉ n'a pas
+  de nom — son identité, c'est l'activité choisie.
+- ⚠️ **Le repère du haut portait un CRAYON et le nom** — la promesse
+  universelle d'un renommage — et la seule chose cliquable à côté était la
+  croix qui QUITTE la modification. C'est là que l'utilisateur a cliqué :
+  « ce qui embrouille davantage, car je pensais trouver la fonctionnalité à
+  l'endroit en question ».
+
+Le champ prend donc un libellé et la **première place du formulaire**, à
+gauche ; les deux `card-head` disparaissent, ils n'existaient que pour
+l'aligner à droite. Et le nom du repère devient un **bouton qui MÈNE au
+champ** (focus + sélection).
+- ⚠️ **Il ne porte PAS une seconde saisie** : le nom n'a qu'une source. Deux
+  champs pour une même valeur finiraient par se contredire. Il s'éteint quand
+  le type n'a pas de champ de nom (activité).
+- ⚠️ **`.tm-mod button` visait TOUS les boutons du repère** : le nom, devenu
+  bouton, serait devenu une pastille ronde de 20 px. La pastille est visée par
+  son id. Et `.tm-barre .tm-mod button { color: #fff }` — une AUTRE règle,
+  voulue — peint ce bouton en blanc : son trait pointillé suit donc
+  `currentColor`, un ambre y serait invisible.
+- ⚠️ **`w-280` & co ne sont que des PLAFONDS** (`max-width`) : un `<input>`
+  nu se pose à sa taille par défaut, **177 px**. Le bloc porte la base
+  (300 px), le champ la remplit.
+
+**2 · « Pourquoi les deux barres affichent 0.5h alors que la seconde compte
+l'attente ajoutée ? »**
+⚠️⚠️ **Le schéma avait raison ; c'est `fmtH` qui mentait.** Reproduit au
+chiffre près (durée 30 min, délai 30 min, travail refait 1,5 h) :
+
+| attente ajoutée | bande 1 | bande 2 | la puce |
+|---|---|---|---|
+| 0 min | 0.5h | 0.5h | *(pas de puce)* |
+| **1 min** | **0.5h** | **0.5h** | **+ 0.0h** |
+| 2 min | 0.5h | 0.5h | + 0.0h |
+| 3 min | 0.5h | **0.6h** | + 0.0h |
+
+La puce était affichée sur la capture — or `fw-q-m` n'apparaît que si
+`M > 0` : l'attente valait donc **une ou deux minutes**, pas zéro.
+`Y = C + M` donne 31 min, et `(31/60).toFixed(1)` rend « 0.5 » comme 30 min.
+Quatre signaux se contredisaient : deux livraisons identiques, une puce à
+« 0.0h », et un segment hachuré bel et bien dessiné.
+
+**`fmtH` écrit des MINUTES sous une heure.** « 0.0h » pour une minute est un
+mensonge, et la page se saisit en minutes — elle peut les écrire. Mesuré
+après : « livré en 30 min » / « livré en 31 min », « + 1 min d'attente
+subie en aval », et « Retard total / mois travaillé : 11 min » au lieu de
+« 0.2h ».
+- ⚠️ **On arrondit AVANT de choisir l'unité** : sinon 59,6 min sortirait
+  « 60 min » juste à côté d'un « 1.0h » qui vaut la même chose.
+- ⚠️ Espace **insécable**, et « min » s'écrit pareil dans les deux langues :
+  rien à traduire ici.
+- ⚠️ **Deux en-têtes annonçaient encore des heures** au-dessus de valeurs qui
+  portent désormais leur unité — « Pesée (h) » au-dessus de « 35 min »,
+  c'est-à-dire le défaut qu'on venait de corriger. `col_charge` et
+  `col_weight` perdent leur « (h) » ; les colonnes de SAISIE gardent la leur
+  (`col_duration_min`), le nombre y est nu.
+- ℹ️ `col_duration_h`, `col_delay_h`, `col_load_h`, `col_total_h` et
+  `col_weighed_h` ne sont lues par AUCUN gabarit ni JS : clés mortes, laissées
+  telles quelles — c'est un ménage à part.
+
+⚠️⚠️ **Le heredoc du shell AVALE un antislash** — troisième fois dans ce
+dépôt. Un `"\\n"` écrit dans un `<<'EOF'` arrive `"\n"` dans le fichier,
+donc un VRAI retour à la ligne côté Python : `js.index("\n  }")` est devenu une
+chaîne non terminée et le fichier de tests ne se compilait plus. Composer par
+`chr(10)` / `chr(92)`, ou passer par un éditeur qui écrit exactement.
+
+Tests : `tests/test_105_temps_refonte.py` passe de 101 à **110 cas** ; **neuf
+gardes retirées une par une, neuf cliquets tombés**.
+Éprouvé au banc (`tools/devrun_temps.py`) dans les deux langues : renommage
+d'un projet et d'une analyse de rôle **relus en base**, clic du repère qui
+focalise et sélectionne le champ, et l'audit anglais repassé — étendu aux
+analyses ouvertes pour modification — sur **8 182 textes** : 0 fuite, 0 clé
+brute, 0 unité française sur 518 options.
+Suite : **3 884 passés**, 1 sauté ; `repet_image` **3 813 passés** +
+72 sautés.
+
 ---
 
 ## Notes importantes (suite)

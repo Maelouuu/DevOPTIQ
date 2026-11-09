@@ -1403,3 +1403,126 @@ class TestLaSectionResultatsDUneFaiblesse:
         js = _lire("static/js/time.js")
         bloc = js[js.index("const brut = (sem"):][:260]
         assert "L.lang === 'en'" in bloc, bloc
+
+
+class TestLeNomSeModifieLaOuOnLeCherche:
+    """⚠️ « Je n'ai pas l'impression que l'on puisse modifier le nom d'une
+    analyse » — il se modifiait depuis toujours, et les trois routes
+    l'écrivent (d'autres cas de ce fichier le tiennent). C'était un défaut
+    de DÉCOUVRABILITÉ, et il tenait à deux choses :
+
+    · le champ ne portait qu'un `placeholder`, poussé tout à DROITE d'un
+      en-tête par un `spacer` — et ouvert pour modification il est REMPLI,
+      donc plus de placeholder non plus : une boîte de texte sans étiquette ;
+    · le repère du haut portait un CRAYON et le nom, c'est-à-dire la
+      promesse universelle d'un renommage, et la seule chose cliquable à
+      côté était la croix qui QUITTE la modification.
+    """
+
+    def test_le_nom_porte_un_LIBELLE_et_non_un_simple_placeholder(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for champ, cle in (("project-name", "time.project_name_label"),
+                           ("role-name", "time.role_analysis_label"),
+                           ("role-select", "time.role_label")):
+            i = g.index('id="%s"' % champ)
+            avant = g[max(0, i - 300):i]
+            assert ('<label for="%s">' % champ) in avant, champ
+            assert cle in avant, (champ, cle)
+
+    def test_le_nom_a_quitte_l_en_tete_pousse_a_droite(self):
+        """Un `card-head` dont le seul rôle était d'aligner à droite un champ
+        sans étiquette. Le champ prend la première place du formulaire."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for panneau, suivant in (("subtab-projet", "subtab-activite"),
+                                 ("subtab-role", "subtab-faiblesse")):
+            bloc = g[g.index('id="%s"' % panneau):g.index('id="%s"' % suivant)]
+            assert 'class="tm-nom"' in bloc, panneau
+            assert 'class="card-head"' not in bloc, panneau
+
+    def test_le_repere_de_modification_MENE_au_champ_du_nom(self):
+        """⚠️ Il MÈNE au champ, il ne porte pas une seconde saisie : le nom
+        n'a qu'une source. Deux champs pour une même valeur finiraient par se
+        contredire."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert '<button type="button" id="tm-mod-nom"' in g
+        assert "t('time.tm_mod_nom')" in g
+        js = _lire("static/js/time.js")
+        i = js.index("const CHAMP_NOM")
+        carte = js[i:js.index("}", i)]
+        for type_, champ in (("projet", "#project-name"), ("role", "#role-name"),
+                             ("faiblesse", "#fw-k")):
+            assert type_ in carte and champ in carte, type_
+        j = js.index("$('#tm-mod-nom')?.addEventListener")
+        geste = js[j:j + 400]
+        assert "champ.focus(" in geste and "champ.select()" in geste, geste
+
+    def test_le_bouton_s_ETEINT_quand_il_n_y_a_pas_de_champ(self):
+        """L'analyse d'activité n'a pas de nom : son identité, c'est
+        l'activité choisie. Le bouton n'aurait nulle part où mener."""
+        js = _lire("static/js/time.js")
+        i = js.index("function majBandeauEdition")
+        corps = js[i:js.index("  }", i)]
+        assert "disabled = !CHAMP_NOM[edition.type]" in corps, corps
+
+    def test_la_croix_garde_la_pastille_et_le_nom_NON(self):
+        """⚠️ `.tm-mod button` visait TOUS les boutons du repère : le nom,
+        devenu bouton, serait devenu une pastille ronde de 20 px."""
+        css = _css_propre()
+        # ⚠️ On vise la règle dont le sélecteur est EXACTEMENT
+        # `.tm-mod button` : `.tm-barre .tm-mod button { color: #fff }` en
+        # est une autre, voulue — c'est elle qui rend le nom lisible sur la
+        # bande colorée.
+        assert chr(10) + ".tm-mod button {" not in css
+        assert "border-radius: 50%" in _regle(css, ".tm-mod #tm-mod-sortir {")
+        nom = _regle(css, ".tm-mod > .tm-mod-nom {")
+        assert "border-radius" not in nom, nom
+        assert "text-overflow: ellipsis" in nom, nom
+
+
+class TestSousUneHeureOnEcritDesMinutes:
+    """⚠️ « Pourquoi les deux barres affichent 0.5h alors que la seconde
+    compte l'attente ajoutée ? » — le schéma avait raison, c'est `fmtH` qui
+    mentait. Reproduit : une attente d'UNE minute donne C = 30 et Y = 31, et
+    les deux sortaient « 0.5h », la puce « + 0.0h », et le segment hachuré
+    était bien dessiné — quatre signaux qui se contredisaient.
+    """
+
+    def test_fmtH_ecrit_des_MINUTES_sous_une_heure(self):
+        js = _lire("static/js/time.js")
+        i = js.index("function fmtH(min){")
+        corps = js[i:js.index(chr(10) + "  }", i)]
+        assert "< 60" in corps, corps
+        assert "'min'" in corps, corps
+        # Au-dessus de l'heure, rien ne change.
+        assert "toFixed(1)+'h'" in corps, corps
+
+    def test_on_arrondit_AVANT_de_choisir_l_unite(self):
+        """Sinon 59,6 min sortirait « 60 min » juste à côté d'un « 1.0h »
+        qui vaut la même chose."""
+        js = _lire("static/js/time.js")
+        i = js.index("function fmtH(min){")
+        corps = js[i:js.index(chr(10) + "  }", i)]
+        assert corps.index("Math.round(min)") < corps.index("< 60"), corps
+
+    def test_une_minute_d_attente_DEPLACE_la_livraison(self, app):
+        """La moitié SERVEUR du même fait : les deux bandes disent bien deux
+        choses différentes, seul l'affichage les confondait."""
+        from Code.routes.time_view import cout_faiblesse
+        p = {"hours_per_day": 7, "days_per_week": 5, "weeks_per_year": 48}
+        sans = cout_faiblesse(30, 30, "hebdomadaire", 2, 90, 0, 2,
+                              params=p, pct_proba=50)
+        une = cout_faiblesse(30, 30, "hebdomadaire", 2, 90, 1, 2,
+                             params=p, pct_proba=50)
+        assert sans["Y"] == sans["C"] == 30
+        assert une["Z"] == 1
+        assert une["Y"] - une["C"] == 1
+
+    def test_les_en_tetes_n_annoncent_plus_des_HEURES(self):
+        """La valeur porte désormais son unité : « Pesée (h) » au-dessus de
+        « 35 min » redevenait le défaut qu'on venait de corriger. ⚠️ Les
+        colonnes de SAISIE, elles, gardent la leur : le nombre y est nu."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.col_charge", "time.col_weight"):
+                assert "(h)" not in TRANSLATIONS[lg][cle].lower(), (lg, cle)
+            assert "(min)" in TRANSLATIONS[lg]["time.col_duration_min"], lg

@@ -334,7 +334,13 @@
            analyse de plus ou remplacer celle qu'on vient d'ouvrir. -->
       <span class="tm-mod hidden" id="tm-mod">
         <i class="fa-solid fa-pen"></i>
-        <span id="tm-mod-nom"></span>
+        <!-- ⚠️ Le nom est un BOUTON : c'est ici que l'utilisateur est venu
+             chercher le renommage — un crayon, un nom — et il n'y trouvait
+             qu'une croix qui QUITTE la modification. Il mène au champ, qui
+             reste la seule source du nom : deux champs pour une même valeur
+             finiraient par se contredire. -->
+        <button type="button" id="tm-mod-nom" class="tm-mod-nom"
+                title="{{ t('time.tm_mod_nom') }}"></button>
         <button type="button" id="tm-mod-sortir" title="{{ t('time.tm_mod_sortir') }}">
           <i class="fa-solid fa-xmark"></i>
         </button>
@@ -347,9 +353,17 @@
         <!-- ─────────────────────────── PROJET ─────────────────────────── -->
         <div id="subtab-projet" class="subtab-panel">
           <div class="card">
-            <div class="card-head">
-              <div class="spacer"></div>
-              <input id="project-name" class="input w-280" placeholder="{{ t('time.project_name_ph') }}"/>
+            <!-- ⚠️ Le nom ne portait qu'un `placeholder`, poussé tout à
+                 DROITE par un `spacer`. Ouvert pour modification, le champ est
+                 REMPLI : plus de placeholder non plus, donc une boîte de texte
+                 sans étiquette au bout d'un en-tête — et personne ne trouvait
+                 le renommage. Il prend un libellé, comme tous les autres
+                 champs de la page, et la première place du formulaire. -->
+            <div class="tm-nom">
+              <div class="sc-field">
+                <label for="project-name">{{ t('time.project_name_label') }}</label>
+                <input id="project-name" class="input w-280" />
+              </div>
             </div>
             <div class="table-wrap">
               <table class="grid">
@@ -439,14 +453,21 @@
         <!-- ──────────────────────────── RÔLE ──────────────────────────── -->
         <div id="subtab-role" class="subtab-panel">
           <div class="card">
-            <div class="card-head">
-              <div class="spacer"></div>
-              <select id="role-select" class="input w-320">
-                {% for r in roles %}
-                  <option value="{{ r.id }}">{{ r.name }}</option>
-                {% endfor %}
-              </select>
-              <input id="role-name" class="input w-260" placeholder="{{ t('time.role_analysis_ph') }}" />
+            <!-- Même correctif que pour le projet : deux champs sans
+                 étiquette, alignés à droite d'un en-tête. -->
+            <div class="tm-nom">
+              <div class="sc-field">
+                <label for="role-select">{{ t('time.role_label') }}</label>
+                <select id="role-select" class="input w-320">
+                  {% for r in roles %}
+                    <option value="{{ r.id }}">{{ r.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="sc-field">
+                <label for="role-name">{{ t('time.role_analysis_label') }}</label>
+                <input id="role-name" class="input w-260" placeholder="{{ t('time.role_analysis_ph') }}" />
+              </div>
             </div>
 
             <div class="table-wrap">

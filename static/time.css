@@ -663,11 +663,26 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 }
 .tm-mod > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tm-mod > i { font-size: 10px; }
-.tm-mod button {
+/* ⚠️ VISÉ PAR SON ID, pas `.tm-mod button` : le nom est devenu un bouton
+   lui aussi, et la règle générale en aurait fait une pastille ronde de
+   20 px. La croix garde la pastille, le nom garde la forme d'un texte. */
+.tm-mod #tm-mod-sortir {
   flex: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
   background: rgba(146, 64, 14, .12); border: 0; color: #92400e; font-size: 10px;
 }
-.tm-mod button:hover { background: rgba(146, 64, 14, .24); }
+.tm-mod #tm-mod-sortir:hover { background: rgba(146, 64, 14, .24); }
+/* Le nom MÈNE au champ : un trait pointillé le dit sans peser, et il
+   s'éteint quand il n'y a pas de champ où mener (analyse d'activité). */
+.tm-mod > .tm-mod-nom {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 220px; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  /* ⚠️ `currentColor` : dans la barre colorée, `.tm-barre .tm-mod button`
+     passe ce bouton en BLANC — un trait ambre y serait invisible. */
+  border-bottom: 1px dashed color-mix(in srgb, currentColor 50%, transparent);
+}
+.tm-mod > .tm-mod-nom:hover { border-bottom-color: currentColor; }
+.tm-mod > .tm-mod-nom:disabled { border-bottom: 0; cursor: default; }
 
 /* ── Les deux boutons de l'en-tête ──
    ⚠️ Ils reprennent le vocabulaire de la page Carte, qui s'est décidé sur
@@ -970,6 +985,20 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   margin-top: 5px;
 }
 #tm-travail .tm-saisie .chk { font-size: 14.5px; }
+
+/* ⚠️ LE NOM D'UNE ANALYSE EST UN CHAMP COMME LES AUTRES. Il vivait dans
+   un `card-head`, poussé tout à droite par un `spacer`, sans étiquette :
+   une boîte de texte au bout d'un en-tête, que personne n'a reconnue. */
+#tm-travail .tm-saisie .tm-nom {
+  display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 15px;
+}
+/* ⚠️ `w-280` & co ne sont que des PLAFONDS (`max-width`) : un `<input>`
+   nu se pose à sa taille par défaut, 177 px. On donne une base au bloc et
+   on laisse le champ la remplir — le plafond fait le reste. */
+#tm-travail .tm-saisie .tm-nom .sc-field {
+  display: flex; flex-direction: column; min-width: 0; flex: 0 1 300px;
+}
+#tm-travail .tm-saisie .tm-nom .input { width: 100%; }
 
 /* -- la couleur du type, dans la carte et les sous-cartes -- */
 #tm-travail .tm-saisie .subcard {

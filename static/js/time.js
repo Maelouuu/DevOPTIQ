@@ -47,11 +47,20 @@
     await chargerTableauDeBord();
   }
 
+  /* Le champ qui PORTE le nom, par type. L'analyse d'activité n'en a pas :
+     son identité, c'est l'activité choisie — le bouton du repère n'aurait
+     nulle part où mener, il est alors éteint. */
+  const CHAMP_NOM = { projet: '#project-name', role: '#role-name',
+                      faiblesse: '#fw-k' };
+
   function majBandeauEdition(){
     const b = $('#tm-mod');
     if (!b) return;
     b.classList.toggle('hidden', !edition);
-    if (edition) updateKpi('tm-mod-nom', edition.nom || tl('tm_mod', ''));
+    if (!edition) return;
+    updateKpi('tm-mod-nom', edition.nom || tl('tm_mod', ''));
+    const bouton = $('#tm-mod-nom');
+    if (bouton) bouton.disabled = !CHAMP_NOM[edition.type];
   }
 
   function sortirEdition(){
@@ -130,6 +139,17 @@
      vient le plus souvent ici pour RELIRE. */
   $$('.tm-rail-t').forEach(
     b => b.addEventListener('click', () => montrerGroupe(b.dataset.analyse)));
+  /* ⚠️ Le repère MÈNE au champ, il ne porte pas une seconde saisie : le nom
+     n'a qu'une source. C'est là que l'utilisateur vient le chercher — un
+     crayon et un nom — et il n'y trouvait qu'une croix qui QUITTE. */
+  $('#tm-mod-nom')?.addEventListener('click', () => {
+    const sel = edition && CHAMP_NOM[edition.type];
+    const champ = sel ? $(sel) : null;
+    if (!champ) return;
+    champ.focus({ preventScroll: true });
+    champ.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (champ.select) champ.select();
+  });
   $('#tm-mod-sortir')?.addEventListener('click', () => {
     // Quitter la modification remet l'écran à neuf : garder la saisie
     // laisserait croire qu'elle est encore rattachée à l'analyse ouverte.
@@ -142,8 +162,20 @@
     const k={minutes:1, heures:60, jours:1440};
     return (parseFloat(qty||0)*(k[(unit||'minutes').toLowerCase()]||1));
   }
+  /* ⚠️ SOUS UNE HEURE, ON ÉCRIT DES MINUTES. « 0.0h » pour une attente
+     d'une minute est un MENSONGE, et deux livraisons distinctes — 30 min et
+     31 min — s'affichaient à l'identique « 0.5h » pendant que le schéma
+     dessinait bien l'écart : quatre signaux qui se contredisaient. La page
+     se saisit en minutes, elle peut les écrire.
+     ⚠️ On arrondit AVANT de choisir l'unité : sans cela 59,6 min sortirait
+     « 60 min » juste à côté d'un « 1.0h » qui vaut la même chose.
+     ⚠️ Espace INSÉCABLE : un nombre ne se sépare pas de son unité en fin de
+     ligne. « min » s'écrit pareil dans les deux langues — rien à traduire. */
+  const NBSP = String.fromCharCode(160);
   function fmtH(min){
     if(min===null||min===undefined||isNaN(min)) return '—';
+    const m = Math.round(min);
+    if (Math.abs(m) < 60) return m + NBSP + 'min';
     const h=min/60;
     return (Math.round(h*10)/10).toFixed(1)+'h';
   }
