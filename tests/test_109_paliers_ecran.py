@@ -901,16 +901,18 @@ class TestLEnregistrementTrouveSesCartes:
         assert "ecrites" in corps
         assert "toast(ecrites ? T('saved') : T('save_rien'));" in corps
 
-    def test_la_preuve_part_TOUJOURS_avec_la_note(self):
-        """⚠️ La route fait `(evidence or "").strip() or None` : une note
-        enregistrée sans preuve EFFACE celle qui est en base. Poser un niveau
-        depuis la piste suffirait alors à perdre ce que quelqu'un avait
-        écrit — la note emporte donc la preuve existante."""
+    def test_la_preuve_ne_s_envoie_QUE_si_on_l_a_touchee(self):
+        """⚠️ La route faisait `(evidence or "").strip() or None` sur une clé
+        ABSENTE : une note enregistrée sans preuve effaçait celle qui était en
+        base, et poser un niveau depuis la piste — où il n'y a pas de champ de
+        preuve — suffisait à perdre ce que quelqu'un avait écrit. La route ne
+        réécrit plus `evidence` que sur PRÉSENCE de la clé ; l'écran ne
+        l'envoie donc que si on l'a modifiée."""
         js = _lire(JS)
         pose = js.split("  function poserNote(r, niveau, st) {", 1)[1].split("\n  }", 1)[0]
-        assert "jeSuisLeDev() ? r.evidence : r.self_evidence" in pose
+        assert "{ niveau: niveau }" in pose, "elle ne pose QUE le niveau"
         corps = js.split("  async function saveEvaluation() {", 1)[1].split("\n  }", 1)[0]
-        assert "evidence: s.preuve || ''" in corps
+        assert "if ('preuve' in s) corps.evidence = s.preuve || '';" in corps
 
 
 class TestLeCalendrierFiltreEtPoseLesDates:

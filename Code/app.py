@@ -776,6 +776,11 @@ def create_app(test_config=None):
         _safe_add_column("data", "norme_valeur", "DOUBLE PRECISION")
         _safe_add_column("data", "norme_unite", "VARCHAR(20)")
         _safe_add_column("data", "norme_sens", "VARCHAR(10)")
+        # Le VERDICT du jour, figé sur le palier. Il se déduisait de la mesure
+        # à chaque lecture, avec les seuils d'aujourd'hui : poser plus tard une
+        # marche au-delà de la norme relisait tout le passé avec la nouvelle
+        # frontière, et l'historique changeait rétroactivement.
+        _safe_add_column("paliers_performance", "niveau_atteint", "INTEGER")
         try:
             from Code.models.models import PalierPerformance, SessionEvaluation
             for model in (SessionEvaluation, PalierPerformance):
@@ -783,6 +788,26 @@ def create_app(test_config=None):
             print("[DB] Tables paliers de performance prêtes")
         except Exception as e:
             print(f"[DB] paliers check: {e}")
+
+        # ── Le REGISTRE des notes posées à la main, en ajout seul.
+        # `CompetencyEvaluation` porte l'état COURANT et s'écrase à chaque
+        # enregistrement : sans ce registre, une sortie jugée à la main n'a
+        # aucun historique, et sa courbe se réduit à un point.
+        try:
+            from Code.models.models import NoteEvaluation
+            NoteEvaluation.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table notes_evaluation prête")
+        except Exception as e:
+            print(f"[DB] notes_evaluation check: {e}")
+
+        try:
+            from Code.historique_notes import reprendre_notes_existantes
+            reprises = reprendre_notes_existantes()
+            if reprises:
+                print(f"[DB] {reprises} note(s) reprise(s) dans le registre")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise des notes: {e}")
 
         try:
             from Code.models.models import EntrepriseSettings

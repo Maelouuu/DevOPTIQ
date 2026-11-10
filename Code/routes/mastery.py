@@ -8,7 +8,8 @@
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from Code.extensions import db
-from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
+from Code.models.models import (Activities, Data, CompetencyEvaluation, NoteEvaluation,
+                                UserRole, activity_roles)
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
 from Code.historique_notes import historique_activite
@@ -570,8 +571,20 @@ def evaluate():
             eval_number=evaluator, note="")
         db.session.add(ev)
     ev.mastery_level = lvl
-    ev.evidence = (p.get("evidence") or "").strip() or None
+    # ⚠️ La preuve ne se touche QUE si on l'envoie. `(x or "").strip() or None`
+    # appliqué à une clé ABSENTE efface ce qui est en base : poser un niveau
+    # depuis la piste de l'axe — où il n'y a pas de champ de preuve — suffisait
+    # à perdre ce que quelqu'un avait écrit.
+    if "evidence" in p:
+        ev.evidence = (p.get("evidence") or "").strip() or None
     ev.evaluated_at = now
     ev.evaluator_user_id = p.get("evaluator_user_id")
+    # ⚠️ Et on AJOUTE au REGISTRE. La ligne ci-dessus est écrasée à chaque
+    # enregistrement : elle porte l'état courant, jamais l'histoire. Même
+    # transaction — un état courant sans son événement serait un trou.
+    db.session.add(NoteEvaluation(
+        user_id=uid, activity_id=aid, data_id=did, role_id=rid,
+        eval_number=evaluator, niveau=lvl, evidence=ev.evidence,
+        evaluator_user_id=p.get("evaluator_user_id"), posee_le=now, source="main"))
     db.session.commit()
     return jsonify({"ok": True, "state": activity_mastery(uid, aid, rid)}), 200

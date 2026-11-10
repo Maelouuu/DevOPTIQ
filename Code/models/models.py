@@ -608,6 +608,47 @@ class CompetencyEvaluation(db.Model):
     )
 
 
+class NoteEvaluation(db.Model):
+    """Le REGISTRE des notes posées à la main — en AJOUT SEUL.
+
+    ⚠️⚠️ `CompetencyEvaluation` porte UNE ligne par (collaborateur, activité,
+    sortie, évaluateur), et `/mastery/evaluate` l'écrase à chaque
+    enregistrement : la note précédente disparaît, et seule sa date survit.
+    Tout le module lit cette ligne pour connaître l'état COURANT — c'est bien,
+    c'est rapide, et on n'y touche pas. Mais il n'y avait alors AUCUN
+    historique : la courbe d'une sortie jugée à la main était un point, et
+    l'écran ne pouvait pas montrer une progression qu'on n'avait pas gardée.
+
+    Cette table est l'autre moitié : un ÉVÉNEMENT par écriture, jamais modifié,
+    jamais supprimé. L'état courant reste dans `CompetencyEvaluation` (lu
+    partout), l'histoire vit ici (lue par la frise). Deux rôles, deux tables —
+    un registre qu'on relirait pour connaître l'état courant coûterait un
+    balayage à chaque ligne de chaque tableau.
+
+    ⚠️ `niveau` NULL est un vrai événement : c'est l'effacement d'une note.
+    La frise ne le dessine pas (il n'y a pas de point à 0) mais le report du
+    dernier niveau connu doit s'arrêter là — sinon une note retirée
+    continuerait de peser sur le niveau de l'activité.
+    """
+    __tablename__ = 'notes_evaluation'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, index=True)
+
+    eval_number = db.Column(db.String(50), nullable=False)   # '0' auto, '1' garant, '2' dév.
+    niveau = db.Column(db.Integer, nullable=True)            # 0..4, NULL = note effacée
+    evidence = db.Column(db.Text, nullable=True)
+    evaluator_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    posee_le = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    # 'main' = posée à la main, 'reprise' = recopiée de l'état courant lors de
+    # la mise en service du registre. On ne présente pas une reprise comme une
+    # note qu'on aurait vraiment vue poser ce jour-là.
+    source = db.Column(db.String(10), nullable=False, default='main')
+
+
 class ResultCapabilityLink(db.Model):
     """V1.1 — CDC 2.7 : relie un RÉSULTAT (Data.semantic_nature = RESULT) aux savoirs,
     savoir-faire et HSC nécessaires pour le produire. Sert au DIAGNOSTIC d'un écart : quand
@@ -902,6 +943,13 @@ class PalierPerformance(db.Model):
     # Après la session : ce qu'on a mesuré, et ce qu'on en conclut.
     statut = db.Column(db.String(16), nullable=False, default='en_cours')  # en_cours|atteint|manque
     mesure_valeur = db.Column(db.Float, nullable=True)
+    # ⚠️ Le NIVEAU TRANCHÉ ce jour-là, figé. Il se déduisait de la mesure à
+    # chaque lecture, avec les seuils d'AUJOURD'HUI : poser une marche au-delà
+    # de la norme relisait alors tout le passé avec la nouvelle frontière, et
+    # l'historique changeait rétroactivement sans que personne n'ait rien
+    # touché. Un palier porte désormais son verdict comme il porte sa mesure.
+    # (NULL sur les lignes d'avant : on retombe sur la déduction.)
+    niveau_atteint = db.Column(db.Integer, nullable=True)
     evalue_le = db.Column(db.DateTime, nullable=True)
     evaluateur_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     preuve = db.Column(db.Text, nullable=True)

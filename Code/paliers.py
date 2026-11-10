@@ -316,7 +316,25 @@ def trancher(palier, mesure, evaluateur_id=None, preuve=None, quand=None):
     if preuve is not None:
         palier.preuve = (preuve or "").strip() or None
     palier.statut = "atteint" if atteint(mesure, palier.cible_valeur, sens) else "manque"
+    # ⚠️ Et on FIGE le niveau tranché ce jour-là. Il se déduisait de la mesure
+    # à chaque lecture, avec les seuils d'AUJOURD'HUI : poser plus tard une
+    # marche au-delà de la norme relisait tout le passé avec la nouvelle
+    # frontière, et l'historique changeait rétroactivement. Un palier porte
+    # son verdict comme il porte sa mesure.
+    palier.niveau_atteint = _niveau_du_jour(palier, d)
     return palier.statut
+
+
+def _niveau_du_jour(palier, d):
+    """Le niveau 0→4 que vaut la mesure de ce palier, au moment où on tranche."""
+    if d is None or d.norme_valeur is None:
+        return None
+    paliers = paliers_de(palier.user_id, palier.data_id, palier.role_id)
+    cibles = [p.cible_valeur for p in paliers] or [palier.cible_valeur]
+    marge = pas_de_progression(cibles, d.norme_valeur, d.norme_sens)
+    return niveau_depuis_mesure(
+        palier.mesure_valeur, d.norme_valeur, d.norme_sens, cibles[0], marge,
+        seuil_au_dela(cibles, d.norme_valeur, d.norme_sens, marge))
 
 
 def poser_premiere_mesure(d, user_id, role_id, mesure, preuve=None, evaluateur_id=None):

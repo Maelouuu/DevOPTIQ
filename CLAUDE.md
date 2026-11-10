@@ -7856,6 +7856,83 @@ l'écran anglais** — 81 textes relevés, attributs et SVG compris.
 
 ---
 
+#### Ce qui manquait dans la BASE, et qui est comblé (2026-11-10, suite)
+
+Les quatre limites relevées en livrant l'axe partagé tenaient à la structure,
+pas à l'écran. Trois sont des changements de schéma, la quatrième un contrat
+de route. Tout est en place.
+
+**1 · `NoteEvaluation` — le REGISTRE des notes posées à la main, en ajout
+seul** (table `notes_evaluation`). `CompetencyEvaluation` porte UNE ligne par
+(collaborateur, activité, sortie, évaluateur) et `/mastery/evaluate` l'écrase
+à chaque enregistrement : la note précédente disparaissait, seule sa date
+survivait, et la courbe d'une sortie jugée à la main se réduisait à un point.
+Un ÉVÉNEMENT par écriture est désormais ajouté, dans la MÊME transaction —
+un état courant sans son événement serait un trou dans l'historique.
+- ⚠️ **On COMPLÈTE, on ne remplace pas.** L'état courant reste dans
+  `CompetencyEvaluation`, lu partout (tableaux RH, synthèse, diagnostic,
+  plan) ; l'histoire vit dans le registre, lue par la seule frise. Un
+  registre qu'on relirait pour connaître l'état courant coûterait un balayage
+  à chaque ligne de chaque tableau.
+- ⚠️ **`niveau` NULL est un vrai événement** : c'est l'effacement d'une note.
+  La frise ne le dessine pas — il n'y a pas de point à tracer — mais il DATE
+  la fin du report. Sans lui, une note retirée continuerait de peser sur le
+  niveau de l'activité.
+- ⚠️ **Deux écritures le MÊME jour ne font qu'un point** : c'est l'état du
+  jour qui compte, donc la dernière. Sinon la courbe rebrousserait chemin sur
+  une abscisse unique. À égalité de jour, un événement posé à la main
+  l'emporte sur un palier — c'est la règle de `activity_mastery`, où
+  l'expertise posée gagne sur la déduction.
+- ⚠️ **Pas de filtre de rôle à la lecture** : une note vaut pour
+  (collaborateur, activité, sortie, évaluateur), exactement comme la ligne
+  d'état courant. Filtrer sur le rôle ferait disparaître l'historique d'une
+  personne qui change de rôle.
+
+**2 · `PalierPerformance.niveau_atteint` — le verdict du jour, FIGÉ.**
+Il se déduisait de la mesure à chaque lecture, avec les seuils
+d'AUJOURD'HUI : poser plus tard une marche au-delà de la norme relisait tout
+le passé avec la nouvelle frontière, et l'historique changeait
+rétroactivement sans que personne n'ait rien touché. Mesuré : sur
+96 → 72 → 48 (la norme), une mesure de 30 h vaut 2 ; poser ensuite une marche
+à 36 h faisait dire **3** à la déduction pour la même journée. `trancher()`
+enregistre désormais le niveau comme il enregistre la mesure.
+⚠️ La déduction reste en REPLI pour les lignes tranchées avant la colonne :
+sans elle, tout l'historique déjà en base tomberait d'un coup.
+
+**3 · `/mastery/evaluate` ne touche à `evidence` que si la clé est ENVOYÉE.**
+Elle faisait `(evidence or "").strip() or None` sur une clé absente : une
+note enregistrée sans preuve effaçait celle qui était en base. Poser un
+niveau depuis la piste de l'axe — où il n'y a pas de champ de preuve —
+suffisait à perdre ce que quelqu'un avait écrit. L'écran n'a plus à la
+trimballer avec chaque note : il ne l'envoie que s'il l'a touchée.
+
+**4 · `reprendre_notes_existantes()` — la reprise, UNE fois.**
+Les notes déjà en base n'ont aucun événement : sans reprise, la frise
+perdrait le seul point qu'elle savait montrer. Ces lignes portent
+`source='reprise'` — on ne présente pas une recopie comme une note qu'on
+aurait vue poser ce jour-là, et c'est ce qui permet à l'écran de dire **d'où
+part l'historique** (`avant_registre`, derrière un « i »). La mention
+disparaît d'elle-même dès qu'une note est posée après.
+⚠️ Le marqueur (`notes_evaluation_reprise`) vit en BASE, pas en mémoire : une
+instance qui redémarre, se duplique ou se redéploie doit lire la même
+réponse. Rejouée à chaque démarrage, la reprise ajouterait une ligne de plus
+à chaque fois. `force=True` la rejoue, et elle reste idempotente.
+
+ℹ️ **Ce qui n'a PAS été touché** : les deux notions de « requis » qui
+cohabitent — `activity_roles.required_mastery_level` (par activité × rôle,
+celui que l'axe dessine) et `result_capability_links.required_level` (par
+capacité, lu par le diagnostic). Ce n'est pas un manque de sauvegarde, c'est
+une question de modèle : elle se tranche en regardant les deux écrans.
+
+Tests : `test_139` passe de 11 à **22 cas**, et **neuf défauts remis un par
+un, neuf cliquets tombés** (le registre débranché, la preuve écrasée, le
+niveau non figé, le figé ignoré, l'effacement qui ne coupe plus le report,
+les deux écritures du même jour, la reprise sans garde, `avant_registre`
+vidé, la preuve renvoyée à chaque note). Éprouvé au banc de bout en bout :
+deux notes posées d'affilée, la courbe gagne son point et le niveau suit.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

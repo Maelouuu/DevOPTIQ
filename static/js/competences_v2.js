@@ -50,8 +50,8 @@
       h_au: 'au niveau attendu',
       h_sans_glob: 'Pas de niveau d’activité tant qu’une sortie n’est pas notée.',
       h_jamais: 'Jamais notée',
-      h_une_note: 'Une seule note connue',
-      h_une_note_d: 'Une sortie jugée à la main ne garde que sa dernière note : l’enregistrement écrase la précédente. Sa courbe est donc un point, pas une progression. Les sorties mesurées, elles, gardent chaque séance.',
+      h_une_note: 'D’où part l’historique',
+      h_une_note_d: 'Avant le registre des notes, seule la DERNIÈRE note posée à la main était conservée : l’historique de ces sorties commence donc à sa reprise. Il s’allonge dès la prochaine note. Les sorties mesurées, elles, ont toujours gardé chaque séance.',
       h_niveau: 'niveau',
       ev_min_i: "Le niveau d'une activité est le PLUS BAS de ses sorties, jamais leur moyenne : on ne tient une activité que si on tient tout ce qu'elle produit. Une sortie non évaluée ne compte pas pour zéro — elle laisse le niveau en attente.",
       sq_prete_1: 'La mesure est prête.',
@@ -418,8 +418,8 @@
       h_au: 'at the expected level',
       h_sans_glob: 'No activity level until every output is rated.',
       h_jamais: 'Never rated',
-      h_une_note: 'Only one rating kept',
-      h_une_note_d: 'A hand-judged output keeps only its latest rating: saving overwrites the previous one. Its curve is a point, not a progression. Measured outputs keep every session.',
+      h_une_note: 'Where the history starts',
+      h_une_note_d: 'Before the rating ledger, only the LATEST hand-posted rating was kept: the history of these outputs starts at its carry-over. It grows from the next rating on. Measured outputs have always kept every session.',
       h_niveau: 'level',
       ev_min_i: "An activity's level is the LOWEST of its outputs, never their average: you only hold an activity if you hold everything it produces. An output that has not been assessed does not count as zero — it leaves the level pending.",
       sq_prete_1: 'The measurement is ready.',
@@ -1803,14 +1803,19 @@
     let ecrites = 0;
     for (const id of ids) {
       const s = state.saisie[id];
+      const corps = {
+        user_id: state.cible, activity_id: state.activity.activity_id,
+        data_id: +id, evaluator: monEvaluateur(),
+        mastery_level: estNul(s.niveau) ? null : s.niveau,
+        role_id: state.roleId,
+      };
+      // ⚠️ La preuve n'est envoyée QUE si on l'a touchée : la route ne
+      // réécrit `evidence` que sur PRÉSENCE de la clé, et l'omettre la laisse
+      // intacte. C'est ce qui permet de poser un niveau depuis la piste sans
+      // emporter la preuve avec lui.
+      if ('preuve' in s) corps.evidence = s.preuve || '';
       const r = await api('/mastery/evaluate', {
-        method: 'POST',
-        body: JSON.stringify({
-          user_id: state.cible, activity_id: state.activity.activity_id,
-          data_id: +id, evaluator: monEvaluateur(),
-          mastery_level: estNul(s.niveau) ? null : s.niveau,
-          evidence: s.preuve || '', role_id: state.roleId,
-        }),
+        method: 'POST', body: JSON.stringify(corps),
       });
       if (r.__error) { if (btn) btn.disabled = false; return; }
       ecrites += 1;
@@ -4328,13 +4333,13 @@
   function poserNote(r, niveau, st) {
     state.saisie = state.saisie || {};
     const avant = state.saisie[r.data_id] || {};
-    // ⚠️ La PREUVE part avec la note, toujours. La route fait
-    // `(evidence or "").strip() or None` : une note enregistrée sans elle
-    // EFFACERAIT la preuve déjà en base, et poser un niveau depuis la piste
-    // suffirait à perdre ce que quelqu'un avait écrit.
-    const preuve = ('preuve' in avant) ? avant.preuve
-      : ((jeSuisLeDev() ? r.evidence : r.self_evidence) || '');
-    state.saisie[r.data_id] = { niveau: niveau, preuve: preuve };
+    // ⚠️ On ne touche PAS à la preuve. La route ne réécrit `evidence` que si
+    // la CLÉ est envoyée : avant ce correctif elle faisait
+    // `(evidence or "").strip() or None` sur une clé absente, donc poser un
+    // niveau depuis la piste — où il n'y a pas de champ de preuve — effaçait
+    // ce que quelqu'un avait écrit. On la trimballait alors avec chaque
+    // note ; c'est la ROUTE qui a été réparée, pas l'écran.
+    state.saisie[r.data_id] = Object.assign({}, avant, { niveau: niveau });
     const el = $(`#ev-centre .cv2-rg[data-data-id="${r.data_id}"]`);
     if (el) majRangee(el, r, st);
     majPied(st);
@@ -4465,7 +4470,7 @@
     }
     c.querySelector('[data-frise]').innerHTML = friseSvg(h, req, c);
     legendeHistorique(c, h, req);
-    if (h.une_seule_note.length) {
+    if (h.avant_registre && h.avant_registre.length) {
       const z = c.querySelector('[data-info]'); z.innerHTML = '';
       z.appendChild(boutonInfo(T('h_une_note'), T('h_une_note_d')));
     }
