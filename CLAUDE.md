@@ -7717,6 +7717,145 @@ caler le `NOW` de la fixture en milieu de journée plutôt qu'à l'heure réelle
 
 ---
 
+### L'AXE PARTAGÉ et l'HISTORIQUE DES NOTES (2026-11-10)
+
+« Cette différence entre une activité pas encore notée et une activité qui a
+déjà au moins une note : c'est une belle idée mais pas une bonne, c'est trop
+brouillon. » Le reproche portait sur une vraie fracture du code :
+`carteSortie` aiguillait vers DEUX cartes qui n'avaient rien en commun —
+`resultCard` (la FICHE, fond de nuit, deux échelles 0→4) pour une sortie jugée
+à la main, `carteMesuree` (le rail des paliers, le relief, les formulaires)
+pour une sortie mesurée. Empilées, elles donnaient un écran sans ligne de
+lecture.
+
+**Tranché sur PROTOTYPE, pas dans le code** — quatre propositions écrites
+directement dans l'app avaient été refusées l'une après l'autre. La cinquième
+est passée par un artefact cliquable à l'échelle réelle, repris en quatre
+versions. C'est la méthode pour tout ce qui se juge en trois secondes, et
+c'est la sixième fois qu'elle évite une journée écrite pour rien.
+
+#### Ce que l'écran montre
+
+- **UNE rangée par sortie**, la même graduation, la même **zone attendue**.
+  La différence entre les deux régimes se lit DANS la piste, plus dans la mise
+  en page : une sortie notée porte sa barre, une sortie pas encore notée porte
+  une hachure ambre.
+- **La zone attendue est une SURFACE**, pas un trait : « la barre doit entrer
+  dans le vert » se regarde, un filet de 2 px se cherche. Elle court d'une
+  rangée à l'autre, donc elle se lit comme UNE bande.
+  ⚠️ Et il n'y en a pas quand le rôle n'a fixé aucun requis : NULL ≠ 0, une
+  bande posée à 0 dirait que tout est au niveau.
+- **Le DÉTAIL s'ouvre à la demande**, une sortie à la fois, sous l'axe. Il
+  porte `carteSortie(r)` TEL QUEL : le rail des paliers, le relief en unités
+  réelles, les formulaires, la preuve, la fiche de notation du 16/10. Rien
+  n'est perdu — c'était l'empilement qu'on reprochait à l'écran, pas le
+  contenu.
+- **L'historique des notes**, carte nouvelle : une courbe par sortie, plus la
+  courbe du **niveau de l'activité**.
+
+#### ⚠️ Les décisions qui ont coûté quelque chose
+
+- ⚠️ **UNE source pour la note : `state.saisie`.** La piste de l'axe ET
+  l'échelle du détail posent la MÊME note. `saveEvaluation` lisait le DOM de
+  l'échelle (`.cv2-nt.is-mienne [data-lv].sel`) ; deux contrôles qui écrivent
+  chacun dans leur coin finissent par se contredire. Les deux écrivent donc
+  dans `state.saisie`, et c'est elle qu'on enregistre.
+- ⚠️⚠️ **La PREUVE part toujours avec la note.** `/mastery/evaluate` fait
+  `(evidence or "").strip() or None` : une note enregistrée sans elle EFFACE
+  la preuve en base. Poser un niveau depuis la piste — où il n'y a pas de
+  champ de preuve — aurait suffi à perdre ce que quelqu'un avait écrit.
+  `poserNote` emporte donc la preuve existante.
+- ⚠️ **Le NUMÉRO relie les deux cartes.** « On ne comprend pas bien que les
+  différents points sont les niveaux des sorties individuellement » : la
+  rangée porte son numéro, et c'est le même qui termine SA courbe dans
+  l'historique. Sans lui, deux sorties du même état ont la même couleur et
+  rien ne les distingue.
+- ⚠️ **Les pastilles blanches des paliers franchis sont RETIRÉES** de la
+  piste. Elles posaient l'historique SUR la barre — à l'endroit où l'on vient
+  lire une seule chose : le niveau tenu aujourd'hui.
+- **DES RAMPES, PAS DEUX TEINTES.** Une famille n'est pas « un clair et un
+  foncé » : c'est une rampe dont la TEINTE DÉRIVE (le bleu part du ciel et
+  finit en indigo, le vert finit en émeraude). Le niveau monte DANS la rampe,
+  et le grand chiffre porte la même marche que sa barre.
+  ⚠️ Aucune règle neuve ne lit `--pg-accent-soft` ni ses trois frères : ils
+  sont déclarés sur `:root`, où `--pg-accent` vaut encore le gris par défaut,
+  et rendent donc du GRIS. Les mélanges sont écrits SUR PLACE.
+- ⚠️ **La piste ne peint PAS le vert** : elle s'arrête à `--xr` et laisse
+  passer la bande. Peinte des deux côtés, le même dégradé ne tombait pas au
+  même endroit (la bande est plus large que la piste) — on voyait une couture,
+  et le bout arrondi de la piste ressortait comme un défaut. Même raison pour
+  la hachure d'une sortie non notée : opaque sur toute la largeur, elle
+  recouvrait la bande, qui s'interrompait sur cette rangée-là.
+- ⚠️ **La norme de l'entreprise porte son relevé DEDANS** (`≤ 48 h → 46 h`,
+  le relevé à la couleur de son verdict). Trois lignes grises de « mesuré 46 h
+  le 12 oct. » ont disparu, et la comparaison se VOIT au lieu de se lire.
+  Trois états : **posée** (ardoise gravée), **lue** dans la fiche de l'activité
+  mais pas reprise ici (creuse + « à reprendre »), **sans norme chiffrée**
+  (c'est le repère écrit qui en tient lieu).
+
+#### L'historique — `Code/historique_notes.py` + `GET /mastery/historique/<u>/<a>`
+
+⚠️⚠️ **DEUX RÉGIMES, DEUX PROFONDEURS D'HISTORIQUE, et c'est une limite de
+STRUCTURE, pas d'affichage :**
+
+- une sortie **MESURÉE** garde tout. Chaque palier est une ligne qui porte sa
+  cible et son échéance avant, sa mesure et son verdict après — c'est ce qui
+  en fait un point d'historique. ⚠️ Mais un palier ne stocke PAS de niveau :
+  le niveau de chaque date se **RECALCULE** depuis la mesure, avec les seuils
+  d'aujourd'hui (la norme ne change pas rétroactivement de sens) ;
+- une sortie **JUGÉE À LA MAIN n'a qu'UN point**. `/mastery/evaluate` fait un
+  upsert sur (collaborateur, activité, sortie, évaluateur) : la note
+  précédente est ÉCRASÉE, et seule sa date survit. Sa « courbe » est un point.
+  L'écran le dit (`une_seule_note`, derrière un « i ») au lieu de laisser
+  croire à une progression qu'on n'a pas gardée.
+  **Le correctif de fond demanderait une table d'historique en AJOUT SEUL** —
+  c'est un changement de schéma, il se décide, il ne se glisse pas ici.
+
+⚠️ **LA COURBE GLOBALE n'existe QUE là où TOUTES les sorties portent une
+note** — c'est la règle du module (le MINIMUM, et NULL tant qu'il en manque
+une). Le grand chiffre de l'écran dit « — » au même moment ; la frise ne doit
+pas inventer un niveau que la carte du dessus refuse d'afficher.
+⚠️ Et le niveau d'une sortie **SE CONSERVE** d'une date à l'autre : il vaut
+jusqu'à la note suivante. Sans ce report, la colonne du jour ne portait que la
+sortie qu'on venait de noter — la globale sautait à SA valeur, et elle
+annonçait **4 pour une activité qui vaut 2**, à deux centimètres du grand
+chiffre qui disait 2. Vu sur capture, pas déduit.
+⚠️ La globale se dessine **SOUS** les courbes : là où elle en rejoint une, on
+voit la plus basse portée par un large ruban. La règle du minimum se regarde
+au lieu de s'écrire.
+⚠️ **Un SEGMENT porte l'état de son point d'ARRIVÉE** : une courbe qui passe
+de 1 à 3 change de famille en chemin, là où elle franchit l'attendu. D'une
+seule couleur, elle disait que la sortie avait toujours été au niveau.
+⚠️ La route se lit avec la MÊME porte que `/mastery/activity` (`peut_lire`) :
+elle porte les niveaux d'une personne et jusqu'aux mesures relevées en séance.
+Une route d'historique laissée ouverte rouvrirait par la bande ce que
+`/mastery/activity` vient de fermer.
+
+#### Deux pièges déjà connus, revus ici
+
+- ⚠️ **Un SVG en `width:100%` rapetisse ses TEXTES** avec lui, et la taille
+  calculée reste celle du repère du viewBox — la mesure ne le voit pas. Le
+  viewBox est taillé sur la place disponible (une unité = un pixel) ; sous la
+  largeur minimale, c'est la frise qui défile, pas la page.
+- ⚠️ **La seconde lecture ne retient PAS le rendu.** La carte d'historique
+  part vide, se remplit quand la réponse arrive, et se **retire** si elle
+  n'arrive pas. C'est la leçon de `/panel`, qui retenait son HTML le temps
+  d'un appel inter-services et annonçait ensuite une panne.
+- ⚠️ **Dix dates en « 07/10/2026 » se chevauchent** : l'axe porte une date
+  courte, la date entière reste dans l'info-bulle du point.
+
+Tests : `tests/test_139_historique_notes.py` (11 cas — le niveau recalculé,
+l'unique point d'une sortie jugée à la main, la règle de complétude, le
+report, la porte) et `tests/test_140_axe_partage.py` (15 cas). **Dix défauts
+remis un par un, dix cliquets tombés.** `test_109` voit cinq de ses cas
+réécrits : ils affirmaient la structure d'avant (les cartes empilées, le DOM
+scruté à l'enregistrement, l'unique aller-retour). Suite : **3961 passés**,
+1 sauté. Éprouvé au banc (`tools/devrun_competences.py`) à 1600 px dans les
+deux langues : axe, détail ouvert, historique, et **zéro fuite française sur
+l'écran anglais** — 81 textes relevés, attributs et SVG compris.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

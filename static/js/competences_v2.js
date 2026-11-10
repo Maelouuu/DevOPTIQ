@@ -29,6 +29,30 @@
       ev_filtres: 'Filtrer',
       ev_min_t: 'Comment se calcule ce niveau',
       pal_echelle_t: "L'échelle 0 → 4",
+      ax_col_sorties: 'Ce que l’activité produit · et sa norme',
+      ax_col_tenu: 'Le niveau tenu',
+      ax_attendu: 'attendu',
+      ax_detail: 'Ouvrir le détail',
+      ax_se_dit: 'il se dit',
+      ax_je_me_dis: 'je me dis',
+      ax_pas_notee: 'Pas encore notée',
+      ax_effacer: 'Effacer la note',
+      ax_reprendre: 'à reprendre',
+      ax_reussi: 'réussi quand',
+      ax_sans_norme: 'pas de norme chiffrée',
+      ax_en_attente_1: '1 note posée, pas encore enregistrée',
+      ax_en_attente_n: '{n} notes posées, pas encore enregistrées',
+      h_titre: 'L’historique des notes',
+      h_vide: 'Aucune note posée pour l’instant.',
+      h_glob: 'Niveau de l’activité',
+      h_glob_d: 'le plus bas des sorties',
+      h_sous: 'sous l’attendu',
+      h_au: 'au niveau attendu',
+      h_sans_glob: 'Pas de niveau d’activité tant qu’une sortie n’est pas notée.',
+      h_jamais: 'Jamais notée',
+      h_une_note: 'Une seule note connue',
+      h_une_note_d: 'Une sortie jugée à la main ne garde que sa dernière note : l’enregistrement écrase la précédente. Sa courbe est donc un point, pas une progression. Les sorties mesurées, elles, gardent chaque séance.',
+      h_niveau: 'niveau',
       ev_min_i: "Le niveau d'une activité est le PLUS BAS de ses sorties, jamais leur moyenne : on ne tient une activité que si on tient tout ce qu'elle produit. Une sortie non évaluée ne compte pas pour zéro — elle laisse le niveau en attente.",
       sq_prete_1: 'La mesure est prête.',
       ev_retour_role: 'Retour au rôle',
@@ -373,6 +397,30 @@
       ev_filtres: 'Filter',
       ev_min_t: 'How this level is worked out',
       pal_echelle_t: 'The 0 → 4 scale',
+      ax_col_sorties: 'What the activity produces · and its standard',
+      ax_col_tenu: 'Level held',
+      ax_attendu: 'expected',
+      ax_detail: 'Open the detail',
+      ax_se_dit: 'self-rates',
+      ax_je_me_dis: 'I rate myself',
+      ax_pas_notee: 'Not rated yet',
+      ax_effacer: 'Clear the rating',
+      ax_reprendre: 'to take up',
+      ax_reussi: 'successful when',
+      ax_sans_norme: 'no numeric standard',
+      ax_en_attente_1: '1 rating posted, not saved yet',
+      ax_en_attente_n: '{n} ratings posted, not saved yet',
+      h_titre: 'Rating history',
+      h_vide: 'No rating posted yet.',
+      h_glob: 'Activity level',
+      h_glob_d: 'the lowest of the outputs',
+      h_sous: 'below expected',
+      h_au: 'at the expected level',
+      h_sans_glob: 'No activity level until every output is rated.',
+      h_jamais: 'Never rated',
+      h_une_note: 'Only one rating kept',
+      h_une_note_d: 'A hand-judged output keeps only its latest rating: saving overwrites the previous one. Its curve is a point, not a progression. Measured outputs keep every session.',
+      h_niveau: 'level',
       ev_min_i: "An activity's level is the LOWEST of its outputs, never their average: you only hold an activity if you hold everything it produces. An output that has not been assessed does not count as zero — it leaves the level pending.",
       sq_prete_1: 'The measurement is ready.',
       ev_retour_role: 'Back to the role',
@@ -1741,29 +1789,33 @@
   // ne tournait pas, et le « Enregistré » tombait quand même : on notait, on
   // validait, et rien n'était écrit. Un enregistrement qui ne trouve rien à
   // écrire n'annonce plus un succès.
+  // ⚠️⚠️ Il cherchait ses cartes dans `#cv2-drawer-body` — le TIROIR, d'où
+  // l'évaluation est partie le 14/10. Il n'en trouvait donc aucune, la boucle
+  // ne tournait pas, et le « Enregistré » tombait quand même : on notait, on
+  // validait, et rien n'était écrit. Un enregistrement qui ne trouve rien à
+  // écrire n'annonce plus un succès.
+  // ⚠️ Et il lisait le DOM de l'échelle. Depuis que la note se pose aussi sur
+  // la PISTE de l'axe, le DOM n'est plus la source : `state.saisie` l'est.
   async function saveEvaluation() {
-    const cards = document.querySelectorAll('#ev-centre .cv2-res');
-    if (!cards.length) { toast(T('save_rien')); return; }
+    const ids = Object.keys(state.saisie || {});
+    if (!ids.length) { toast(T('save_rien')); return; }
     const btn = $('#cv2-save-btn'); if (btn) btn.disabled = true;
     let ecrites = 0;
-    for (const c of cards) {
-      // ⚠️ Bien `.is-mienne` : la carte porte maintenant DEUX échelles, et un
-      // `querySelector` non qualifié ramènerait la première — celle du
-      // développeur — jusque dans l'enregistrement d'un collaborateur.
-      const sel = c.querySelector('.cv2-nt.is-mienne [data-lv].sel');
-      if (!sel) continue;
-      const raw = sel.dataset.lv;
+    for (const id of ids) {
+      const s = state.saisie[id];
       const r = await api('/mastery/evaluate', {
         method: 'POST',
         body: JSON.stringify({
-          user_id: state.cible, activity_id: state.activity.activity_id, data_id: +c.dataset.dataId,
-          evaluator: monEvaluateur(), mastery_level: raw === '' ? null : +raw,
-          evidence: c.querySelector('.cv2-ev').value, role_id: state.roleId,
+          user_id: state.cible, activity_id: state.activity.activity_id,
+          data_id: +id, evaluator: monEvaluateur(),
+          mastery_level: estNul(s.niveau) ? null : s.niveau,
+          evidence: s.preuve || '', role_id: state.roleId,
         }),
       });
       if (r.__error) { if (btn) btn.disabled = false; return; }
       ecrites += 1;
     }
+    state.saisie = {};
     toast(ecrites ? T('saved') : T('save_rien'));
     if (!ecrites) { if (btn) btn.disabled = false; return; }
     await refreshDashboard();
@@ -4110,8 +4162,451 @@
     return h;
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // L'AXE PARTAGÉ — une seule échelle pour toute l'activité
+  //
+  // ⚠️ Chaque sortie avait SA carte, et les deux régimes en avaient deux très
+  // différentes : « pas encore notée » ne ressemblait en rien à « déjà
+  // notée ». C'est ce qui rendait l'écran brouillon. Les deux partagent
+  // désormais la même rangée, la même graduation et la même zone attendue —
+  // la différence se lit DANS la piste, plus dans la mise en page.
+  //
+  // ⚠️ Et la zone attendue est une SURFACE, pas un trait : « la barre doit
+  // entrer dans le vert » se regarde, un filet de 2 px se cherche. Elle court
+  // d'une rangée à l'autre, donc elle se lit comme UNE bande.
+  //
+  // Le DÉTAIL (les paliers, le relief, les formulaires, la preuve) s'ouvre à
+  // la demande, une sortie à la fois : rien n'est perdu, tout est rangé.
+  // ══════════════════════════════════════════════════════════════════════
+
+  function pcNiv(n) { return (n / 4 * 100) + '%'; }
+
+  // Un nombre lisible : 48 et non 48.0, 46.5 et non 46.500000000000004.
+  function nombre(v) {
+    if (estNul(v)) return '';
+    const n = Math.round(v * 100) / 100;
+    return String(n).replace('.', LANG === 'en' ? '.' : ',');
+  }
+
+  // Ma note sur cette sortie : ce que je viens de poser s'il y a lieu, sinon
+  // ce qui est enregistré. UNE source — deux endroits la posent (la piste et,
+  // quand il est ouvert, le détail), et deux sources finiraient par diverger.
+  function maNote(r) {
+    const s = state.saisie && state.saisie[r.data_id];
+    if (s && 'niveau' in s) return s.niveau;
+    return jeSuisLeDev() ? r.demonstrated_level : r.self_level;
+  }
+
+  function famille(n, req) {
+    if (estNul(n)) return 'x';
+    return String(n);
+  }
+
+  // ── LA NORME DE L'ENTREPRISE ────────────────────────────────────────
+  // Une VALEUR, pas un niveau : ardoise gravée, drapeau, chiffre en Fraunces.
+  // ⚠️ Elle est lue dans la LISTE DES ACTIVITÉS (colonne Performance) ; cet
+  // écran la montre, il ne la redemande pas. Trois états, et le relevé entre
+  // DANS la pastille — « mesuré 46 h le 12 oct. » était une ligne grise de
+  // plus sous chaque sortie.
+  function normeChip(r) {
+    const fla = '<span class="nrm-dr"><i class="fa-solid fa-flag"></i></span>';
+    const perf = r.performance;
+    if (r.mesurable && perf && perf.norme && !estNul(perf.norme.valeur)) {
+      const u = perf.norme.unite ? ' ' + perf.norme.unite : '';
+      const v = (perf.norme.sens === 'moins' ? '≤' : '≥') + ' ' + nombre(perf.norme.valeur) + u;
+      const m = perf.mesure;
+      return `<span class="nrm" data-s="posee">${fla}<span class="v">${esc(v)}</span>`
+        + (estNul(m) ? ''
+           : `<span class="fl">→</span><span class="mes" data-ok="${perf.qualifie ? 1 : 0}">`
+             + esc(nombre(m) + u) + '</span>')
+        + '</span>';
+    }
+    if (r.indicateur) {
+      return `<span class="nrm" data-s="lu">${fla}<span class="v">${esc(r.indicateur)}</span>`
+        + `<span class="tag">${esc(T('ax_reprendre'))}</span></span>`;
+    }
+    const std = r.minimum_performance_text || '';
+    return `<span class="nrm" data-s="sans"><span class="t">${fla}`
+      + esc(std ? T('ax_reussi') : T('ax_sans_norme')) + '</span>'
+      + (std ? `<q class="q">${esc(std)}</q>` : '') + '</span>';
+  }
+
+  // ── UNE RANGÉE DE SORTIE ────────────────────────────────────────────
+  function rangeeSortie(r, st, i) {
+    const dev = jeSuisLeDev();
+    const req = estNul(st.required_level) ? null : st.required_level;
+    // ⚠️ Une sortie MESURÉE ne se note pas à la main : son niveau vient du
+    // chiffre relevé en séance. L'auto-évaluation, elle, reste toujours
+    // permise — c'est un repère que le collaborateur se donne.
+    const modifiable = dev ? !r.mesurable : true;
+    const off = dev ? maNote(r) : r.demonstrated_level;
+    const self = dev ? r.self_level : maNote(r);
+
+    const el = document.createElement('div');
+    el.className = 'cv2-rg cv2-lv';
+    el.dataset.dataId = r.data_id;
+    el.dataset.lv = famille(off, req);
+    if (modifiable) el.dataset.mienne = '1';
+
+    let clics = '';
+    if (modifiable) {
+      for (let lv = 0; lv <= 4; lv++) {
+        const g = Math.max(0, lv * 25 - 12.5), w = (lv === 0 || lv === 4) ? 12.5 : 25;
+        clics += `<button type="button" class="p-c" data-lv="${lv}"
+          style="left:${g}%;width:${w}%"
+          aria-label="${esc(lv + ' · ' + levelName(lv))}"></button>`;
+      }
+    }
+
+    el.innerHTML = `
+      <div class="rg-nom">
+        <div class="rg-t"><i class="rg-num">${i + 1}</i><span>${esc(r.name)}</span></div>
+        ${normeChip(r)}
+      </div>
+      <div class="rg-sc">
+        <div class="rg-v" data-sc></div>
+        <div class="rg-w" data-scw></div>
+        <div class="rg-auto" data-auto></div>
+      </div>
+      <div class="rg-z">
+        <div class="piste"${req === null ? '' : ` style="--xr:${pcNiv(req)}"`}>
+          ${req === null ? '' : '<div class="p-zone"></div>'}
+          <div class="p-fond"></div>
+          ${req === null ? '' : '<div class="p-lim"></div>'}
+          <div class="p-off" style="--w:${estNul(off) ? '0%' : pcNiv(off)}"></div>
+          <div class="p-self" style="--w:${estNul(self) ? '0%' : pcNiv(self)}"></div>
+          ${clics}
+        </div>
+      </div>
+      <button type="button" class="rg-plus" aria-expanded="false"
+        title="${esc(T('ax_detail'))}" aria-label="${esc(T('ax_detail'))}">
+        <i class="fa-solid fa-chevron-down"></i></button>`;
+
+    majRangee(el, r, st);
+    el.querySelectorAll('.p-c').forEach(b => {
+      b.onclick = ev => {
+        ev.stopPropagation();
+        poserNote(r, +b.dataset.lv, st);
+      };
+    });
+    el.querySelector('.rg-plus').onclick = () => basculerDetail(r, st, el);
+    return el;
+  }
+
+  // Le chiffre, le mot, l'auto-évaluation et la gomme — recalculés sur place.
+  // ⚠️ Sur place, et non en réécrivant la rangée : la réécrire ferait perdre
+  // le focus du bouton qu'on vient de cliquer, et couperait l'animation de la
+  // barre, qui est justement ce qui fait comprendre le geste.
+  function majRangee(el, r, st) {
+    const dev = jeSuisLeDev();
+    const req = estNul(st.required_level) ? null : st.required_level;
+    const off = dev ? maNote(r) : r.demonstrated_level;
+    const self = dev ? r.self_level : maNote(r);
+    el.dataset.lv = famille(off, req);
+
+    const gomme = (!estNul(maNote(r)) && el.dataset.mienne)
+      ? `<button type="button" class="rg-gomme" title="${esc(T('ax_effacer'))}"
+           aria-label="${esc(T('ax_effacer'))}"><i class="fa-solid fa-eraser"></i></button>` : '';
+    el.querySelector('[data-sc]').innerHTML = estNul(off)
+      ? `<span class="rg-vide">${esc(T('ax_pas_notee'))}</span>${gomme}`
+      : `<b>${off}</b>${gomme}`;
+    el.querySelector('[data-scw]').textContent = estNul(off) ? '' : levelName(off);
+    el.querySelector('[data-auto]').innerHTML = estNul(self) ? ''
+      : `<span class="rg-pt"></span>${esc(dev ? T('ax_se_dit') : T('ax_je_me_dis'))} <b>${self}</b>`;
+
+    const g = el.querySelector('.rg-gomme');
+    if (g) g.onclick = ev => { ev.stopPropagation(); poserNote(r, null, st); };
+
+    el.querySelector('.p-off').style.setProperty('--w', estNul(off) ? '0%' : pcNiv(off));
+    el.querySelector('.p-self').style.setProperty('--w', estNul(self) ? '0%' : pcNiv(self));
+  }
+
+  // ⚠️ UNE seule source : la piste et le détail écrivent tous deux ici, et
+  // tout ce qui affiche la note relit cette carte. Deux états parallèles
+  // finiraient par se contredire — c'est le piège des deux implémentations
+  // d'un même verdict, déjà payé ailleurs dans ce module.
+  function poserNote(r, niveau, st) {
+    state.saisie = state.saisie || {};
+    const avant = state.saisie[r.data_id] || {};
+    // ⚠️ La PREUVE part avec la note, toujours. La route fait
+    // `(evidence or "").strip() or None` : une note enregistrée sans elle
+    // EFFACERAIT la preuve déjà en base, et poser un niveau depuis la piste
+    // suffirait à perdre ce que quelqu'un avait écrit.
+    const preuve = ('preuve' in avant) ? avant.preuve
+      : ((jeSuisLeDev() ? r.evidence : r.self_evidence) || '');
+    state.saisie[r.data_id] = { niveau: niveau, preuve: preuve };
+    const el = $(`#ev-centre .cv2-rg[data-data-id="${r.data_id}"]`);
+    if (el) majRangee(el, r, st);
+    majPied(st);
+  }
+
+  function noterPreuve(r, texte, st) {
+    state.saisie = state.saisie || {};
+    const avant = state.saisie[r.data_id] || {};
+    if (!('niveau' in avant)) avant.niveau = maNote(r);
+    avant.preuve = texte;
+    state.saisie[r.data_id] = avant;
+    majPied(st);
+  }
+
+  // ── LE DÉTAIL D'UNE SORTIE ──────────────────────────────────────────
+  // Les paliers, le relief, les formulaires, la preuve : tout ce qui existait
+  // reste, mais ne s'ouvre QUE pour la sortie qu'on regarde. Une seule à la
+  // fois — c'était l'empilement des cartes qu'on reprochait à l'écran.
+  function basculerDetail(r, st, rangee) {
+    const zone = $('#ev-detail');
+    if (!zone) return;
+    const ouverte = zone.dataset.dataId === String(r.data_id);
+    $('#ev-centre').querySelectorAll('.rg-plus').forEach(b => {
+      b.setAttribute('aria-expanded', 'false');
+      b.closest('.cv2-rg').classList.remove('est-ouverte');
+    });
+    zone.innerHTML = '';
+    if (ouverte) { zone.dataset.dataId = ''; return; }
+    zone.dataset.dataId = String(r.data_id);
+    rangee.classList.add('est-ouverte');
+    rangee.querySelector('.rg-plus').setAttribute('aria-expanded', 'true');
+    zone.appendChild(carteSortie(r, st.required_level));
+    // ⚠️ L'échelle du détail et la piste de l'axe posent la MÊME note : les
+    // deux écrivent donc dans `state.saisie`, et la rangée se remet à jour.
+    // Deux états parallèles finiraient par se contredire.
+    zone.querySelectorAll('.cv2-nt.is-mienne [data-lv]').forEach(b => {
+      b.addEventListener('click', () => {
+        poserNote(r, b.dataset.lv === '' ? null : +b.dataset.lv, st);
+      });
+    });
+    const ta = zone.querySelector('.cv2-ev');
+    if (ta) ta.addEventListener('input', () => noterPreuve(r, ta.value, st));
+    // ⚠️ Le détail vit SOUS l'axe, pas dans la rangée : posé dans la rangée,
+    // il couperait la bande verte qui court d'une sortie à l'autre, et c'est
+    // elle qui dit où est l'attendu.
+    zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // ── L'AXE ───────────────────────────────────────────────────────────
+  function axePartage(st) {
+    const req = estNul(st.required_level) ? null : st.required_level;
+    const box = document.createElement('div');
+    box.className = 'cv2-axe';
+
+    let grad = '';
+    for (let lv = 0; lv <= 4; lv++) {
+      grad += `<i style="left:${pcNiv(lv)}"></i>`;
+      // Pas de chiffre sous la pastille ATTENDU : elle porte déjà le sien.
+      if (lv !== req) {
+        grad += `<b${req !== null && lv > req ? ' data-in' : ''}`
+              + ` style="left:${pcNiv(lv)}">${lv}</b>`;
+      }
+    }
+    if (req !== null) {
+      grad += `<span class="ax-att" style="--xr:${pcNiv(req)}">`
+            + `${esc(T('ax_attendu'))} <b>${req}</b></span>`;
+    }
+
+    const tete = document.createElement('div');
+    tete.className = 'cv2-rg cv2-rg--t';
+    tete.innerHTML = `<div class="rg-nom">${esc(T('ax_col_sorties'))}</div>
+      <div class="rg-sc">${esc(T('ax_col_tenu'))}</div>
+      <div class="rg-z"><div class="ax-grad">${grad}</div></div><span></span>`;
+    box.appendChild(tete);
+
+    st.results.forEach((r, i) => box.appendChild(rangeeSortie(r, st, i)));
+    return box;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // L'HISTORIQUE DES NOTES — une courbe par sortie, plus celle de l'activité
+  //
+  // ⚠️ On trace des NIVEAUX, pas des valeurs : une sortie mesurée en heures et
+  // une sortie jugée à la main n'ont que le niveau en commun. Le détail en
+  // unités réelles reste le relief d'une sortie, qui répond à une autre
+  // question.
+  // ⚠️ Et le NUMÉRO est ce qui relie les deux cartes : sans lui, rien ne
+  // disait quel point appartenait à quelle sortie.
+  // ══════════════════════════════════════════════════════════════════════
+  // ⚠️ Une frise porte dix dates : « 07/10/2026 » les ferait se
+  // chevaucher. La date entière reste dans l'info-bulle du point.
+  function dateCourte(iso) {
+    try {
+      return new Date(iso).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'fr-FR',
+                                              { day: 'numeric', month: 'short' });
+    } catch (e) { return iso; }
+  }
+
+  const FR_X0 = 34, FR_Y4 = 20, FR_Y0 = 150, FR_BAS = 180, FR_NOMS = 200, FR_MINI = 620;
+
+  function carteHistorique(st) {
+    const c = document.createElement('section');
+    c.className = 'cv2-histo';
+    c.innerHTML = `<div class="hi-h"><h3>${esc(T('h_titre'))}</h3><span data-info></span></div>
+      <div class="hi-s"><div data-frise></div></div>
+      <ul class="hi-lg" data-lg></ul>`;
+    return c;
+  }
+
+  async function chargerHistorique(st) {
+    const c = $('#ev-centre .cv2-histo');
+    if (!c) return;
+    const h = await api(`/mastery/historique/${state.cible}/${st.activity_id}`
+                        + `?role_id=${state.roleId}`, null, true);
+    if (!h || h.__error) { c.remove(); return; }
+    state.histo = h;
+    dessinerHistorique(c, h, st);
+  }
+
+  function dessinerHistorique(c, h, st) {
+    const req = estNul(st.required_level) ? null : st.required_level;
+    const avecPoints = h.sorties.filter(s => s.points.length);
+    if (!avecPoints.length) {
+      c.querySelector('[data-frise]').innerHTML =
+        `<p class="hi-vide">${esc(T('h_vide'))}</p>`;
+      c.querySelector('[data-lg]').innerHTML = '';
+      return;
+    }
+    c.querySelector('[data-frise]').innerHTML = friseSvg(h, req, c);
+    legendeHistorique(c, h, req);
+    if (h.une_seule_note.length) {
+      const z = c.querySelector('[data-info]'); z.innerHTML = '';
+      z.appendChild(boutonInfo(T('h_une_note'), T('h_une_note_d')));
+    }
+  }
+
+  function friseSvg(h, req) {
+    const hote = $('#ev-centre .hi-s');
+    // Une unité du viewBox = un pixel à l'écran : un SVG mis à l'échelle
+    // rapetisse ses textes avec lui, et la mesure ne le voit pas (la taille
+    // calculée reste celle du repère du viewBox).
+    const W = Math.max(Math.round(hote ? hote.clientWidth : 0) || FR_MINI, FR_MINI);
+    const X1 = W - FR_NOMS, NX = X1 + 26, H = FR_BAS + 14;
+    const tmax = Math.max(0, h.dates.length - 1);
+    const x = t => (tmax ? FR_X0 + t * (X1 - FR_X0) / tmax : (FR_X0 + X1) / 2);
+    const y = n => FR_Y0 - n * (FR_Y0 - FR_Y4) / 4;
+    const fam = n => (req !== null && n >= req ? 'v' : 'b');
+    const fg = h.global.length ? fam(h.global[h.global.length - 1].niveau) : 'b';
+
+    let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"`
+      + ` style="--solc:var(--hi-${fg})" role="img"`
+      + ` aria-label="${esc(T('h_titre'))}"><defs>`
+      + '<linearGradient id="hiZ" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop class="hi-zg0" offset="0"/><stop class="hi-zg1" offset="1"/></linearGradient>'
+      + '<linearGradient id="hiS" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop class="hi-sg0" offset="0"/><stop class="hi-sg1" offset="1"/></linearGradient>'
+      + '</defs>';
+
+    if (req !== null) {
+      s += `<rect fill="url(#hiZ)" x="${FR_X0}" y="${y(4)}" width="${X1 - FR_X0}"`
+         + ` height="${y(req) - y(4)}"/>`
+         + `<line class="hi-lim" x1="${FR_X0}" y1="${y(req)}" x2="${X1}" y2="${y(req)}"/>`;
+    }
+    for (let lv = 0; lv <= 4; lv++) {
+      s += `<line class="hi-g" x1="${FR_X0}" y1="${y(lv)}" x2="${X1}" y2="${y(lv)}"/>`
+         + `<text class="hi-ax" x="${FR_X0 - 10}" y="${y(lv) + 5}" text-anchor="end">${lv}</text>`;
+    }
+
+    const fins = [];
+    // LA GLOBALE EN PREMIER, donc SOUS les courbes : là où elle en rejoint une,
+    // on voit la plus basse portée par un large ruban. La règle du minimum se
+    // regarde, au lieu de s'écrire.
+    if (h.global.length) {
+      const gp = h.global.map(g => `${x(g.t)},${y(g.niveau)}`).join(' ');
+      if (h.global.length > 1) {
+        s += `<polygon class="hi-env" points="${gp} ${x(h.global[h.global.length - 1].t)},${y(0)}`
+           + ` ${x(h.global[0].t)},${y(0)}"/>`;
+      }
+      s += `<polyline class="hi-glob" points="${gp}"/>`;
+      const gd = h.global[h.global.length - 1];
+      fins.push({ y: y(gd.niveau), x0: x(gd.t), y0: y(gd.niveau), fm: fg,
+                  nom: T('h_glob'), glob: true });
+    }
+
+    h.sorties.forEach(o => {
+      const p = o.points;
+      if (!p.length) return;
+      // ⚠️ Un SEGMENT porte l'état de son point d'ARRIVÉE : une courbe qui
+      // passe de 1 à 3 change de famille en chemin, là où elle franchit
+      // l'attendu. D'une seule couleur, elle disait que la sortie avait
+      // toujours été au niveau.
+      for (let k = 1; k < p.length; k++) {
+        s += `<polyline class="hi-l hi-l--${fam(p[k].niveau)}" points="`
+           + `${x(p[k - 1].t)},${y(p[k - 1].niveau)} ${x(p[k].t)},${y(p[k].niveau)}"/>`;
+      }
+      p.forEach((q, k) => {
+        const fq = fam(q.niveau);
+        if (k === p.length - 1) {
+          s += `<circle class="hi-dot hi-dot--${fq}" cx="${x(q.t)}" cy="${y(q.niveau)}" r="11"/>`
+             + `<text class="hi-num" x="${x(q.t)}" y="${y(q.niveau) + 5}"`
+             + ` text-anchor="middle">${o.num}</text>`;
+        } else {
+          s += `<circle class="hi-p hi-p--${fq}" cx="${x(q.t)}" cy="${y(q.niveau)}" r="4.5"/>`;
+        }
+        const quand = fmtDate(h.dates[q.t]);
+        s += `<circle class="hi-hit" cx="${x(q.t)}" cy="${y(q.niveau)}" r="13">`
+           + `<title>${esc(o.num + ' · ' + o.nom + ' · ' + quand + ' · '
+                          + T('h_niveau') + ' ' + q.niveau + ' — ' + levelName(q.niveau)
+                          + (estNul(q.mesure) ? '' : ' · ' + nombre(q.mesure)
+                             + (o.unite ? ' ' + o.unite : '')))}</title></circle>`;
+      });
+      const d = p[p.length - 1];
+      fins.push({ y: y(d.niveau), x0: x(d.t), y0: y(d.niveau),
+                  fm: fam(d.niveau), nom: o.nom, num: o.num });
+    });
+
+    // deux courbes qui finissent au même niveau se superposeraient
+    fins.sort((a, b) => a.y - b.y);
+    for (let k = 1; k < fins.length; k++) {
+      if (fins[k].y - fins[k - 1].y < 21) fins[k].y = fins[k - 1].y + 21;
+    }
+    fins.forEach(f => {
+      const n = f.nom.length > 22 ? f.nom.slice(0, 21) + '…' : f.nom;
+      // ⚠️ Une sortie notée UNE SEULE fois finit au milieu de la frise : son
+      // nom, posé à droite, aurait l'air d'appartenir à la courbe du dessous.
+      s += `<polyline class="hi-amen" points="${f.x0},${f.y0} ${NX - 12},${f.y0}`
+         + ` ${NX - 12},${f.y}"/>`;
+      if (f.glob) {
+        s += `<rect class="hi-gsw" x="${NX - 4}" y="${f.y - 5}" width="18" height="10" rx="5"/>`
+           + `<text class="hi-n hi-n--g" x="${NX + 22}" y="${f.y + 5}">${esc(n)}</text>`;
+      } else {
+        s += `<circle class="hi-dot hi-dot--${f.fm}" cx="${NX + 5}" cy="${f.y}" r="11"/>`
+           + `<text class="hi-num" x="${NX + 5}" y="${f.y + 5}" text-anchor="middle">${f.num}</text>`
+           + `<text class="hi-n" x="${NX + 22}" y="${f.y + 5}">${esc(n)}</text>`;
+      }
+    });
+
+    h.dates.forEach((j, t) => {
+      s += `<text class="hi-d" x="${x(t)}" y="${FR_BAS}" text-anchor="middle">`
+         + `${esc(dateCourte(j))}</text>`;
+    });
+    return s + '</svg>';
+  }
+
+  // ⚠️ Une LÉGENDE, pas un paragraphe : un texte gris de 14 px sous un graphe
+  // ne se lit pas. Quatre séries en réclament une de toute façon, et c'est le
+  // bon endroit pour dire ce que la courbe globale veut dire.
+  function legendeHistorique(c, h, req) {
+    const fg = h.global.length
+      ? (req !== null && h.global[h.global.length - 1].niveau >= req ? 'v' : 'b') : 'b';
+    let g = '';
+    if (req !== null) {
+      g += `<li><span class="hi-sw hi-sw--b"></span>${esc(T('h_sous'))}</li>`
+         + `<li><span class="hi-sw hi-sw--v"></span>${esc(T('h_au'))}</li>`;
+    }
+    g += h.global.length
+      ? `<li><span class="hi-sw hi-sw--glob"></span><b>${esc(T('h_glob'))}</b>`
+        + ` — ${esc(T('h_glob_d'))}</li>`
+      : `<li class="mu">${esc(T('h_sans_glob'))}</li>`;
+    if (h.sans_note.length) {
+      g += `<li class="mu">${esc(T('h_jamais'))} : <b>${esc(h.sans_note.join(', '))}</b></li>`;
+    }
+    const lg = c.querySelector('[data-lg]');
+    lg.style.setProperty('--solc', 'var(--hi-' + fg + ')');
+    lg.innerHTML = g;
+  }
+
   function remplirCentre(st) {
     const box = $('#ev-centre');
+    // Ce qui a été POSÉ et pas encore enregistré. UNE source : la piste de
+    // l'axe et l'échelle du détail écrivent toutes deux ici.
+    state.saisie = {};
     box.innerHTML = `<div class="ev-centre-h">
         <p class="k"><span class="num">2</span>${esc(T('ev_col_sor'))}</p>
       </div>`;
@@ -4139,14 +4634,32 @@
       return;
     }
 
-    st.results.forEach(r => box.appendChild(carteSortie(r, st.required_level)));
+    box.appendChild(axePartage(st));
 
-    // ⚠️ « Enregistrer » n'apparaît que s'il y a quelque chose à SAISIR : sur
-    // une activité toute mesurée, le niveau vient du chiffre relevé en séance.
-    const aSaisir = st.results.some(r => !r.mesurable);
+    // Le détail d'UNE sortie, sous l'axe. Vide tant qu'on n'a rien ouvert.
+    const det = document.createElement('div');
+    det.className = 'cv2-det'; det.id = 'ev-detail'; det.dataset.dataId = '';
+    box.appendChild(det);
+
+    box.appendChild(carteHistorique(st));
+
     const pied = document.createElement('div');
-    pied.className = 'ev-pied';
-    pied.innerHTML = `<p>${esc(aSaisir ? '' : T('pal_pas_de_note'))}</p>`;
+    pied.className = 'ev-pied'; pied.id = 'ev-pied';
+    box.appendChild(pied);
+    majPied(st);
+
+    chargerHistorique(st);
+  }
+
+  // ⚠️ « Enregistrer » ne s'allume QUE si quelque chose a été posé. Un bouton
+  // toujours actif qui ne trouve rien à écrire annonce un succès qui n'a pas
+  // eu lieu — on notait, on validait, et rien n'était enregistré (15/10).
+  function majPied(st) {
+    const pied = $('#ev-pied'); if (!pied) return;
+    const n = Object.keys(state.saisie || {}).length;
+    const rienASaisir = jeSuisLeDev() && (st.results || []).every(r => r.mesurable);
+    pied.innerHTML = `<p>${esc(n ? nf('ax_en_attente', n)
+                                : (rienASaisir ? T('pal_pas_de_note') : ''))}</p>`;
     if (jeSuisLeDev() && aUnEcart(st)) {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'pal-b pal-b--doux';
@@ -4154,15 +4667,13 @@
       b.onclick = () => showDiagnostic();
       pied.appendChild(b);
     }
-    if (aSaisir) {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'pal-b pal-b--prim'; b.id = 'cv2-save-btn';
-      b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-check"></i></span>`
-        + esc(jeSuisLeDev() ? T('save_eval') : T('save_self'));
-      b.onclick = saveEvaluation;
-      pied.appendChild(b);
-    }
-    box.appendChild(pied);
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pal-b pal-b--prim'; b.id = 'cv2-save-btn';
+    b.disabled = !n;
+    b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-check"></i></span>`
+      + esc(jeSuisLeDev() ? T('save_eval') : T('save_self'));
+    b.onclick = saveEvaluation;
+    pied.appendChild(b);
   }
 
   function remplirContexte(st) {

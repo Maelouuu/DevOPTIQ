@@ -11,6 +11,7 @@ from Code.extensions import db
 from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
+from Code.historique_notes import historique_activite
 from Code.paliers import (NIVEAU_EXPERTISE, etat_sortie, mesurable,
                           norme_depuis_indicateur)
 from Code.routes.qualify_outputs import (get_activity_outputs,
@@ -494,6 +495,23 @@ def get_activity(user_id, activity_id):
     if not peut_lire(current_user(), user_id, role_id=role_id):
         return jsonify({"error": "forbidden"}), 403
     return jsonify(activity_mastery(user_id, activity_id, role_id)), 200
+
+
+@mastery_bp.route("/historique/<int:user_id>/<int:activity_id>", methods=["GET"])
+def historique(user_id, activity_id):
+    """L'historique des notes : une courbe par sortie, plus celle de l'activité.
+
+    ⚠️ Même porte que `/activity` : il porte les niveaux d'une personne, et
+    jusqu'aux mesures relevées en séance. Une route d'historique laissée
+    ouverte rouvrirait par la bande ce que `/activity` vient de fermer.
+    """
+    from Code.competences_acces import peut_lire
+    if not Activities.query.get(activity_id):
+        return jsonify({"error": "activity_not_found"}), 404
+    role_id = request.args.get("role_id", type=int)
+    if not peut_lire(current_user(), user_id, role_id=role_id):
+        return jsonify({"error": "forbidden"}), 403
+    return jsonify(historique_activite(user_id, activity_id, role_id)), 200
 
 
 @mastery_bp.route("/evaluate", methods=["POST"])

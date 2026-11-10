@@ -363,8 +363,15 @@ class TestLesDeuxRegimesCohabitent:
         assert r["demonstrated_level"] == 2, "le niveau est DÉDUIT de la mesure"
         assert r["performance"]["qualifie"] is True
         js = _lire(JS)
-        assert "const aSaisir = st.results.some(r => !r.mesurable);" in js, \
-            "« Enregistrer » ne doit s'afficher que s'il y a quelque chose à saisir"
+        # ⚠️ La note se pose désormais sur la PISTE de l'axe partagé (10/11) :
+        # c'est là que la règle se tient. Une sortie mesurée n'a pas de zone
+        # cliquable pour le développeur — l'auto-évaluation, elle, reste
+        # toujours permise, c'est un repère que le collaborateur se donne.
+        bloc = js.split("  function rangeeSortie(r, st, i) {", 1)[1].split("\n  }", 1)[0]
+        assert "const modifiable = dev ? !r.mesurable : true;" in bloc
+        assert "if (modifiable) {" in bloc, "les crans ne se dessinent que là"
+        pied = js.split("  function majPied(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "every(r => r.mesurable)" in pied and "pal_pas_de_note" in pied
 
     def test_une_sortie_SANS_norme_garde_son_echelle(self, app, auth_client, bob, comme_dev):
         from Code.models.models import Data
@@ -526,13 +533,24 @@ class TestEvaluerEstUnePage:
         """Le relief se dessine depuis les paliers que `/mastery/activity`
         porte déjà. `/paliers/historique` n'en rendait qu'un sous-ensemble (les
         seuls évalués) : une requête dont personne ne lit la réponse, c'est du
-        temps pris à l'ouverture de la page."""
+        temps pris à l'ouverture de la page.
+
+        ⚠️ Depuis le 10/11 l'écran porte un vrai HISTORIQUE, et il demande une
+        seconde lecture. Elle ne doit PAS retenir le rendu : la carte part
+        vide, se remplit quand la réponse arrive, et se retire si elle
+        n'arrive pas. C'est la leçon de `/panel`, qui retenait son HTML le
+        temps d'un appel inter-services et annonçait ensuite une panne.
+        """
         js = _lire(JS)
         bloc = js.split("async function ouvrirEvaluation(", 1)[1][:900]
         assert "/mastery/activity/" in bloc
         assert "/paliers/historique/" not in bloc
         assert "Promise.all" not in bloc
-        assert "state.histo" not in js, "plus de série à tenir en mémoire"
+        centre = js.split("  function remplirCentre(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "chargerHistorique(st);" in centre
+        assert "await chargerHistorique" not in centre, "elle ne retient pas le rendu"
+        charge = js.split("  async function chargerHistorique(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "c.remove();" in charge, "pas de réponse, pas de carte"
 
     def test_le_tiroir_ne_porte_plus_que_les_dialogues(self):
         js = _lire(JS)
@@ -864,10 +882,14 @@ class TestLEnregistrementTrouveSesCartes:
     « Enregistré » tombait quand même. Mesuré au banc : 2 cartes dans
     `#ev-centre`, 0 dans le tiroir."""
 
-    def test_il_lit_la_colonne_du_milieu_et_pas_le_tiroir(self):
+    def test_il_lit_l_etat_de_saisie_et_pas_le_tiroir(self):
+        """⚠️ Il scrutait le DOM de l'échelle. Depuis que la note se pose aussi
+        sur la PISTE de l'axe (10/11), le DOM n'est plus la source : deux
+        endroits l'écrivent, et `state.saisie` est la seule carte qu'ils
+        partagent. Deux états parallèles finiraient par se contredire."""
         js = _lire(JS)
         corps = js.split("  async function saveEvaluation() {", 1)[1].split("\n  }", 1)[0]
-        assert "#ev-centre .cv2-res" in corps
+        assert "state.saisie" in corps
         assert "cv2-drawer-body" not in corps
 
     def test_il_n_annonce_pas_un_succes_sans_rien_ecrire(self):
@@ -875,9 +897,20 @@ class TestLEnregistrementTrouveSesCartes:
         « Enregistré » : c'est ce silence qui a coûté les notes."""
         js = _lire(JS)
         corps = js.split("  async function saveEvaluation() {", 1)[1].split("\n  }", 1)[0]
-        assert "if (!cards.length)" in corps
+        assert "if (!ids.length)" in corps
         assert "ecrites" in corps
         assert "toast(ecrites ? T('saved') : T('save_rien'));" in corps
+
+    def test_la_preuve_part_TOUJOURS_avec_la_note(self):
+        """⚠️ La route fait `(evidence or "").strip() or None` : une note
+        enregistrée sans preuve EFFACE celle qui est en base. Poser un niveau
+        depuis la piste suffirait alors à perdre ce que quelqu'un avait
+        écrit — la note emporte donc la preuve existante."""
+        js = _lire(JS)
+        pose = js.split("  function poserNote(r, niveau, st) {", 1)[1].split("\n  }", 1)[0]
+        assert "jeSuisLeDev() ? r.evidence : r.self_evidence" in pose
+        corps = js.split("  async function saveEvaluation() {", 1)[1].split("\n  }", 1)[0]
+        assert "evidence: s.preuve || ''" in corps
 
 
 class TestLeCalendrierFiltreEtPoseLesDates:
@@ -1723,15 +1756,21 @@ class TestLaFicheDeNotation:
         assert "cv2-nt--auto" not in maj
 
     def test_les_crochets_de_l_enregistrement_survivent(self):
-        """⚠️ `saveEvaluation` lit `.cv2-nt.is-mienne [data-lv].sel`, et la
-        gomme en fait partie : hors du bloc, un niveau effacé ne serait plus
-        trouvé et l'enregistrement le sauterait en silence."""
+        """⚠️ La gomme fait partie de l'échelle : hors du bloc, un niveau
+        effacé ne serait plus trouvé et l'enregistrement le sauterait.
+
+        ⚠️ Et depuis que la fiche s'ouvre en DÉTAIL sous l'axe (10/11), son
+        échelle et la piste posent la MÊME note : les deux doivent écrire
+        dans `state.saisie`, sinon celle du détail n'est jamais enregistrée.
+        """
         js = _lire(JS)
         bloc = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
         assert "cv2-nt cv2-nt--${o.genre}${o.modifiable ? ' is-mienne'" in bloc
         gomme = bloc.split('class="cv2-gomme', 1)[1].split("button>", 1)[0]
         assert 'data-lv=""' in gomme
-        assert '.cv2-nt.is-mienne [data-lv].sel' in js
+        det = js.split("  function basculerDetail(r, st, rangee) {", 1)[1].split("\n  }", 1)[0]
+        assert ".cv2-nt.is-mienne [data-lv]" in det
+        assert "poserNote(r, b.dataset.lv === '' ? null : +b.dataset.lv, st);" in det
 
     def test_les_libelles_de_la_fiche_sont_dans_les_deux_langues(self):
         js = _lire(JS)
