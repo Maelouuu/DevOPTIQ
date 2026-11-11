@@ -561,7 +561,8 @@ class TestEvaluerEstUnePage:
         assert js.count("/mastery/historique/") == 1, \
             "une seule lecture, et c'est la fenêtre des courbes qui la fait"
         crb = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "if (!crb.histo) {" in crb, "une fois, puis gardée"
+        assert "if (!crb.histo || crb.cle !== cle) {" in crb, \
+            "une fois par (personne, activité, rôle) — et pas une de plus"
         assert "box.innerHTML = `<p class=\"crb-vide\">" in crb, "pas de réponse, pas de carte"
     def test_le_tiroir_ne_porte_plus_que_les_dialogues(self):
         js = _lire(JS)

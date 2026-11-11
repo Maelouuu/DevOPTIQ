@@ -3341,7 +3341,10 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 /* ⚠️ La gomme vit HORS des crans : effacer n'est pas un niveau de plus, et la
    zone attendue ne doit pas l'englober — elle aurait l'air d'un sixième
    cran. */
-.piste { display: flex; align-items: stretch; }
+/* ⚠️ De la place des DEUX côtés : au-dessus la pastille du niveau choisi,
+   en dessous le repère de l'auto-évaluation. Ce qui fait foi est au-dessus,
+   ce qu'on se dit en dessous — on sait toujours lequel on lit. */
+.piste { display: flex; align-items: stretch; margin: 42px 0 26px; }
 .crans { position: relative; display: flex; gap: 11px; flex: 1; min-width: 0; }
 /* la zone attendue : une SURFACE, pas un trait — « la barre doit entrer dans
    le vert » se regarde, un filet de 2 px se cherche. */
@@ -3363,9 +3366,30 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 }
 .cran.f.v { background: linear-gradient(160deg, var(--v6), var(--v9)); }
 .cran.but { box-shadow: inset 0 0 0 2px var(--v6); }
-/* ⚠️ Le 0 ne se REMPLIT jamais : « non démontré », c'est une jauge vide. Posé,
-   il porte un anneau — sinon rien ne distinguerait « 0 » de « rien ». */
-.cran.zero { box-shadow: inset 0 0 0 2px var(--ink-2); color: var(--ink); }
+/* ⚠️ LA PASTILLE DU NIVEAU CHOISI, posée sur SON cran. Elle dit de quoi il
+   s'agit sans qu'on aille lire le mot à l'autre bout de la ligne, et elle
+   désigne la marche : un chiffre rempli ne dit pas lequel on vient de poser.
+   ⚠️ `pointer-events: none` — ce qui explique ne vole jamais le clic de ce
+   qu'il explique (la règle déjà écrite pour la bulle de la matrice RH, et
+   payée une fois sur le repère d'auto-évaluation). */
+.cran .pic {
+  position: absolute; left: 50%; bottom: calc(100% + 10px);
+  transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  font-family: var(--pg-font); font-size: 12px; font-weight: 700; line-height: 1;
+  padding: 6px 13px; border-radius: 999px; color: #fff;
+  background: linear-gradient(160deg, var(--b6), var(--b8));
+  box-shadow: 0 7px 16px -9px rgba(29, 78, 216, .85);
+}
+.cran .pic::after {
+  content: ""; position: absolute; left: 50%; top: 100%; margin-left: -5px;
+  border: 5px solid transparent; border-top-color: var(--b8);
+}
+.cran.v .pic {
+  background: linear-gradient(160deg, var(--v6), var(--v9));
+  box-shadow: 0 7px 16px -9px rgba(4, 120, 87, .85);
+}
+.cran.v .pic::after { border-top-color: var(--v9); }
+
 /* le nom du palier vient au SURVOL, après une demi-seconde : assez pour ne pas
    clignoter quand on traverse la rangée. Pas d'attribut `title` — l'info-bulle
    du système sortirait par-dessus la nôtre. */
@@ -3403,13 +3427,16 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   transition: left .18s;
 }
 .crans .soi.est-off { display: none; }
+/* ⚠️ Son point ET son libellé passent SOUS la piste : la pastille du niveau
+   choisi occupe le dessus, et les deux tombent sur le même cran dès qu'on se
+   situe là où l'on est noté — c'est-à-dire le cas courant. */
 .crans .soi::after {
-  content: ""; position: absolute; left: 50%; top: -5px; width: 11px; height: 11px;
+  content: ""; position: absolute; left: 50%; bottom: -5px; width: 11px; height: 11px;
   margin-left: -5.5px; border-radius: 50%; background: var(--card);
   box-shadow: inset 0 0 0 2.5px var(--muted);
 }
 .crans .soi::before {
-  content: attr(data-nom); position: absolute; left: 50%; bottom: calc(100% + 10px);
+  content: attr(data-nom); position: absolute; left: 50%; top: calc(100% + 4px);
   transform: translateX(-50%); white-space: nowrap; pointer-events: none;
   font-size: 12px; font-weight: 600; color: var(--muted);
 }

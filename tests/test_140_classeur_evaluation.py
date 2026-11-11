@@ -138,19 +138,55 @@ class TestUneSeulePiste:
         p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
         assert "for (let i = 0; i <= 4; i++)" in p
 
-    def test_le_zero_ne_se_remplit_JAMAIS(self):
-        """« Non démontré », c'est une jauge VIDE. Posé, il porte un anneau —
-        sinon rien ne distinguerait « 0 » de « rien »."""
+    def test_le_zero_se_remplit_COMME_LES_AUTRES(self):
+        """⚠️ RENVERSEMENT de la règle du 11/11 (« le 0 ne se remplit jamais »).
+        Elle venait de la jauge à quatre pas, où le niveau 0 est une jauge
+        VIDE. Sur une piste qui porte un cran « 0 », elle laissait un trou
+        blanc à gauche d'une barre qui part à 1 — on le lisait comme un
+        défaut, pas comme un sens.
+
+        La distinction NULL ≠ 0 tient toujours, et mieux : rien de posé, rien
+        de rempli ; 0 posé, le seul cran 0 — un cran plein se voit de loin, un
+        anneau se cherche.
+        """
         js = _lire(JS)
         p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        assert "if (!estNul(pose) && i >= 1 && i <= pose)" in p
-        assert "if (pose === 0 && i === 0) c += ' zero';" in p
+        assert "if (!estNul(pose) && i <= pose) c += ' f'" in p
+        assert "i >= 1" not in p, "le 0 est un cran comme les autres"
+        assert "' zero'" not in p
         css = _sans_commentaires_css(_lire(CSS))
-        assert "inset 0 0 0 2px" in _regle(css, "\n.cran.zero {")
+        assert ".cran.zero" not in css, "l'anneau n'a plus d'objet"
         # …et la mise à jour sur place tient la même règle
         m = _corps(js, "  function majNota(z, r, st) {")
-        assert "if (!estNul(off) && i >= 1 && i <= off)" in m
+        assert "if (!estNul(off) && i <= off) {" in m
 
+    def test_la_pastille_dit_QUEL_niveau_on_vient_de_poser(self):
+        """Un cran rempli ne dit pas lequel on a choisi : la pastille le pose
+        sur SON cran, avec son bec, au lieu d'obliger à lire le mot à l'autre
+        bout de la ligne."""
+        js = _lire(JS)
+        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
+        assert "const pic = (!estNul(pose) && i === pose)" in p
+        assert 'class="pic">${esc(levelName(i))}' in p
+        # ⚠️ Elle SE DÉPLACE : deux pastilles diraient deux niveaux.
+        m = _corps(js, "  function majNota(z, r, st) {")
+        assert "if (p && i !== off) p.remove();" in m
+        css = _sans_commentaires_css(_lire(CSS))
+        pic = _regle(css, "\n.cran .pic {")
+        assert "pointer-events: none" in pic, \
+            "ce qui explique ne vole jamais le clic de ce qu'il explique"
+        assert "border-top-color" in _regle(css, "\n.cran .pic::after {"), "le bec"
+
+    def test_l_auto_evaluation_passe_SOUS_la_piste(self):
+        """Le dessus est pris par la pastille du niveau choisi, et les deux
+        tombent sur le même cran dès qu'on se situe là où l'on est noté."""
+        css = _sans_commentaires_css(_lire(CSS))
+        av = _regle(css, "\n.crans .soi::after {")
+        bf = _regle(css, "\n.crans .soi::before {")
+        assert "bottom: -5px" in av and "top: -5px" not in av
+        assert "top: calc(100% +" in bf
+        # de la place des DEUX côtés, sinon la pastille mord sur l'en-tête
+        assert "margin: 42px 0 26px" in _regle(css, "\n.piste {")
     def test_la_zone_attendue_est_une_SURFACE_et_n_existe_pas_sans_requis(self):
         """« La barre doit entrer dans le vert » se regarde ; un filet de 2 px
         se cherche. Et NULL ≠ 0 : sans requis, pas de zone."""
@@ -223,6 +259,45 @@ class TestUneSeulePiste:
         assert "querySelectorAll" not in s
 
 
+class TestCeQuiEtaitDIT_DEUX_FOIS:
+    """Quatre libellés disaient ce qu'un autre élément de l'écran disait déjà,
+    souvent plus gros et à deux centimètres. Chacun est parti."""
+
+    def test_le_bandeau_ne_recompte_plus_les_activites_evaluees(self):
+        js = _lire(JS)
+        assert "ev_evaluees" not in js, "le rail porte déjà le compte et l'état"
+
+    def test_la_bande_ne_garde_que_ce_qui_RESTE_a_faire(self):
+        """« Maîtrise étendue · le minimum de ses 2 sorties » redisait le grand
+        chiffre juste au-dessus, et la règle que le « i » explique déjà."""
+        js = _lire(JS)
+        b = _corps(js, "  function bandeClasseur(st) {")
+        assert "nf('cl_min'" not in b
+        assert "cl_reste" in b, "ce qui reste à noter est la seule chose actionnable"
+        assert "levelName(niv)" not in b
+
+    def test_le_verdict_ne_redit_plus_la_piste_verte(self):
+        """⚠️ `nota_mes_ko` reste : il dit ce qui FERA monter le niveau. C'est
+        le _ok qui était du bruit — la piste est verte et la pastille dit
+        « qualifié »."""
+        js = _lire(JS)
+        m = _corps(js, "  function majNota(z, r, st) {")
+        assert "nota_mes_ok" not in m
+        assert "nota_mes_ko" in m
+
+    def test_la_tuile_NIVEAU_TENU_quitte_le_bandeau_de_situation(self):
+        """Elle se confondait avec le NIVEAU TENU de l'activité, juste en
+        dessous et bien plus gros : deux chiffres du même nom qui ne comptent
+        pas la même chose. Les trois autres disent ce qui RESTE à faire."""
+        js = _lire(JS)
+        f = _corps(js, "  function rendreFiltres() {")
+        assert "'held'" not in f
+        for c in ("'gap'", "'todo'", "'setup'"):
+            assert c in f, c
+        # …mais la catégorie, elle, sert toujours à colorer la liste
+        assert "categorie(a)" in f
+
+
 class TestLesCourbesQuittentLaPage:
 
     def test_aucune_courbe_dans_la_feuille(self):
@@ -261,10 +336,25 @@ class TestLesCourbesQuittentLaPage:
         js = _lire(JS)
         assert js.count("/mastery/historique/") == 1
         c = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "if (!crb.histo) {" in c
+        assert "if (!crb.histo || crb.cle !== cle) {" in c
         ouvrir = js.split("async function ouvrirEvaluation(", 1)[1][:900]
         assert "/paliers/historique/" not in ouvrir and "/mastery/historique" not in ouvrir
 
+    def test_le_cache_porte_une_CLE_et_pas_le_dernier_venu(self):
+        """⚠⚠ Mesuré au banc : `crb.histo` ne portait aucune clé. Ouvert une
+        fois, il restait affiché pour TOUTE autre personne et toute autre
+        activité — Lina et Theo lisaient la frise de Noe. Et là où le premier
+        historique était vide, tout le reste l'était aussi : c'est le
+        « aucune note posée pour le moment » signalé, vu de l'autre côté.
+        """
+        js = _lire(JS)
+        assert "histo: null, cle: null" in js
+        c = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "const cle = `${state.cible}/${st.activity_id}/${state.roleId}`;" in c
+        assert "crb.cle = cle;" in c
+        # la sortie retenue pour le relief appartient elle aussi à UNE activité
+        o = _corps(js, "  function ouvrirCourbes(vue, dataId) {")
+        assert "crb.sortie = null;" in o
     def test_la_fenetre_est_declaree_et_se_ferme(self):
         html = _lire(GABARIT)
         assert 'id="cv2-crb-win"' in html and 'id="cv2-crb-ong"' in html
@@ -458,13 +548,13 @@ class TestLesLibellesSontDansLesDeuxLangues:
         js = _lire(JS)
         fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
         en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
-        cles = ["cl_tenu", "cl_min_1", "cl_min_n", "cl_reste_1", "cl_reste_n",
+        cles = ["cl_tenu", "cl_reste_1", "cl_reste_n",
                 "cl_courbes", "cl_seance", "cl_mes", "cl_main", "cl_rien",
                 "cl_tech_0", "cl_tech_1", "cl_tech_n",
                 "cl_tech_ecart_1", "cl_tech_ecart_n",
                 "grv_mesure", "nota_foi", "nota_mes", "nota_vous",
                 "nota_vous_auto", "nota_rien", "nota_att", "nota_cette",
-                "nota_zero", "nota_mes_ok", "nota_mes_ko", "pr_k", "pr_vide",
+                "nota_zero", "nota_mes_ko", "pr_k", "pr_vide",
                 "crb_titre", "crb_niveaux", "crb_niveaux_d", "crb_valeurs",
                 "crb_valeurs_d", "crb_sans_mes", "crb_choisir",
                 "h_titre", "h_vide", "h_glob", "h_glob_d", "h_sous", "h_au",
@@ -477,7 +567,7 @@ class TestLesLibellesSontDansLesDeuxLangues:
         """« 1 reste à noter » et « 2 restent à noter » ne s'accordent pas de
         la même façon : `nf()` essaie la forme qui EXISTE."""
         js = _lire(JS)
-        for c in ("cl_min", "cl_reste", "cl_tech", "cl_tech_ecart"):
+        for c in ("cl_reste", "cl_tech", "cl_tech_ecart"):
             assert ("%s_1:" % c) in js and ("%s_n:" % c) in js, c
 
     def test_la_fenetre_porte_son_titre_traduit(self):

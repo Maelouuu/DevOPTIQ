@@ -38,8 +38,6 @@
       ax_pas_notee: 'Pas encore notée',
       ax_effacer: 'Effacer la note',
       cl_tenu: 'Niveau tenu',
-      cl_min_1: 'sa seule sortie',
-      cl_min_n: 'le minimum de ses [[n]] sorties',
       cl_reste_1: '1 reste à noter',
       cl_reste_n: '[[n]] restent à noter',
       cl_courbes: 'Les courbes',
@@ -61,7 +59,6 @@
       nota_att: 'Attendu [[n]]',
       nota_cette: 'Cette sortie',
       nota_zero: 'Non évalué n’est pas zéro : [[b]]zéro se pose[[/b]], et il veut dire « non démontré ».',
-      nota_mes_ok: 'La norme est atteinte. Seule l’expertise se pose à la main.',
       nota_mes_ko: 'La norme n’est pas encore atteinte : c’est la mesure qui fera monter le niveau.',
       pr_k: 'La preuve',
       pr_vide: 'Ce sur quoi vous vous appuyez pour poser ce niveau.',
@@ -95,7 +92,6 @@
       ev_nb_act: '[[n]] activités',
       ev_nb_act_1: '1 activité',
       ev_suivi_par: 'suivi par [[x]]',
-      ev_evaluees: '[[n]] activités évaluées sur [[t]]',
       ev_col_sor: 'Ce que l’activité produit',
       ev_col_sor_d: 'Les sorties de l’activité choisie à gauche. C’est là-dessus qu’on note.',
       save_rien: 'Rien à enregistrer sur cette activité.',
@@ -441,8 +437,6 @@
       ax_pas_notee: 'Not rated yet',
       ax_effacer: 'Clear the rating',
       cl_tenu: 'Level held',
-      cl_min_1: 'its only output',
-      cl_min_n: 'the lowest of its [[n]] outputs',
       cl_reste_1: '1 still to rate',
       cl_reste_n: '[[n]] still to rate',
       cl_courbes: 'The curves',
@@ -464,7 +458,6 @@
       nota_att: 'Target [[n]]',
       nota_cette: 'This output',
       nota_zero: 'Not assessed is not zero: [[b]]zero is set[[/b]], and it means “not demonstrated”.',
-      nota_mes_ok: 'The standard is met. Only expertise is set by hand.',
       nota_mes_ko: 'The standard is not met yet: the measurement is what raises the level.',
       pr_k: 'Evidence',
       pr_vide: 'What you base this level on.',
@@ -498,7 +491,6 @@
       ev_nb_act: '[[n]] activities',
       ev_nb_act_1: '1 activity',
       ev_suivi_par: 'followed by [[x]]',
-      ev_evaluees: '[[n]] of [[t]] activities assessed',
       ev_col_sor: 'What the activity produces',
       ev_col_sor_d: 'The outputs of the activity picked on the left. This is what you rate.',
       save_rien: 'Nothing to save on this activity.',
@@ -1712,15 +1704,21 @@
   function piste(pose, attendu, soi, lue) {
     let h = `<div class="piste${lue ? ' lue' : ''}"><div class="crans">`;
     if (attendu !== null) h += `<span class="zone" style="--x:${attendu * 20}%"></span>`;
+    const vert = attendu !== null && !estNul(pose) && pose >= attendu;
     for (let i = 0; i <= 4; i++) {
       let c = 'cran';
-      if (!estNul(pose) && i >= 1 && i <= pose) {
-        c += ' f' + (attendu !== null && pose >= attendu ? ' v' : '');
-      }
-      if (pose === 0 && i === 0) c += ' zero';
+      // ⚠️ Le 0 se REMPLIT comme les autres. Il restait blanc à gauche d'une
+      // barre qui part à 1 : un trou au début de la jauge, qu'on lisait comme
+      // un défaut. Rien de posé → rien de rempli ; 0 posé → le seul cran 0 —
+      // la distinction NULL ≠ 0 se voit toujours, et mieux qu'avec un anneau.
+      if (!estNul(pose) && i <= pose) c += ' f' + (vert ? ' v' : '');
       if (i === attendu) c += ' but';
+      // La pastille du niveau CHOISI, posée sur son cran : elle dit de quoi
+      // il s'agit sans qu'on aille lire le mot à l'autre bout de la ligne.
+      const pic = (!estNul(pose) && i === pose)
+        ? `<span class="pic">${esc(levelName(i))}</span>` : '';
       h += `<button type="button" class="${c}" data-lv="${i}"${lue ? ' tabindex="-1"' : ''}
-        data-nom="${esc(levelName(i))}" aria-label="${esc(i + ' · ' + levelName(i))}">${i}</button>`;
+        data-nom="${esc(levelName(i))}" aria-label="${esc(i + ' · ' + levelName(i))}">${i}${pic}</button>`;
     }
     h += `<span class="soi${estNul(soi) ? ' est-off' : ''}"
       style="--x:${estNul(soi) ? 0 : soi * 20 + 10}%"
@@ -1871,14 +1869,23 @@
     const soi = dev ? r.self_level : maNote(r);
     const perf = r.performance || {};
 
+    const vert = req !== null && !estNul(off) && off >= req;
     z.querySelectorAll('.cran').forEach(b => {
       const i = +b.dataset.lv;
-      b.classList.remove('f', 'v', 'zero');
-      if (!estNul(off) && i >= 1 && i <= off) {
+      b.classList.remove('f', 'v');
+      if (!estNul(off) && i <= off) {
         b.classList.add('f');
-        if (req !== null && off >= req) b.classList.add('v');
+        if (vert) b.classList.add('v');
       }
-      if (off === 0 && i === 0) b.classList.add('zero');
+      // ⚠️ La pastille se DÉPLACE, elle ne se redessine pas ailleurs : deux
+      // pastilles sur la même piste diraient deux niveaux.
+      const p = b.querySelector('.pic');
+      if (p && i !== off) p.remove();
+      if (!p && !estNul(off) && i === off) {
+        const n = document.createElement('span');
+        n.className = 'pic'; n.textContent = levelName(i);
+        b.appendChild(n);
+      }
     });
     const s = z.querySelector('.soi');
     s.classList.toggle('est-off', estNul(soi));
@@ -1902,8 +1909,8 @@
       vd = gras(T('nota_zero'));
     } else if (!estNul(soi)) {
       vd = accordBadge(dev ? soi : maNote(r), dev ? off : r.demonstrated_level, dev);
-    } else if (r.mesurable) {
-      vd = esc(T(perf.qualifie ? 'nota_mes_ok' : 'nota_mes_ko'));
+    } else if (r.mesurable && !perf.qualifie) {
+      vd = esc(T('nota_mes_ko'));
     }
     z.querySelector('[data-vd]').innerHTML = vd;
   }
@@ -4160,7 +4167,6 @@
           <div class="ev-niv">
             <p class="k">${esc(T('ev_niv_role'))}</p>
             <p class="v">${esc(niveauRole())}</p>
-            <p class="d">${esc(Tv('ev_evaluees', { n: nEval, t: nAct }))}</p>
           </div>
           <span class="ev-sep"></span>
           <div class="ev-actions">
@@ -4239,7 +4245,7 @@
     const z = $('#ev-rail-f'); if (!z) return;
     const compte = { held: 0, gap: 0, todo: 0, setup: 0 };
     state.rows.forEach(a => { compte[categorie(a)] += 1; });
-    const tuiles = [['held', T('b_held'), 'green'], ['gap', T('b_gap'), 'orange'],
+    const tuiles = [['gap', T('b_gap'), 'orange'],
                     ['todo', T('b_todo'), 'blue'], ['setup', T('b_setup'), 'grey']];
     z.innerHTML = tuiles.filter(([c]) => compte[c] || state.filtre === c)
       .map(([c, lbl, teinte]) => `<button type="button"
@@ -4505,14 +4511,11 @@
         ${estNul(niv)
           ? `<span class="n mot">${esc(T('not_assessed'))}</span>`
           : `<span class="n">${niv}</span>`}
-        <span class="m">${esc(estNul(niv) ? '' : levelName(niv))}${n
-          ? (estNul(niv) ? '' : ' · ') + esc(nf('cl_min', n)) : ''}${reste
-          ? ` · <b>${esc(nf('cl_reste', reste))}</b>` : ''}</span>
+        <span class="m"></span>
       </div>`;
     // ⚠️ `.m` porte un `<b>` : il se construit en HTML, pas en textContent.
-    h.querySelector('.cl-niv .m').innerHTML = (estNul(niv) ? '' : esc(levelName(niv)))
-      + (n ? (estNul(niv) ? '' : ' · ') + esc(nf('cl_min', n)) : '')
-      + (reste ? ` · <b>${esc(nf('cl_reste', reste))}</b>` : '');
+    h.querySelector('.cl-niv .m').innerHTML =
+      reste ? `<b>${esc(nf('cl_reste', reste))}</b>` : '';
     h.querySelector('[data-min]').appendChild(boutonInfo(T('ev_min_t'), texteMinimum()));
 
     const reg = $('#ev-cl-reg');
@@ -4664,11 +4667,17 @@
   // ⚠️ L'historique ne se charge QU'ICI, et une fois : il ne pèse plus sur
   // l'ouverture d'une activité, où personne ne l'avait demandé.
   // ══════════════════════════════════════════════════════════════════════
-  const crb = { vue: 'niveaux', sortie: null, histo: null };
+  const crb = { vue: 'niveaux', sortie: null, histo: null, cle: null };
 
   function ouvrirCourbes(vue, dataId) {
     const st = state.lastState; if (!st) return;
     crb.vue = vue || 'niveaux';
+    // ⚠️ La sortie retenue pour le relief appartient à UNE activité : gardée
+    // d'une activité à l'autre, elle ne s'y retrouve pas et le sélecteur
+    // s'ouvrait sur la mauvaise.
+    if (crb.cle && crb.cle !== `${state.cible}/${st.activity_id}/${state.roleId}`) {
+      crb.sortie = null;
+    }
     if (dataId) crb.sortie = dataId;
     $('#cv2-crb-sub').innerHTML = `<span class="qui">${esc(state.activity.activity_name)}</span>`
       + `<span class="ou">${esc(state.cibleNom)}</span>`;
@@ -4710,7 +4719,8 @@
     const box = $('#cv2-crb-body');
     if (crb.vue === 'valeurs') { rendreValeurs(st, box); return; }
 
-    if (!crb.histo) {
+    const cle = `${state.cible}/${st.activity_id}/${state.roleId}`;
+    if (!crb.histo || crb.cle !== cle) {
       showBusy(null, '#cv2-crb-body');
       const h = await api(`/mastery/historique/${state.cible}/${st.activity_id}`
                           + `?role_id=${state.roleId}`, null, true);
@@ -4719,6 +4729,7 @@
         return;
       }
       crb.histo = h;
+      crb.cle = cle;
     }
     if (crb.vue !== 'niveaux') return;
     const h = crb.histo;

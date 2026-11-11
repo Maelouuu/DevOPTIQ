@@ -8099,7 +8099,83 @@ détail des séances, le dialogue de technicité — **zéro fuite française su
 l'écran anglais** (119 textes relevés, attributs compris), zéro clé brute,
 zéro erreur console, aucun débordement horizontal.
 
-**Reste à faire** : 77 clés de catalogue ne sont plus lues (dont une
+#### Ce qui était dit DEUX FOIS, le 0 qui se remplit, et la frise d'un autre (2026-11-11)
+
+Quatre libellés, une règle renversée, et un défaut qui montrait les données de
+quelqu'un d'autre.
+
+**Quatre libellés disaient ce qu'un autre élément montrait déjà**, souvent plus
+gros et à deux centimètres :
+- « 2 activités évaluées sur 2 » (bandeau nuit) — le rail des activités porte
+  déjà le compte ET l'état de chacune ;
+- « Maîtrise étendue · le minimum de ses 2 sorties » (bande du classeur) —
+  redisait le grand chiffre juste au-dessus et la règle que le « i » explique.
+  La bande ne garde que **ce qui reste à noter**, la seule chose actionnable ;
+- « La norme est atteinte. Seule l'expertise se pose à la main. » — la piste
+  est verte et la pastille dit « qualifié ». ⚠️ `nota_mes_ko` RESTE : il dit ce
+  qui FERA monter le niveau ;
+- la tuile verte **« Niveau tenu »** du bandeau de situation — elle se
+  confondait avec le NIVEAU TENU de l'activité, juste en dessous et bien plus
+  gros : deux chiffres du même nom qui ne comptent pas la même chose. Les trois
+  autres disent ce qui RESTE à faire.
+
+Les clés devenues mortes (`ev_evaluees`, `nota_mes_ok`, `cl_min_1`, `cl_min_n`)
+quittent le catalogue — vérifié qu'aucune n'est construite par concaténation.
+
+#### ⚠️ RENVERSEMENT : le 0 se remplit comme les autres
+
+La règle du 11/11 (« le 0 ne se REMPLIT jamais : non démontré, c'est une jauge
+vide ») venait de la jauge à **quatre pas**, où le niveau 0 est bien une jauge
+vide. Sur une piste qui porte un cran « 0 », elle laissait un trou blanc à
+gauche d'une barre qui part à 1 — on le lisait comme un défaut, pas comme un
+sens.
+
+La distinction **NULL ≠ 0 tient toujours, et mieux** : rien de posé, rien de
+rempli ; 0 posé, le seul cran 0. Un cran plein se voit de loin, un anneau se
+cherche — `.cran.zero` disparaît avec sa règle.
+
+#### La pastille dit QUEL niveau on vient de poser
+
+Un cran rempli ne dit pas lequel on a choisi : il fallait lire le mot à l'autre
+bout de la ligne. La pastille se pose **sur son cran**, avec son bec, à la
+couleur de la marche (bleu, vert dès l'attendu atteint).
+- ⚠️ `pointer-events: none` — ce qui explique ne vole jamais le clic de ce
+  qu'il explique. La règle était déjà écrite pour la bulle de la matrice RH, et
+  payée la veille sur le repère d'auto-évaluation.
+- ⚠️ Elle **se DÉPLACE**, elle ne se redessine pas ailleurs : deux pastilles sur
+  la même piste diraient deux niveaux.
+- ⚠️ **L'auto-évaluation passe SOUS la piste**, point et libellé : le dessus est
+  pris, et les deux tombent sur le même cran dès qu'on se situe là où l'on est
+  noté — c'est-à-dire le cas courant. Ce qui fait foi au-dessus, ce qu'on se dit
+  en dessous : on sait toujours lequel on lit.
+- ⚠️ Mesuré : à 28 px de marge, la pastille mordait de **4 px** sur la ligne
+  d'en-tête. 42 px au-dessus, 26 px en dessous.
+
+#### ⚠️⚠️ « Les niveaux : aucune note posée, peu importe le collaborateur »
+
+Le reproche visait un vrai défaut, et le banc l'a montré **pire que signalé** :
+`crb.histo` ne portait **aucune clé**. Ouvert une fois, il restait affiché pour
+TOUTE autre personne et toute autre activité — mesuré : **Lina et Theo lisaient
+la frise de Noe**, au mot près. Et là où le premier historique était vide, tout
+le reste l'était aussi : c'est le « aucune note posée » signalé, vu de l'autre
+côté.
+
+Le cache porte désormais `cle = cible/activité/rôle`. ⚠️ Et `crb.sortie` (la
+sortie retenue pour le relief) est remise à zéro quand la clé change : gardée
+d'une activité à l'autre, elle ne s'y retrouve pas et le sélecteur s'ouvrait sur
+la mauvaise.
+
+Mesuré après, sans recharger la page entre les trois : Noe sa frise, Lina et
+Theo « aucune note » — chacun pour ses propres données.
+
+Tests : `tests/test_140_classeur_evaluation.py` passe de 46 à **53 cas** ;
+**13 défauts remis un par un, 13 cliquets tombés**. `test_109` voit l'ancre de
+son cas sur le cache suivre. Éprouvé au banc dans les deux langues : zéro
+chevauchement de la pastille, zéro erreur console, zéro débordement, et les
+trois collaborateurs lus d'affilée sans rechargement.
+
+**Reste à faire** : 73 clés de catalogue ne sont plus lues (quatre sont
+parties le 11/11 au soir avec les libellés qu elles portaient ; dont une
 cinquantaine orphelines depuis cette refonte — `ax_*`, `fi_*`, `n_*`,
 `ev_col_*`). Elles ne coûtent rien à l'exécution et une clé retirée à tort
 s'affiche TELLE QUELLE à l'écran sans rien lever : le ménage se fait à part,
