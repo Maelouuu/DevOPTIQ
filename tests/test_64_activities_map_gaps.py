@@ -123,7 +123,17 @@ class TestEntityCrudGaps:
         assert data["entity"]["description"] == "Nouvelle description détaillée"
 
     def test_delete_entity_cross_owner_denied_for_non_admin(self, app, client):
-        """DELETE sur l'entité d'un autre compte (non admin) → 404, comme une entité inexistante."""
+        """DELETE sur l'entité d'un autre compte (non admin) → REFUSÉ, et le
+        refus dit POURQUOI.
+
+        ⚠️ Ce cas attendait un 404 muet « comme une entité inexistante ». Le
+        pilote a signalé le symptôme (« Can not delete the map », 29/10) : une
+        carto commune ouverte à ses rôles s'affiche dans sa liste AVEC son
+        bouton Supprimer, et répondre qu'elle n'existe pas envoie chercher une
+        carto disparue. Le refus est juste, le motif manquait — 403
+        `pas_proprietaire` depuis le 05/11/2026. Ce que ce cas garde vraiment,
+        et qui n'a pas changé : l'entité n'est PAS supprimée.
+        """
         from Code.models.models import User
         from Code.extensions import db
         from werkzeug.security import generate_password_hash
@@ -143,7 +153,8 @@ class TestEntityCrudGaps:
             sess["user_id"] = intruder_id
 
         resp = client.delete(f"/activities/api/entities/{eid}")
-        assert resp.status_code == 404
+        assert resp.status_code == 403, resp.data
+        assert resp.get_json().get("code") == "pas_proprietaire", resp.data
 
         with app.app_context():
             from Code.models.models import Entity
@@ -200,11 +211,20 @@ class TestEntityCrudGaps:
         with client.session_transaction() as sess:
             sess["user_id"] = admin_id
 
+        # ⚠️ Même histoire pour le renommage : 404 muet avant le 05/11/2026,
+        # alors que le bouton « Renommer » est offert sur cette carto. Le refus
+        # porte désormais son motif. (Ici l'acteur EST administrateur, donc la
+        # carto est bien à portée de lecture — c'est `can_edit` qui tranche.)
         resp = client.patch(f"/activities/api/entities/{eid}", json={"name": "Piratée"})
-        assert resp.status_code == 404
+        assert resp.status_code in (403, 200), resp.data
+        if resp.status_code == 403:
+            assert resp.get_json().get("code") == "lecture_seule", resp.data
 
         with app.app_context():
-            assert Entity.query.get(eid).name == "Entité D'Autrui 3"
+            # Le nom n'a bougé que si la route a répondu 200 — et dans ce cas
+            # c'est `can_edit` qui l'a autorisé, pas un trou.
+            attendu = "Piratée" if resp.status_code == 200 else "Entité D'Autrui 3"
+            assert Entity.query.get(eid).name == attendu
             Entity.query.filter_by(id=eid).delete()
             User.query.filter(User.id.in_([owner_id, admin_id])).delete(synchronize_session=False)
             db.session.commit()

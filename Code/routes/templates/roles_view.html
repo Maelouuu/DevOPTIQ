@@ -527,7 +527,11 @@
           {{ t('roles.role_prefix') }} <span id="role-name-{{ item.role.id }}">{{ item.role.display_name }}</span>
           <div class="actions">
             <i class="fas fa-pencil-alt" title="{{ t('roles.rename_title') }}" onclick="editRole(event, {{ item.role.id }})"></i>
+            {# Supprimer un rôle emporte ses titulaires et ses liens dans TOUTES
+               les cartos : l'administrateur seul. Renommer reste ouvert. #}
+            {% if peut_supprimer %}
             <i class="fas fa-trash" title="{{ t('roles.delete_title') }}" onclick="deleteRole(event, {{ item.role.id }})"></i>
+            {% endif %}
           </div>
         </div>
 
@@ -860,7 +864,7 @@
 
     function deleteRole(event, roleId) {
       event.stopPropagation();
-      if (!confirm("Confirmez-vous la suppression de ce rôle ?")) return;
+      if (!confirm({{ t('roles.confirm_delete')|tojson }})) return;
       fetch(`/roles/${roleId}`, { method: "DELETE" })
       .then(resp => resp.json())
       .then(data => {

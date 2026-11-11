@@ -5,6 +5,7 @@ from sqlalchemy import text, func
 from Code.extensions import db
 from Code.models.models import Role, Entity
 from Code.role_i18n import on_role_name_saved
+from Code.permissions import is_admin
 
 roles_bp = Blueprint('roles', __name__, url_prefix='/roles')
 
@@ -80,7 +81,15 @@ def delete_role(role_id):
     """
     Supprime un rôle.
     Avant suppression, supprime les associations dans les tables activity_roles et task_roles pour éviter les incohérences.
+
+    ⚠️ L'ADMINISTRATEUR, et lui seul. Un rôle est commun à l'entreprise
+    (`roles_communs`) : le supprimer emporte ses titulaires, ses liens aux
+    activités et aux tâches de TOUTES les cartos, et l'accès qu'il ouvrait.
+    Renommer reste permis à qui le pouvait — c'est réversible, ceci ne l'est
+    pas. Le masquage du bouton n'est pas une sécurité : le refus est ici.
     """
+    if not is_admin():
+        return jsonify({"error": "admin_only"}), 403
     role = Role.query.get(role_id)
     if not role:
         return jsonify({"error": "Role not found"}), 404

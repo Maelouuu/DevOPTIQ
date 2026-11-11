@@ -224,7 +224,8 @@
   function rendre() {
     if (!dom.racine || dom.racine.hidden) return;
     const haut = dom.corps.scrollTop;
-    const vue = S.ecran + (S.rapport ? ':rapport' : '') + (S.lecture ? ':lecture' : '');
+    const vue = S.ecran + (S.rapport ? ':rapport' : '') + (S.lecture ? ':lecture' : '')
+      + (S.confirme ? ':confirme' : '');
     dom.fenetre.style.setProperty('--tc', COULEUR[S.type] || '#db2777');
     dom.fenetre.dataset.ecran = S.ecran;
     rendreTete();
@@ -359,6 +360,10 @@
 
   // ── 3 · Vérifier ───────────────────────────────────────────────────
   function ecranRevue() {
+    // ⚠️ La confirmation prend TOUT l'écran : elle porte sur l'import
+    // entier, pas sur une feuille. Posée dans une part, on la lirait
+    // comme une remarque sur cette feuille-là.
+    if (S.confirme) return blocConfirme();
     const p = partActive();
     if (!p) return '';
     if (S.type !== 'multiple') {
@@ -374,6 +379,51 @@
           ${tetePart(p)}${corpsPart(p)}
         </div>
       </div>
+    </div>`;
+  }
+
+  // Combien de lignes ne partiront PAS, et sous quels noms. Seules les
+  // tâches ont un rattachement à faire : un rôle ou un outil n'a pas
+  // d'activité à retrouver.
+  const CONFIRME_NOMMES = 8;
+  function laissesDeCote() {
+    const noms = [];
+    let lignes = 0;
+    S.parts.forEach(p => {
+      if (!inclue(p) || p.type !== 'taches') return;
+      const v = S.verifs[p.id];
+      ((v && v.groupes) || []).forEach(g => {
+        if (g.mode !== 'a_rattacher') return;
+        const n = (g.lignes || []).length;
+        noms.push({ nom: g.activite_fichier, n });
+        lignes += n;
+      });
+    });
+    return { noms, lignes };
+  }
+
+  // ⚠️ On ne BLOQUE pas l'import : refuser 60 tâches parce que 3 ne
+  // s'apparient pas serait un recul, et l'historique, l'écran de vérification
+  // et la lecture « dans l'autre sens » sont tous bâtis pour qu'on revienne
+  // finir. Mais le bouton n'était conditionné par RIEN — on nomme donc ce qui
+  // restera dehors, juste avant d'écrire.
+  function blocConfirme() {
+    const c = S.confirme;
+    const montres = c.noms.slice(0, CONFIRME_NOMMES);
+    const reste = c.noms.length - montres.length;
+    return `<div class="imh-confirme">
+      <div class="imh-cf-tete">
+        <span class="imh-cf-ic"><i class="fa-solid fa-link-slash"></i></span>
+        <div class="imh-cf-dit">
+          <h3>${esc(P('cf_titre', c.lignes))}</h3>
+          <p>${esc(L('cf_sous'))}</p>
+        </div>
+      </div>
+      <ul class="imh-cf-l">
+        ${montres.map(o => `<li><span class="imh-cf-nom">${esc(o.nom)}</span><span class="imh-cf-n">${esc(P('n_taches', o.n))}</span></li>`).join('')}
+        ${reste > 0 ? `<li class="imh-cf-plus">${esc(P('cf_plus', reste))}</li>` : ''}
+      </ul>
+      <p class="imh-cf-pied"><i class="fa-solid fa-file-import"></i>${esc(P('cf_garder', totalGardees()))}</p>
     </div>`;
   }
 
@@ -1293,7 +1343,12 @@
     if (S.ecran === 'depot' && !modeComptes()) {
       g = `<button type="button" class="imh-btn-sec" data-action="retour"><i class="fa-solid fa-arrow-left"></i>${esc(L('retour_nature'))}</button>`;
     }
-    if (S.ecran === 'revue' && S.rapport) {
+    if (S.ecran === 'revue' && S.confirme) {
+      g = `<button type="button" class="imh-btn-sec" data-action="cf-annuler"><i class="fa-solid fa-arrow-left"></i>${esc(L('cf_revenir'))}</button>`;
+      d = `<button type="button" class="imh-btn-prim" data-action="importer"${S.occupe === 'import' ? ' disabled' : ''}>${S.occupe === 'import'
+        ? `<i class="fa-solid fa-circle-notch fa-spin"></i>${esc(L('import_en_cours'))}`
+        : `<i class="fa-solid fa-file-import"></i>${esc(L('cf_importer'))}`}</button>`;
+    } else if (S.ecran === 'revue' && S.rapport) {
       const n = S.rapport.retenus.size;
       g = `<button type="button" class="imh-btn-sec" data-action="rp-annuler"><i class="fa-solid fa-xmark"></i>${esc(L('annuler'))}</button>`;
       d = `<button type="button" class="imh-btn-ia" data-action="rp-appliquer"${n ? '' : ' disabled'}><i class="fa-solid fa-check"></i>${esc(P('rp_appliquer', n))}</button>`;
@@ -1684,6 +1739,12 @@
                lignes: p.lignes.filter(l => g.has(l._i)), choix: S.choix[p.id] || {} };
     });
     if (!parts.length || S.occupe) return;
+    // Une seule fois : `S.confirme` posé, le clic suivant écrit.
+    if (!S.confirme) {
+      const reste = laissesDeCote();
+      if (reste.lignes) { S.confirme = reste; return rendre(); }
+    }
+    S.confirme = null;
     S.occupe = 'import';
     S.erreur = null;
     rendrePied();
@@ -1728,6 +1789,7 @@
       case 'rapprocher': return rapprocher(p);
       case 'rp-appliquer': return appliquerRapport();
       case 'rp-annuler': S.rapport = null; return rendre();
+      case 'cf-annuler': S.confirme = null; return rendre();
       case 'seul-ia': S.seulIA[p.id] = !S.seulIA[p.id]; return rendre();
       case 'inverse': S.inverse[p.id] = !S.inverse[p.id]; return rendre();
       case 'deplier-source': S.deplie[p.id] = !S.deplie[p.id]; return rendre();

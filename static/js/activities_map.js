@@ -428,6 +428,7 @@ async function loadEntitiesList() {
   const list = $("#wizard-entities-list");
   const empty = $("#wizard-entities-empty");
   if (!list) return;
+  brancherRechercheEntites();
 
   try {
     const res = await fetch("/activities/api/entities");
@@ -2174,3 +2175,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 });
+
+/* ── Rechercher une cartographie dans la liste ──────────────────────────
+   ⚠️ Le champ MASQUE les lignes, il ne RE-REND pas la grille : la réécrire à
+   chaque frappe ferait perdre le curseur du champ qu'on tape (le piège déjà
+   rencontré sur les cartes du plan de formation et sur l'autre sens de
+   l'import). Le pilote porte une quinzaine de cartos, dont neuf du même nom de
+   base numérotées par `entites_uniques` : la grille se parcourait à l'œil.   */
+function normaliseNom(v) {
+  return String(v == null ? "" : v)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function filtrerEntites() {
+  const champ = document.getElementById("wizard-entity-search");
+  const list = document.getElementById("wizard-entities-list");
+  const rien = document.getElementById("wizard-entities-nomatch");
+  if (!champ || !list) return;
+  const q = normaliseNom(champ.value);
+  let vus = 0;
+  list.querySelectorAll(".entity-grid-item").forEach((el) => {
+    const nom = el.querySelector(".entity-grid-name");
+    const ok = !q || normaliseNom(nom ? nom.textContent : "").includes(q);
+    // ⚠️ `.entity-grid-item` pose son propre `display` : sans la règle
+    // `[hidden]` de `cartography.css`, l'attribut ne masquerait rien.
+    el.hidden = !ok;
+    if (ok) vus += 1;
+  });
+  if (rien) rien.classList.toggle("hidden", !(q && vus === 0));
+}
+
+function brancherRechercheEntites() {
+  const champ = document.getElementById("wizard-entity-search");
+  if (!champ || champ.dataset.branche) return;
+  champ.dataset.branche = "1";
+  // `input`, pas `change` : `change` n'arrive qu'à la perte du focus — le
+  // champ ne filtrerait rien pendant qu'on tape, sans aucune erreur pour le
+  // dire.
+  champ.addEventListener("input", filtrerEntites);
+}

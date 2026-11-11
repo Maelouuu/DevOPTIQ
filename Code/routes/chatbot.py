@@ -360,8 +360,16 @@ def chat():
     history  = data.get('history', [])
     message  = (data.get('message') or '').strip()
     mode     = (data.get('mode') or 'creer').strip()
+    # ⚠️ Le DÉMARRAGE d'une conversation n'a pas de tour utilisateur. Il en
+    # avait un : `chatbot.js` construisait un message d'amorce EN FRANÇAIS
+    # (« Mode création activé. Je souhaite créer les tâches… »), si bien qu'un
+    # modèle servi par un prompt système ANGLAIS répondait quand même en
+    # français — le retour « AI assistance is not in english » du pilote. Et
+    # c'était un prompt écrit dans le navigateur, ce que le catalogue chiffré
+    # interdit. La consigne d'ouverture vit déjà dans `chatbot.mode_*.<lang>`.
+    demarrage = bool(data.get('demarrage'))
 
-    if not message:
+    if not message and not demarrage:
         return jsonify({'error': 'Message vide'}), 400
 
     lang = session.get('lang', 'fr')
@@ -382,8 +390,9 @@ def chat():
         {'role': 'system', 'content': sys_prompt + mode_prompt},
         {'role': 'system', 'content': context_block},
         *recent,
-        {'role': 'user', 'content': message},
     ]
+    if not demarrage:
+        messages.append({'role': 'user', 'content': message})
 
     try:
         api_key = get_openai_key()

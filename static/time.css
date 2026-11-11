@@ -326,95 +326,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 }
 .fw-results-empty i { font-size: 14px; }
 
-.fw-results-title {
-  font-size: 13px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  color: var(--ink-2);
-  margin-bottom: -6px;
-}
-
-.fw-results-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.fw-result-group {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: var(--card);
-}
-
-/* Sévérité : neutre (exécution/mensuel) → ambre (dégradé) → rouge (annuel) */
-.fw-result-group.fw-group-degraded  { border-color: #fde68a; }
-.fw-result-group.fw-group-annual    { border-color: #fecaca; }
-
-.fw-group-header {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 16px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-.fw-group-execution .fw-group-header { background: var(--card-2); color: var(--ink-2); }
-.fw-group-degraded  .fw-group-header { background: #fffbeb; color: #92400e; }
-.fw-group-annual    .fw-group-header { background: #fef2f2; color: #991b1b; }
-.fw-group-monthly   .fw-group-header { background: var(--card-2); color: var(--ink-2); }
-
-.fw-group-body {
-  display: grid;
-  gap: 0;
-  grid-template-columns: repeat(2, 1fr);
-  border-top: 1px solid var(--border);
-}
-.fw-group-degraded .fw-group-body  { grid-template-columns: repeat(3, 1fr); }
-.fw-group-monthly .fw-group-body   { grid-template-columns: repeat(2, 1fr); }
-
-.fw-kpi-card {
-  padding: 12px 16px;
-  border-right: 1px solid var(--border);
-}
-.fw-kpi-card:last-child { border-right: none; }
-
-.fw-kpi-card .fw-kpi-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--muted);
-  margin-bottom: 5px;
-}
-.fw-kpi-card .fw-kpi-value {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--ink);
-  line-height: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-.fw-kpi-card .fw-kpi-unit {
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
-}
-.fw-kpi-card .fw-kpi-desc {
-  font-size: 12px;
-  color: var(--faint);
-  line-height: 1.35;
-  margin-top: 5px;
-}
-
-/* Couleur = sévérité, à taille égale (plus de « 40px » décoratif) */
-.fw-kpi-card.fw-accent-orange .fw-kpi-value { color: #b45309; }
-.fw-kpi-card.fw-accent-red .fw-kpi-value { color: #b91c1c; }
-
-.fw-kpi-card.fw-kpi-occurrences { background: var(--card-2); }
 
 /* ---- Summary pill : résultat clé de l'onglet Activité ---- */
 .summary-pill {
@@ -513,10 +424,1075 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 /* ---- Responsive ---- */
 @media (max-width: 980px) {
   .form-grid, .form-grid.fg-2cols, .subcard-grid { grid-template-columns: 1fr; grid-auto-rows: auto; }
-  .fw-group-body { grid-template-columns: 1fr 1fr !important; }
 }
 @media (max-width: 560px) {
   .container { padding: 0 12px 32px; }
-  .fw-group-body { grid-template-columns: 1fr !important; }
   .kpis { grid-template-columns: 1fr; }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LA REFONTE — trois ecrans : on arrive, on choisit, on saisit.
+
+   Mesure d'avant : quatre onglets cote a cote (quatre modeles mentaux sans
+   rien qui les relie), six chiffres dans l'onglet Role dont deux que rien ne
+   distinguait, tout a 0,0 h a l'arrivee, 1180 px utilises sur 1920, et les
+   analyses enregistrees isolees en bas de chaque onglet.
+
+   ⚠️ Les derives de l'accent (--pg-accent-soft/-border/-glow) rendent du GRIS
+   sur toute l'application : ils sont declares sur :root, ou --pg-accent vaut
+   encore le gris par defaut. On ecrit donc l'ambre en clair ici.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.page--time {
+  --tm-ambre:   #d97706;
+  --tm-ambre-f: #b45309;
+  --tm-ambre-p: #fef3c7;
+  --tm-ambre-b: #fcd34d;
+  --tm-projet:    #64748b;
+  --tm-activite:  #7c3aed;
+  --tm-role:      #d97706;
+  --tm-faiblesse: #dc2626;
+}
+
+/* Plus de largeur : la page n'en occupait que 1180 sur 1920.
+   ⚠️ Le corps porte `zoom: .8` — ces 1680 px de mise en page s'affichent sur
+   1344 px d'ecran, soit 84 % d'une fenetre de 1600 et 70 % d'une 1920. Lire
+   1680 comme « trop large » serait une erreur de repere. */
+#page-temps.container { max-width: 1680px; }
+
+.tm-ecran { display: none; }
+.tm-ecran.is-actif { display: block; }
+
+/* ───────────────────────────── 1 · ACCUEIL ───────────────────────────── */
+.tm-entete {
+  display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap;
+  padding: 4px 2px 16px;
+}
+.tm-entete-txt { flex: 1; min-width: 280px; }
+.tm-entete-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.tm-h1 {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 30px; font-weight: 700; letter-spacing: -.015em;
+  margin: 0 0 4px; color: var(--ink);
+}
+.tm-base { font-size: 13px; color: var(--muted); }
+
+.tm-chiffres { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
+
+.tm-carte {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px); padding: 18px 20px;
+  box-shadow: var(--sh-card);
+}
+.tm-carte--phare {
+  background: linear-gradient(135deg, #78350f, var(--tm-ambre-f));
+  border: 0; color: #fff;
+  box-shadow: 0 12px 30px rgba(120, 53, 15, .26);
+}
+.tm-lbl {
+  font-size: 11.5px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tm-carte--phare .tm-lbl { color: rgba(255,255,255,.78); }
+.tm-grand {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 44px; font-weight: 700; line-height: 1.05; margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.tm-carte:not(.tm-carte--phare) .tm-grand { font-size: 38px; }
+.tm-unite { font-size: 16px; font-weight: 600; opacity: .78; margin-left: 6px; }
+.tm-rouge { color: var(--tm-faiblesse); }
+.tm-etp { font-size: 13px; margin-top: 4px; color: rgba(255,255,255,.9); }
+.tm-sous { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
+.tm-filet { height: 1px; background: rgba(255,255,255,.22); margin: 13px 0 11px; }
+.tm-carte:not(.tm-carte--phare) .tm-filet,
+.tm-res-bloc .tm-filet { background: var(--border); }
+.tm-secondaires { display: flex; gap: 22px; font-size: 12.5px; }
+.tm-lbl2 { opacity: .72; }
+.tm-moyen { font-size: 16px; font-weight: 700; margin-top: 1px; }
+
+.tm-faib-liste { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
+.tm-faib-l { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.tm-faib-nom {
+  flex: 1; min-width: 0; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-faib-barre { height: 6px; border-radius: 4px; background: #fca5a5; flex: none; }
+.tm-faib-val { font-weight: 700; color: #b91c1c; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.tm-jauge { height: 8px; border-radius: 5px; background: #eef0f6; margin-top: 12px; overflow: hidden; }
+.tm-jauge-in { height: 100%; background: linear-gradient(90deg, var(--tm-ambre-f), var(--tm-ambre)); }
+.btn-couv {
+  margin-top: 12px; width: 100%; justify-content: center;
+  background: var(--tm-ambre-p); border: 1px solid var(--tm-ambre-b); color: #92400e;
+}
+
+/* ── Les deux lectures ── */
+.tm-lectures { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+.tm-lecture { padding: 0; overflow: hidden; }
+.tm-lecture-head {
+  display: flex; align-items: center; gap: 11px;
+  padding: 14px 18px 12px; border-bottom: 1px solid var(--border);
+}
+.tm-pastille {
+  width: 28px; height: 28px; flex: none; border-radius: 9px;
+  display: grid; place-items: center; color: #fff; font-size: 12px;
+}
+.tm-pastille--role     { background: var(--tm-role); }
+.tm-pastille--act      { background: var(--tm-activite); }
+.tm-pastille--dossier  { background: var(--tm-projet); }
+.tm-lecture-titre { font-size: 15px; font-weight: 700; }
+.tm-lecture-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.tm-lecture-pied {
+  font-size: 11.5px; color: var(--muted);
+  padding: 9px 18px 13px; border-top: 1px solid var(--border);
+}
+.tm-lecture-pied:empty { display: none; }
+
+.tm-barres { padding: 6px 0; }
+.tm-barre-l {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 18px; border-top: 1px solid #f3f5f9;
+}
+.tm-barres .tm-barre-l:first-child { border-top: 0; }
+.tm-barre-nom {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-barre-piste {
+  position: relative; width: 150px; flex: none; height: 9px;
+  border-radius: 5px; background: #f1f3f8;
+}
+.tm-barre-in {
+  position: absolute; inset: 0 auto 0 0; border-radius: 5px;
+  background: linear-gradient(90deg, var(--tm-ambre), #f59e0b);
+}
+/* Le repere du temps plein : un trait, pas une couleur de plus. */
+.tm-repere { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); }
+.tm-barre-val {
+  width: 64px; flex: none; text-align: right;
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.tm-barre-plus { padding: 8px 18px; font-size: 12px; color: var(--muted); }
+
+/* ── Vos analyses ──
+   ⚠️ REPLIABLES, fermées au départ : avec de vraies données les quatre
+   listes atteignaient dix-huit lignes empilées, soit neuf cents pixels de
+   défilement pour retrouver une analyse. Le compte dans l'en-tête suffit à
+   savoir s'il y a quelque chose à ouvrir. */
+.tm-analyses { margin-top: 14px; padding: 0; overflow: hidden; }
+.tm-grp { border-top: 1px solid var(--border); }
+.tm-grp-tete {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  font-family: inherit; text-align: left; cursor: pointer;
+  padding: 12px 18px; background: none; border: 0;
+}
+.tm-grp-tete:hover { background: var(--card-2); }
+.tm-grp-fleche {
+  font-size: 10px; color: var(--muted);
+  transition: transform .16s ease;
+}
+.tm-grp.is-ouvert .tm-grp-fleche { transform: rotate(90deg); }
+.tm-grp-pastille { width: 8px; height: 18px; border-radius: 3px; flex: none; }
+.tm-grp-titre {
+  flex: 1; font-size: 12.5px; font-weight: 800;
+  letter-spacing: .07em; text-transform: uppercase;
+}
+.tm-grp-n {
+  flex: none; min-width: 26px; text-align: center;
+  font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums;
+  padding: 2px 8px; border-radius: 999px;
+  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
+}
+.tm-grp-corps { display: none; padding: 0 18px 12px; }
+.tm-grp.is-ouvert .tm-grp-corps { display: block; }
+.tm-grp-vide { font-size: 12.5px; color: var(--muted); padding: 2px 0 6px; }
+
+.tm-g-projet    { background: var(--tm-projet); }
+.tm-g-activite  { background: var(--tm-activite); }
+.tm-g-role      { background: var(--tm-role); }
+.tm-g-faiblesse { background: var(--tm-faiblesse); }
+.tm-grp[data-grp="projet"]    .tm-grp-titre { color: var(--tm-projet); }
+.tm-grp[data-grp="activite"]  .tm-grp-titre { color: var(--tm-activite); }
+.tm-grp[data-grp="role"]      .tm-grp-titre { color: var(--tm-ambre-f); }
+.tm-grp[data-grp="faiblesse"] .tm-grp-titre { color: var(--tm-faiblesse); }
+
+/* Une LIGNE, pas une carte : on en lit dix d'un coup d'œil. Elle s'ouvre
+   d'un clic — c'est la porte vers la modification, qui n'existait pas. */
+.tm-ligne {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px; border-radius: 9px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.tm-ligne + .tm-ligne { margin-top: 2px; }
+.tm-ligne:hover, .tm-ligne:focus-visible {
+  background: var(--card-2); border-color: var(--border); outline: none;
+}
+.tm-ligne-nom {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-ligne-chips { display: flex; gap: 5px; flex: none; }
+.tm-ligne-chips em {
+  font-style: normal; font-size: 11px; color: var(--muted);
+  padding: 2px 7px; border-radius: 999px; background: var(--card-2);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.tm-ligne-val {
+  flex: none; width: 66px; text-align: right;
+  font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.tm-ligne-x {
+  flex: none; width: 26px; height: 26px; border-radius: 7px; cursor: pointer;
+  background: none; border: 1px solid transparent; color: var(--faint, var(--muted));
+  font-size: 11px; opacity: 0; transition: opacity .12s;
+}
+.tm-ligne:hover .tm-ligne-x, .tm-ligne:focus-within .tm-ligne-x { opacity: 1; }
+.tm-ligne-x:hover { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+
+/* ── Le repère de modification, dans la barre de saisie ──
+   Sans lui on ne sait pas si « Enregistrer » va créer une analyse de plus ou
+   remplacer celle qu'on vient d'ouvrir. */
+.tm-mod {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 12.5px; font-weight: 600;
+  padding: 5px 6px 5px 11px; border-radius: 999px;
+  background: var(--tm-ambre-p); border: 1px solid var(--tm-ambre-b);
+  color: #92400e; max-width: 320px;
+}
+.tm-mod > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-mod > i { font-size: 10px; }
+/* ⚠️ VISÉ PAR SON ID, pas `.tm-mod button` : le nom est devenu un bouton
+   lui aussi, et la règle générale en aurait fait une pastille ronde de
+   20 px. La croix garde la pastille, le nom garde la forme d'un texte. */
+.tm-mod #tm-mod-sortir {
+  flex: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  background: rgba(146, 64, 14, .12); border: 0; color: #92400e; font-size: 10px;
+}
+.tm-mod #tm-mod-sortir:hover { background: rgba(146, 64, 14, .24); }
+/* Le nom MÈNE au champ : un trait pointillé le dit sans peser, et il
+   s'éteint quand il n'y a pas de champ où mener (analyse d'activité). */
+.tm-mod > .tm-mod-nom {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 220px; padding: 0; border: 0; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+  /* ⚠️ `currentColor` : dans la barre colorée, `.tm-barre .tm-mod button`
+     passe ce bouton en BLANC — un trait ambre y serait invisible. */
+  border-bottom: 1px dashed color-mix(in srgb, currentColor 50%, transparent);
+}
+.tm-mod > .tm-mod-nom:hover { border-bottom-color: currentColor; }
+.tm-mod > .tm-mod-nom:disabled { border-bottom: 0; cursor: default; }
+
+/* ── Les deux boutons de l'en-tête ──
+   ⚠️ Ils reprennent le vocabulaire de la page Carte, qui s'est décidé sur
+   maquettes : rapport INVERSÉ entre les deux. L'action principale pose une
+   pastille PASTEL sur un fond vif ; le réglage pose une pastille VIVE sur un
+   fond clair. Deux formes qui se distinguent sans se disputer le regard. */
+.tm-b {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--pg-font); font-size: 13.5px; font-weight: 700;
+  padding: 7px 16px 7px 7px; border-radius: 999px;
+  text-decoration: none; cursor: pointer; border: 1px solid transparent;
+  transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+}
+.tm-b:active { transform: translateY(1px); }
+.tm-b-ic {
+  width: 28px; height: 28px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px;
+}
+
+.tm-b--doux {
+  background: var(--card); border-color: var(--border-strong, var(--border));
+  color: var(--ink-2); box-shadow: 0 1px 2px rgba(20,27,46,.05);
+}
+.tm-b--doux .tm-b-ic { background: var(--tm-ambre); color: #fff; }
+.tm-b--doux:hover { border-color: var(--tm-ambre); color: var(--tm-ambre-f); }
+
+.tm-b--prim {
+  color: #fff;
+  background: linear-gradient(135deg, #f59e0b 0%, var(--tm-ambre) 46%,
+                                      var(--tm-ambre-f) 78%, #78350f 100%);
+  box-shadow: 0 6px 16px -5px rgba(180, 83, 9, .55);
+  position: relative; overflow: hidden;
+}
+.tm-b--prim .tm-b-ic { background: rgba(255,255,255,.22); color: #fff; }
+.tm-b--prim:hover { box-shadow: 0 9px 22px -6px rgba(180, 83, 9, .6); }
+/* Un éclat qui traverse au survol — la seule fantaisie, et elle ne dure que
+   le temps du geste. */
+.tm-b--prim::after {
+  content: ''; position: absolute; inset: 0 auto 0 -60%; width: 45%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.3), transparent);
+  transform: skewX(-18deg); transition: left .5s ease;
+}
+.tm-b--prim:hover::after { left: 115%; }
+@media (prefers-reduced-motion: reduce) {
+  .tm-b--prim::after { display: none; }
+  .tm-grp-fleche { transition: none; }
+}
+
+/* ───────────────────────────── 2 · CHOISIR ───────────────────────────── */
+.tm-retour {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 13px; border-radius: var(--r-btn, 9px);
+  border: 1px solid var(--border-strong, var(--border));
+  background: var(--card); color: var(--ink-2); cursor: pointer;
+}
+.tm-retour:hover { border-color: var(--tm-ambre); color: var(--tm-ambre-f); }
+
+.tm-choix-tete { text-align: center; padding: 26px 0 24px; }
+.tm-choix-sub { font-size: 14px; color: var(--muted); margin: 6px 0 0; }
+
+.tm-portes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.tm-porte {
+  display: block; text-align: left; cursor: pointer;
+  font-family: inherit;
+  background: var(--card); border: 1px solid var(--border);
+  border-top: 3px solid var(--border-strong, var(--border));
+  border-radius: var(--r-card, 14px); padding: 20px 18px 18px;
+  box-shadow: var(--sh-card);
+  transition: transform .14s ease, box-shadow .14s ease;
+}
+.tm-porte:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(20,27,46,.12); }
+.tm-porte-ic {
+  width: 44px; height: 44px; border-radius: 13px;
+  display: grid; place-items: center; color: #fff; font-size: 17px;
+}
+.tm-porte-titre { display: block; font-size: 18px; font-weight: 700; margin-top: 13px; color: var(--ink); }
+/* ⚠️ Une hauteur minimale : sans elle les quatre cartes se decalent selon la
+   longueur de leur phrase, et la rangee n'a plus de ligne de base. */
+.tm-porte-quand { display: block; font-size: 13px; line-height: 1.5; color: var(--ink-2); margin-top: 6px; min-height: 76px; }
+.tm-porte-ex {
+  display: block; font-size: 12px; font-weight: 700; margin-top: 8px;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.tm-p-projet    { border-top-color: var(--tm-projet); }
+.tm-p-projet .tm-porte-ic    { background: var(--tm-projet); }
+.tm-p-projet .tm-porte-ex    { color: var(--tm-projet); }
+.tm-p-activite  { border-top-color: var(--tm-activite); }
+.tm-p-activite .tm-porte-ic  { background: var(--tm-activite); }
+.tm-p-activite .tm-porte-ex  { color: var(--tm-activite); }
+.tm-p-role      { border-top-color: var(--tm-role); }
+.tm-p-role .tm-porte-ic      { background: var(--tm-role); }
+.tm-p-role .tm-porte-ex      { color: var(--tm-ambre-f); }
+.tm-p-faiblesse { border-top-color: var(--tm-faiblesse); }
+.tm-p-faiblesse .tm-porte-ic { background: var(--tm-faiblesse); }
+.tm-p-faiblesse .tm-porte-ex { color: var(--tm-faiblesse); }
+
+/* ───────────────────────────── 3 · SAISIR ───────────────────────────── */
+.tm-barre { display: flex; align-items: center; gap: 13px; padding: 4px 2px 16px; }
+.tm-barre-ic {
+  width: 30px; height: 30px; flex: none; border-radius: 10px;
+  display: grid; place-items: center; color: #fff; font-size: 13px;
+  background: var(--tm-ambre);
+}
+#tm-travail[data-analyse="projet"]    .tm-barre-ic { background: var(--tm-projet); }
+#tm-travail[data-analyse="activite"]  .tm-barre-ic { background: var(--tm-activite); }
+#tm-travail[data-analyse="role"]      .tm-barre-ic { background: var(--tm-role); }
+#tm-travail[data-analyse="faiblesse"] .tm-barre-ic { background: var(--tm-faiblesse); }
+.tm-barre-titre {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 23px; font-weight: 700; margin: 0; color: var(--ink);
+}
+
+.tm-cols { display: grid; grid-template-columns: minmax(0, 1fr) 312px; gap: 16px; align-items: start; }
+.tm-saisie { min-width: 0; }
+
+/* Le resultat COLLE : on remplissait jusqu'a vingt-six champs sans jamais
+   voir un chiffre, et il fallait defiler jusqu'en bas pour en trouver six. */
+.tm-res {
+  position: sticky; top: 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px); padding: 16px 18px 18px;
+  box-shadow: var(--sh-card);
+}
+.tm-res-tete {
+  font-size: 12px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  padding-bottom: 11px; margin-bottom: 13px; border-bottom: 1px solid var(--border);
+}
+.tm-res-bloc { display: none; }
+.tm-res-bloc.is-actif { display: block; }
+.tm-res-bloc .tm-grand { font-size: 36px; color: var(--ink); }
+.tm-res-lignes { display: flex; flex-direction: column; gap: 7px; }
+.tm-res-lignes > div {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; font-size: 13px; color: var(--muted);
+}
+.tm-res-lignes b { font-size: 14px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.tm-res-detail { margin-top: 12px; }
+.tm-res-detail > summary {
+  cursor: pointer; font-size: 12px; font-weight: 700;
+  color: var(--tm-ambre-f); margin-bottom: 9px;
+}
+
+/* Ce qui n'est pas chiffre : les NOMS, pas seulement le compte. */
+.tm-couv-liste { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; }
+.tm-couv-l {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
+  padding: 6px 9px; border-radius: 8px;
+  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
+}
+.tm-couv-l span {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tm-couv-l i { font-size: 10px; color: var(--tm-ambre); opacity: 0; transition: opacity .12s; }
+.tm-couv-l:hover { border-color: var(--tm-ambre-b); color: var(--tm-ambre-f); }
+.tm-couv-l:hover i { opacity: 1; }
+.tm-couv-plus { font-size: 11.5px; color: var(--muted); padding-left: 9px; }
+.btn-couv { gap: 7px; }
+
+/* Le rail des quatre analyses, en tete de « Vos analyses ». */
+.tm-rail {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px; padding: 14px 18px 4px;
+}
+.tm-rail-t {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  font-family: inherit; text-align: left;
+  padding: 10px 12px; border-radius: 11px;
+  background: var(--card-2); border: 1px solid var(--border);
+  transition: border-color .14s ease, transform .14s ease;
+}
+.tm-rail-t:hover { transform: translateY(-1px); }
+.tm-rail-ic {
+  width: 26px; height: 26px; flex: none; border-radius: 8px;
+  display: grid; place-items: center; color: #fff; font-size: 11px;
+}
+.tm-rail-nom { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.tm-rail-n {
+  flex: none; font-size: 15px; font-weight: 800;
+  font-variant-numeric: tabular-nums; color: var(--ink-2);
+}
+.tm-r-projet    .tm-rail-ic { background: var(--tm-projet); }
+.tm-r-projet:hover    { border-color: var(--tm-projet); }
+.tm-r-activite  .tm-rail-ic { background: var(--tm-activite); }
+.tm-r-activite:hover  { border-color: var(--tm-activite); }
+.tm-r-role      .tm-rail-ic { background: var(--tm-role); }
+.tm-r-role:hover      { border-color: var(--tm-role); }
+.tm-r-faiblesse .tm-rail-ic { background: var(--tm-faiblesse); }
+.tm-r-faiblesse:hover { border-color: var(--tm-faiblesse); }
+
+/* L'attente : lisible, mais jamais confondue avec le travail refait. */
+.tm-attente {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--muted);
+}
+.tm-attente:empty { display: none; }
+.tm-attente b { font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tm-attente i { font-style: normal; font-size: 11.5px; color: var(--faint, var(--muted)); }
+
+/* ───────────────────────────── Responsive ───────────────────────────── */
+/* ⚠️ Pixels REELS : une requete de media ignore le `zoom` du corps. A
+   1000 px reels il reste 1250 px de mise en page — c'est la vraie limite en
+   dessous de laquelle les deux colonnes se marchent dessus. Le seuil de
+   1180 se declenchait alors qu'il en restait 1475. */
+@media (max-width: 1000px) {
+  .tm-chiffres { grid-template-columns: 1fr; }
+  .tm-lectures { grid-template-columns: 1fr; }
+  .tm-portes   { grid-template-columns: 1fr 1fr; }
+  .tm-rail     { grid-template-columns: 1fr 1fr; }
+  .tm-porte-quand { min-height: 0; }
+  /* Plus de place pour la saisie : a cette largeur, le panneau colle a droite
+     volerait la moitie du formulaire. Il repasse au-dessus, non colle. */
+  .tm-cols { grid-template-columns: 1fr; }
+  .tm-res { position: static; order: -1; }
+}
+@media (max-width: 680px) {
+  .tm-portes { grid-template-columns: 1fr; }
+  .tm-h1 { font-size: 25px; }
+  .tm-grand { font-size: 36px; }
+  .tm-barre-piste { width: 92px; }
+  .tm-ligne-chips { display: none; }
+  .tm-entete-actions { width: 100%; }
+  .tm-b { flex: 1; justify-content: center; }
+}
+
+/* ── Le rail de l'accueil DÉSIGNE le groupe qu'il déplie ──────────────
+   Un défilement seul passe inaperçu : sans cette seconde et demie, cliquer
+   « Rôle » dans le rail n'avait l'air de rien faire quand le groupe était
+   déjà à l'écran. Même geste que les tuiles de la page Partage. */
+.tm-grp.est-pointe {
+  box-shadow: 0 0 0 2px var(--pg-accent, #d97706),
+              0 10px 26px -14px rgba(217, 119, 6, .55);
+  border-radius: 12px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tm-grp.est-pointe { animation: tm-pointe 1.5s ease-out; }
+  @keyframes tm-pointe {
+    0%   { box-shadow: 0 0 0 3px var(--pg-accent, #d97706); }
+    100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+  }
+}
+
+/* Le « % » collé à son champ : la probabilité est un pourcentage, et le dire
+   dans le libellé seul laissait taper 0,2 pour « une fois sur cinq ». */
+.unit-suffix {
+  flex: none;
+  padding: 0 2px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--muted, #64748b);
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIRECTION A — la couleur du type entre dans le formulaire, et la
+   typographie remonte au-dessus du plancher.
+
+   ⚠️ Pourquoi : `body.pg` porte `zoom: .8` (ui-theme). Un « 12,5 px » écrit
+   ici arrive donc à 10 px sous les yeux, et une aide à 12 px à 9,6 px —
+   SOUS le plancher de 11 px de l'échelle typographique du design system.
+   C'est ce qui donnait le sentiment de « trop petit », et c'était mesurable.
+   Les tailles ci-dessous sont choisies pour que ce qu'on LIT (question,
+   libellé, valeur) passe ce plancher une fois le zoom appliqué.
+
+   ⚠️ Tout est scopé à `#tm-travail` : ces sélecteurs (`.subcard`, `.input`,
+   `.field-hint`) servent aussi à l'accueil, qui garde sa densité.
+   ══════════════════════════════════════════════════════════════════════ */
+
+#tm-travail[data-analyse="projet"]    { --tm-c: var(--tm-projet); }
+#tm-travail[data-analyse="activite"]  { --tm-c: var(--tm-activite); }
+#tm-travail[data-analyse="role"]      { --tm-c: var(--tm-role); }
+#tm-travail[data-analyse="faiblesse"] { --tm-c: var(--tm-faiblesse); }
+#tm-travail                           { --tm-c: var(--tm-ambre); }
+
+/* -- ce qu'on lit -- */
+#tm-travail .tm-saisie .form-grid label,
+#tm-travail .tm-saisie .sc-field > label,
+#tm-travail .tm-saisie .fg-2cols label {
+  font-size: 14.5px;                 /* 11,6 px réels */
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+#tm-travail .tm-saisie .input,
+#tm-travail .tm-saisie select,
+#tm-travail .tm-saisie input[type="text"],
+#tm-travail .tm-saisie input[type="number"] {
+  font-size: 15px;                   /* 12 px réels */
+  padding: 9px 11px;
+}
+#tm-travail .tm-saisie .field-hint,
+#tm-travail .tm-saisie .muted,
+#tm-travail .tm-saisie .hint {
+  font-size: 13.5px;                 /* 10,8 px réels, contre 9,6 */
+  color: var(--ink-2);
+  margin-top: 5px;
+}
+#tm-travail .tm-saisie .chk { font-size: 14.5px; }
+
+/* ⚠️ LE NOM D'UNE ANALYSE EST UN CHAMP COMME LES AUTRES. Il vivait dans
+   un `card-head`, poussé tout à droite par un `spacer`, sans étiquette :
+   une boîte de texte au bout d'un en-tête, que personne n'a reconnue. */
+#tm-travail .tm-saisie .tm-nom {
+  display: flex; flex-wrap: wrap; gap: 10px 20px; margin-bottom: 15px;
+}
+/* ⚠️ `w-280` & co ne sont que des PLAFONDS (`max-width`) : un `<input>`
+   nu se pose à sa taille par défaut, 177 px. On donne une base au bloc et
+   on laisse le champ la remplir — le plafond fait le reste. */
+#tm-travail .tm-saisie .tm-nom .sc-field {
+  display: flex; flex-direction: column; min-width: 0; flex: 0 1 300px;
+}
+#tm-travail .tm-saisie .tm-nom .input { width: 100%; }
+
+/* -- la couleur du type, dans la carte et les sous-cartes -- */
+#tm-travail .tm-saisie .subcard {
+  border-left: 3px solid var(--tm-c);
+  padding: 13px 16px 15px;
+}
+#tm-travail .tm-saisie .subcard h3 {
+  font-size: 15px;                   /* 12 px réels */
+  letter-spacing: .06em;
+  color: var(--tm-c);
+  margin-bottom: 12px;
+}
+#tm-travail .tm-saisie .subcard h3 i { color: var(--tm-c); font-size: 14px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   DIRECTION C — le formulaire Faiblesse en TROIS TEMPS.
+
+   Il posait dix champs à plat ; il pose en réalité trois questions. Le rail
+   numéroté donne l'ordre de lecture, et chaque temps porte son bilan partiel :
+   on comprend la formule en la remplissant, au lieu de la découvrir à la fin.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.tm-fw-tete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.tm-fw-tete > label { flex: none; }
+.tm-fw-tete > select { flex: 1 1 260px; min-width: 0; max-width: 420px; }
+
+.tm-temps { position: relative; padding-left: 38px; padding-top: 16px; }
+/* Le rail : il part de la première pastille et meurt sous la dernière. */
+.tm-temps::before {
+  content: "";
+  position: absolute;
+  left: 13px; top: 30px; bottom: 18px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--tm-c),
+              color-mix(in srgb, var(--tm-c) 22%, transparent));
+  border-radius: 2px;
+}
+.tm-tps { position: relative; margin-bottom: 18px; }
+.tm-tps:last-child { margin-bottom: 0; }
+.tm-tps-n {
+  position: absolute;
+  left: -38px; top: 0;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--tm-c);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 15px; font-weight: 700;
+  /* L'anneau blanc détache la pastille du rail qui passe derrière. */
+  box-shadow: 0 0 0 4px var(--card);
+}
+.tm-tps-c {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px);
+  padding: 14px 17px 16px;
+}
+.tm-tps-q {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 19px; font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 3px;
+}
+/* Les trois phrases des temps sont parties : elles décrivaient ce que
+   l'écran montre déjà. La question suffit. */
+.tm-tps-q { margin-bottom: 14px; }
+
+.tm-tps-mode {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 8px 12px; margin-bottom: 14px;
+  background: color-mix(in srgb, var(--tm-c) 6%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 22%, var(--card));
+  border-radius: 10px;
+}
+.tm-tps-aide {
+  width: 18px; height: 18px; flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; cursor: help;
+}
+
+.tm-tps-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; }
+.tm-tps-large { margin-bottom: 14px; }
+.w-70 { max-width: 76px; flex: none; }
+
+/* ⚠️ Le bilan partiel est MASQUÉ tant qu'aucun calcul n'a abouti : un bilan
+   à zéro se lit comme un résultat. Il porte la couleur du type — c'est la
+   même information que le panneau de droite, dite au fil de la saisie. */
+.tm-tps-bilan {
+  margin-top: 14px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tm-c) 9%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 28%, var(--card));
+  font-size: 14px;
+  color: color-mix(in srgb, var(--tm-c) 72%, #000);
+}
+.tm-tps-bilan b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 18px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Le titre du panneau de droite suit le type : il est devenu un bloc. */
+.tm-res-tete.tm-res-bloc.is-actif { display: block; }
+
+@media (max-width: 1000px) {
+  .tm-tps-duo { grid-template-columns: 1fr; }
+  .tm-temps { padding-left: 32px; }
+  .tm-tps-n { left: -32px; width: 24px; height: 24px; font-size: 13px; }
+  .tm-temps::before { left: 11px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   LA BANDE — ce que la direction A portait, et qui manquait.
+
+   ⚠️ Ce qui avait été livré n'était pas A : un filet de 3 px sur la carte, et
+   des règles sur `.subcard` que les écrans Projet, Activité et Rôle N'ONT PAS
+   (ils sont faits d'un `.form-grid` nu). D'où un écran inchangé — « trop de
+   blanc trop de gris ». La couleur du type doit entrer par une SURFACE, pas
+   par un trait.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.tm-barre {
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border-radius: var(--r-card, 14px);
+  background: linear-gradient(135deg, var(--tm-c),
+              color-mix(in srgb, var(--tm-c) 56%, #000));
+  box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--tm-c) 75%, #000);
+}
+.tm-barre-txt { min-width: 0; display: grid; gap: 1px; }
+#tm-travail .tm-barre-titre { color: #fff; font-size: 24px; }
+.tm-barre-sub {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, .86);
+  line-height: 1.35;
+}
+/* ⚠️ La pastille reprenait la couleur du type en APLAT : sur une bande de la
+   même couleur, elle disparaissait. Même spécificité que la règle par type
+   (#id + attribut + classe), déclarée plus bas — c'est elle qui gagne. */
+#tm-travail .tm-barre .tm-barre-ic {
+  background: rgba(255, 255, 255, .22);
+  border: 1px solid rgba(255, 255, 255, .34);
+  width: 34px; height: 34px; font-size: 14px;
+}
+#tm-travail .tm-barre .tm-retour {
+  background: rgba(255, 255, 255, .16);
+  border-color: rgba(255, 255, 255, .34);
+  color: #fff;
+}
+#tm-travail .tm-barre .tm-retour:hover { background: rgba(255, 255, 255, .26); }
+#tm-travail .tm-barre .tm-mod {
+  background: rgba(255, 255, 255, .17);
+  border-color: rgba(255, 255, 255, .34);
+  color: #fff;
+}
+#tm-travail .tm-barre .tm-mod button { color: #fff; }
+
+/* -- la zone de saisie porte une TEINTE, pas un trait --
+   ⚠️ `.form-grid` est la seule structure des écrans Projet, Activité et Rôle :
+   sans elle dans ce sélecteur, trois écrans sur quatre restaient blancs. */
+#tm-travail .tm-saisie .form-grid,
+#tm-travail .tm-saisie .subcard {
+  background: color-mix(in srgb, var(--tm-c) 6%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 20%, var(--card));
+  border-left: 3px solid var(--tm-c);
+  border-radius: 12px;
+  padding: 15px 17px;
+}
+#tm-travail .tm-saisie .form-grid { margin-bottom: 14px; }
+#tm-travail .tm-saisie .form-grid > label { font-weight: 700; }
+
+/* -- le bouton primaire prend la couleur du TYPE --
+   ⚠️ Il lisait `--pg-accent` : l'accent de la PAGE, ambre pour Temps. D'où un
+   bouton orange au bas d'un formulaire violet. Et son ombre lisait
+   `--pg-accent-glow`, l'un des quatre dérivés déclarés sur `:root` où
+   `--pg-accent` vaut encore le gris par défaut : elle était GRISE. */
+#tm-travail .btn.success {
+  background: linear-gradient(135deg, var(--tm-c),
+              color-mix(in srgb, var(--tm-c) 62%, #000));
+  box-shadow: 0 5px 16px -6px color-mix(in srgb, var(--tm-c) 70%, #000);
+}
+
+/* -- le panneau de droite : un bandeau teinté, et le chiffre en couleur -- */
+#tm-travail .tm-res { padding-top: 0; overflow: hidden; }
+#tm-travail .tm-res-tete.is-actif {
+  margin: 0 -18px 15px;
+  padding: 13px 18px;
+  background: color-mix(in srgb, var(--tm-c) 11%, var(--card));
+  border-bottom: 1px solid color-mix(in srgb, var(--tm-c) 24%, var(--card));
+  color: color-mix(in srgb, var(--tm-c) 78%, #000);
+  font-size: 12.5px;
+}
+#tm-travail .tm-res-bloc .tm-grand { color: var(--tm-c); }
+#tm-travail .tm-res-lignes b { font-size: 15px; }
+#tm-travail .tm-res-lignes > div { font-size: 13.5px; }
+
+/* Le rail des trois temps se détache sur la teinte, pas sur du blanc. */
+#tm-travail .tm-tps-n { box-shadow: 0 0 0 4px var(--card-2, #f8fafc); }
+
+@media (max-width: 760px) {
+  .tm-barre { flex-wrap: wrap; }
+  .tm-barre-sub { font-size: 12.5px; }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   L'AIDE D'UN CHAMP VIT DERRIÈRE UN « i »
+
+   Six aides empilées sous six champs du formulaire, puis dix sous dix
+   chiffres des résultats : c'est la moitié de ce qui chargeait l'écran, et
+   c'est du texte qu'on lit UNE fois.
+
+   ⚠️ Pas d'attribut `title` : l'info-bulle du système sortirait par-dessus
+   la nôtre, une seconde plus tard et sans sa mise en forme — et elle
+   n'existe pas au clavier. Le piège est déjà écrit pour la matrice RH.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.tm-i {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 17px; height: 17px; flex: none;
+  margin-left: 6px; vertical-align: middle;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--tm-c, #64748b) 38%, var(--card));
+  background: color-mix(in srgb, var(--tm-c, #64748b) 10%, var(--card));
+  color: color-mix(in srgb, var(--tm-c, #64748b) 78%, #000);
+  font-size: 11px; font-weight: 700; line-height: 1;
+  cursor: help;
+  transition: background .15s, border-color .15s, color .15s;
+}
+/* ⚠⚠ Un « i » de 17 px dans une ligne de 14,5 px ne tient PAS dans la
+   boîte du libellé : mesuré, il débordait de 2,6 px par le bas, se retrouvait
+   à 0,0 px du champ qui suit — donc il le touchait — et était décentré de
+   3,8 px par rapport au texte. Un libellé qui porte un « i » devient donc une
+   ligne FLEX : le badge est centré sur le texte au lieu d'être posé sur la
+   ligne de base, et le bloc ne déborde plus. Les hôtes déjà flex
+   (`.fw-chif-k`, `.fw-min-k`…) étaient, eux, centrés au dixième près. */
+#tm-travail label:has(> .tm-i) { display: flex; align-items: center; }
+
+.tm-i:hover, .tm-i:focus-visible {
+  background: var(--tm-c, #64748b);
+  border-color: var(--tm-c, #64748b);
+  color: #fff; outline: none;
+}
+
+/* ⚠️ `clip` et PAS `display: none` : l'aide doit rester dans l'arbre
+   d'accessibilité, sinon elle n'existe plus que pour la souris. */
+.tm-i-txt {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+/* ⚠️ Posée sur le BODY en `position: fixed` (voir `brancherAides`) : la
+   page défile et le panneau de résultat est `sticky` — une bulle posée
+   dans la carte serait tronquée.
+   ⚠️ `pointer-events: none` : elle ne doit jamais voler le clic de ce
+   qu'elle explique. */
+.tm-bulle {
+  position: fixed; z-index: 4000;
+  max-width: 330px;
+  padding: 10px 13px;
+  border-radius: 10px;
+  background: #1e293b; color: #e2e8f0;
+  font-size: 13.5px; line-height: 1.45;
+  box-shadow: 0 14px 30px -12px rgba(15, 23, 42, .6);
+  pointer-events: none;
+}
+.tm-bulle em { font-style: normal; font-weight: 700; color: #fcd34d; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   LA SECTION RÉSULTATS D'UNE FAIBLESSE — refondue
+
+   ⚠️ Avant : quatre groupes de même poids, dix chiffres à 20 px, dix
+   explications à 12 px (9,6 px RÉELS sous le `zoom: .8` du corps, sous le
+   plancher de l'échelle typographique), et quatre accents décoratifs —
+   rose, orange, rouge, violet. Rien ne ressortait, et les couleurs ne
+   servaient aucune lecture : elles faisaient joli.
+
+   Après, DEUX encodages et deux seulement, tenus du schéma aux chiffres :
+     · TRAVAIL = plein, dans le rouge du type ;
+     · ATTENTE = hachuré, le même rouge dilué ;
+     · ce qui coûterait de toute façon = gris.
+   C'est la distinction que `time_view.py` interdit de confondre — « DEUX
+   natures, jamais additionnées ». Elle se VOIT, maintenant.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.fw-res { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+
+.fw-bloc {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card, 14px);
+  background: var(--card);
+  padding: 15px 18px 17px;
+}
+.fw-bloc-t {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 14px;
+  font-size: 15px; font-weight: 700;            /* 12 px réels */
+  text-transform: uppercase; letter-spacing: .06em;
+  /* ⚠⚠ Trois titres dans la couleur du type, c'est trois blocs de même
+     poids — exactement le défaut qu'on vient de corriger. SEUL le bloc du
+     coût annuel porte la couleur : c'est lui qu'on vient lire. */
+  color: var(--muted);
+}
+.fw-bloc--an .fw-bloc-t { color: var(--tm-c); }
+.fw-bloc-t i { font-size: 13px; opacity: .85; }
+
+/* ── 1 · le schéma, à l'échelle des valeurs saisies ────────────────── */
+/* ⚠⚠ UNE seule grille pour les DEUX lignes, et `display: contents` sur
+   chacune. Mesuré avec une grille par ligne : la colonne « livré en » de la
+   ligne dégradée porte un « i » de plus, donc elle est plus large, donc son
+   `1fr` est plus étroit — 743 px contre 720. Deux pistes de largeurs
+   différentes ne se comparent pas, et c'est tout le propos d'un schéma à
+   l'échelle. */
+.fw-chrono {
+  display: grid;
+  grid-template-columns: 172px 1fr auto;
+  align-items: center; gap: 11px 12px;
+}
+.fw-l { display: contents; }
+.fw-l-n { font-size: 14px; color: var(--ink-2); }   /* 11,2 px réels */
+.fw-l--ko .fw-l-n {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--tm-c) 80%, #000);
+}
+
+/* Le fond pointillé montre la place que la ligne NE prend PAS : c'est lui
+   qui rend le décalage de la livraison lisible d'un coup d'œil. */
+.fw-piste {
+  display: flex; align-items: stretch;
+  height: 26px; border-radius: 7px; overflow: hidden;
+  background: repeating-linear-gradient(90deg,
+      transparent 0 6px, color-mix(in srgb, var(--ink) 7%, transparent) 6px 7px);
+}
+.fw-seg { height: 26px; }
+.fw-seg.est-nul { display: none; }
+/* ⚠️ Un plancher de 4 px : l'attente ajoutée vaut souvent 4 % du total
+   (une heure sur vingt-cinq) et son segment serait invisible — or c'est
+   LUI qu'on vient voir. Le tracé reste à l'échelle, il ne descend
+   simplement pas sous le seuil du visible. */
+.fw-seg:not(.est-nul) { min-width: 4px; }
+
+.fw-seg--b { background: #94a3b8; }
+.fw-seg--a { background: #e2e8f0; }
+.fw-seg--m {
+  background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 62%, #fff) 0 5px,
+      color-mix(in srgb, var(--tm-c) 20%, #fff) 5px 10px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tm-c) 48%, #fff);
+}
+
+.fw-livre { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.fw-livre .k { font-size: 12.5px; color: var(--muted); }
+.fw-livre b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 19px; font-weight: 700;            /* 15,2 px réels */
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.fw-livre--ko b { color: var(--tm-c); }
+
+/* Les deux pastilles disent ce que la piste ne PEUT pas dire : l'une des
+   deux natures ne décale pas la livraison. */
+.fw-quand { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0 184px; }
+.fw-q {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 13.5px; line-height: 1.3;
+}
+.fw-q b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.fw-q--l {
+  background: color-mix(in srgb, var(--tm-c) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 32%, var(--card));
+  color: color-mix(in srgb, var(--tm-c) 82%, #000);
+}
+.fw-q--m {
+  background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 14%, var(--card)) 0 5px,
+      color-mix(in srgb, var(--tm-c) 5%, var(--card)) 5px 10px);
+  border: 1px solid color-mix(in srgb, var(--tm-c) 26%, var(--card));
+  color: color-mix(in srgb, var(--tm-c) 72%, #000);
+}
+
+.fw-freq {
+  display: flex; align-items: center; gap: 13px;
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+.fw-freq-j {
+  flex: 0 0 172px; height: 10px;
+  border-radius: 999px; background: #e2e8f0; overflow: hidden;
+}
+.fw-freq-j i { display: block; height: 100%; background: var(--tm-c); }
+.fw-freq-t {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  font-size: 14px; color: var(--ink-2);
+}
+.fw-freq-t b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--tm-c);
+}
+.fw-freq-sur { font-size: 13.5px; color: var(--muted); }
+
+.fw-leg { display: flex; flex-wrap: wrap; gap: 7px 18px; margin-top: 15px; }
+.fw-leg span {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--muted);
+}
+.fw-pt { width: 13px; height: 13px; border-radius: 4px; flex: none; }
+.fw-pt--b { background: #94a3b8; }
+.fw-pt--a { background: #e2e8f0; border: 1px solid var(--border); }
+.fw-pt--m {
+  background: repeating-linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 62%, #fff) 0 4px,
+      color-mix(in srgb, var(--tm-c) 20%, #fff) 4px 8px);
+  border: 1px solid color-mix(in srgb, var(--tm-c) 45%, #fff);
+}
+
+/* ── 2 · le héros : UNE chose qu'on vient lire ─────────────────────── */
+.fw-bloc--an { border-color: color-mix(in srgb, var(--tm-c) 30%, var(--card)); }
+.fw-duo { display: grid; grid-template-columns: 1.25fr 1fr; gap: 14px; }
+.fw-chif { padding: 14px 17px 15px; border-radius: 12px; }
+.fw-chif--l {
+  background: linear-gradient(135deg,
+      color-mix(in srgb, var(--tm-c) 14%, var(--card)),
+      color-mix(in srgb, var(--tm-c) 5%, var(--card)));
+  border: 1px solid color-mix(in srgb, var(--tm-c) 32%, var(--card));
+}
+.fw-chif--m { background: var(--card-2); border: 1px solid var(--border); }
+.fw-chif-k {
+  display: flex; align-items: center;
+  font-size: 13.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted);
+}
+.fw-chif--l .fw-chif-k { color: color-mix(in srgb, var(--tm-c) 72%, #000); }
+.fw-chif-v {
+  display: block; margin: 7px 0 6px;
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.04;
+}
+.fw-chif--l .fw-chif-v { font-size: 46px; color: var(--tm-c); }   /* 36,8 réels */
+.fw-chif--m .fw-chif-v { font-size: 32px; color: var(--ink-2); }  /* 25,6 réels */
+.fw-chif-s { display: block; font-size: 13.5px; line-height: 1.4; color: var(--ink-2); }
+
+
+/* ── 3 · le second plan : la même information, divisée ─────────────── */
+.fw-bloc--min { background: var(--card-2); }
+.fw-quatre {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--border); border: 1px solid var(--border);
+  border-radius: 11px; overflow: hidden;
+}
+.fw-min { background: var(--card); padding: 11px 13px 12px; }
+.fw-min-k {
+  display: flex; align-items: center; min-height: 32px;
+  font-size: 13.5px; line-height: 1.3; color: var(--muted);   /* 10,8 px réels */
+}
+.fw-min-v {
+  display: block; margin-top: 5px;
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 21px; font-weight: 700;            /* 16,8 px réels */
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.fw-min--l .fw-min-v { color: var(--tm-c); }
+.fw-min--m .fw-min-v { color: var(--ink-2); }
+.fw-base { margin-top: 11px; font-size: 13px; color: var(--muted); }
+
+/* ⚠️ En px RÉELS : les requêtes média ignorent le `zoom: .8` du corps. */
+@media (max-width: 1150px) {
+  .fw-duo { grid-template-columns: 1fr; }
+  .fw-quatre { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 820px) {
+  .fw-l { grid-template-columns: 1fr; gap: 6px; }
+  .fw-quand { margin-left: 0; }
+  .fw-freq { flex-wrap: wrap; }
+  .fw-quatre { grid-template-columns: 1fr; }
 }

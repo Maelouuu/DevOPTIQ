@@ -55,7 +55,48 @@ def encadre(dev_id, collaborateur_id):
     return UserRole.query.filter_by(user_id=collaborateur_id, manager_id=dev_id).count() > 0
 
 
-def peut_noter(acteur, cible_id, evaluateur):
+def encadre_pour_role(dev_id, collaborateur_id, role_id):
+    """`dev_id` développe-t-il ce collaborateur SUR CE RÔLE ?
+
+    ⚠️ C'est la question qu'il fallait poser. `encadre()` répond vrai dès
+    qu'il existe UN rattachement, quel qu'il soit : un développeur attaché à
+    deux rôles sur quatre voyait les quatre — et pouvait les noter.
+
+    Le lien GLOBAL (`users.manager_id`) couvre tous les rôles de la personne,
+    présents et à venir ; le lien PAR RÔLE ne couvre que le sien. C'est la
+    distinction que `_dissoudre_lien_global` maintient depuis le début côté
+    écriture, et qui n'était lue nulle part côté lecture.
+    """
+    if dev_id is None or collaborateur_id is None or role_id is None:
+        return False
+    u = User.query.get(collaborateur_id)
+    if u is not None and u.manager_id == dev_id:
+        return True
+    return UserRole.query.filter_by(user_id=collaborateur_id,
+                                    role_id=role_id,
+                                    manager_id=dev_id).count() > 0
+
+
+def roles_suivis(acteur, collaborateur_id):
+    """Les rôles de ce collaborateur que l'acteur suit — ou `None` pour
+    « tous », quand rien ne les restreint.
+
+    `None` et une liste VIDE ne disent pas la même chose : l'un veut dire
+    « aucune restriction », l'autre « il n'en suit aucun ». Les confondre
+    rouvrirait exactement le défaut qu'on ferme.
+    """
+    if acteur is None:
+        return []
+    if acteur.id == collaborateur_id or _statut_eleve(acteur):
+        return None
+    u = User.query.get(collaborateur_id)
+    if u is not None and u.manager_id == acteur.id:
+        return None
+    return [ur.role_id for ur in UserRole.query.filter_by(
+        user_id=collaborateur_id, manager_id=acteur.id).all()]
+
+
+def peut_noter(acteur, cible_id, evaluateur, role_id=None):
     """L'acteur peut-il écrire cette évaluation ? Renvoie (ok, motif)."""
     if acteur is None:
         return False, "not_logged_in"
@@ -68,14 +109,29 @@ def peut_noter(acteur, cible_id, evaluateur):
         return False, "unknown_evaluator"
     if _statut_eleve(acteur):
         return True, "ok"
+    # ⚠️ Avec un rôle, c'est le rôle qui tranche. Sans rôle on retombe sur la
+    # règle par personne — et c'est pour ça que les routes qui ÉCRIVENT
+    # exigent le rôle : l'omettre suffirait sinon à contourner le contrôle.
+    if role_id is not None:
+        if encadre_pour_role(acteur.id, cible_id, role_id):
+            return True, "ok"
+        return False, "not_the_developer_for_this_role"
     if encadre(acteur.id, cible_id):
         return True, "ok"
     return False, "not_the_developer"
 
 
-def peut_lire(acteur, cible_id):
+def peut_lire(acteur, cible_id, role_id=None):
     """On lit son propre dossier, celui de ses collaborateurs, et — pour un
-    coordinateur ou un administrateur — celui de tout le monde."""
+    coordinateur ou un administrateur — celui de tout le monde.
+
+    Avec un `role_id`, la lecture est bornée à ce rôle : un développeur de
+    deux rôles sur quatre n'ouvre pas les deux autres.
+    """
     if acteur is None:
         return False
-    return acteur.id == cible_id or _statut_eleve(acteur) or encadre(acteur.id, cible_id)
+    if acteur.id == cible_id or _statut_eleve(acteur):
+        return True
+    if role_id is not None:
+        return encadre_pour_role(acteur.id, cible_id, role_id)
+    return encadre(acteur.id, cible_id)

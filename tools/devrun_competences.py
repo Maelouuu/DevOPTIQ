@@ -153,6 +153,77 @@ with app.app_context():
                     mastery_level=auto, evaluated_at=now))
         db.session.commit()
 
+    # ══ LES PALIERS DE PERFORMANCE ═════════════════════════════════════
+    # Les six états que l'écran doit savoir montrer, présents EN MÊME TEMPS :
+    # en cours, en retard, qualifié, avancé, manqué, et pas de norme du tout.
+    #
+    #   (sortie, norme, unité, sens, [(cible, mesure | None, jours d'ici)])
+    #   mesure None = palier en cours ; jours négatif = échéance dépassée.
+    PALIERS = [
+        # Bob, au milieu de sa progression : 10 j → 7 j → la norme à 5 j.
+        ("Fiche de faisabilité", 5, "j", "moins",
+         [(10, 9, -34), (7, 7, -16), (5, None, 12)]),
+        # Qualifié, et même AU-DELÀ : la marge vaut 2 (5 → 3), il fait 0,8.
+        ("Devis chiffré", 3, "%", "moins",
+         [(8, 7, -60), (5, 4.5, -38), (3, 0.8, -9)]),
+        # Un taux : mieux, c'est PLUS. Et l'échéance est dépassée.
+        ("Rapport d'essais", 8, "essais", "plus",
+         [(4, 5, -26), (8, None, -3)]),
+        # Manqué : c'est lui qui ouvre l'analyse des savoirs.
+        ("Procès-verbal de validation", 2, "j", "moins",
+         [(6, 9, -5)]),
+    ]
+    from Code.models.models import PalierPerformance, SessionEvaluation
+
+    # Une session par échéance : c'est elle qui nourrit le calendrier.
+    sessions = {}
+
+    def _session(quand, statut, objet=None, qui=None, role=None):
+        cle = (quand, qui or noe.id)
+        if cle not in sessions:
+            s = SessionEvaluation(
+                user_id=qui or noe.id, role_id=role or metier.id,
+                developpeur_user_id=dev.id,
+                date_prevue=(now + timedelta(days=quand)).date(),
+                statut=statut, objet=objet,
+                tenue_le=(now + timedelta(days=quand)) if statut == "tenue" else None,
+                note=("Les deux premiers tiennent sans appui." if statut == "tenue" else None))
+            db.session.add(s)
+            db.session.commit()
+            sessions[cle] = s
+        return sessions[cle]
+
+    for nom_sortie, norme, unite, sens, marches in PALIERS:
+        d = Data.query.filter_by(name=nom_sortie).first()
+        if d is None:
+            print("  (sortie introuvable : %s)" % nom_sortie)
+            continue
+        d.norme_valeur, d.norme_unite, d.norme_sens = float(norme), unite, sens
+        db.session.add(d)
+        for rang, (cible, mesure, jours) in enumerate(marches, start=1):
+            tenue = mesure is not None
+            ses = _session(jours, "tenue" if tenue else "prevue")
+            atteint = tenue and (mesure <= cible if sens == "moins" else mesure >= cible)
+            db.session.add(PalierPerformance(
+                user_id=noe.id, activity_id=d.producer_activity_id, data_id=d.id,
+                role_id=metier.id, rang=rang, cible_valeur=float(cible),
+                echeance=(now + timedelta(days=jours)).date(),
+                statut=("atteint" if atteint else "manque") if tenue else "en_cours",
+                mesure_valeur=float(mesure) if tenue else None,
+                evalue_le=(now + timedelta(days=jours)) if tenue else None,
+                evaluateur_user_id=dev.id if tenue else None,
+                preuve=("Deux relances du client, sinon le fond y est." if rang == 1 and tenue else None),
+                session_id=ses.id))
+        db.session.commit()
+
+    # ⚠️ Le calendrier montre TOUS les collaborateurs : avec un seul, on ne
+    # voit pas qu'il n'est pas cadré sur la personne ouverte à l'écran.
+    _session(5, "prevue", "Point a mi-parcours", qui=lina.id)
+    _session(21, "prevue", None, qui=theo.id)
+    db.session.commit()
+    print("  paliers : %d | sessions : %d"
+          % (PalierPerformance.query.count(), SessionEvaluation.query.count()))
+
     # Des capacites reliees aux resultats en ecart : c'est ce que le plan de
     # formation travaille. Sans elles il ne peut proposer que de la mise en
     # situation — ce qui est honnete, mais ne montre pas tout l'ecran.

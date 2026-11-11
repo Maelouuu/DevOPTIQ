@@ -42,17 +42,24 @@ def _norm(s):
 
 def _current_output_specs(activity):
     """Sorties COURANTES d'une activité = ses connexions SORTANTES (Link). Le nom de la sortie
-    est le libellé de la flèche (Link.description) ; à défaut, le nom de l'activité/donnée
-    destinataire. Retourne une liste ordonnée [(name, flux_type)] dédupliquée par nom."""
+    est le libellé de la flèche (Link.description). Retourne une liste ordonnée
+    [(name, flux_type)] dédupliquée par nom.
+
+    ⚠️ Une flèche SANS libellé ne produit RIEN. Elle prenait le nom de son
+    activité destinataire : on lisait alors que « Usiner la pièce » produit
+    « Contrôle qualité » — c'est-à-dire une autre ACTIVITÉ, pas une donnée. Et
+    cette fausse sortie se retrouvait notée, évaluée, comptée dans le minimum
+    qui fait le niveau de l'activité. Une donnée dont personne n'a écrit le nom
+    sur la carte n'est pas connue : on ne l'invente pas.
+    """
     specs, seen = [], set()
     for lk in Link.query.filter(Link.source_activity_id == activity.id).order_by(Link.id).all():
+        # ⚠️ Une flèche qui VISE une `Data` n'a rien à matérialiser : cette
+        # `Data` EST la sortie, et `get_activity_outputs` l'ajoute déjà par le
+        # chemin d'héritage. Matérialiser son nom en créait un DOUBLE.
+        if lk.target_data_id:
+            continue
         name = (lk.description or "").strip()
-        if not name and lk.target_activity_id:
-            ta = Activities.query.get(lk.target_activity_id)
-            name = (ta.name or "").strip() if ta else ""
-        if not name and lk.target_data_id:
-            td = Data.query.get(lk.target_data_id)
-            name = (td.name or "").strip() if td else ""
         if not name:
             continue
         key = _norm(name)
@@ -79,7 +86,7 @@ def _destinataires(activity):
         elif lk.target_data_id:
             td = Data.query.get(lk.target_data_id)
             cible = (td.name or "").strip() if td else None
-        nom = (lk.description or "").strip() or (cible or "")
+        nom = (lk.description or "").strip()
         if nom and cible and _norm(nom) not in vers:
             vers[_norm(nom)] = cible
     return vers
@@ -110,12 +117,97 @@ def materialize_activity_outputs(activity_id):
         kept.add(d.id)
     # conserver les sorties déjà qualifiées dont la connexion a été renommée/retirée
     for d in existing.values():
-        if d.id not in kept and d.semantic_nature:
+        if d.id not in kept and porte_du_travail(d):
             outs.append(d)
             kept.add(d.id)
     if changed:
         db.session.commit()
     return outs
+
+
+def porte_du_travail(d):
+    """Une sortie ORPHELINE (sa connexion a été renommée ou retirée) se garde
+    si quelqu'un y a travaillé — sinon on perdrait la saisie.
+
+    ⚠️ `semantic_nature` était le seul marqueur ; depuis que toute sortie est
+    évaluable, plus rien ne l'écrit. Le repère de réussite prend le relais.
+    """
+    return bool(d.semantic_nature or (d.minimum_performance_text or "").strip())
+
+
+def output_ids_en_bloc(act_ids):
+    """{activity_id: {data_id, …}} — la MÊME règle que
+    `materialize_activity_outputs`, sans rien écrire et en un nombre FIXE de
+    requêtes. Le tableau global de la page RH ne peut pas appeler la version
+    par activité en boucle : ~6 requêtes par activité et par personne.
+    """
+    act_ids = list(act_ids or [])
+    if not act_ids:
+        return {}
+
+    liens = Link.query.filter(Link.source_activity_id.in_(act_ids)).order_by(Link.id).all()
+
+    courantes = {a: [] for a in act_ids}
+    vus = {a: set() for a in act_ids}
+    for lk in liens:
+        # Même règle que la version qui écrit : une flèche qui vise une `Data`
+        # ne se matérialise pas, elle s'ajoute par le chemin d'héritage.
+        if lk.target_data_id:
+            continue
+        # Même règle que la version qui écrit : sans libellé, pas de sortie.
+        nom = (lk.description or "").strip()
+        if not nom:
+            continue
+        cle = _norm(nom)
+        if cle in vus[lk.source_activity_id]:
+            continue
+        vus[lk.source_activity_id].add(cle)
+        courantes[lk.source_activity_id].append(cle)
+
+    index = {a: {} for a in act_ids}
+    for d in (Data.query.filter(Data.producer_activity_id.in_(act_ids))
+              .order_by(Data.id).all()):
+        index[d.producer_activity_id][_norm(d.name)] = d
+
+    sorties = {}
+    for a in act_ids:
+        gardees = {index[a][c].id for c in courantes[a] if c in index[a]}
+        # Les orphelines sur lesquelles on a travaillé, comme la version qui écrit.
+        gardees |= {d.id for d in index[a].values()
+                    if d.id not in gardees and porte_du_travail(d)}
+        # Et les `Data` visées explicitement par un lien sortant (héritage).
+        sorties[a] = gardees
+    for lk in liens:
+        if lk.target_data_id and lk.target_data_id not in sorties[lk.source_activity_id]:
+            sorties[lk.source_activity_id].add(lk.target_data_id)
+    return sorties
+
+
+def indicateurs_de_sortie(activity_id):
+    """{nom normalisé de la sortie: texte de son indicateur de performance}.
+
+    ⚠️ C'est ce que l'on a noté dans la LISTE DES ACTIVITÉS, colonne
+    « Performance » des connexions sortantes (`Performance.link_id`). C'est là
+    que l'entreprise écrit ce qu'elle attend d'une sortie — la page Compétences
+    le LIT, elle ne le redemande pas.
+    """
+    from Code.models.models import Performance
+    liens = Link.query.filter(Link.source_activity_id == activity_id).all()
+    par_lien = {}
+    ids = [lk.id for lk in liens]
+    if ids:
+        for perf in Performance.query.filter(Performance.link_id.in_(ids)).all():
+            texte = " ".join(x for x in [(perf.name or "").strip(),
+                                         (perf.description or "").strip()] if x)
+            if texte:
+                par_lien[perf.link_id] = texte
+    out = {}
+    for lk in liens:
+        nom = (lk.description or "").strip()
+        if not nom or lk.id not in par_lien:
+            continue
+        out.setdefault(_norm(nom), par_lien[lk.id])
+    return out
 
 
 def get_activity_outputs(activity_id):
@@ -214,7 +306,9 @@ def outputs(activity_id):
         o = _serialize_output(d, lang)
         cible = vers.get(_norm(d.name))
         o["vers"] = cible
-        # Flèche SANS libellé : son seul nom est celui de sa destination. Affiché
+        # ⚠️ Toujours faux désormais : une flèche sans libellé ne produit plus
+        # de sortie (voir `_current_output_specs`). Le champ reste servi pour
+        # que l'écran, qui le lit, n'ait pas à deviner son absence. Affiché
         # tel quel, on lirait que l'activité « produit » une autre activité.
         o["sans_libelle"] = bool(cible) and _norm(cible) == _norm(d.name)
         return o

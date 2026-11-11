@@ -272,7 +272,40 @@ def create_app(test_config=None):
         from flask import session as _sess
         from Code.models.models import DEFAULT_LANG
         lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
-        return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label}
+        return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label,
+                'propose_activites': _propose_activites(),
+                'bienvenue': _etat_bienvenue(lang)}
+
+    def _etat_bienvenue(lang):
+        """L'état de la fenêtre de bienvenue, tranché par le SERVEUR.
+
+        ⚠️ C'est ici que le défaut du nouvel onglet se corrige : la décision ne
+        dépend plus d'un `fetch` ni du stockage du navigateur (voir
+        `Code/bienvenue.py`). Un échec ne doit jamais empêcher la page de
+        s'afficher — d'où le repli silencieux sur « ne rien montrer ».
+        """
+        try:
+            from Code.bienvenue import etat
+            return etat(lang=lang)
+        except Exception:
+            return {'montrer': False, 'signature': '', 'portes': [],
+                    'attentes': [], 'nouveautes': [], 'palier': None,
+                    'phrase_palier': '', 'prenom': ''}
+
+    def _propose_activites():
+        """Ce compte doit-il PROPOSER ses modifications d'activité ?
+
+        ⚠️ C'est le même verdict que celui de la porte d'écriture, pas une
+        seconde règle : le bandeau ne doit jamais promettre un examen que la
+        porte refuserait, ni se taire alors qu'elle détourne.
+        """
+        try:
+            from Code.carto_access import can_propose
+            from Code.models.models import Entity
+            entite = Entity.get_active()
+            return bool(entite is not None and can_propose(entite))
+        except Exception:
+            return False
 
     # -----------------------------
     # Blueprints
@@ -395,6 +428,9 @@ def create_app(test_config=None):
     app.register_blueprint(carto_sharing_bp)
     app.register_blueprint(share_page_bp)
 
+    from Code.routes.activite_propositions import acp_bp
+    app.register_blueprint(acp_bp)
+
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)
 
@@ -421,6 +457,9 @@ def create_app(test_config=None):
 
     from Code.routes.mastery import mastery_bp
     app.register_blueprint(mastery_bp)
+
+    from Code.routes.paliers_routes import paliers_bp
+    app.register_blueprint(paliers_bp)
 
     from Code.routes.diagnostic import diagnostic_bp
     app.register_blueprint(diagnostic_bp)
@@ -614,6 +653,9 @@ def create_app(test_config=None):
         _safe_add_column("competencies", "description_en", "TEXT")
         # Paramètres entreprise : les tables historiques n'avaient pas entity_id
         _safe_add_column("entreprise_settings", "entity_id", "INTEGER")
+        # La probabilité d'une faiblesse, en pourcentage (« 1 sur N » restait
+        # écrit dans prob_denom pour les lectures anciennes)
+        _safe_add_column("time_weakness", "prob_percent", "FLOAT")
 
         # users.password : les hashes modernes (~162 car. en scrypt) dépassaient
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE
@@ -717,6 +759,55 @@ def create_app(test_config=None):
             print("[DB] Table recent_events prête")
         except Exception as e:
             print(f"[DB] recent_events check: {e}")
+
+        # La fenêtre de bienvenue mémorise par COMPTE ce qui a été lu : le
+        # navigateur ne suffisait pas (voir Code/bienvenue.py).
+        try:
+            from Code.models.models import WelcomeSeen
+            WelcomeSeen.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table welcome_seen prête")
+        except Exception as e:
+            print(f"[DB] welcome_seen check: {e}")
+
+        # ── Paliers de performance (CDC — progression d'un collaborateur).
+        # ⚠️ Les colonnes d'ABORD, les tables ensuite : `_safe_add_column` avale
+        # ses erreurs (il ne sait pas distinguer « colonne déjà là » d'un DDL
+        # invalide), et `_verifier_colonnes` doit pouvoir crier APRÈS.
+        _safe_add_column("data", "norme_valeur", "DOUBLE PRECISION")
+        _safe_add_column("data", "norme_unite", "VARCHAR(20)")
+        _safe_add_column("data", "norme_sens", "VARCHAR(10)")
+        # Le VERDICT du jour, figé sur le palier. Il se déduisait de la mesure
+        # à chaque lecture, avec les seuils d'aujourd'hui : poser plus tard une
+        # marche au-delà de la norme relisait tout le passé avec la nouvelle
+        # frontière, et l'historique changeait rétroactivement.
+        _safe_add_column("paliers_performance", "niveau_atteint", "INTEGER")
+        try:
+            from Code.models.models import PalierPerformance, SessionEvaluation
+            for model in (SessionEvaluation, PalierPerformance):
+                model.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Tables paliers de performance prêtes")
+        except Exception as e:
+            print(f"[DB] paliers check: {e}")
+
+        # ── Le REGISTRE des notes posées à la main, en ajout seul.
+        # `CompetencyEvaluation` porte l'état COURANT et s'écrase à chaque
+        # enregistrement : sans ce registre, une sortie jugée à la main n'a
+        # aucun historique, et sa courbe se réduit à un point.
+        try:
+            from Code.models.models import NoteEvaluation
+            NoteEvaluation.__table__.create(db.engine, checkfirst=True)
+            print("[DB] Table notes_evaluation prête")
+        except Exception as e:
+            print(f"[DB] notes_evaluation check: {e}")
+
+        try:
+            from Code.historique_notes import reprendre_notes_existantes
+            reprises = reprendre_notes_existantes()
+            if reprises:
+                print(f"[DB] {reprises} note(s) reprise(s) dans le registre")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise des notes: {e}")
 
         try:
             from Code.models.models import EntrepriseSettings

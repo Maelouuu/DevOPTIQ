@@ -143,7 +143,7 @@ class TestQuiNoteQui:
         _connecte(client, scene["collab"], "collab77@devoptiq.com")
         r = _note(client, scene["collab"], scene["act"], scene["d1"], "2", 4, scene["role"])
         assert r.status_code == 403
-        assert r.get_json()["reason"] == "not_the_developer"
+        assert r.get_json()["reason"] == "not_the_developer_for_this_role"
 
     def test_il_ne_peut_pas_s_auto_evaluer_a_la_place_d_un_autre(self, client, scene):
         """Une auto-évaluation dit ce que CETTE personne pense d'elle-même :
@@ -175,26 +175,45 @@ class TestQuiNoteQui:
         r = _note(client, scene["tiers"], scene["act"], scene["d1"], "2", 2, scene["role"])
         assert r.status_code == 200
 
-    def test_le_rattachement_PAR_ROLE_ouvre_le_meme_droit(self, client, app, scene):
-        """Deux rattachements coexistent — global et par rôle. Faire dépendre le
-        droit de l'un des deux ferait dépendre le droit de la FAÇON dont
-        l'affectation a été faite."""
+    def test_le_rattachement_PAR_ROLE_n_ouvre_QUE_ce_role(self, client, app, scene):
+        """⚠️ RENVERSEMENT ASSUMÉ — ce test affirmait l'inverse, et c'était le
+        défaut signalé : « je suis développeur pour 2 rôles d'une personne qui
+        en a 4, et je peux évaluer les 4 ».
+
+        Le décor ne rattache le développeur qu'à `collab`. Le lien PAR RÔLE
+        posé ici sur un second rôle de `tiers` suffisait à lui ouvrir TOUS les
+        rôles de `tiers`, parce que `encadre()` répond par PERSONNE. Il n'ouvre
+        plus que le sien.
+        """
         from Code.extensions import db
-        from Code.models.models import Role, UserRole
+        from Code.models.models import Role, UserRole, activity_roles
 
         with app.app_context():
             r2 = Role(name="Rôle Test 77 bis", entity_id=scene["entity"])
             db.session.add(r2)
             db.session.commit()
-            db.session.add(UserRole(user_id=scene["tiers"], role_id=r2.id, manager_id=scene["dev"]))
+            db.session.add(UserRole(user_id=scene["tiers"], role_id=r2.id,
+                                    manager_id=scene["dev"]))
+            # Le second rôle porte la MÊME activité : sans l'association, le
+            # refus viendrait de là et ne prouverait rien.
+            db.session.execute(activity_roles.insert().values(
+                activity_id=scene["act"], role_id=r2.id, status="Garant"))
             db.session.commit()
             r2_id = r2.id
         try:
             _connecte(client, scene["dev"], "dev77@devoptiq.com")
-            rep = _note(client, scene["tiers"], scene["act"], scene["d1"], "2", 2, scene["role"])
-            assert rep.status_code == 200
+            # Le rôle qu'il suit : il note.
+            rep = _note(client, scene["tiers"], scene["act"], scene["d1"], "2", 2, r2_id)
+            assert rep.status_code == 200, rep.data[:200]
+            # L'autre rôle de la MÊME personne : refusé, et le motif le dit.
+            rep2 = _note(client, scene["tiers"], scene["act"], scene["d1"], "2", 2,
+                         scene["role"])
+            assert rep2.status_code == 403
+            assert json.loads(rep2.data)["reason"] == "not_the_developer_for_this_role"
         finally:
             with app.app_context():
+                db.session.execute(activity_roles.delete().where(
+                    activity_roles.c.role_id == r2_id))
                 UserRole.query.filter_by(role_id=r2_id).delete()
                 obj = db.session.get(Role, r2_id)
                 if obj:

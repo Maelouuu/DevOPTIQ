@@ -261,6 +261,25 @@ def get_recent_activity():
         return jsonify({"ok": False, "items": [], "error": str(e)})
 
 
+@changelog_bp.route('/api/bienvenue/vue', methods=['POST'])
+def bienvenue_vue():
+    """« J'ai vu la fenêtre de bienvenue » — mémorisé sur le COMPTE.
+
+    ⚠️ La signature n'est PAS reprise du navigateur : on écrit celle que le
+    serveur calcule. Sinon n'importe quel appel pourrait faire taire la fenêtre
+    pour des nouveautés que la personne n'a jamais vues — ou, à l'inverse,
+    écrire une signature inventée qui la ferait revenir indéfiniment.
+    """
+    from Code.bienvenue import marquer_vue, signature_nouveautes
+    from Code.permissions import current_user
+
+    if current_user() is None:
+        return jsonify({"ok": False, "error": "Non connecté"}), 401
+    signature = signature_nouveautes()
+    return jsonify({"ok": bool(marquer_vue(signature=signature)),
+                    "signature": signature})
+
+
 @changelog_bp.route('/api/changelog', methods=['GET'])
 def get_changelog():
     global _changelog_cache

@@ -642,5 +642,59 @@
     ],
     "author": "routine",
     "fixed_at": "2026-10-09T03:23:02"
+  },
+  {
+    "patch_uid": "2026-10-16-debug-decisions-ai-legacy-str",
+    "title": "Route legacy /api/debug-decisions/ai : chaîne XML passée à une fonction attendant un dict",
+    "node_ids": [
+      "tests/test_111_debug_decisions_ia.py::TestLegacyDebugDecisions::test_ai_avec_vsdx_stocke_appelle_l_ia"
+    ],
+    "page_slug": "debug_decisions_ia",
+    "failure_reason": "POST /activities/api/debug-decisions/ai avec un VSDX stocké levait AttributeError (500 HTML) : str has no attribute get.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "api_debug_decisions_ai passait le XML brut (_read_vsdx_page_xml) à _ai_extract_decisions qui attend le dict de extract_decisions_from_vsdx.",
+    "fix_description": "La route appelle désormais extract_decisions_from_vsdx(vsdx_path) (erreurs en 500 JSON) ; suppression du return mort en fin de fichier.",
+    "files_changed": [
+      "Code/routes/activities_map.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-16T03:30:29"
+  },
+  {
+    "patch_uid": "2026-10-31-translate-softskills-lang-fr-force",
+    "title": "test_63 : forcer la langue FR (anglais désormais par défaut)",
+    "node_ids": [
+      "tests/test_63_cartography_translate_advanced.py::TestTranslateSoftskillsWithMockedClient::test_success_fr_maps_niveau_and_includes_outgoing_performance"
+    ],
+    "page_slug": "cartography_translate_advanced",
+    "failure_reason": "Le test échoue quand son fichier tourne seul : niveau \"2 (Developing)\" au lieu de \"2 (Acquisition)\".",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "Le test supposait le français par défaut ; l anglais est la langue par défaut (before_request _default_language), il ne passait en suite complète que grâce à une langue FR laissée par un test précédent.",
+    "fix_description": "Le test pose explicitement session[lang]=fr via session_transaction.",
+    "files_changed": [
+      "tests/test_63_cartography_translate_advanced.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-10-31T03:21:25"
+  },
+  {
+    "patch_uid": "2026-11-04-journal-compteurs-non-numeriques",
+    "title": "Journal du panel : un compteur non numérique faisait planter la page",
+    "node_ids": [
+      "tests/test_131_panel_historique_gaps.py::TestJournalDefensif::test_progression_illisible_est_ramenee_a_zero"
+    ],
+    "page_slug": "panel_historique_gaps",
+    "failure_reason": "GET /testpanel/journal renvoyait 500 quand une entrée de journal.json avait new_tests en chaîne.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Le gabarit comparait e.new_tests > 1 sans conversion ; seul le total agrégé était converti avec int().",
+    "fix_description": "journal_page() normalise new_tests/tests_fixed/patches en entiers (0 si illisible) avant le rendu.",
+    "files_changed": [
+      "Code/routes/test_panel.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-04T03:22:36"
   }
 ]

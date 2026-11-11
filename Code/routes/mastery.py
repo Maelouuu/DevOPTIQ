@@ -8,10 +8,16 @@
 from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from Code.extensions import db
-from Code.models.models import (Activities, Data, CompetencyEvaluation, UserRole, activity_roles)
+from Code.models.models import (Activities, Data, CompetencyEvaluation, NoteEvaluation,
+                                UserRole, activity_roles)
 from Code.competences_acces import peut_noter
 from Code.permissions import current_user
-from Code.routes.qualify_outputs import get_activity_outputs
+from Code.historique_notes import historique_activite
+from Code.paliers import (NIVEAU_EXPERTISE, etat_sortie, mesurable,
+                          norme_depuis_indicateur)
+from Code.routes.qualify_outputs import (get_activity_outputs,
+                                         indicateurs_de_sortie,
+                                         _norm as _norm_sortie)
 from Code.role_i18n import nom_affiche
 
 mastery_bp = Blueprint("mastery", __name__, url_prefix="/mastery")
@@ -93,15 +99,43 @@ def color_for(demonstrated, required):
 
 def activity_mastery(user_id, activity_id, role_id=None):
     """État complet d'évaluation d'une activité pour un individu (base de l'écran P6)."""
-    results = [d for d in get_activity_outputs(activity_id) if d.semantic_nature == "RESULT"]
+    # ⚠️ TOUTES les sorties, sans filtre de nature. La nature `RESULT` servait
+    # de porte : une sortie non marquée n'entrait dans aucun calcul et
+    # l'activité restait « à configurer ». Rien n'est mis de côté — on est
+    # libre de ne pas tout évaluer d'un coup, pas d'exclure une sortie.
+    results = get_activity_outputs(activity_id)
+    # ⚠️ Ce que l'entreprise attend d'une sortie est noté dans la LISTE DES
+    # ACTIVITÉS (colonne « Performance » d'une connexion sortante). Cet écran
+    # le LIT : il ne demande plus de redéfinir une norme qui existe ailleurs.
+    indicateurs = indicateurs_de_sortie(activity_id)
     per_result, levels, autos, complete = [], [], [], True
     for d in results:
         ev = _reference_eval(user_id, activity_id, d.id)
         ref = ev.mastery_level if ev else None
+        # ⚠️ Sur une sortie MESURABLE, le niveau se DÉDUIT de la performance
+        # mesurée — il ne se saisit pas à côté. Deux notes pour une même chose
+        # finiraient par se contredire, et c'est le chiffre qui fait foi. Une
+        # sortie sans norme chiffrée garde, elle, sa note à la main.
+        perf = etat_sortie(d, user_id, role_id) if mesurable(d) else None
+        # ⚠️ L'EXPERTISE posée à la main l'emporte : la déduction plafonne à 3,
+        # donc un 4 ne peut venir que de là. Tout le reste vient du chiffre —
+        # et tant que RIEN n'est mesuré, la note d'avant tient : la sortie
+        # affichait « Non évalué » pendant que l'activité montrait encore 4.
+        if perf is not None and perf["niveau"] is not None:
+            if ref is None or ref < NIVEAU_EXPERTISE:
+                ref = perf["niveau"]
+        if perf is not None:
+            perf["expertise"] = (ev.mastery_level == NIVEAU_EXPERTISE) if ev else False
+            perf["niveau_pose"] = ev.mastery_level if ev else None
         auto = _self_eval(user_id, activity_id, d.id)
+        indic = indicateurs.get(_norm_sortie(d.name), "")
         per_result.append({
             "data_id": d.id, "name": d.name,
             "minimum_performance_text": d.minimum_performance_text or "",
+            "indicateur": indic,
+            "norme_suggeree": norme_depuis_indicateur(indic),
+            "mesurable": perf is not None,
+            "performance": perf,
             "self_level": auto.mastery_level if auto else None,
             "self_label": level_label(auto.mastery_level if auto else None),
             "self_evidence": (auto.evidence if auto else None) or "",
@@ -163,8 +197,25 @@ def dashboard_rows(user_id, role_id):
     q = db.session.query(Activities).join(
         activity_roles, activity_roles.c.activity_id == Activities.id).filter(
         activity_roles.c.role_id == role_id)
+    actes = q.all()
+    # ⚠️ Une sortie MESURÉE n'écrit aucune `CompetencyEvaluation` : son niveau
+    # vient du palier tranché en séance. Sans ces dates, une activité qu'on
+    # vient d'évaluer s'affichait « jamais évaluée » à côté de son niveau tout
+    # neuf. Une seule requête pour toutes les activités du rôle.
+    from Code.models.models import PalierPerformance
+    dernier_palier = {}
+    if actes:
+        for p in PalierPerformance.query.filter(
+                PalierPerformance.user_id == user_id,
+                PalierPerformance.activity_id.in_([a.id for a in actes])).all():
+            if p.evalue_le is None:
+                continue
+            vu = dernier_palier.get(p.activity_id)
+            if vu is None or p.evalue_le > vu:
+                dernier_palier[p.activity_id] = p.evalue_le
+
     rows = []
-    for act in q.all():
+    for act in actes:
         st = activity_mastery(user_id, act.id, role_id)
         comp = Competency.query.filter_by(activity_id=act.id).first()
         # dernière validation Garant/Manager parmi les résultats de l'activité
@@ -173,6 +224,9 @@ def dashboard_rows(user_id, role_id):
                 user_id=user_id, activity_id=act.id, item_type=RESULT_ITEM_TYPE).all():
             if ev.eval_number in VALIDATING and ev.evaluated_at:
                 last = max(last, ev.evaluated_at) if last else ev.evaluated_at
+        pal = dernier_palier.get(act.id)
+        if pal and (last is None or pal > last):
+            last = pal
         try:
             from Code.routes.technical_domains import domain_status
             tech = domain_status(user_id, role_id, act.id)
@@ -203,7 +257,9 @@ def dashboard(user_id, role_id):
     role = Role.query.get(role_id)
     if not role:
         return jsonify({"error": "role_not_found"}), 404
-    if not peut_lire(current_user(), user_id):
+    # ⚠️ AVEC le rôle : un développeur de deux rôles sur quatre n'ouvre pas
+    # les deux autres.
+    if not peut_lire(current_user(), user_id, role_id=role_id):
         return jsonify({"error": "forbidden"}), 403
     return jsonify({"user_id": user_id, "role_id": role_id, "role_name": nom_affiche(role),
                     "activities": dashboard_rows(user_id, role_id)}), 200
@@ -235,7 +291,12 @@ def couverture(rows):
 def categorie_activite(row):
     """Les quatre états d'une activité, tels que l'écran les compte. Écrits ICI
     et pas dans le JS : la synthèse par rôle et la liste détaillée doivent
-    trancher pareil, sinon les chiffres du haut contredisent les lignes du bas."""
+    trancher pareil, sinon les chiffres du haut contredisent les lignes du bas.
+
+    ⚠️ `setup` ne veut plus dire « pas encore configurée » — toute sortie est
+    évaluable — mais « cette activité ne produit RIEN dans la carto ». C'est un
+    état de la cartographie, pas une étape qui resterait à franchir ici.
+    """
     if not row["n_results"]:
         return "setup"
     dem = row["demonstrated_level"]
@@ -262,7 +323,7 @@ def synthese(user_id):
     est renvoyée à côté, comme repère, jamais comme résultat.
     """
     from Code.models.models import Role, User
-    from Code.competences_acces import peut_lire
+    from Code.competences_acces import peut_lire, roles_suivis
 
     cible = User.query.get(user_id)
     if not cible:
@@ -280,8 +341,16 @@ def synthese(user_id):
     # un rôle (`Entity.get_active` valide contre les cartos accessibles), et
     # l'écran se vidait alors pour une autre raison. C'est le filtre des
     # activités qui était de trop : voir `dashboard_rows`.
+    # ⚠️ On ne liste QUE les rôles que l'acteur suit. « Je suis développeur
+    # pour 2 rôles d'une personne qui en a 4, et je vois les 4 » : `encadre()`
+    # répond par PERSONNE, et cette boucle prenait tous les rôles.
+    # ⚠️ `None` veut dire « aucune restriction » (soi-même, lien global,
+    # coordinateur) — le confondre avec une liste vide rouvrirait le défaut.
+    suivis = roles_suivis(current_user(), user_id)
     roles, profil = [], []
     for ur in UserRole.query.filter_by(user_id=user_id).all():
+        if suivis is not None and ur.role_id not in suivis:
+            continue
         role = Role.query.get(ur.role_id)
         if role is None:
             continue
@@ -392,6 +461,18 @@ def set_required():
         return jsonify({"error": "invalid_payload"}), 400
     if lvl is not None and lvl not in MASTERY_SCALE:
         return jsonify({"error": "invalid_level"}), 400
+    # ⚠️ Aucun contrôle ici non plus : le niveau attendu d'un rôle est une
+    # décision, et n'importe quel compte connecté la posait. Il faut suivre ce
+    # rôle — ou être coordinateur.
+    from Code.competences_acces import _statut_eleve
+    acteur = current_user()
+    if acteur is None:
+        return jsonify({"error": "forbidden"}), 403
+    if not _statut_eleve(acteur):
+        suit = UserRole.query.filter_by(role_id=rid, manager_id=acteur.id).count()
+        if not suit:
+            return jsonify({"error": "forbidden",
+                            "reason": "not_the_developer_for_this_role"}), 403
     row = db.session.execute(db.select(activity_roles.c.activity_id).where(
         (activity_roles.c.activity_id == aid) & (activity_roles.c.role_id == rid))).first()
     if not row:
@@ -405,10 +486,33 @@ def set_required():
 
 @mastery_bp.route("/activity/<int:user_id>/<int:activity_id>", methods=["GET"])
 def get_activity(user_id, activity_id):
+    """⚠️ Cette route n'avait AUCUN contrôle : tout compte connecté
+    lisait le niveau de n’importe qui sur n’importe quelle activité,
+    preuves comprises."""
+    from Code.competences_acces import peut_lire
     if not Activities.query.get(activity_id):
         return jsonify({"error": "activity_not_found"}), 404
     role_id = request.args.get("role_id", type=int)
+    if not peut_lire(current_user(), user_id, role_id=role_id):
+        return jsonify({"error": "forbidden"}), 403
     return jsonify(activity_mastery(user_id, activity_id, role_id)), 200
+
+
+@mastery_bp.route("/historique/<int:user_id>/<int:activity_id>", methods=["GET"])
+def historique(user_id, activity_id):
+    """L'historique des notes : une courbe par sortie, plus celle de l'activité.
+
+    ⚠️ Même porte que `/activity` : il porte les niveaux d'une personne, et
+    jusqu'aux mesures relevées en séance. Une route d'historique laissée
+    ouverte rouvrirait par la bande ce que `/activity` vient de fermer.
+    """
+    from Code.competences_acces import peut_lire
+    if not Activities.query.get(activity_id):
+        return jsonify({"error": "activity_not_found"}), 404
+    role_id = request.args.get("role_id", type=int)
+    if not peut_lire(current_user(), user_id, role_id=role_id):
+        return jsonify({"error": "forbidden"}), 403
+    return jsonify(historique_activite(user_id, activity_id, role_id)), 200
 
 
 @mastery_bp.route("/evaluate", methods=["POST"])
@@ -427,12 +531,37 @@ def evaluate():
     # ⚠️ Cette route n'avait AUCUN contrôle : tout compte connecté pouvait poser
     # n'importe quel niveau sur n'importe qui — y compris se décerner un niveau
     # officiel. Le masquage dans l'écran n'est pas une sécurité.
-    ok, motif = peut_noter(current_user(), uid, evaluator)
+    # ⚠️ Et le RÔLE est obligatoire : sans lui on retomberait sur la règle par
+    # personne, donc l'omettre suffirait à noter un rôle qu'on ne développe
+    # pas. L'écran l'envoie déjà.
+    rid = p.get("role_id")
+    if not rid:
+        return jsonify({"error": "invalid_payload", "reason": "role_required"}), 400
+    ok, motif = peut_noter(current_user(), uid, evaluator, role_id=rid)
     if not ok:
         return jsonify({"error": "forbidden", "reason": motif}), 403
+    # ⚠️ Le rôle doit porter CETTE activité : sinon on noterait l'activité
+    # d'un rôle qu'on ne suit pas, en présentant celui qu'on suit.
+    lien = db.session.execute(db.select(activity_roles.c.activity_id).where(
+        (activity_roles.c.activity_id == aid) & (activity_roles.c.role_id == rid))).first()
+    if not lien:
+        return jsonify({"error": "association_not_found"}), 404
+    # ⚠️ Le contrôle porte sur l'APPARTENANCE, plus sur la nature : la donnée
+    # doit être une sortie de CETTE activité. Sans lui, un `data_id` venu du
+    # navigateur permettrait de noter la sortie d'une autre activité.
     d = Data.query.get(did)
-    if not d or d.semantic_nature != "RESULT":
-        return jsonify({"error": "not_a_result"}), 400
+    if not d or did not in {x.id for x in get_activity_outputs(aid)}:
+        return jsonify({"error": "not_an_output"}), 400
+    # ⚠️ Une sortie MESURABLE ne se note pas à la main : son niveau vient de la
+    # performance mesurée. Accepter les deux laisserait une note contredire le
+    # chiffre affiché juste à côté. L'auto-évaluation reste permise : c'est un
+    # repère que le collaborateur se donne, jamais le niveau qui fait foi.
+    # ⚠️ UNE exception, et une seule : l'EXPERTISE. La déduction plafonne à 3
+    # (« la norme dépassée ») — aucun seuil chiffré ne définit honnêtement le
+    # 4, c'est un jugement. Sans cette porte, une organisation ne peut jamais
+    # dire d'un collaborateur mesuré qu'il est expert. `null` l'efface.
+    if mesurable(d) and evaluator in VALIDATING and lvl not in (None, NIVEAU_EXPERTISE):
+        return jsonify({"error": "measured_output"}), 400
     ev = CompetencyEvaluation.query.filter_by(
         user_id=uid, activity_id=aid, item_type=RESULT_ITEM_TYPE, item_id=did, eval_number=evaluator).first()
     now = datetime.utcnow()
@@ -442,9 +571,20 @@ def evaluate():
             eval_number=evaluator, note="")
         db.session.add(ev)
     ev.mastery_level = lvl
-    ev.evidence = (p.get("evidence") or "").strip() or None
+    # ⚠️ La preuve ne se touche QUE si on l'envoie. `(x or "").strip() or None`
+    # appliqué à une clé ABSENTE efface ce qui est en base : poser un niveau
+    # depuis la piste de l'axe — où il n'y a pas de champ de preuve — suffisait
+    # à perdre ce que quelqu'un avait écrit.
+    if "evidence" in p:
+        ev.evidence = (p.get("evidence") or "").strip() or None
     ev.evaluated_at = now
     ev.evaluator_user_id = p.get("evaluator_user_id")
+    # ⚠️ Et on AJOUTE au REGISTRE. La ligne ci-dessus est écrasée à chaque
+    # enregistrement : elle porte l'état courant, jamais l'histoire. Même
+    # transaction — un état courant sans son événement serait un trou.
+    db.session.add(NoteEvaluation(
+        user_id=uid, activity_id=aid, data_id=did, role_id=rid,
+        eval_number=evaluator, niveau=lvl, evidence=ev.evidence,
+        evaluator_user_id=p.get("evaluator_user_id"), posee_le=now, source="main"))
     db.session.commit()
-    role_id = p.get("role_id")
-    return jsonify({"ok": True, "state": activity_mastery(uid, aid, role_id)}), 200
+    return jsonify({"ok": True, "state": activity_mastery(uid, aid, rid)}), 200

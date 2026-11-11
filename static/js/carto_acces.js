@@ -114,6 +114,36 @@
       </tr>`).join('');
   }
 
+  /* ── Ce que l'accès OUVRE, une fois qu'on est dedans ──────────────────
+     ⚠️ Cet écran décide QUI entre, et ne disait nulle part ce qu'on y fait.
+     La question s'est posée en étendant les propositions aux données d'une
+     activité : ouvrir une carto ouvre désormais aussi le droit de PROPOSER
+     sur ses tâches, ses outils et ses compétences. Trois paliers, ce que
+     chacun fait de la CARTE et de ses DONNÉES, et le renvoi vers le seul
+     écran qui le règle — le tableau des droits de la page Comptes. Le
+     redire ici en réglable en ferait un second endroit, et deux écrans pour
+     un même réglage finissent par donner deux réponses. */
+  function ceQueCaOuvre() {
+    const paliers = [
+      ['user', 'fa-eye', L('ouvre_user'), L('ouvre_user_d')],
+      ['champion', 'fa-code-pull-request', L('ouvre_champion'), L('ouvre_champion_d')],
+      ['coordinateur', 'fa-check-double', L('ouvre_coord'), L('ouvre_coord_d')],
+    ];
+    return `
+      <section class="cacc-ouvre">
+        <p class="cacc-ouvre-h">${esc(L('ouvre_titre'))}</p>
+        <ul class="cacc-ouvre-l">
+          ${paliers.map(([cle, ic, nom, quoi]) => `
+            <li class="cacc-o cacc-o--${cle}">
+              <span class="cacc-o-ic"><i class="fa-solid ${ic}"></i></span>
+              <div><b>${esc(nom)}</b><span>${esc(quoi)}</span></div>
+            </li>`).join('')}
+        </ul>
+        <a class="cacc-ouvre-a" href="/comptes/#acc-bloc-droits">
+          <i class="fa-solid fa-sliders"></i>${esc(L('ouvre_regler'))}</a>
+      </section>`;
+  }
+
   function rendre() {
     const zone = $('#cacc-corps');
     if (!D || !D.cartos.length) {
@@ -130,6 +160,7 @@
     // Les statuts d'abord : quatre lignes fixes, donc toujours visibles ;
     // les rôles sont une liste longue, elle prend la suite et défile.
     zone.innerHTML = `
+      ${ceQueCaOuvre()}
       <table class="cacc-table">
         ${enTete()}
         <tbody class="cacc-grp cacc-grp--statuts">

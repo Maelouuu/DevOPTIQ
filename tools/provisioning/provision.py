@@ -329,6 +329,142 @@ def apply_tasks_excel(entity, xlsx_path, mapping, report, seuil_auto=0.90):
         report.append(f"    ! non injecté : {ligne}")
 
 
+def apply_content(entity, content, report):
+    """Complète les activités d'une carto depuis un JSON écrit à la main.
+
+    `tasks_excel` part du tableur d'un client ; ce bloc-ci sert quand le contenu
+    est rédigé pour la démonstration, et il couvre ce que l'Excel ne porte pas :
+    savoirs, savoir-faire, aptitudes et HSC.
+
+    Idempotent : chaque élément est retrouvé par son libellé avant d'être créé.
+    Les activités sont retrouvées par nom — donc à faire après `apply_carto`.
+    """
+    from Code.extensions import db
+    from Code.models.models import (Activities, Aptitude, Competency, Savoir,
+                                    SavoirFaire, Softskill, Task, Tool)
+
+    activites = {a.name: a for a in Activities.query.filter_by(entity_id=entity.id).all()}
+    outils = {t.name: t for t in Tool.query.filter_by(entity_id=entity.id).all()}
+    vus = dict(activites=0, taches=0, outils=0, items=0)
+    inconnues = []
+
+    def outil(nom):
+        t = outils.get(nom)
+        if not t:
+            t = Tool(entity_id=entity.id, name=nom)
+            db.session.add(t)
+            db.session.flush()
+            outils[nom] = t
+            vus["outils"] += 1
+        return t
+
+    def ajouter(modele, champ, valeurs, activity_id):
+        deja = {getattr(o, champ) for o in modele.query.filter_by(activity_id=activity_id).all()}
+        for valeur in valeurs:
+            if valeur not in deja:
+                db.session.add(modele(activity_id=activity_id, **{champ: valeur}))
+                vus["items"] += 1
+
+    for nom, bloc in content.get("activities", {}).items():
+        activite = activites.get(nom)
+        if not activite:
+            inconnues.append(nom)
+            continue
+        vus["activites"] += 1
+
+        if bloc.get("description"):
+            activite.description = bloc["description"]
+        if bloc.get("duration_minutes") is not None:
+            activite.duration_minutes = bloc["duration_minutes"]
+        if bloc.get("delay_minutes") is not None:
+            activite.delay_minutes = bloc["delay_minutes"]
+
+        taches = {t.name: t for t in Task.query.filter_by(activity_id=activite.id).all()}
+        ordre = max([t.order or 0 for t in taches.values()] or [0])
+        for spec in bloc.get("tasks", []):
+            tache = taches.get(spec["name"])
+            if not tache:
+                ordre += 1
+                tache = Task(activity_id=activite.id, name=spec["name"], order=ordre)
+                db.session.add(tache)
+                db.session.flush()
+                taches[spec["name"]] = tache
+                vus["taches"] += 1
+            if spec.get("description"):
+                tache.description = spec["description"]
+            if spec.get("duration_minutes") is not None:
+                tache.duration_minutes = spec["duration_minutes"]
+            portes = {o.name for o in tache.tools}
+            for nom_outil in spec.get("tools", []):
+                if nom_outil not in portes:
+                    tache.tools.append(outil(nom_outil))
+
+        ajouter(Competency,  "description", bloc.get("competencies", []),  activite.id)
+        ajouter(Savoir,      "description", bloc.get("savoirs", []),       activite.id)
+        ajouter(SavoirFaire, "description", bloc.get("savoir_faires", []), activite.id)
+        ajouter(Aptitude,    "description", bloc.get("aptitudes", []),     activite.id)
+
+        hsc = {x.habilete for x in Softskill.query.filter_by(activity_id=activite.id).all()}
+        for spec in bloc.get("softskills", []):
+            if spec["habilete"] not in hsc:
+                db.session.add(Softskill(activity_id=activite.id,
+                                         habilete=spec["habilete"],
+                                         niveau=spec["niveau"],
+                                         justification=spec.get("justification")))
+                vus["items"] += 1
+
+    db.session.flush()
+    report.append(f"  → contenu injecté : {vus['activites']} activités complétées, "
+                  f"{vus['taches']} tâches, {vus['outils']} outil(s) créé(s), "
+                  f"{vus['items']} items (compétences, savoirs, SF, aptitudes, HSC)")
+    if inconnues:
+        report.append("  ! absente(s) de la carto, ignorée(s) : "
+                      + ", ".join(f"« {n} »" for n in inconnues[:5])
+                      + (" …" if len(inconnues) > 5 else ""))
+
+
+def assign_roles(entity, user_specs, report):
+    """Rattache des comptes aux rôles de l'entité (`user_roles`).
+
+    Les rôles naissent des bandes de la carto : cette étape passe donc APRÈS
+    `apply_carto`. Un rôle nommé dans le plan mais absent de la carte est
+    signalé, jamais créé — `_sync_carto_to_db` supprime les rôles hors carte,
+    il disparaîtrait au rejeu suivant.
+    """
+    from Code.extensions import db
+    from Code.models.models import Role, User, UserRole
+
+    roles = {r.name: r for r in Role.query.filter_by(entity_id=entity.id).all()}
+    for spec in user_specs:
+        noms = spec.get("roles") or []
+        if not noms:
+            continue
+        user = User.query.filter(
+            db.func.lower(User.email) == spec["email"].strip().lower()).first()
+        if not user:
+            continue
+
+        ajoutes, absents = [], []
+        for nom in noms:
+            role = roles.get(nom)
+            if not role:
+                absents.append(nom)
+            elif not UserRole.query.filter_by(user_id=user.id, role_id=role.id).first():
+                db.session.add(UserRole(user_id=user.id, role_id=role.id))
+                ajoutes.append(nom)
+        db.session.flush()
+
+        total = UserRole.query.filter_by(user_id=user.id).count()
+        if ajoutes:
+            report.append(f"  → {user.email} : {', '.join(ajoutes)} "
+                          f"({total} rôle(s) au total)")
+        else:
+            report.append(f"  → {user.email} : rôles déjà en place ({total})")
+        if absents:
+            report.append(f"  ! rôle(s) hors carto de « {entity.name} », non créé(s) : "
+                          + ", ".join(absents))
+
+
 def wire_manager(entity, manager, report):
     """Rattache les autres comptes de l'entité à ce manager.
 
@@ -431,6 +567,14 @@ def run(plan_path, database_url, dry_run, force_password, only_owner=None):
                     mapping = json.load(open(os.path.join(plan_dir, mapping), encoding='utf-8'))
                 apply_tasks_excel(entity, os.path.join(plan_dir, spec_x["file"]),
                                   mapping, report)
+            if ent_spec.get("content"):
+                content = ent_spec["content"]
+                if isinstance(content, str):
+                    content = json.load(
+                        open(os.path.join(plan_dir, content), encoding='utf-8'))
+                apply_content(entity, content, report)
+            assign_roles(entity, [u for u in plan.get("users", [])
+                                  if u.get("entity") == ent_spec["name"]], report)
             for email in ent_spec.get("managers", []):
                 mgr = User.query.filter(db.func.lower(User.email) == email.strip().lower()).first()
                 if mgr:

@@ -25,7 +25,8 @@ def _lang():
 
 
 def _results_of(activity_id):
-    return [d for d in get_activity_outputs(activity_id) if d.semantic_nature == "RESULT"]
+    # Toute sortie, sans filtre de nature : voir `mastery.activity_mastery`.
+    return get_activity_outputs(activity_id)
 
 
 def _result_ctx(activity, results):

@@ -260,6 +260,70 @@ class TestLaCartoPrendToutePlace:
         assert tuile.count("<i ") == 2   # l'icône de la pastille, et le filigrane
 
 
+class TestChaqueBoutonDitCeQuIlFait:
+    """« On ne sait pas à quoi servent les boutons. Seul le bouton Liens a une
+    légende quand on le survole. »
+
+    C'était exact : un seul des cinq portait un `title`. Et sous le seuil du
+    mode compact leur libellé est masqué — ils deviennent des carrés d'icône
+    muets, ce qui est précisément l'écran sur lequel on les regardait.
+    """
+
+    BOUTONS = [
+        ("carto-wizard-btn", "map.btn_entities", "map.tt_entities"),
+        ("btn-import-full", "map.btn_import_ia", "map.tt_import_ia"),
+        ("btn-carto-acces", "map.btn_acces", "map.tt_acces"),
+        ("cross-carto-btn", "map.btn_connections", "map.cross_carto_title"),
+    ]
+
+    def test_les_cinq_boutons_portent_leur_bulle(self, app, client, scene):
+        html = _page(client, app, scene["u"], scene["avec"])
+        assert html.count('class="cs-tt"') == 5, html.count('class="cs-tt"')
+        assert html.count('class="cs-tw"') == 4
+        assert 'class="cs-tw cs-tw--prim"' in html
+
+    def test_chaque_bouton_a_un_libelle_accessible(self, app, client, scene):
+        """⚠️ `aria-label` porte la MÊME phrase que la bulle : au clavier et
+        au lecteur d'écran, une bulle dessinée par la page n'existe pas."""
+        from Code.translations import t
+        html = _page(client, app, scene["u"], scene["avec"])
+        for ident, nom, explication in self.BOUTONS:
+            d = html.index('id="%s"' % ident)
+            bloc = html[d:d + 420]
+            assert "aria-label=" in bloc, ident
+            assert t(nom) in bloc, ident
+            assert t(explication)[:28] in bloc, ident
+
+    def test_aucun_bouton_ne_garde_le_title_du_systeme(self, app, client, scene):
+        """⚠️ Les deux bulles se superposeraient — celle du système sort au
+        bout d'une seconde, par-dessus la nôtre. C'est le piège déjà rencontré
+        sur la matrice RH."""
+        html = _page(client, app, scene["u"], scene["avec"])
+        for ident, _, _ in self.BOUTONS:
+            d = html.index('id="%s"' % ident)
+            assert "title=" not in html[d:html.index(">", d)], ident
+
+    @pytest.mark.parametrize("lang", ["fr", "en"])
+    def test_les_explications_existent_dans_les_deux_langues(self, lang):
+        from Code.translations import t
+        for cle in ("map.tt_entities", "map.tt_import_ia", "map.tt_acces",
+                    "map.tt_editor"):
+            valeur = t(cle, lang=lang)
+            assert valeur and valeur != cle, "%s manque en %s" % (cle, lang)
+
+    def test_la_bulle_a_de_quoi_SORTIR_de_sa_boite(self):
+        """⚠️ Deux boîtes la tranchaient, et le symptôme trompe : on voit le
+        BEC et pas la bulle, donc on cherche un z-index.
+        1. `.cs-pliable` est en `overflow: hidden` (c'est ce qui fait glisser
+           les tuiles au repli) — il lui faut de l'air sous elle ;
+        2. `.carto-container` vient APRÈS la rangée dans le document : à
+           z-index automatique, c'est lui qui passait devant."""
+        css = _lire("static/cartography.css")
+        assert "--cs-tt-air" in css
+        bar = css[css.index(".carto-scene .cs-bar {"):][:700]
+        assert "z-index" in bar
+
+
 class TestLaCouleurVientDuDessin:
 
     def test_la_pastille_d_une_activite_porte_la_couleur_de_sa_forme(self, app, client, scene):

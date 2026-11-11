@@ -68,6 +68,63 @@ jobs:
 
       # Clé de session : conservée d'un déploiement à l'autre pour ne pas
       # déconnecter à chaque livraison ; générée au premier passage.
+      # Bases suivies → HUB_DBS_B64. Même recette que deploy-pulse.yml, et
+      # même raison : le base64 évite toute fuite dans les journaux et tout
+      # échappement dans gcloud (une URL de connexion contient @ , =).
+      # La page /courrier y lit `password_resets`, en LECTURE SEULE.
+      # Sources, dédupliquées par URL : les trois secrets connus, puis tout
+      # service Cloud Run du projet qui porte une DATABASE_URL (une branche
+      # déployée demain est suivie sans nouveau secret).
+      - name: Composer la liste des bases suivies
+        env:
+          PILOT_DATABASE_URL: ${{ secrets.PILOT_DATABASE_URL }}
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          gcloud run services list --region ${{ env.REGION }} --format=json             > /tmp/services.json 2>/dev/null || echo "[]" > /tmp/services.json
+          python3 - <<'PY'
+          import base64, json, os
+
+          def clean(u):
+              return (u or "").strip().strip('"').strip("'").strip()
+
+          dbs, seen = [], set()
+
+          def add(name, url):
+              url = clean(url)
+              if url and url not in seen:
+                  seen.add(url)
+                  dbs.append({"name": name, "url": url})
+
+          LABELS = {"optiqfluent-staging": "Pilote ARaymond",
+                    "devoptiq-staging": "Staging",
+                    "devoptiq": "Production"}
+          add("Pilote ARaymond", os.environ.get("PILOT_DATABASE_URL"))
+          add("Staging", os.environ.get("STAGING_DATABASE_URL"))
+          add("Production", os.environ.get("PROD_DATABASE_URL"))
+          try:
+              services = json.load(open("/tmp/services.json"))
+          except Exception:
+              services = []
+          for svc in services:
+              try:
+                  name = svc["metadata"]["name"]
+                  if name in ("optiq-hub", "optiq-pulse"):
+                      continue
+                  envs = (svc["spec"]["template"]["spec"]["containers"][0]
+                          .get("env") or [])
+                  url = next((e.get("value") for e in envs
+                              if e.get("name") == "DATABASE_URL"), None)
+                  add(LABELS.get(name, name), url)
+              except Exception:
+                  continue
+          with open(os.environ["GITHUB_ENV"], "a") as fh:
+              fh.write("HUB_DBS_B64=" + base64.b64encode(
+                  json.dumps(dbs).encode()).decode() + "\n")
+          noms = ", ".join(d["name"] for d in dbs) or "aucune"
+          print(f"::notice::{len(dbs)} base(s) suivie(s) : {noms}")
+          PY
+
       - name: Clé de session
         run: |
           KEY=$(gcloud run services describe ${{ env.SERVICE }} \
@@ -96,6 +153,8 @@ jobs:
       - name: Deploy to Cloud Run (optiq-hub)
         env:
           SECRET_HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}
+          HUB_IMAP_USER: ${{ secrets.HUB_IMAP_USER }}
+          HUB_IMAP_PASSWORD: ${{ secrets.HUB_IMAP_PASSWORD }}
         # Plus de jeton GitHub : le module Panel fait exécuter la suite par
         # l'instance elle-même, il n'y a plus rien à déclencher chez un tiers.
         run: |
@@ -103,6 +162,20 @@ jobs:
           VARS="HUB_SECRET_KEY=${HUB_KEY}"
           if [ -n "$SECRET_HUB_PASSWORD" ]; then
             VARS="${VARS}##HUB_PASSWORD=${SECRET_HUB_PASSWORD}"
+          fi
+          VARS="${VARS}##HUB_DBS_B64=${HUB_DBS_B64}"
+          # Boite d'envoi (page /courrier). Posee SEULEMENT si les deux
+          # secrets existent : --update-env-vars est additif, mais une
+          # valeur VIDE reste une valeur -- `getenv(cle, defaut)` ne
+          # regarderait alors jamais son defaut, et la page croirait la
+          # boite branchee. C'est le defaut qui a fait croire pendant des
+          # mois que l'envoi de mail etait configure.
+          if [ -n "$HUB_IMAP_USER" ] && [ -n "$HUB_IMAP_PASSWORD" ]; then
+            VARS="${VARS}##HUB_IMAP_USER=${HUB_IMAP_USER}"
+            VARS="${VARS}##HUB_IMAP_PASSWORD=${HUB_IMAP_PASSWORD}"
+            echo "Boite d'envoi : identifiants IMAP poses sur le service"
+          else
+            echo "Boite d'envoi : secrets HUB_IMAP_* absents - la page le dira"
           fi
           if ! gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \

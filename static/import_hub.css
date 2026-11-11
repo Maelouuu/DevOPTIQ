@@ -1444,6 +1444,85 @@ body.imh-ouvert { overflow: hidden; }
 .imh-ia-bilan .imh-btn-lien { color: #9d174d; font-weight: 700; }
 
 /* ── Les deux comptes rendus de l'IA ── */
+/* ── Avant d'importer : ce qui restera dehors ──────────────────────────
+   ⚠️ L'AMBRE, pas le rose-violet de l'IA : c'est un avertissement, pas une
+   proposition. Et c'est la même ambre que la tuile « à rattacher » dont il
+   parle — on reconnaît de quoi il s'agit avant d'avoir lu. */
+.imh-confirme {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  border-radius: 20px;
+  border: 1px solid #f0d59b;
+  background: linear-gradient(180deg, var(--imh-warn-bg), #fff 180px);
+  animation: imhCarte .35s cubic-bezier(.2, .8, .2, 1) both;
+}
+.imh-cf-tete { display: flex; align-items: flex-start; gap: 14px; }
+.imh-cf-dit { flex: 1; min-width: 0; }
+.imh-cf-ic {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, #d97706, var(--imh-warn));
+}
+.imh-cf-tete h3 {
+  margin: 0;
+  font-family: var(--pg-font-display, 'Fraunces', Georgia, serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--imh-ink);
+}
+.imh-cf-tete p { margin: 4px 0 0; font-size: 13.5px; color: var(--imh-ink-2); }
+.imh-cf-l {
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--imh-line);
+  border-radius: 13px;
+  max-height: 232px;
+  overflow-y: auto;
+}
+.imh-cf-l li {
+  font-size: 14px;
+  color: var(--imh-ink);
+  padding: 3px 6px;
+  border-radius: 7px;
+  overflow-wrap: anywhere;
+}
+.imh-cf-l li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.imh-cf-l li::before { content: "·"; color: var(--imh-warn); font-weight: 700; flex: none; }
+.imh-cf-nom { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* Le compte dit que ces noms sont des ACTIVITÉS, pas les tâches
+   elles-mêmes : « 3 tâches » au-dessus de deux noms, sans lui, on ne
+   sait pas ce qu'on lit. */
+.imh-cf-n { flex: none; font-size: 12.5px; font-weight: 600; color: var(--imh-muted); }
+.imh-cf-plus { color: var(--imh-muted) !important; font-size: 13px !important; font-style: italic; }
+.imh-cf-pied {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--imh-ok);
+}
+.imh-cf-pied i { color: var(--imh-ok); }
+
 .imh-rapport {
   display: flex;
   flex-direction: column;

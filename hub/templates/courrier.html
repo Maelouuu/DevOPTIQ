@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titre %}Courrier — Optiq Hub{% endblock %}
+{% block accent %}courrier{% endblock %}
+{% block page_sur %}L'adresse d'envoi{% endblock %}
+{% block page_titre %}Courrier{% endblock %}
+{% block page_sous %}Ce qui part, et ce qui revient.{% endblock %}
+{% block bandeau_extra %}
+<button class="btn-sec" id="cr-refresh" type="button">Actualiser</button>
+{% endblock %}
+
+{% block contenu %}
+<link rel="stylesheet" href="{{ url_for('static', filename='courrier.css') }}">
+
+{# ⚠️ Deux squelettes, deux remplissages indépendants. Les bases et la boîte
+   sont interrogées en parallèle, et chaque moitié s'affiche dès qu'elle est
+   là : une lecture IMAP lente ne doit pas retenir les chiffres. #}
+
+<section class="bande acc-courrier">
+  <div class="bande-index">
+    <span class="bande-tag">
+      <svg class="ic"><use href="#i-base"></use></svg> Réinitialisations de mot de passe
+    </span>
+    <span class="bande-trait"></span>
+    <span class="cr-note" id="cr-reset-note">30 derniers jours</span>
+  </div>
+  <div id="cr-reset" class="cr-zone">
+    <p class="cr-attente">Lecture des bases…</p>
+  </div>
+</section>
+
+<section class="bande acc-courrier">
+  <div class="bande-index">
+    <span class="bande-tag">
+      <svg class="ic"><use href="#i-courrier"></use></svg> Boîte de réception
+    </span>
+    <span class="bande-trait"></span>
+    <span class="cr-note" id="cr-boite-note"></span>
+  </div>
+  <div id="cr-boite" class="cr-zone">
+    <p class="cr-attente">Connexion à la boîte…</p>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='courrier.js') }}"></script>
+{% endblock %}

@@ -1,37 +1,95 @@
 {% include "header_buttons.html" %}
+{#- ⚠️ L'aide d'un champ vit DERRIÈRE un « i », plus sous le champ en petit.
+    Six aides empilées sous six champs, puis dix sous dix chiffres : c'est
+    l'écran qu'on vient de dégager.
+    ⚠️ Le texte est DANS le bouton (`.tm-i-txt`), jamais dans un attribut
+    `title` : l'info-bulle du système sortirait par-dessus la nôtre, une
+    seconde plus tard et sans sa mise en forme — et elle n'existe pas au
+    clavier. `.tm-i-txt` est masqué à l'œil mais PRÉSENT dans l'arbre
+    d'accessibilité, donc un lecteur d'écran lit l'aide sans ouvrir la bulle.
+    ⚠️ `| safe` ici une fois pour toutes : plusieurs aides portent des `<em>`
+    et des entités, qui s'afficheraient en clair sinon. Le contrôle de
+    `test_105` connaît la macro et exige qu'elle le porte. -#}
+{% macro aide(cle) -%}
+<span class="tm-i" role="button" tabindex="0"><span class="tm-i-g" aria-hidden="true">i</span><span class="tm-i-txt">{{ t(cle) | safe }}</span></span>
+{%- endmacro %}
 <link rel="stylesheet" href="{{ url_for('static', filename='time.css') }}">
 <script>
   // Libellés des unités de durée. La VALEUR envoyée au serveur reste
   // française (clé de UNIT_TO_MIN) : seul l'affichage suit la langue.
-  window.TIME_I18N = { minutes: {{ t('time.unit_minutes')|tojson }},
+  // ⚠️ Et elle s'écrit en `value=` sur CHAQUE option. Sans attribut, la valeur
+  // d'une option EST son texte : en anglais, choisir « hours » envoyait
+  // « hours », que `UNIT_TO_MIN.get(…, 1)` lisait comme des MINUTES. Toute la
+  // page Temps comptait donc 60 fois trop peu, en silence, dans cette langue.
+  // ⚠️ `lang` sert au groupement des milliers : /temps est une page complète,
+  // mais la règle vaut partout — un script ne doit pas deviner la langue de
+  // l'application depuis celle du navigateur.
+  window.TIME_I18N = { lang: {{ (session.get('lang') or 'fr')|tojson }},
+                       minutes: {{ t('time.unit_minutes')|tojson }},
                        hours:   {{ t('time.unit_hours')|tojson }},
                        days:    {{ t('time.unit_days')|tojson }},
-                       col_activity:  {{ t('time.col_activity')|tojson }},
-                       col_duration_h: {{ t('time.col_duration_h')|tojson }},
-                       col_delay_h:   {{ t('time.col_delay_h')|tojson }},
-                       col_count:     {{ t('time.col_count')|tojson }},
-                       col_load_h:    {{ t('time.col_load_h')|tojson }},
-                       col_actions:   {{ t('time.col_actions')|tojson }},
-                       col_recurrence: {{ t('time.col_recurrence')|tojson }},
-                       col_frequency: {{ t('time.col_frequency')|tojson }},
-                       col_total_h:   {{ t('time.col_total_h')|tojson }},
-                       col_weighed_h: {{ t('time.col_weighed_h')|tojson }},
-                       loading:       {{ t('time.loading')|tojson }},
                        load_error:    {{ t('time.load_error')|tojson }},
+                       role_no_activity: {{ t('time.role_no_activity')|tojson }},
                        error:         {{ t('time.error')|tojson }},
-                       no_project:    {{ t('time.no_project')|tojson }},
-                       no_analysis:   {{ t('time.no_analysis')|tojson }},
-                       meta_duration: {{ t('time.meta_duration')|tojson }},
-                       meta_total:    {{ t('time.meta_total')|tojson }},
-                       meta_acts:     {{ t('time.meta_acts')|tojson }},
                        del_title:     {{ t('time.del_title')|tojson }},
                        del_ok:        {{ t('time.del_ok')|tojson }},
                        del_cancel:    {{ t('btn.cancel')|tojson }},
                        del_project:   {{ t('time.del_project')|tojson }},
-                       del_project_line: {{ t('time.del_project_line')|tojson }},
                        del_activity_analysis: {{ t('time.del_activity_analysis')|tojson }},
                        del_role_analysis: {{ t('time.del_role_analysis')|tojson }},
-                       del_role_line: {{ t('time.del_role_line')|tojson }} };
+                       del_faiblesse: {{ t('time.tm_del_faiblesse')|tojson }},
+                       fw_base_mois:  {{ t('time.fw_base_mois')|tojson }},
+                       {#- ⚠️ Convention de CE fichier : `{h}`, résolu par `fmtPhrase`.
+                           `[[h]]` est celle de `acp.*` et `chat.*` — une clé qui prend
+                           la mauvaise affiche son marqueur TEL QUEL, sans erreur. -#}
+                       fw_sch_sur:    {{ t('time.fw_sch_sur')|tojson }},
+                       tab_project:   {{ t('time.tab_project')|tojson }},
+                       tab_activity:  {{ t('time.tab_activity')|tojson }},
+                       tab_role:      {{ t('time.tab_role')|tojson }},
+                       tab_weakness:  {{ t('time.tab_weakness')|tojson }},
+                       tm_base:       {{ t('time.tm_base')|tojson }},
+                       tm_rien_mesure: {{ t('time.tm_rien_mesure')|tojson }},
+                       tm_faib_part:  {{ t('time.tm_faib_part')|tojson }},
+                       tm_faib_aucune: {{ t('time.tm_faib_aucune')|tojson }},
+                       tm_faib_attente: {{ t('time.tm_faib_attente')|tojson }},
+                       tm_faib_attente_dit: {{ t('time.tm_faib_attente_dit')|tojson }},
+                       tm_couv_sur:   {{ t('time.tm_couv_sur')|tojson }},
+                       {# ⚠️ Ces six-là sont choisies par un TERNAIRE dans le
+                          JS (singulier / pluriel, « rien » / « une » / « n ») :
+                          un nettoyage qui ne cherche que `fmtPhrase('cle'` les
+                          croit mortes et les retire. L'écran afficherait alors
+                          la clé brute, sans la moindre erreur. #}
+                       tm_etp:        {{ t('time.tm_etp')|tojson }},
+                       tm_etp_pl:     {{ t('time.tm_etp_pl')|tojson }},
+                       tm_faib_n:     {{ t('time.tm_faib_n')|tojson }},
+                       tm_faib_n_pl:  {{ t('time.tm_faib_n_pl')|tojson }},
+                       tm_couv_base:  {{ t('time.tm_couv_base')|tojson }},
+                       tm_couv_base_une: {{ t('time.tm_couv_base_une')|tojson }},
+                       tm_couv_tout:  {{ t('time.tm_couv_tout')|tojson }},
+                       tm_couv_aucune: {{ t('time.tm_couv_aucune')|tojson }},
+                       tm_couv_autres: {{ t('time.tm_couv_autres')|tojson }},
+                       tm_couv_btn_nom: {{ t('time.tm_couv_btn_nom')|tojson }},
+                       tm_repere_plein: {{ t('time.tm_repere_plein')|tojson }},
+                       tm_vide_role:  {{ t('time.tm_vide_role')|tojson }},
+                       tm_vide_act:   {{ t('time.tm_vide_act')|tojson }},
+                       tm_mod:        {{ t('time.tm_mod')|tojson }},
+                       tm_maj:        {{ t('time.tm_maj')|tojson }},
+                       tm_vide_grp:   {{ t('time.tm_vide_grp')|tojson }},
+                       tm_acts:       {{ t('time.tm_acts')|tojson }},
+                       {# Les lignes d'une analyse de role sont construites en
+                          JS : ces quatre libelles y etaient ecrits en dur, en
+                          francais, et s'affichaient tels quels en anglais. #}
+                       rec_daily:     {{ t('time.rec_daily')|tojson }},
+                       rec_weekly:    {{ t('time.rec_weekly')|tojson }},
+                       rec_monthly:   {{ t('time.rec_monthly')|tojson }},
+                       rec_quarterly: {{ t('time.rec_quarterly')|tojson }},
+                       sub_projet:    {{ t('time.sub_projet')|tojson }},
+                       sub_activite:  {{ t('time.sub_activite')|tojson }},
+                       sub_role:      {{ t('time.sub_role')|tojson }},
+                       sub_faiblesse: {{ t('time.sub_faiblesse')|tojson }},
+                       fw_bilan_2:    {{ t('time.fw_bilan_2')|tojson }},
+                       fw_bilan_3:    {{ t('time.fw_bilan_3')|tojson }},
+                       rec_yearly:    {{ t('time.rec_yearly')|tojson }}};
 </script>
 <!-- ⚠️ AVANT time.js : c'est lui qui fournit optiqConfirm. `header_buttons`
      ne charge pas ce script, d'où les pop-up du navigateur sur cette page. -->
@@ -40,459 +98,765 @@
 
 <div id="page-temps" class="container pg-root page--time">
 
+  {# Le sous-titre du bandeau decrivait ce que l'ecran montre, juste
+     au-dessus de la question qu'il pose. #}
   {% with banner_page='time', banner_icon='fa-solid fa-clock',
-          banner_title=t('page.time'), banner_sub=t('time.subtitle') %}
+          banner_title=t('page.time') %}
     {% include "page_banner.html" %}
   {% endwith %}
 
-  <section id="tab-charges" class="tab-panel active">
-    <div class="subtabs">
-      <button class="subtab active" data-subtab="projet">
-        <i class="fa-solid fa-diagram-project"></i> {{ t('time.tab_project') }}
-      </button>
-      <button class="subtab" data-subtab="activite">
-        <i class="fa-solid fa-bolt"></i> {{ t('time.tab_activity') }}
-      </button>
-      <button class="subtab" data-subtab="role">
-        <i class="fa-solid fa-user-tie"></i> {{ t('time.tab_role') }}
-      </button>
-      <button class="subtab" data-subtab="faiblesse">
-        <i class="fa-solid fa-triangle-exclamation"></i> {{ t('time.tab_weakness') }}
-      </button>
-    </div>
+  <!-- ══════════════════════════════ 1 · ACCUEIL ══════════════════════════════
+       La page s'ouvrait sur un formulaire vide à 0,0 h : on ne voyait nulle
+       part ce qui avait déjà été mesuré, ni ce qui restait à mesurer. -->
+  <section id="tm-accueil" class="tm-ecran is-actif">
 
-    <!-- ═══════════════════════════════════════ PROJET ═══════════════════════════════════════ -->
-    <div id="subtab-projet" class="subtab-panel active">
-      <div class="card">
-        <div class="card-head">
-          <h2 class="title-xl"><i class="fa-solid fa-diagram-project card-ico"></i>{{ t('time.workload_title') }} — {{ t('time.tab_project') }}</h2>
-          <div class="spacer"></div>
-          <input id="project-name" class="input w-280" placeholder="{{ t('time.project_name_ph') }}"/>
-        </div>
-        <div class="table-wrap">
-          <table class="grid">
-            <colgroup>
-              <col class="col-activity">
-              <col class="col-num"><col class="col-unit">
-              <col class="col-num"><col class="col-unit">
-              <col class="col-num-xs">
-              <col class="col-num">
-              <col class="col-actions">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>{{ t('time.col_activity') }}</th>
-                <th>{{ t('time.col_duration') }}</th><th>{{ t('time.col_unit') }}</th>
-                <th>{{ t('time.col_delay') }}</th><th>{{ t('time.col_unit') }}</th>
-                <th>{{ t('time.col_count') }}</th>
-                <th>{{ t('time.col_charge') }}</th>
-                <th>{{ t('time.col_actions') }}</th>
-              </tr>
-            </thead>
-            <tbody id="project-rows"></tbody>
-          </table>
-        </div>
-
-        <div class="kpis kpis-4">
-          <div class="kpi"><div class="label">{{ t('time.kpi_activities') }}</div><div class="value" id="kpi-proj-nb">0</div></div>
-          <div class="kpi"><div class="label">{{ t('time.kpi_total_duration') }}</div><div class="value" id="kpi-proj-dur">0h</div></div>
-          <div class="kpi"><div class="label">{{ t('time.kpi_avg_delay') }}</div><div class="value" id="kpi-proj-del">0h</div></div>
-          <div class="kpi kpi--main"><div class="label">{{ t('time.kpi_total_charge') }}</div><div class="value" id="kpi-proj-charge">0h</div></div>
-        </div>
-
-        <div class="row-actions">
-          <button id="btn-add-line" class="btn">
-            <i class="fa-solid fa-plus"></i> {{ t('time.add_row') }}
-          </button>
-          <button id="btn-save-project" class="btn success">
-            <i class="fa-solid fa-save"></i> {{ t('time.save_project') }}
-          </button>
-        </div>
-        <div id="proj-feedback" class="time-inline-feedback"></div>
+    <div class="tm-entete">
+      <div class="tm-entete-txt">
+        <h2 class="tm-h1">{{ t('time.tm_titre') }}</h2>
+        <div class="tm-base" id="tm-base"></div>
       </div>
-
-      <div class="card">
-        <h3 class="card-title"><i class="fa-solid fa-folder-open card-ico"></i>{{ t('time.saved_projects') }}</h3>
-        <div id="project-list" class="accordion"></div>
+      <div class="tm-entete-actions">
+        <a class="tm-b tm-b--doux" href="/gestion_rh/">
+          <span class="tm-b-ic"><i class="fa-solid fa-calendar-days"></i></span>
+          {{ t('time.tm_calendrier') }}
+        </a>
+        <button id="tm-btn-nouvelle" type="button" class="tm-b tm-b--prim">
+          <span class="tm-b-ic"><i class="fa-solid fa-plus"></i></span>
+          {{ t('time.tm_nouvelle') }}
+        </button>
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════ ACTIVITÉ ═══════════════════════════════════════ -->
-    <div id="subtab-activite" class="subtab-panel">
-      <div class="card">
-        <div class="card-head">
-          <h2 class="title-xl"><i class="fa-solid fa-bolt card-ico"></i>{{ t('time.workload_title') }} — {{ t('time.tab_activity') }}</h2>
-          <div id="act-editing" class="chip hidden">{{ t('time.edit_mode') }}</div>
+    <!-- Un chiffre de tête, deux secondaires — et ce qui n'est PAS chiffré -->
+    <div class="tm-chiffres">
+      <div class="tm-carte tm-carte--phare">
+        <div class="tm-lbl">{{ t('time.tm_charge_label') }}</div>
+        <div class="tm-grand"><span id="tm-charge">—</span><span class="tm-unite">h</span></div>
+        <div class="tm-etp" id="tm-etp"></div>
+        <div class="tm-filet"></div>
+        <div class="tm-secondaires">
+          <div><div class="tm-lbl2">{{ t('time.tm_par_mois') }}</div><div class="tm-moyen" id="tm-charge-mois">—</div></div>
+          <div><div class="tm-lbl2">{{ t('time.tm_par_semaine') }}</div><div class="tm-moyen" id="tm-charge-sem">—</div></div>
         </div>
-
-        <div class="form-grid">
-          <label>{{ t('time.form_activity') }}</label>
-          <select id="act-activity" class="input">
-            {% for a in activities %}
-              <option value="{{ a.id }}">{{ a.name }}</option>
-            {% endfor %}
-          </select>
-
-          <label>{{ t('time.form_duration') }}</label>
-          <div class="inline">
-            <input id="act-duration" type="number" min="0" step="0.1" class="input" />
-            <select id="act-duration-unit" class="input">
-              <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
-            </select>
-          </div>
-
-          <label>{{ t('time.form_recurrence') }}</label>
-          <select id="act-recurrence" class="input">
-            <option value="journalier">{{ t('time.rec_daily') }}</option>
-            <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
-            <option value="mensuel">{{ t('time.rec_monthly') }}</option>
-            <option value="annuel">{{ t('time.rec_yearly') }}</option>
-          </select>
-
-          <label>{{ t('time.form_frequency') }}</label>
-          <input id="act-frequency" type="number" min="1" step="1" value="1" class="input" />
-
-          <label>{{ t('time.form_people') }}</label>
-          <input id="act-people" type="number" min="1" step="1" value="1" class="input" />
-        </div>
-
-        <div class="summary-pill">
-          {{ t('time.total_estimated_lbl') }} <b><span id="act-total">0h</span></b>
-        </div>
-
-        <div class="row-actions">
-          <button id="btn-act-save" class="btn success">
-            <i class="fa-solid fa-save"></i> {{ t('time.btn_save') }}
-          </button>
-        </div>
-        <div id="act-feedback" class="time-inline-feedback"></div>
       </div>
 
-      <div class="card">
-        <h3 class="card-title"><i class="fa-solid fa-folder-open card-ico"></i>{{ t('time.saved_activity') }}</h3>
-        <div id="activity-list" class="accordion"></div>
+      <div class="tm-carte">
+        <div class="tm-lbl">{{ t('time.tm_faib_label') }}</div>
+        <div class="tm-grand tm-rouge">+ <span id="tm-faib">—</span><span class="tm-unite">h</span></div>
+        <div class="tm-sous" id="tm-faib-sous"></div>
+        <div class="tm-faib-liste" id="tm-faib-liste"></div>
+        <!-- ⚠️ L'attente est posee A PART, jamais additionnee au travail
+             refait : c'est du temps d'horloge, il ne coute de travail a
+             personne. Les sommer annoncait « 84 % de la charge » pour 5 %. -->
+        <div class="tm-attente" id="tm-attente"></div>
+      </div>
+
+      <div class="tm-carte">
+        <div class="tm-lbl">{{ t('time.tm_couv_label') }}</div>
+        <div class="tm-grand"><span id="tm-couv-nb">—</span><span class="tm-unite" id="tm-couv-sur"></span></div>
+        <div class="tm-sous" id="tm-couv-base"></div>
+        <div class="tm-jauge"><div class="tm-jauge-in" id="tm-couv-jauge"></div></div>
+        <!-- ⚠️ Les NOMS de ce qui manque : « 12 activités sur 12 » ne dit pas
+             quoi faire. Chaque ligne ouvre SON activité, déjà choisie. -->
+        <div class="tm-couv-liste" id="tm-couv-liste"></div>
+        <button id="tm-btn-couv" class="btn btn-couv hidden">
+          <span id="tm-btn-couv-txt">{{ t('time.tm_couv_btn') }}</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════ RÔLE ═══════════════════════════════════════ -->
-    <div id="subtab-role" class="subtab-panel">
-      <div class="card">
-        <div class="card-head">
-          <h2 class="title-xl"><i class="fa-solid fa-user-tie card-ico"></i>{{ t('time.workload_title') }} — {{ t('time.tab_role') }}</h2>
-          <div class="spacer"></div>
-          <select id="role-select" class="input w-320">
-            {% for r in roles %}
-              <option value="{{ r.id }}">{{ r.name }}</option>
-            {% endfor %}
-          </select>
-          <input id="role-name" class="input w-260" placeholder="{{ t('time.role_analysis_ph') }}" />
-        </div>
-
-        <div class="table-wrap">
-          <table class="grid">
-            <colgroup>
-              <col class="col-activity">
-              <col class="col-num">
-              <col class="col-rec">
-              <col class="col-num-xs">
-              <col class="col-num">
-              <col class="col-actions">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>{{ t('time.col_activity') }}</th>
-                <!-- ⚠️ MINUTES, pas heures : `addRoleRow` lit ce champ tel
-                     quel. L'en-tête disait « (h) » et faisait saisir une
-                     charge soixante fois autre que celle qu'on croyait. -->
-                <th>{{ t('time.col_duration_min') }}</th>
-                <th>{{ t('time.col_recurrence') }}</th>
-                <th>{{ t('time.col_freq') }}</th>
-                <th>{{ t('time.col_weight') }}</th>
-                <th>{{ t('time.col_actions') }}</th>
-              </tr>
-            </thead>
-            <tbody id="role-rows"></tbody>
-          </table>
-        </div>
-
-        <div class="kpis kpis-4 kpis-sub">
-          <div class="kpi"><div class="label">{{ t('time.kpi_sum_day') }}</div><div class="value" id="kpi-role-d">0h</div></div>
-          <div class="kpi"><div class="label">{{ t('time.kpi_sum_week') }}</div><div class="value" id="kpi-role-w">0h</div></div>
-          <div class="kpi"><div class="label">{{ t('time.kpi_sum_month') }}</div><div class="value" id="kpi-role-m">0h</div></div>
-          <div class="kpi"><div class="label">{{ t('time.kpi_sum_year') }}</div><div class="value" id="kpi-role-a">0h</div></div>
-        </div>
-        <div class="kpis kpis-2 kpis-emerald-strong">
-          <div class="kpi kpi--main"><div class="label">{{ t('time.kpi_est_month') }}</div><div class="value" id="kpi-role-monthly">0h</div></div>
-          <div class="kpi kpi--main"><div class="label">{{ t('time.kpi_est_year') }}</div><div class="value" id="kpi-role-annual">0h</div></div>
-        </div>
-
-        <div class="row-actions">
-          <button id="btn-role-add-line" class="btn">
-            <i class="fa-solid fa-plus"></i> {{ t('time.add_row') }}
-          </button>
-          <button id="btn-role-save" class="btn success">
-            <i class="fa-solid fa-save"></i> {{ t('time.save_analysis') }}
-          </button>
-        </div>
-        <div id="role-feedback" class="time-inline-feedback"></div>
-      </div>
-
-      <div class="card">
-        <h3 class="card-title"><i class="fa-solid fa-folder-open card-ico"></i>{{ t('time.saved_role') }}</h3>
-        <div id="role-list" class="accordion"></div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════ FAIBLESSE ═══════════════════════════════════════ -->
-    <div id="subtab-faiblesse" class="subtab-panel">
-      <div class="card">
-        <div class="card-head">
-          <h2 class="title-xl">
-            <i class="fa-solid fa-triangle-exclamation card-ico card-ico--warn"></i>
-            {{ t('time.fw_title') }}
-          </h2>
-        </div>
-
-        <!-- Contexte : activité, récurrence, mode -->
-        <div class="form-grid fg-2cols">
+    <!-- Deux lectures de la même charge -->
+    <div class="tm-lectures">
+      <div class="card tm-lecture">
+        <div class="tm-lecture-head">
+          <span class="tm-pastille tm-pastille--role"><i class="fa-solid fa-user-tie"></i></span>
           <div>
-            <label>{{ t('time.fw_activity_label') }}</label>
-            <select id="fw-activity" class="input">
-              {% for a in activities %}
-                <option value="{{ a.id }}">{{ a.name }}</option>
-              {% endfor %}
-            </select>
+            <div class="tm-lecture-titre">{{ t('time.tm_par_role') }}</div>
+            <div class="tm-lecture-sub">{{ t('time.tm_par_role_sub') }}</div>
           </div>
+        </div>
+        <div id="tm-role-liste" class="tm-barres"></div>
+        <div class="tm-lecture-pied" id="tm-role-pied"></div>
+      </div>
 
+      <div class="card tm-lecture">
+        <div class="tm-lecture-head">
+          <span class="tm-pastille tm-pastille--act"><i class="fa-solid fa-bolt"></i></span>
           <div>
-            <label>{{ t('time.fw_mode_label') }}</label>
-            <div class="inline inline-wrap">
-              <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> {{ t('time.fw_mode_global') }}</label>
-              <label class="chk"><input type="radio" name="fw-mode" value="tasks"> {{ t('time.fw_mode_tasks') }}</label>
-            </div>
-            <div class="field-hint">{{ t('time.fw_hint_mode') | safe }}</div>
-          </div>
-
-          <div>
-            <label>{{ t('time.fw_recurrence_label') }}</label>
-            <select id="fw-rec" class="input">
-              <option value="journalier">{{ t('time.rec_daily') }}</option>
-              <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
-              <option value="mensuel">{{ t('time.rec_monthly') }}</option>
-              <option value="annuel">{{ t('time.rec_yearly') }}</option>
-            </select>
-          </div>
-
-          <div>
-            <label>{{ t('time.form_frequency') }}</label>
-            <input id="fw-freq" type="number" min="1" value="1" class="input" />
-            <div class="field-hint">{{ t('time.fw_hint_freq') }}</div>
+            <div class="tm-lecture-titre">{{ t('time.tm_par_act') }}</div>
+            <div class="tm-lecture-sub">{{ t('time.tm_par_act_sub') }}</div>
           </div>
         </div>
-
-        <!-- Durées standard (sans faiblesse) -->
-        <div id="fw-global" class="subcard subcard-grid equal">
-          <h3><i class="fa-solid fa-gauge"></i>{{ t('time.fw_standard_title') }}</h3>
-
-          <div class="sc-field">
-            <label>{{ t('time.fw_std_duration') }}</label>
-            <div class="inline">
-              <input id="fw-dur" type="number" step="0.1" class="input" />
-              <select id="fw-dur-unit" class="input">
-                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
-              </select>
-            </div>
-            <div class="field-hint">{{ t('time.fw_hint_std_dur') }}</div>
-          </div>
-
-          <div class="sc-field">
-            <label>{{ t('time.fw_std_delay') }}</label>
-            <div class="inline">
-              <input id="fw-del" type="number" step="0.1" class="input" />
-              <select id="fw-del-unit" class="input">
-                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
-              </select>
-            </div>
-            <div class="field-hint">{{ t('time.fw_hint_std_del') }}</div>
-          </div>
-        </div>
-
-        <!-- Par tâches -->
-        <div id="fw-tasks" class="subcard hidden">
-          <h3><i class="fa-solid fa-list-check"></i>{{ t('time.fw_tasks_title') }}</h3>
-          <div class="table-wrap">
-            <table class="grid grid-compact">
-              <colgroup>
-                <col class="col-activity">
-                <col class="col-num"><col class="col-unit">
-                <col class="col-num"><col class="col-unit">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>{{ t('time.col_task') }}</th>
-                  <th>{{ t('time.col_duration') }}</th><th>{{ t('time.col_unit') }}</th>
-                  <th>{{ t('time.col_delay') }}</th><th>{{ t('time.col_unit') }}</th>
-                </tr>
-              </thead>
-              <tbody id="fw-task-rows"></tbody>
-            </table>
-          </div>
-          <div class="summary-pill">
-            <strong>{{ t('time.fw_task_sum_label') }}</strong>
-            <span id="fw-task-sum">0h</span>
-          </div>
-        </div>
-
-        <!-- Paramètres de la faiblesse -->
-        <div class="subcard subcard-grid equal">
-          <h3><i class="fa-solid fa-bug"></i>{{ t('time.fw_params_title') }}</h3>
-
-          <div class="sc-field">
-            <label>{{ t('time.fw_desc_label') }}</label>
-            <input id="fw-k" class="input" placeholder="{{ t('time.fw_ph_desc') }}" />
-            <div class="field-hint">{{ t('time.fw_hint_desc') }}</div>
-          </div>
-
-          <div class="sc-field">
-            <label>{{ t('time.fw_prob_label') }}</label>
-            <input id="fw-n" type="number" value="1" min="1" class="input" />
-            <div class="field-hint">{{ t('time.fw_hint_prob') | safe }}</div>
-          </div>
-
-          <div class="sc-field">
-            <label>{{ t('time.fw_extra_work') }}</label>
-            <div class="inline">
-              <input id="fw-l" type="number" step="0.1" class="input" />
-              <select id="fw-l-unit" class="input">
-                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
-              </select>
-            </div>
-            <div class="field-hint">{{ t('time.fw_hint_extra') | safe }}</div>
-          </div>
-
-          <div class="sc-field">
-            <label>{{ t('time.fw_delay_label') }}</label>
-            <div class="inline">
-              <input id="fw-m" type="number" step="0.1" class="input" />
-              <select id="fw-m-unit" class="input">
-                <option>{{ t('time.unit_minutes') }}</option><option>{{ t('time.unit_hours') }}</option><option>{{ t('time.unit_days') }}</option>
-              </select>
-            </div>
-            <div class="field-hint">{{ t('time.fw_hint_delay') | safe }}</div>
-          </div>
-
-          <div class="row-actions">
-            <button id="btn-fw-calc" class="btn">
-              <i class="fa-solid fa-calculator"></i> {{ t('time.fw_btn_calc') }}
-            </button>
-            <button id="btn-fw-save" class="btn success">
-              <i class="fa-solid fa-save"></i> {{ t('time.fw_btn_save') }}
-            </button>
-          </div>
-          <div id="fw-feedback" class="time-inline-feedback"></div>
-        </div>
-
-        <!-- Résultats — masqués tant qu'aucun calcul n'a été lancé -->
-        <div id="fw-results-empty" class="fw-results-empty">
-          <i class="fa-solid fa-calculator"></i>
-          {{ t('time.fw_results_empty') }}
-        </div>
-
-        <div id="fw-results-section" class="fw-results-wrapper hidden">
-
-          <div class="fw-results-title">{{ t('time.results') }}</div>
-
-          <!-- Groupe 1 : Impact par exécution -->
-          <div class="fw-result-group fw-group-execution">
-            <div class="fw-group-header">
-              <i class="fa-solid fa-repeat"></i>
-              {{ t('time.fw_execution_header') }}
-            </div>
-            <div class="fw-group-body">
-              <div class="fw-kpi-card fw-accent-pink">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_avg_dur') }}</div>
-                <div class="fw-kpi-value"><span id="S">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_avg_dur') }}</div>
-              </div>
-              <div class="fw-kpi-card fw-accent-pink">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_avg_del') }}</div>
-                <div class="fw-kpi-value"><span id="T">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_avg_del') }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Groupe 2 : Cas dégradé -->
-          <div class="fw-result-group fw-group-degraded">
-            <div class="fw-group-header">
-              <i class="fa-solid fa-circle-exclamation"></i>
-              {{ t('time.fw_degraded_header') }}
-            </div>
-            <div class="fw-group-body">
-              <div class="fw-kpi-card fw-accent-orange">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_deg_delay') }}</div>
-                <div class="fw-kpi-value"><span id="Y">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_deg_delay') }}</div>
-              </div>
-              <div class="fw-kpi-card fw-accent-orange">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_occ') }}</div>
-                <div class="fw-kpi-value"><span id="Z">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_occ') }}</div>
-              </div>
-              <div class="fw-kpi-card fw-kpi-occurrences">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_occurrences') }}</div>
-                <div class="fw-kpi-value"><span id="AA">—</span><span class="fw-kpi-unit">{{ t('time.fw_unit_times') }}</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_occurrences') }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Groupe 3 : Coût annuel -->
-          <div class="fw-result-group fw-group-annual">
-            <div class="fw-group-header">
-              <i class="fa-solid fa-chart-line"></i>
-              {{ t('time.fw_annual_header') }}
-            </div>
-            <div class="fw-group-body">
-              <div class="fw-kpi-card fw-accent-red">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_annual') }}</div>
-                <div class="fw-kpi-value"><span id="U">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_annual') }}</div>
-              </div>
-              <div class="fw-kpi-card fw-accent-red">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_annual') }}</div>
-                <div class="fw-kpi-value"><span id="V">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_annual') }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Groupe 4 : Coût mensuel -->
-          <div class="fw-result-group fw-group-monthly">
-            <div class="fw-group-header">
-              <i class="fa-solid fa-calendar-days"></i>
-              {{ t('time.fw_monthly_header') }}
-            </div>
-            <div class="fw-group-body">
-              <div class="fw-kpi-card fw-accent-violet">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_extra_monthly') }}</div>
-                <div class="fw-kpi-value"><span id="W">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_extra_month') }}</div>
-              </div>
-              <div class="fw-kpi-card fw-accent-violet">
-                <div class="fw-kpi-label">{{ t('time.fw_kpi_delay_monthly') }}</div>
-                <div class="fw-kpi-value"><span id="X">—</span><span class="fw-kpi-unit">h</span></div>
-                <div class="fw-kpi-desc">{{ t('time.fw_desc_delay_month') }}</div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-        <!-- /Résultats Faiblesse -->
-
+        <div id="tm-act-liste" class="tm-barres"></div>
       </div>
     </div>
-    <!-- /FAIBLESSE -->
 
+    <!-- Les analyses enregistrées : elles vivaient en bas de CHAQUE onglet -->
+    <div class="card tm-analyses">
+      <div class="tm-lecture-head">
+        <span class="tm-pastille tm-pastille--dossier"><i class="fa-solid fa-folder-open"></i></span>
+        <div>
+          <div class="tm-lecture-titre">{{ t('time.tm_analyses') }}</div>
+          <div class="tm-lecture-sub">{{ t('time.tm_analyses_sub') }}</div>
+        </div>
+      </div>
+
+      <!-- Les quatre analyses, atteignables sans passer par « + Nouvelle
+           analyse » : ce bouton-la annonce une creation, et on vient souvent
+           pour relire. Chaque tuile porte le nombre de ce qui est enregistre. -->
+      <div class="tm-rail">
+        <button type="button" class="tm-rail-t tm-r-projet" data-analyse="projet">
+          <span class="tm-rail-ic"><i class="fa-solid fa-diagram-project"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_project') }}</span>
+          <span class="tm-rail-n" id="tm-n-projet">—</span>
+        </button>
+        <button type="button" class="tm-rail-t tm-r-activite" data-analyse="activite">
+          <span class="tm-rail-ic"><i class="fa-solid fa-bolt"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_activity') }}</span>
+          <span class="tm-rail-n" id="tm-n-activite">—</span>
+        </button>
+        <button type="button" class="tm-rail-t tm-r-role" data-analyse="role">
+          <span class="tm-rail-ic"><i class="fa-solid fa-user-tie"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_role') }}</span>
+          <span class="tm-rail-n" id="tm-n-role">—</span>
+        </button>
+        <button type="button" class="tm-rail-t tm-r-faiblesse" data-analyse="faiblesse">
+          <span class="tm-rail-ic"><i class="fa-solid fa-triangle-exclamation"></i></span>
+          <span class="tm-rail-nom">{{ t('time.tab_weakness') }}</span>
+          <span class="tm-rail-n" id="tm-n-faiblesse">—</span>
+        </button>
+      </div>
+
+      <!-- ⚠️ REPLIABLES, et fermées au départ. Avec de vraies données la
+           liste atteignait dix-huit lignes empilées : on défilait sur neuf
+           cents pixels pour trouver une analyse. Le compte dans l'en-tête
+           suffit à savoir s'il y a quelque chose à ouvrir. -->
+      <div class="tm-grp" data-grp="projet">
+        <button type="button" class="tm-grp-tete" data-plier="projet">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-projet"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_projets') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-projet">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-projet"></div>
+      </div>
+
+      <div class="tm-grp" data-grp="activite">
+        <button type="button" class="tm-grp-tete" data-plier="activite">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-activite"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_activites') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-activite">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-activite"></div>
+      </div>
+
+      <div class="tm-grp" data-grp="role">
+        <button type="button" class="tm-grp-tete" data-plier="role">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-role"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_roles') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-role">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-role"></div>
+      </div>
+
+      <div class="tm-grp" data-grp="faiblesse">
+        <button type="button" class="tm-grp-tete" data-plier="faiblesse">
+          <i class="fa-solid fa-chevron-right tm-grp-fleche"></i>
+          <span class="tm-grp-pastille tm-g-faiblesse"></span>
+          <span class="tm-grp-titre">{{ t('time.tm_grp_faiblesses') }}</span>
+          <span class="tm-grp-n" id="tm-g-n-faiblesse">0</span>
+        </button>
+        <div class="tm-grp-corps" id="tm-l-faiblesse"></div>
+      </div>
+    </div>
   </section>
+
+  <!-- ══════════════════════════════ 2 · CHOISIR ══════════════════════════════
+       Quatre onglets côte à côte, c'étaient quatre modèles mentaux sans mode
+       d'emploi. Chaque porte dit QUAND s'en servir, avec un exemple. -->
+  <section id="tm-choix" class="tm-ecran">
+    <button class="tm-retour" data-ecran="accueil">
+      <i class="fa-solid fa-arrow-left"></i> {{ t('time.tm_retour') }}
+    </button>
+
+    <div class="tm-choix-tete">
+      <h2 class="tm-h1">{{ t('time.tm_choix_titre') }}</h2>
+      <p class="tm-choix-sub">{{ t('time.tm_choix_sub') }}</p>
+    </div>
+
+    <div class="tm-portes">
+      <button class="tm-porte tm-p-projet" data-analyse="projet">
+        <span class="tm-porte-ic"><i class="fa-solid fa-diagram-project"></i></span>
+        <span class="tm-porte-titre">{{ t('time.tab_project') }}</span>
+        <span class="tm-porte-quand">{{ t('time.tm_quand_projet') }}</span>
+        <span class="tm-porte-ex">{{ t('time.tm_ex_projet') }}</span>
+      </button>
+      <button class="tm-porte tm-p-activite" data-analyse="activite">
+        <span class="tm-porte-ic"><i class="fa-solid fa-bolt"></i></span>
+        <span class="tm-porte-titre">{{ t('time.tab_activity') }}</span>
+        <span class="tm-porte-quand">{{ t('time.tm_quand_activite') }}</span>
+        <span class="tm-porte-ex">{{ t('time.tm_ex_activite') }}</span>
+      </button>
+      <button class="tm-porte tm-p-role" data-analyse="role">
+        <span class="tm-porte-ic"><i class="fa-solid fa-user-tie"></i></span>
+        <span class="tm-porte-titre">{{ t('time.tab_role') }}</span>
+        <span class="tm-porte-quand">{{ t('time.tm_quand_role') }}</span>
+        <span class="tm-porte-ex">{{ t('time.tm_ex_role') }}</span>
+      </button>
+      <button class="tm-porte tm-p-faiblesse" data-analyse="faiblesse">
+        <span class="tm-porte-ic"><i class="fa-solid fa-triangle-exclamation"></i></span>
+        <span class="tm-porte-titre">{{ t('time.tab_weakness') }}</span>
+        <span class="tm-porte-quand">{{ t('time.tm_quand_faiblesse') }}</span>
+        <span class="tm-porte-ex">{{ t('time.tm_ex_faiblesse') }}</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════ 3 · SAISIR ══════════════════════════════
+       Une seule analyse à l'écran, et son résultat COLLÉ à droite : on
+       remplissait jusqu'à vingt-six champs sans jamais voir un chiffre. -->
+  <section id="tm-travail" class="tm-ecran">
+    <div class="tm-barre">
+      <button class="tm-retour" data-ecran="accueil">
+        <i class="fa-solid fa-arrow-left"></i> {{ t('time.tm_retour') }}
+      </button>
+      <span class="tm-barre-ic" id="tm-barre-ic"></span>
+      {# La bande porte le NOM du type et ce à quoi l'analyse sert : sans la
+         seconde ligne, elle ne dirait rien que l'écran ne montre déjà. #}
+      <span class="tm-barre-txt">
+        <h2 class="tm-barre-titre" id="tm-barre-titre"></h2>
+        <span class="tm-barre-sub" id="tm-barre-sub"></span>
+      </span>
+      <!-- ⚠️ Sans ce repère on ne sait pas si « Enregistrer » va créer une
+           analyse de plus ou remplacer celle qu'on vient d'ouvrir. -->
+      <span class="tm-mod hidden" id="tm-mod">
+        <i class="fa-solid fa-pen"></i>
+        <!-- ⚠️ Le nom est un BOUTON : c'est ici que l'utilisateur est venu
+             chercher le renommage — un crayon, un nom — et il n'y trouvait
+             qu'une croix qui QUITTE la modification. Il mène au champ, qui
+             reste la seule source du nom : deux champs pour une même valeur
+             finiraient par se contredire. -->
+        <button type="button" id="tm-mod-nom" class="tm-mod-nom"
+                title="{{ t('time.tm_mod_nom') }}"></button>
+        <button type="button" id="tm-mod-sortir" title="{{ t('time.tm_mod_sortir') }}">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </span>
+    </div>
+
+    <div class="tm-cols">
+      <div class="tm-saisie">
+
+        <!-- ─────────────────────────── PROJET ─────────────────────────── -->
+        <div id="subtab-projet" class="subtab-panel">
+          <div class="card">
+            <!-- ⚠️ Le nom ne portait qu'un `placeholder`, poussé tout à
+                 DROITE par un `spacer`. Ouvert pour modification, le champ est
+                 REMPLI : plus de placeholder non plus, donc une boîte de texte
+                 sans étiquette au bout d'un en-tête — et personne ne trouvait
+                 le renommage. Il prend un libellé, comme tous les autres
+                 champs de la page, et la première place du formulaire. -->
+            <div class="tm-nom">
+              <div class="sc-field">
+                <label for="project-name">{{ t('time.project_name_label') }}</label>
+                <input id="project-name" class="input w-280" />
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="grid">
+                <colgroup>
+                  <col class="col-activity">
+                  <col class="col-num"><col class="col-unit">
+                  <col class="col-num"><col class="col-unit">
+                  <col class="col-num-xs">
+                  <col class="col-num">
+                  <col class="col-actions">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>{{ t('time.col_activity') }}</th>
+                    <th>{{ t('time.col_duration') }}</th><th>{{ t('time.col_unit') }}</th>
+                    <th>{{ t('time.col_delay') }}</th><th>{{ t('time.col_unit') }}</th>
+                    <th>{{ t('time.col_count') }}</th>
+                    <th>{{ t('time.col_charge') }}</th>
+                    <th>{{ t('time.col_actions') }}</th>
+                  </tr>
+                </thead>
+                <tbody id="project-rows"></tbody>
+              </table>
+            </div>
+
+            <div class="row-actions">
+              <button id="btn-add-line" class="btn">
+                <i class="fa-solid fa-plus"></i> {{ t('time.add_row') }}
+              </button>
+              <button id="btn-save-project" class="btn success">
+                <i class="fa-solid fa-save"></i> {{ t('time.save_project') }}
+              </button>
+            </div>
+            <div id="proj-feedback" class="time-inline-feedback"></div>
+          </div>
+        </div>
+
+        <!-- ────────────────────────── ACTIVITÉ ────────────────────────── -->
+        <div id="subtab-activite" class="subtab-panel">
+          <div class="card">
+            <div class="card-head">
+              <div class="spacer"></div>
+              <div id="act-editing" class="chip hidden">{{ t('time.edit_mode') }}</div>
+            </div>
+
+            <div class="form-grid">
+              <label>{{ t('time.form_activity') }}</label>
+              <select id="act-activity" class="input">
+                {% for a in activities %}
+                  <option value="{{ a.id }}">{{ a.name }}</option>
+                {% endfor %}
+              </select>
+
+              <label>{{ t('time.form_duration') }}</label>
+              <div class="inline">
+                <input id="act-duration" type="number" min="0" step="0.1" class="input" />
+                <select id="act-duration-unit" class="input">
+                  <option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option>
+                </select>
+              </div>
+
+              <label>{{ t('time.form_recurrence') }}</label>
+              <select id="act-recurrence" class="input">
+                <option value="journalier">{{ t('time.rec_daily') }}</option>
+                <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
+                <option value="mensuel">{{ t('time.rec_monthly') }}</option>
+                <option value="trimestriel">{{ t('time.rec_quarterly') }}</option>
+                <option value="annuel">{{ t('time.rec_yearly') }}</option>
+              </select>
+
+              <label>{{ t('time.form_frequency') }}</label>
+              <input id="act-frequency" type="number" min="1" step="1" value="1" class="input" />
+
+              <label>{{ t('time.form_people') }}</label>
+              <input id="act-people" type="number" min="1" step="1" value="1" class="input" />
+            </div>
+
+            <div class="row-actions">
+              <button id="btn-act-save" class="btn success">
+                <i class="fa-solid fa-save"></i> {{ t('time.btn_save') }}
+              </button>
+            </div>
+            <div id="act-feedback" class="time-inline-feedback"></div>
+          </div>
+        </div>
+
+        <!-- ──────────────────────────── RÔLE ──────────────────────────── -->
+        <div id="subtab-role" class="subtab-panel">
+          <div class="card">
+            <!-- Même correctif que pour le projet : deux champs sans
+                 étiquette, alignés à droite d'un en-tête. -->
+            <div class="tm-nom">
+              <div class="sc-field">
+                <label for="role-select">{{ t('time.role_label') }}</label>
+                <select id="role-select" class="input w-320">
+                  {% for r in roles %}
+                    <option value="{{ r.id }}">{{ r.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="sc-field">
+                <label for="role-name">{{ t('time.role_analysis_label') }}</label>
+                <input id="role-name" class="input w-260" placeholder="{{ t('time.role_analysis_ph') }}" />
+              </div>
+            </div>
+
+            <div class="table-wrap">
+              <table class="grid">
+                {# ⚠️ Plus de colonne « Actions » : les lignes sont celles du
+                   role, on n'en ajoute ni n'en retire (voir addRoleRow). #}
+                <colgroup>
+                  <col class="col-activity">
+                  <col class="col-num">
+                  <col class="col-rec">
+                  <col class="col-num-xs">
+                  <col class="col-num">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>{{ t('time.col_activity') }}</th>
+                    <!-- ⚠️ MINUTES, pas heures : `addRoleRow` lit ce champ tel
+                         quel. L'en-tête disait « (h) » et faisait saisir une
+                         charge soixante fois autre que celle qu'on croyait. -->
+                    <th>{{ t('time.col_duration_min') }}</th>
+                    <th>{{ t('time.col_recurrence') }}</th>
+                    <th>{{ t('time.col_freq') }}</th>
+                    <th>{{ t('time.col_weight') }}</th>
+                  </tr>
+                </thead>
+                <tbody id="role-rows"></tbody>
+              </table>
+            </div>
+
+            <div class="row-actions">
+              <button id="btn-role-save" class="btn success">
+                <i class="fa-solid fa-save"></i> {{ t('time.save_analysis') }}
+              </button>
+            </div>
+            <div id="role-feedback" class="time-inline-feedback"></div>
+          </div>
+        </div>
+
+        <!-- ────────────────────────── FAIBLESSE ───────────────────────── -->
+        <div id="subtab-faiblesse" class="subtab-panel">
+          <div class="card">
+
+            {# ══ Direction C — LES TROIS TEMPS ═══════════════════════════
+               Ce formulaire posait dix champs à plat. Il pose en réalité TROIS
+               questions, et rien ne le disait : ce que l'activité coûte quand
+               tout va bien, ce qui arrive quand ça rate, et combien de fois par
+               an. Chaque temps porte son bilan partiel — on comprend la formule
+               en la remplissant, au lieu de la découvrir à la fin.
+
+               ⚠️ Tous les `id` sont conservés : `time.js` écrit par id et
+               bascule `#fw-global` / `#fw-tasks` selon le mode. On change
+               l'ordre et le récit, pas le contrat. #}
+
+            <div class="tm-fw-tete">
+              <label for="fw-activity">{{ t('time.fw_activity_label') }}</label>
+              <select id="fw-activity" class="input">
+                {% for a in activities %}
+                  <option value="{{ a.id }}">{{ a.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="tm-temps">
+
+              <!-- ── 1 · la référence ─────────────────────────────────── -->
+              <section class="tm-tps">
+                <span class="tm-tps-n" aria-hidden="true">1</span>
+                <div class="tm-tps-c">
+                  <h3 class="tm-tps-q">{{ t('time.fw_t1_q') }}</h3>
+
+                  <div class="tm-tps-mode">
+                    <label class="chk"><input type="radio" name="fw-mode" value="activity" checked> {{ t('time.fw_mode_global') }}</label>
+                    <label class="chk"><input type="radio" name="fw-mode" value="tasks"> {{ t('time.fw_mode_tasks') }}</label>
+                    {{ aide('time.fw_hint_mode') }}
+                  </div>
+
+                  <div id="fw-global" class="tm-tps-duo">
+                    <div class="sc-field">
+                      <label>{{ t('time.fw_std_duration') }}{{ aide('time.fw_hint_std_dur') }}</label>
+                      <div class="inline">
+                        <input id="fw-dur" type="number" step="0.1" class="input" />
+                        <select id="fw-dur-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
+                      </div>
+                    </div>
+
+                    <div class="sc-field">
+                      <label>{{ t('time.fw_std_delay') }}{{ aide('time.fw_hint_std_del') }}</label>
+                      <div class="inline">
+                        <input id="fw-del" type="number" step="0.1" class="input" />
+                        <select id="fw-del-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
+                      </div>
+                      {# Dit POURQUOI la valeur a bougé : un champ qui se corrige
+                         tout seul sans rien dire passe pour un défaut de saisie. #}
+                      <div class="field-hint hidden" id="fw-del-note">{{ t('time.fw_del_borne') }}</div>
+                    </div>
+                  </div>
+
+                  <div id="fw-tasks" class="hidden">
+                    <div class="table-wrap">
+                      <table class="grid grid-compact">
+                        <colgroup>
+                          <col class="col-activity">
+                          <col class="col-num"><col class="col-unit">
+                          <col class="col-num"><col class="col-unit">
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th>{{ t('time.col_task') }}</th>
+                            <th>{{ t('time.col_duration') }}</th><th>{{ t('time.col_unit') }}</th>
+                            <th>{{ t('time.col_delay') }}</th><th>{{ t('time.col_unit') }}</th>
+                          </tr>
+                        </thead>
+                        <tbody id="fw-task-rows"></tbody>
+                      </table>
+                    </div>
+                    <div class="summary-pill">
+                      <strong>{{ t('time.fw_task_sum_label') }}</strong>
+                      <span id="fw-task-sum">0h</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ── 2 · le cas dégradé ───────────────────────────────── -->
+              <section class="tm-tps">
+                <span class="tm-tps-n" aria-hidden="true">2</span>
+                <div class="tm-tps-c">
+                  <h3 class="tm-tps-q">{{ t('time.fw_t2_q') }}</h3>
+
+                  <div class="sc-field tm-tps-large">
+                    <label>{{ t('time.fw_desc_label') }}{{ aide('time.fw_hint_desc') }}</label>
+                    <input id="fw-k" class="input" placeholder="{{ t('time.fw_ph_desc') }}" />
+                  </div>
+
+                  <div class="tm-tps-duo">
+                    <div class="sc-field">
+                      <label>{{ t('time.fw_extra_work') }}{{ aide('time.fw_hint_extra') }}</label>
+                      <div class="inline">
+                        <input id="fw-l" type="number" step="0.1" class="input" />
+                        <select id="fw-l-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
+                      </div>
+                    </div>
+
+                    <div class="sc-field">
+                      <label>{{ t('time.fw_delay_label') }}{{ aide('time.fw_hint_delay') }}</label>
+                      <div class="inline">
+                        <input id="fw-m" type="number" step="0.1" class="input" />
+                        <select id="fw-m-unit" class="input"><option value="minutes">{{ t('time.unit_minutes') }}</option><option value="heures">{{ t('time.unit_hours') }}</option><option value="jours">{{ t('time.unit_days') }}</option></select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {# Le bilan partiel : il se remplit pendant la saisie, comme le
+                     panneau de droite. Masqué tant qu'aucun calcul n'a abouti —
+                     un bilan à zéro se lit comme un résultat. #}
+                  <div class="tm-tps-bilan hidden" id="fw-bilan-2"></div>
+                </div>
+              </section>
+
+              <!-- ── 3 · la fréquence ─────────────────────────────────── -->
+              <section class="tm-tps">
+                <span class="tm-tps-n" aria-hidden="true">3</span>
+                <div class="tm-tps-c">
+                  <h3 class="tm-tps-q">{{ t('time.fw_t3_q') }}</h3>
+
+                  <div class="tm-tps-duo">
+                    <div class="sc-field">
+                      <label>{{ t('time.fw_recurrence_label') }}{{ aide('time.fw_hint_freq') }}</label>
+                      <div class="inline">
+                        <select id="fw-rec" class="input">
+                          <option value="journalier">{{ t('time.rec_daily') }}</option>
+                          <option value="hebdomadaire">{{ t('time.rec_weekly') }}</option>
+                          <option value="mensuel">{{ t('time.rec_monthly') }}</option>
+                          <option value="trimestriel">{{ t('time.rec_quarterly') }}</option>
+                          <option value="annuel">{{ t('time.rec_yearly') }}</option>
+                        </select>
+                        <input id="fw-freq" type="number" min="1" value="1" class="input w-70" />
+                        <span class="unit-suffix">{{ t('time.fw_unit_times') }}</span>
+                      </div>
+                    </div>
+
+                    <div class="sc-field">
+                      <label>{{ t('time.fw_prob_label') }}{{ aide('time.fw_hint_prob') }}</label>
+                      <div class="inline">
+                        <input id="fw-n" type="number" value="100" min="0.1" max="100" step="0.1" class="input" />
+                        <span class="unit-suffix">%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="tm-tps-bilan hidden" id="fw-bilan-3"></div>
+                </div>
+              </section>
+
+            </div>
+
+            <div class="row-actions">
+              <button id="btn-fw-save" class="btn success">
+                <i class="fa-solid fa-save"></i> {{ t('time.fw_btn_save') }}
+              </button>
+            </div>
+            <div id="fw-feedback" class="time-inline-feedback"></div>
+
+            <!-- Le détail des résultats. Il ne se mérite plus par un clic sur
+                 « Calculer » : il se remplit pendant la saisie, comme le
+                 panneau de droite. -->
+            <div id="fw-results-empty" class="fw-results-empty">
+              <i class="fa-solid fa-calculator"></i>
+              {{ t('time.fw_results_empty') }}
+            </div>
+
+            <div id="fw-results-section" class="fw-res hidden">
+
+              <!-- ══ 1 · CE QUI SE PASSE ═══════════════════════════════════
+                   ⚠️ Dix chiffres de même taille sous dix explications de même
+                   taille : rien ne ressortait, et surtout rien ne MONTRAIT le
+                   mécanisme. Le schéma est à l'échelle des valeurs saisies, et
+                   il encode la distinction que tout le module tient — le
+                   travail refait et l'attente ne sont pas la même chose, donc
+                   ils n'ont pas le même remplissage. -->
+              <section class="fw-bloc fw-bloc--sch">
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-timeline"></i>{{ t('time.fw_sch_titre') }}</h3>
+
+                <div class="fw-chrono" id="fw-chrono">
+                  <div class="fw-l">
+                    <span class="fw-l-n">{{ t('time.fw_sch_ok') }}</span>
+                    <span class="fw-piste">
+                      <span class="fw-seg fw-seg--b" id="fw-sg-b1"></span>
+                      <span class="fw-seg fw-seg--a" id="fw-sg-a1"></span>
+                    </span>
+                    <span class="fw-livre"><span class="k">{{ t('time.fw_sch_livre') }}</span><b id="fw-sg-c">—</b></span>
+                  </div>
+
+                  <div class="fw-l fw-l--ko">
+                    <span class="fw-l-n">{{ t('time.fw_sch_ko') }}</span>
+                    <span class="fw-piste">
+                      <span class="fw-seg fw-seg--b" id="fw-sg-b2"></span>
+                      <span class="fw-seg fw-seg--a" id="fw-sg-a2"></span>
+                      <span class="fw-seg fw-seg--m" id="fw-sg-m"></span>
+                    </span>
+                    <span class="fw-livre fw-livre--ko"><span class="k">{{ t('time.fw_sch_livre') }}</span><b id="Y">—</b>{{ aide('time.fw_desc_deg_delay') }}</span>
+                  </div>
+                </div>
+
+                <!-- ⚠️ Le travail refait ne décale PAS la livraison dans ce
+                     modèle (`Y = C + M`) : il est marqué À PART, pas allongé
+                     sur la piste — sinon le schéma dirait autre chose que le
+                     calcul qu'il illustre. -->
+                <div class="fw-quand" id="fw-quand">
+                  <span class="fw-q fw-q--l" id="fw-q-l">+&nbsp;<b id="fw-sg-l">—</b>&nbsp;{{ t('time.fw_chip_l') }}</span>
+                  <span class="fw-q fw-q--m" id="fw-q-m">+&nbsp;<b id="Z">—</b>&nbsp;{{ t('time.fw_chip_m') }}{{ aide('time.fw_desc_delay_occ') }}</span>
+                </div>
+
+                <div class="fw-freq">
+                  <span class="fw-freq-j"><i id="fw-freq-part"></i></span>
+                  <span class="fw-freq-t"><b id="AA">—</b>&nbsp;{{ t('time.fw_sch_fois') }}<span class="fw-freq-sur" id="fw-freq-sur"></span>{{ aide('time.fw_desc_occurrences') }}</span>
+                </div>
+
+                <div class="fw-leg">
+                  <span><i class="fw-pt fw-pt--b"></i>{{ t('time.fw_leg_b') }}</span>
+                  <span><i class="fw-pt fw-pt--a"></i>{{ t('time.fw_leg_a') }}</span>
+                  <span><i class="fw-pt fw-pt--m"></i>{{ t('time.fw_leg_m') }}</span>
+                </div>
+              </section>
+
+              <!-- ══ 2 · LE COÛT ANNUEL — le héros ═════════════════════════
+                   Un écran doit avoir UNE chose qu'on vient y lire. C'est le
+                   travail refait sur l'année : c'est lui que le reste de
+                   l'application compare à la charge. L'attente le suit, plus
+                   petite — elle compte autrement, pas moins. -->
+              <section class="fw-bloc fw-bloc--an">
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-chart-line"></i>{{ t('time.fw_annual_header') }}{{ aide('time.fw_jamais') }}</h3>
+                <div class="fw-duo">
+                  <div class="fw-chif fw-chif--l">
+                    <span class="fw-chif-k">{{ t('time.fw_kpi_extra_annual') }}{{ aide('time.fw_desc_extra_annual') }}</span>
+                    <span class="fw-chif-v" id="U">—</span>
+                    <span class="fw-chif-s">{{ t('time.fw_an_trav_s') }}</span>
+                  </div>
+                  <div class="fw-chif fw-chif--m">
+                    <span class="fw-chif-k">{{ t('time.fw_kpi_delay_annual') }}{{ aide('time.fw_desc_delay_annual') }}</span>
+                    <span class="fw-chif-v" id="V">—</span>
+                    <span class="fw-chif-s">{{ t('time.fw_an_att_s') }}</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ══ 3 · RAMENÉ À L'EXÉCUTION ET AU MOIS ═══════════════════ -->
+              <section class="fw-bloc fw-bloc--min">
+                <h3 class="fw-bloc-t"><i class="fa-solid fa-divide"></i>{{ t('time.fw_min_titre') }}</h3>
+                <div class="fw-quatre">
+                  <div class="fw-min">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_avg_dur') }}{{ aide('time.fw_desc_avg_dur') }}</span>
+                    <span class="fw-min-v" id="S">—</span>
+                  </div>
+                  <div class="fw-min">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_avg_del') }}{{ aide('time.fw_desc_avg_del') }}</span>
+                    <span class="fw-min-v" id="T">—</span>
+                  </div>
+                  <div class="fw-min fw-min--l">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_extra_monthly') }}{{ aide('time.fw_desc_extra_month') }}</span>
+                    <span class="fw-min-v" id="W">—</span>
+                  </div>
+                  <div class="fw-min fw-min--m">
+                    <span class="fw-min-k">{{ t('time.fw_kpi_delay_monthly') }}{{ aide('time.fw_desc_delay_month') }}</span>
+                    <span class="fw-min-v" id="X">—</span>
+                  </div>
+                </div>
+                <!-- ⚠️ La base de calcul, écrite : « annuel ÷ 12 » est la
+                     lecture naturelle, et ce n'est pas ce que fait le calcul. -->
+                <div class="fw-base" id="fw-base-mois"></div>
+              </section>
+
+            </div>
+          </div>
+        </div>
+        <!-- /FAIBLESSE -->
+
+      </div>
+
+      <!-- ─── Le résultat, COLLÉ. Un chiffre de tête, deux secondaires. ─── -->
+      <aside class="tm-res" id="tm-res">
+        {# Un titre par type : « Résultat » pour trois d'entre eux, « Ce que ça
+           coûte » pour la faiblesse — c'est ce qu'on vient y lire. Ils passent
+           par le MÊME `data-pour` que les blocs, donc la bascule du JS les
+           emporte sans une ligne de plus. #}
+        <div class="tm-res-tete tm-res-bloc" data-pour="projet">{{ t('time.tm_res_titre') }}</div>
+        <div class="tm-res-tete tm-res-bloc" data-pour="activite">{{ t('time.tm_res_titre') }}</div>
+        <div class="tm-res-tete tm-res-bloc" data-pour="role">{{ t('time.tm_res_titre') }}</div>
+        <div class="tm-res-tete tm-res-bloc" data-pour="faiblesse">{{ t('time.tm_fw_titre') }}</div>
+
+        <div class="tm-res-bloc" data-pour="projet">
+          <div class="tm-lbl">{{ t('time.kpi_total_charge') }}</div>
+          <div class="tm-grand" id="kpi-proj-charge">0h</div>
+          <div class="tm-filet"></div>
+          <div class="tm-res-lignes">
+            <div><span>{{ t('time.kpi_activities') }}</span><b id="kpi-proj-nb">0</b></div>
+            <div><span>{{ t('time.kpi_total_duration') }}</span><b id="kpi-proj-dur">0h</b></div>
+            <div><span>{{ t('time.kpi_avg_delay') }}</span><b id="kpi-proj-del">0h</b></div>
+          </div>
+        </div>
+
+        <div class="tm-res-bloc" data-pour="activite">
+          <div class="tm-lbl">{{ t('time.tm_act_par_occ') }}</div>
+          <div class="tm-grand" id="act-total">0h</div>
+          <div class="tm-filet"></div>
+          <div class="tm-res-lignes">
+            <div><span>{{ t('time.tm_act_an') }}</span><b id="tm-act-an">—</b></div>
+            <div><span>{{ t('time.tm_act_mois') }}</span><b id="tm-act-mois">—</b></div>
+          </div>
+        </div>
+
+        <div class="tm-res-bloc" data-pour="role">
+          <div class="tm-lbl">{{ t('time.kpi_est_year') }}</div>
+          <div class="tm-grand" id="kpi-role-annual">0h</div>
+          <div class="tm-filet"></div>
+          <div class="tm-res-lignes">
+            <div><span>{{ t('time.kpi_est_month') }}</span><b id="kpi-role-monthly">0h</b></div>
+          </div>
+          <details class="tm-res-detail">
+            <summary>{{ t('time.tm_detail') }}</summary>
+            <div class="tm-res-lignes">
+              <div><span>{{ t('time.kpi_sum_day') }}</span><b id="kpi-role-d">0h</b></div>
+              <div><span>{{ t('time.kpi_sum_week') }}</span><b id="kpi-role-w">0h</b></div>
+              <div><span>{{ t('time.kpi_sum_month') }}</span><b id="kpi-role-m">0h</b></div>
+              <div><span>{{ t('time.kpi_sum_year') }}</span><b id="kpi-role-a">0h</b></div>
+            </div>
+          </details>
+        </div>
+
+        {# ⚠️⚠️ CINQ chiffres NOMMÉS, et le travail n'est plus additionné à
+           l'attente. Ce panneau écrivait `U + V` sous « Coût annuel » : du
+           travail refait et du temps d'horloge dans un seul nombre — alors que
+           le tableau de bord de l'accueil les sépare depuis le 03/11, et que
+           `time_view.py` le dit en toutes lettres (« DEUX natures, jamais
+           additionnées […] les sommer donnait 84 % de la charge pour 5 %
+           réels »). Deux écrans de la même page disaient donc deux choses. #}
+        <div class="tm-res-bloc" data-pour="faiblesse">
+          <div class="tm-lbl">{{ t('time.tm_fw_an') }}</div>
+          <div class="tm-grand tm-rouge" id="tm-fw-an">—</div>
+          <div class="tm-filet"></div>
+          <div class="tm-res-lignes">
+            <div><span>{{ t('time.tm_fw_retard') }}</span><b id="tm-fw-retard">—</b></div>
+            <div><span>{{ t('time.tm_fw_occ') }}</span><b id="tm-fw-occ">—</b></div>
+            <div><span>{{ t('time.tm_fw_delai') }}</span><b id="tm-fw-delai">—</b></div>
+            <div><span>{{ t('time.tm_fw_mois') }}</span><b id="tm-fw-mois">—</b></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
 </div>

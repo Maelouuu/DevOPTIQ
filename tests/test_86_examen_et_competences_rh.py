@@ -560,9 +560,11 @@ class TestQuiArbitreLesCompetences:
 
     def test_par_la_route_aussi(self, client, monde, equipe):
         _as(client, monde["champion"], "t86.champion@devoptiq.com")
+        # Le rôle est désormais obligatoire : sans lui, le contrôle
+        # retomberait sur la règle par personne.
         rep = client.post("/mastery/evaluate", json={
             "user_id": equipe["u1"], "activity_id": equipe["a1"], "data_id": equipe["d"][0],
-            "evaluator": "2", "mastery_level": 4})
+            "evaluator": "2", "mastery_level": 4, "role_id": equipe["ra1"]})
         assert rep.status_code == 403
         _as(client, monde["coord"], "t86.coord@devoptiq.com")
         assert client.get(f"/mastery/synthese/{equipe['u1']}").status_code == 200

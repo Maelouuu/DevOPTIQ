@@ -1,0 +1,97 @@
+/* Page Courrier — ce qui est propre à ce module.
+   Le reste (bandes, cartes, pastilles, boutons) vient de hub.css : deux
+   vocabulaires côte à côte, et on ne verrait plus qu'on est dans le hub. */
+
+.cr-zone        { min-height: 90px }
+.cr-attente     { font-family: var(--f-titre); font-style: italic;
+                  font-size: 14px; color: var(--gris); opacity: .75 }
+.cr-note        { font-family: var(--f-titre); font-style: italic;
+                  font-size: 12.5px; color: var(--gris); white-space: nowrap }
+
+/* ── Les compteurs d'une instance ─────────────────────────────────────── */
+.cr-chiffres    { display: grid; grid-template-columns: repeat(4, 1fr);
+                  gap: 1px; background: var(--trait); border-radius: 10px;
+                  overflow: hidden; margin-bottom: 14px }
+.cr-chiffre     { background: #fff; padding: 11px 12px 12px; text-align: center }
+.cr-chiffre b   { display: block; font-family: var(--f-titre); font-size: 26px;
+                  font-weight: 600; line-height: 1.05; color: var(--encre) }
+.cr-chiffre span{ display: block; font-size: 11.5px; color: var(--gris);
+                  margin-top: 3px }
+/* Un seul chiffre porte une couleur, et c'est celui sur lequel on agit :
+   les demandes restées sans suite. Tout colorer, c'est ne rien signaler. */
+.cr-chiffre.alerte b   { color: #b4603a }
+.cr-chiffre.alerte      { background: #fdf6f2 }
+
+/* ── La série par jour ─────────────────────────────────────────────────── */
+/* Des barres, pas une courbe : entre deux jours il ne se passe rien qu'on
+   puisse lisser — ce sont des événements comptés, pas une grandeur continue. */
+.cr-serie       { display: flex; align-items: flex-end; gap: 2px; height: 46px;
+                  margin-bottom: 13px }
+.cr-barre       { flex: 1; min-width: 2px; border-radius: 2px 2px 0 0;
+                  background: color-mix(in srgb, var(--a, var(--t)) 55%, #fff);
+                  min-height: 2px }
+.cr-barre.vide  { background: var(--trait) }
+.cr-barre:hover { background: var(--a, var(--t)) }
+
+/* ── Les comptes qui ont demandé ───────────────────────────────────────── */
+.cr-comptes     { list-style: none }
+.cr-comptes li  { display: flex; align-items: baseline; gap: 10px;
+                  padding: 7px 0; border-bottom: 1px dashed var(--trait2);
+                  font-size: 13px; color: var(--encre2) }
+.cr-comptes li:last-child { border-bottom: 0 }
+.cr-comptes .cr-qui   { font-weight: 500; color: var(--encre) }
+.cr-comptes .cr-mail  { font-family: var(--f-mono); font-size: 11.5px;
+                        color: var(--gris); overflow: hidden;
+                        text-overflow: ellipsis; white-space: nowrap }
+.cr-comptes .cr-n     { margin-left: auto; white-space: nowrap;
+                        font-family: var(--f-mono); font-size: 11.5px;
+                        color: var(--gris) }
+.cr-lang        { font-family: var(--f-mono); font-size: 10.5px;
+                  text-transform: uppercase; letter-spacing: .04em;
+                  padding: 1px 5px; border-radius: 4px; color: #0f8a7d;
+                  background: #e4f4f1; border: 1px solid #b9e2db }
+
+/* ── Un état, pas une erreur ───────────────────────────────────────────── */
+/* Une instance qui n'a pas encore la fonctionnalité n'est pas en panne : elle
+   le dit calmement. Une vraie erreur de lecture, elle, se voit. */
+.cr-etat        { font-size: 13px; color: var(--gris); padding: 10px 0 2px }
+.cr-etat.cr-mal { color: #b4603a }
+
+/* ── La boîte de réception ─────────────────────────────────────────────── */
+.cr-liste       { list-style: none }
+.cr-msg         { display: grid; grid-template-columns: 76px 1fr auto;
+                  gap: 12px; align-items: baseline; padding: 10px 0;
+                  border-bottom: 1px dashed var(--trait2) }
+.cr-msg:last-child { border-bottom: 0 }
+.cr-msg .cr-sujet  { color: var(--encre); font-weight: 500; font-size: 13.5px }
+.cr-msg .cr-de     { font-family: var(--f-mono); font-size: 11.5px;
+                     color: var(--gris); display: block; margin-top: 2px;
+                     overflow: hidden; text-overflow: ellipsis;
+                     white-space: nowrap }
+.cr-msg .cr-date   { font-family: var(--f-mono); font-size: 11px;
+                     color: var(--gris); white-space: nowrap }
+
+.cr-nat         { font-family: var(--f-titre); font-style: italic;
+                  font-size: 11.5px; text-align: center; padding: 2px 0;
+                  border-radius: var(--r-pilule); border: 1px solid }
+.cr-nat.rejet   { color: #b4603a; background: #fdf0e9; border-color: #e8c3ad }
+.cr-nat.auto    { color: #7a6a2e; background: #faf6e4; border-color: #e0d7a8 }
+.cr-nat.reponse { color: #2f5fa8; background: #eef3fb; border-color: #c3d2ea }
+
+/* L'adresse d'envoi n'est pas configurée : on dit QUOI faire, pas que ça rate. */
+.cr-manque      { background: #fff; border: 1px solid var(--trait);
+                  border-radius: 12px; padding: 16px 18px }
+.cr-manque h3   { font-family: var(--f-titre); font-size: 17px; font-weight: 600;
+                  color: var(--encre); margin-bottom: 6px }
+.cr-manque p    { font-size: 13.5px; color: var(--gris); margin-bottom: 9px }
+.cr-manque ol   { margin: 0 0 0 18px; font-size: 13px; color: var(--encre2) }
+.cr-manque li   { margin-bottom: 5px }
+.cr-manque code { font-family: var(--f-mono); font-size: 12px;
+                  background: #f6f4ee; border: 1px solid var(--trait2);
+                  border-radius: 4px; padding: 1px 5px; color: var(--encre) }
+
+@media (max-width: 720px) {
+  .cr-chiffres { grid-template-columns: repeat(2, 1fr) }
+  .cr-msg      { grid-template-columns: 70px 1fr; }
+  .cr-msg .cr-date { grid-column: 2; }
+}

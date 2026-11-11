@@ -590,6 +590,35 @@ function submitTaskRoles(taskId) {
   });
 }
 
+/* Le libellé d'un statut de rôle, dans la langue de l'écran.
+
+   ⚠️ La valeur STOCKÉE est la chaîne française (« Réalisateur ») : c'est elle
+   que le serveur renvoie, elle qui porte la classe CSS du badge, et la
+   réécrire casserait les lignes déjà en base. On choisissait donc son statut
+   en anglais et il repassait en français dès qu'on validait. Seul l'AFFICHAGE
+   suit la langue — exactement la règle des niveaux HSC.
+
+   ⚠️ Comparaison NORMALISÉE (minuscules, sans accent) : la même valeur a été
+   écrite de plusieurs façons au fil du temps, et un statut inconnu s'affiche
+   tel quel plutôt que de disparaître.
+
+   ⚠️ Déclarée dans les DEUX fichiers de rôles de tâche, avec `function` et non
+   `const` : `tasks_roles.js` est chargé APRÈS `tasks.js` et redéfinit cinq de
+   ses fonctions (c'est lui qui gagne au rendu) ; un `const` répété lèverait
+   une SyntaxError et couperait tout le script. */
+function roleStatusLabel(brut) {
+  const L = window.TASK_I18N || {};
+  const cle = String(brut == null ? '' : brut).trim().toLowerCase()
+    .replace(/[éèê]/g, 'e').replace(/à/g, 'a');
+  const table = {
+    'realisateur': L.role_doer, 'doer': L.role_doer,
+    'conseil': L.role_advisor, 'advisor': L.role_advisor,
+    'approbateur': L.role_approver, 'approver': L.role_approver,
+    'ressource': L.role_resource, 'resource': L.role_resource,
+  };
+  return table[cle] || brut;
+}
+
 function loadTaskRolesForDisplay(taskId) {
   fetch(`/tasks/${taskId}/roles`)
     .then(resp => resp.json())
@@ -619,7 +648,7 @@ function loadTaskRolesForDisplay(taskId) {
 
           badge.innerHTML = `
             <i class="fa-solid fa-user"></i> ${role.name}
-            <span class="role-status-badge ${statusClass}">${role.status}</span>
+            <span class="role-status-badge ${statusClass}">${roleStatusLabel(role.status)}</span>
             <button class="badge-remove" onclick="deleteRoleFromTask('${taskId}', '${role.id}')">
               <i class="fa-solid fa-xmark"></i>
             </button>
@@ -640,7 +669,7 @@ function loadTaskRolesForDisplay(taskId) {
       rolesUL.innerHTML = "";
       data.roles.forEach(role => {
         const li = document.createElement('li');
-        li.textContent = `${role.name} (${role.status})`;
+        li.textContent = `${role.name} (${roleStatusLabel(role.status)})`;
         // Bouton pour retirer ce rôle
         const btn = document.createElement('button');
         btn.innerHTML = "X";

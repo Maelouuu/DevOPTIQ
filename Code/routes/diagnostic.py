@@ -107,7 +107,7 @@ def families():
 def get_diagnostic(user_id, activity_id, data_id):
     """État du diagnostic d'un résultat pour un individu."""
     d = Data.query.get(data_id)
-    if not d or d.semantic_nature != "RESULT":
+    if not d or d.producer_activity_id is None:
         return jsonify({"error": "not_a_result"}), 400
     lang = _lang()
     role_id = request.args.get("role_id", type=int)

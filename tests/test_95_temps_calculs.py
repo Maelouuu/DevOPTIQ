@@ -254,9 +254,12 @@ class TestRoleAnalysisSummary:
 class TestWeaknessRecurrences:
 
     def _calc(self, c, aid, rec, **extra):
+        # ⚠️ Le delai de production (120) est au-dessus de la duree de travail
+        # (60) : un delai INFERIEUR decrit un etat impossible, et le serveur le
+        # remonte desormais (`delai_plancher`). Le decor d'origine posait 20.
         body = {"mode": "activity", "activity_id": aid, "recurrence": rec,
                 "L_work_added": 10, "M_wait_added": 5, "N_prob_denom": 4,
-                "duration_std": 60, "delay_std": 20}
+                "duration_std": 60, "delay_std": 120}
         body.update(extra)
         return _post(c, "/temps/api/weakness", body).get_json()
 
@@ -284,8 +287,8 @@ class TestWeaknessRecurrences:
         assert c["Q"] == 2.5
         assert c["R"] == 3.75
         assert c["S"] == 62.5
-        assert c["T"] == 23.75
-        assert c["Y"] == 25
+        assert c["T"] == 123.75          # C + R, avec C = 120
+        assert c["Y"] == 125             # C + M
         assert c["Z"] == 5
 
     def test_prob_denom_zero_is_clamped_to_one(self, auth_client, app, ids):

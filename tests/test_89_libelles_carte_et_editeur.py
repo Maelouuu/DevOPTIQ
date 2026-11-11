@@ -57,7 +57,9 @@ class TestAttributsEnDur:
     # Écrans jamais traduits (déjà dans l'inventaire de `test_78`) et
     # l'assistant d'installation : un chantier à part entière chacun.
     DETTE = {
-        "chatbot_widget.html":    6,
+        # ✅ 05/11/2026 — `chatbot_widget.html` SORT de l'inventaire : ses six
+        # attributs (title, aria-label, placeholder) passent par `chat.*`. Le
+        # pilote (anglophone) voyait l'assistant entièrement en français.
         "setup_wizard.html":      3,
         "projection_metier.html": 2,
     }

@@ -282,6 +282,16 @@ class Data(db.Model):
     # n'ont pas de shape_id → invisibles dans la carto, jamais touchées par la re-synchro.
     producer_activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=True, index=True)
 
+    # ── La NORME de l'entreprise pour cette sortie (paliers de performance).
+    # « Fournir la doc sous 48 h » : une valeur, une unité, et un SENS — une
+    # durée se bat à la baisse, un taux de conformité à la hausse. Sans le
+    # sens, « mieux » n'a pas de définition.
+    # ⚠️ NULL = sortie non mesurable (« Cahier des charges validé ») : elle
+    # reste jugée à la main sur l'échelle 0→4. Les deux cohabitent.
+    norme_valeur = db.Column(db.Float, nullable=True)
+    norme_unite = db.Column(db.String(20), nullable=True)
+    norme_sens = db.Column(db.String(10), nullable=True)      # 'moins' | 'plus'
+
     __table_args__ = (
         db.UniqueConstraint('entity_id', 'shape_id', name='uq_entity_data_shape'),
     )
@@ -598,6 +608,47 @@ class CompetencyEvaluation(db.Model):
     )
 
 
+class NoteEvaluation(db.Model):
+    """Le REGISTRE des notes posées à la main — en AJOUT SEUL.
+
+    ⚠️⚠️ `CompetencyEvaluation` porte UNE ligne par (collaborateur, activité,
+    sortie, évaluateur), et `/mastery/evaluate` l'écrase à chaque
+    enregistrement : la note précédente disparaît, et seule sa date survit.
+    Tout le module lit cette ligne pour connaître l'état COURANT — c'est bien,
+    c'est rapide, et on n'y touche pas. Mais il n'y avait alors AUCUN
+    historique : la courbe d'une sortie jugée à la main était un point, et
+    l'écran ne pouvait pas montrer une progression qu'on n'avait pas gardée.
+
+    Cette table est l'autre moitié : un ÉVÉNEMENT par écriture, jamais modifié,
+    jamais supprimé. L'état courant reste dans `CompetencyEvaluation` (lu
+    partout), l'histoire vit ici (lue par la frise). Deux rôles, deux tables —
+    un registre qu'on relirait pour connaître l'état courant coûterait un
+    balayage à chaque ligne de chaque tableau.
+
+    ⚠️ `niveau` NULL est un vrai événement : c'est l'effacement d'une note.
+    La frise ne le dessine pas (il n'y a pas de point à 0) mais le report du
+    dernier niveau connu doit s'arrêter là — sinon une note retirée
+    continuerait de peser sur le niveau de l'activité.
+    """
+    __tablename__ = 'notes_evaluation'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, index=True)
+
+    eval_number = db.Column(db.String(50), nullable=False)   # '0' auto, '1' garant, '2' dév.
+    niveau = db.Column(db.Integer, nullable=True)            # 0..4, NULL = note effacée
+    evidence = db.Column(db.Text, nullable=True)
+    evaluator_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    posee_le = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    # 'main' = posée à la main, 'reprise' = recopiée de l'état courant lors de
+    # la mise en service du registre. On ne présente pas une reprise comme une
+    # note qu'on aurait vraiment vue poser ce jour-là.
+    source = db.Column(db.String(10), nullable=False, default='main')
+
+
 class ResultCapabilityLink(db.Model):
     """V1.1 — CDC 2.7 : relie un RÉSULTAT (Data.semantic_nature = RESULT) aux savoirs,
     savoir-faire et HSC nécessaires pour le produire. Sert au DIAGNOSTIC d'un écart : quand
@@ -830,7 +881,82 @@ class TimeWeakness(db.Model):
     wait_added_qty = db.Column(db.Float, nullable=False, default=0)
     wait_added_unit = db.Column(db.String(16), nullable=False, default='minutes')
     prob_denom = db.Column(db.Integer, nullable=False, default=1)
+    # ⚠️ La probabilite se saisit en POURCENTAGE : « 1 sur N » demandait de
+    # penser a l'envers, et un cas sur trois ne s'ecrivait pas (3 rend 33,3 %).
+    # `prob_denom` est conserve — arrondi — parce que des appels anciens le
+    # lisent encore ; c'est ce pourcentage qui fait foi quand il est pose.
+    prob_percent = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SessionEvaluation(db.Model):
+    """Le rendez-vous d'évaluation : une date, un collaborateur, son
+    développeur de compétences.
+
+    Une session groupe les paliers évalués ce jour-là — on ne fait pas trois
+    rendez-vous pour trois sorties de la même activité. C'est elle qui nourrit
+    le calendrier.
+
+    ⚠️ `date_prevue` est une DATE, pas un horodatage : on fixe un jour, pas une
+    heure. `tenue_le` est l'horodatage du moment où l'on a réellement tranché.
+    """
+    __tablename__ = 'sessions_evaluation'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, index=True)
+    developpeur_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    date_prevue = db.Column(db.Date, nullable=False, index=True)
+    statut = db.Column(db.String(16), nullable=False, default='prevue')   # prevue|tenue|annulee
+    tenue_le = db.Column(db.DateTime, nullable=True)
+    objet = db.Column(db.String(200), nullable=True)
+    note = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    paliers = db.relationship('PalierPerformance', backref='session')
+
+
+class PalierPerformance(db.Model):
+    """Une marche de la progression d'un collaborateur sur UNE sortie.
+
+    96 h sous 30 jours, puis 72 h sous 15 jours, puis la norme. Le palier
+    porte la cible et l'échéance AVANT, la mesure et le verdict APRÈS : c'est
+    la même ligne, et c'est ce qui en fait un point d'historique.
+
+    ⚠️ `rang` ordonne la progression ; il ne se déduit PAS de la cible, car
+    rien n'oblige les cibles à décroître régulièrement, et deux paliers
+    peuvent viser la même valeur après un échec.
+    """
+    __tablename__ = 'paliers_performance'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    activity_id = db.Column(db.Integer, db.ForeignKey('activities.id'), nullable=False, index=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('data.id'), nullable=False, index=True)
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=True, index=True)
+
+    rang = db.Column(db.Integer, nullable=False, default=1)
+    cible_valeur = db.Column(db.Float, nullable=False)
+    echeance = db.Column(db.Date, nullable=True)
+
+    # Après la session : ce qu'on a mesuré, et ce qu'on en conclut.
+    statut = db.Column(db.String(16), nullable=False, default='en_cours')  # en_cours|atteint|manque
+    mesure_valeur = db.Column(db.Float, nullable=True)
+    # ⚠️ Le NIVEAU TRANCHÉ ce jour-là, figé. Il se déduisait de la mesure à
+    # chaque lecture, avec les seuils d'AUJOURD'HUI : poser une marche au-delà
+    # de la norme relisait alors tout le passé avec la nouvelle frontière, et
+    # l'historique changeait rétroactivement sans que personne n'ait rien
+    # touché. Un palier porte désormais son verdict comme il porte sa mesure.
+    # (NULL sur les lignes d'avant : on retombe sur la déduction.)
+    niveau_atteint = db.Column(db.Integer, nullable=True)
+    evalue_le = db.Column(db.DateTime, nullable=True)
+    evaluateur_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    preuve = db.Column(db.Text, nullable=True)
+
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions_evaluation.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
 
 class CartoCalque(db.Model):
@@ -1052,6 +1178,57 @@ class CartoChangeRequest(db.Model):
     # l'accompagne). NULL sur une proposition tranchée = à lui annoncer.
     # ⚠️ Sans elle, le message du valideur était enregistré et lu par
     # personne : aucun écran ne le montrait à celui à qui il était adressé.
+    author_seen_at = db.Column(db.DateTime, nullable=True)
+
+    entity = db.relationship('Entity', foreign_keys=[entity_id])
+    author = db.relationship('User', foreign_keys=[author_id])
+    reviewer = db.relationship('User', foreign_keys=[reviewer_id])
+
+
+
+class ActivityChangeRequest(db.Model):
+    """Modification proposée sur les DONNÉES d'une carto commune.
+
+    Le pendant de `CartoChangeRequest` pour l'autre moitié : tâches, outils,
+    compétences, savoirs, HSC et contraintes d'une activité. Un champion ne
+    peut pas les écrire directement sur une carto commune — il dépose, un
+    coordinateur applique ou refuse, et ce qui est appliqué vaut pour tout le
+    monde.
+
+    ⚠️ **Des GESTES, pas un instantané.** Une carto est un diagramme dont on
+    recopie l'état ; une fiche d'activité n'a pas d'état global — la page fait
+    des appels CRUD atomiques et il n'existe aucun brouillon. `actions` porte
+    donc la suite des requêtes telles qu'elles ont été faites (chemin, méthode,
+    corps), rejouées dans l'ordre à l'application.
+
+    ⚠️ **Un brouillon par (auteur, carto)** : `status='draft'` tant que le
+    champion accumule, `pending` une fois envoyé. Une proposition par clic
+    demanderait au coordinateur six décisions pour un seul travail.
+    """
+    __tablename__ = 'activity_change_requests'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'),
+                          nullable=False, index=True)
+    # L'activité visée quand la proposition n'en touche qu'une — sinon NULL.
+    # ⚠️ Un OUTIL n'appartient à aucune activité (c'est le catalogue de la
+    # carto) : lui en inventer une ferait paraître le geste sous une fiche qui
+    # ne le porte pas.
+    activity_id = db.Column(db.Integer, nullable=True, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'),
+                          nullable=False, index=True)
+
+    title = db.Column(db.String(200), nullable=True)
+    message = db.Column(db.Text, nullable=True)
+    actions = db.Column(db.Text, nullable=False, default='[]')
+
+    # draft | pending | approved | rejected
+    status = db.Column(db.String(20), nullable=False, default='draft')
+    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    review_comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime, nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
     author_seen_at = db.Column(db.DateTime, nullable=True)
 
     entity = db.relationship('Entity', foreign_keys=[entity_id])
@@ -1305,6 +1482,25 @@ class AppSetting(db.Model):
 
     key = db.Column(db.String(64), primary_key=True)
     value = db.Column(db.Text, nullable=True)
+
+
+class WelcomeSeen(db.Model):
+    """La fenêtre de bienvenue déjà vue par ce compte, et pour QUELLES nouveautés.
+
+    ⚠️ Cette ligne existe parce que le navigateur ne suffisait pas. La garde
+    vivait en `localStorage` : mesuré, elle lâche dès que le stockage est
+    refusé (la fenêtre revient alors dans CHAQUE nouvel onglet, sans fin) et
+    elle ne traverse pas un second poste. Le fait « déjà vue » appartient au
+    COMPTE, pas au navigateur — il se mémorise donc ici.
+
+    `signature` est l'identité des nouveautés lues, pas leur texte : voir
+    `Code/bienvenue.py`, qui la calcule sur les champs NON traduits.
+    """
+    __tablename__ = 'welcome_seen'
+
+    user_id = db.Column(db.Integer, primary_key=True)
+    signature = db.Column(db.Text, nullable=True)
+    seen_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class PasswordReset(db.Model):

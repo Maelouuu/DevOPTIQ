@@ -54,7 +54,8 @@ propriétaire, carto re-synchronisée par `shape_id`/nom. Le rejouer ne duplique
       "first_name": "Prénom", "last_name": "Nom",
       "status": "manager",          // user | rh | administrateur | manager…
       "password": "…",
-      "entity": "Nom de l'entité"   // rattachement du compte
+      "entity": "Nom de l'entité",  // rattachement du compte
+      "roles": ["Rôle A", "Rôle B"] // rôles tenus, voir plus bas
     }
   ],
   "entities": [
@@ -64,7 +65,8 @@ propriétaire, carto re-synchronisée par `shape_id`/nom. Le rejouer ne duplique
       "owner_email": "prenom.nom@client.com",   // OBLIGATOIRE, voir ci-dessous
       "managers": ["prenom.nom@client.com"],
       "vsdx_filename": "Source.vsdx",           // affiché dans l'app
-      "carto": "../carto/fichier.json"          // chemin relatif AU PLAN
+      "carto": "../carto/fichier.json",         // chemin relatif AU PLAN
+      "content": "../data/fichier.json"         // contenu des activités, voir plus bas
     }
   ]
 }
@@ -111,9 +113,15 @@ contient pas), on ne repasse pas par Visio : depuis le compte concerné, bouton
 "carto": "../carto/rfq_fluidclip_corrige.optiqcarto"
 ```
 
-`apply_carto` accepte aussi bien le paquet que le diagramme brut. Le même fichier
-peut être remis à un utilisateur : dans l'app, **Gestion des entités → Importer une
-carto** recrée l'entité et sa cartographie sur son compte.
+`apply_carto` accepte aussi bien le paquet que le diagramme brut.
+
+> ⚠️ **Le paquet ne se remet plus à un utilisateur par l'interface.** Le bouton
+> « Importer une carto » de la pop-up Gestion des entités a été retiré le
+> 14/09/2026 (`tests/test_75_entite_active_partagee.py` veille à ce qu'il ne
+> revienne pas). L'API `POST /cartography/api/import` et son code navigateur
+> sont toujours là, mais plus aucun écran ne les appelle : côté interface,
+> seule l'entrée **« Importer depuis Visio » (.vsdx)** de l'éditeur subsiste.
+> Pour poser une carto sans ligne de commande, voir `sql/README.md`.
 
 ## Compléter une carto avec un Excel client
 
@@ -152,10 +160,69 @@ ce contenu dans une carto **déjà en place** :
   l'entité n'existe pas chez ce propriétaire, le script s'arrête sans rien
   écrire, y compris si une entité du même nom existe chez quelqu'un d'autre.
 
+## Rattacher des comptes à des rôles
+
+`roles` sur un compte crée les lignes `user_roles` — c'est ce qui fait d'un
+collaborateur le **titulaire** d'un rôle, et ce que lisent la page des rôles et
+la page Compétences.
+
+```jsonc
+{ "email": "ines.lemoine@example.com", "entity": "…", "roles": ["Technicien Méthodes", "Opérateur Assemblage"] }
+```
+
+Les rôles **naissent des bandes de la carto** : l'étape passe donc après
+`apply_carto`, et un rôle nommé dans le plan mais absent de la carte est
+signalé sans être créé — `_sync_carto_to_db` supprime les rôles hors carte, il
+disparaîtrait au rejeu suivant. Un compte peut tenir plusieurs rôles.
+
+## Compléter les activités sans passer par un Excel
+
+`tasks_excel` part du tableur d'un client. Quand le contenu est écrit à la main
+— jeu de démonstration, entité de référence — le bloc `content` pointe un JSON
+et couvre en plus ce que l'Excel ne porte pas : savoirs, savoir-faire,
+aptitudes et HSC.
+
+```jsonc
+"content": "../data/jeu_de_test_contenu.json"
+```
+
+```jsonc
+{
+  "activities": {
+    "Assembler le sous-ensemble": {          // LIBELLÉ exact de la forme dans la carto
+      "description": "…",
+      "duration_minutes": 45, "delay_minutes": 0,
+      "tasks": [
+        { "name": "Réaliser les opérations de vissage", "description": "…",
+          "duration_minutes": 20, "tools": ["Visseuse dynamométrique"] }
+      ],
+      "competencies":  ["…"],
+      "savoirs":       ["…"],
+      "savoir_faires": ["…"],
+      "aptitudes":     ["…"],
+      "softskills": [
+        { "habilete": "Concentration", "niveau": "3 (Maîtrise)", "justification": "…" }
+      ]
+    }
+  }
+}
+```
+
+- Les activités sont retrouvées **par nom** : une clé qui ne correspond à aucune
+  forme de la carto est signalée et ignorée, jamais créée.
+- Les outils cités sont créés au besoin, au niveau de l'entité, puis réutilisés.
+- Niveaux HSC admis par l'interface : `1 (Aptitude)`, `2 (Acquisition)`,
+  `3 (Maîtrise)`, `4 (Excellence)` — le libellé complet est stocké tel quel.
+- Idempotent : tâches dédoublonnées par nom, items par libellé. Un rejeu
+  n'ajoute rien.
+
 ## Plans existants
 
 | Plan | Contenu |
 |---|---|
 | `plans/araymond.json` | Compte `vikrant.khadapkar@araymond.com` (manager) + entité **ARaymond — RFQ FluidClip** issue de `Map_RFQ_FluidClip_Harmonized_HG_v9.vsdx` — 42 activités, 18 rôles, 72 connexions. |
 | `plans/pilote_fluidclip_tasks.json` | Instance pilote : injecte l'Excel client dans les **six** entités « FluidCLip » existantes (Aditya, Hubert, Madhuri, Rakesh, Vaishali, Vikrant) **sans toucher à leur carte**, et crée chez Maël **« Entité de rendu FluidClip »** — copie de la carto que ces comptes ont aujourd'hui, complétée des mêmes données, pour contrôler ce qu'ils voient. Priya Bhivare n'en avait aucune : la sienne est **créée** depuis le même modèle. Non couverts volontairement : « FluidCLip (2) » (2ᵉ copie de h.grandjean) et l'entité sans propriétaire. |
+| `sql/jeu_de_test.sql` | Le **même jeu de test**, posé par l'éditeur SQL de Neon — sans accès applicatif ni ligne de commande. Seule voie qui écrit aussi savoirs, savoir-faire, aptitudes et HSC. Voir `sql/README.md`. |
+| `import_app/jeu_de_test.xlsx` | Le **contenu** du même jeu de test par les écrans d'import (tâches, outils, compétences, comptes). La carto doit déjà être en place. Voir `import_app/README.md`. |
+| `plans/jeu_de_test.json` | **Jeu de test — Atelier Assemblage** : entité de démonstration à données fictives chez `mael.pierre.girardin@icloud.com` — 3 rôles, 8 activités entièrement renseignées (24 tâches, 7 outils, compétences, savoirs, savoir-faire, aptitudes, HSC), Inès Lemoine sur **deux** rôles et Rémi Delaunay sur un seul. Le compte propriétaire doit déjà exister. |
 | `plans/maelg_fluidclip_tasks.json` | **Compte `afdec.enterprise.services@gmail.com` uniquement** : complète sa carto FluidClip avec l'Excel client `CLIP_ RFQ Tasks` — 25 activités, 96 tâches, 28 outils, 14 rôles, 53 compétences. Ne crée ni compte ni entité. |

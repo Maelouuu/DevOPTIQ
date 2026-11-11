@@ -12,6 +12,7 @@ Le hub rassemble :
 | **Documentation** | La doc technique et le guide utilisateur **servis par le hub** — plus de fichier local à retrouver. Le plan Refonte V1.1 aussi. |
 | **Outils locaux** | Le catalogue des commandes : ce que fait chacune, quand s'en servir, la ligne exacte copiable en un clic. |
 | **Dépôt & CI** | Quelle branche part où, par quel workflow, et quels secrets GitHub sont en jeu. |
+| **Courrier** | Les réinitialisations de mot de passe demandées sur chaque instance (lecture SEULE de `password_resets`), et ce qui est REVENU sur l'adresse d'envoi — les rejets, seule preuve qu'un mail n'est pas arrivé. |
 
 ## Ce que le hub ne fait pas
 
@@ -34,6 +35,10 @@ ce n'est pas une page publique.
 |---|---|---|
 | `Mael_Girardin` | secret `HUB_PASSWORD`, défaut baké `testtest` | `HUB_USER`, `HUB_PASSWORD`, `HUB_PASSWORD_HASH` |
 | `Hubert_Grandjean` | défaut baké | `HUB_PASSWORD_HG`, `HUB_PASSWORD_HASH_HG` |
+
+La page **Courrier** demande deux secrets de plus, et elle s'éteint proprement sans eux : `HUB_IMAP_USER` (l'adresse d'envoi) et `HUB_IMAP_PASSWORD`.
+⚠️ Ce mot de passe d'application doit être un **second**, distinct de celui qui sert à ENVOYER (`MAIL_PASSWORD` des instances) : révoquer l'un ne doit pas couper l'autre. Et un mot de passe d'application Google n'est **pas limitable** — il ouvre la boîte en lecture ET l'envoi SMTP. C'est inhérent au procédé ; le hub s'y tient en lecture stricte (`readonly=True`, `BODY.PEEK`, en-têtes seulement).
+Les bases lues par cette page arrivent dans `HUB_DBS_B64`, composée au déploiement depuis les specs Cloud Run — aucune URL à recopier.
 
 - ⚠️ Le dépôt ne contient **que des hashes** (pbkdf2-sha256, 600 000 tours) :
   aucun mot de passe en clair n'y figure. Les défauts baqués restent des

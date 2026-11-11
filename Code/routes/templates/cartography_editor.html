@@ -362,7 +362,24 @@
     </button>
   </div>
 
+  {# ⚠️ L'index AVANT la légende : une légende se lit une fois, un index
+     sert à chaque recherche de forme. Le pilote ne l'avait pas trouvé —
+     il était tout en bas du panneau, derrière les six lignes de légende. #}
   <div class="left-category-label">
+    <span class="lcat-icon"><i class="fa-solid fa-layer-group"></i></span>
+    {{ t('editor.canvas_elements') }}
+  </div>
+  <div class="left-category-sep"></div>
+  <div class="cmap-chercher">
+    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+    <input type="search" id="cmap-search" autocomplete="off"
+           placeholder="{{ t('editor.cmap_search') }}" aria-label="{{ t('editor.cmap_search') }}">
+    <span id="cmap-count" class="cmap-count"></span>
+  </div>
+  <div id="canvas-map-scroll">
+    <div id="canvas-map-list"></div>
+  </div>
+  <div class="left-category-label" style="padding-top:18px">
     <span class="lcat-icon"><i class="fa-solid fa-bookmark"></i></span>
     {{ t('editor.legend_title') }}
   </div>
@@ -399,14 +416,6 @@
     <span>{{ t('editor.legend_optional') }}</span>
   </div>
 
-  <div class="left-category-label" style="padding-top:18px">
-    <span class="lcat-icon"><i class="fa-solid fa-layer-group"></i></span>
-    {{ t('editor.canvas_elements') }}
-  </div>
-  <div class="left-category-sep"></div>
-  <div id="canvas-map-scroll">
-    <div id="canvas-map-list"></div>
-  </div>
 </aside>
 
 <!-- ══════════════ CANVAS ══════════════ -->

@@ -111,6 +111,20 @@
 
     </div>
 
+    <!-- Revoir la fenêtre de bienvenue.
+         ⚠️ Posé ICI, hors de `.card-scroll`, et SANS la classe `nav-card` :
+         dans cette barre, un `nav-card` est une PAGE. La fenêtre n'en est pas
+         une — une entrée parmi les pages l'aurait fait passer pour un écran de
+         plus, alors qu'elle se superpose à celui qu'on regarde. Le logo et la
+         déconnexion vivent déjà dans cette zone qui ne défile pas : c'est la
+         place des commandes qui ne mènent nulle part. -->
+    {% if bienvenue and bienvenue.portes %}
+    <button type="button" class="nav-bienvenue" id="nav-bienvenue"
+            title="{{ t('welcome.reopen') }}" aria-label="{{ t('welcome.reopen') }}">
+      <i class="fa-solid fa-hand-sparkles" aria-hidden="true"></i>
+    </button>
+    {% endif %}
+
     <!-- Déconnexion -->
     <a href="/logout" class="logout-btn" title="{{ t('nav.logout') }}">
       <i class="fa-solid fa-right-from-bracket"></i>
