@@ -37,6 +37,18 @@ def _lire(p):
     return io.open(p, encoding="utf-8").read()
 
 
+def _corps(js, entete):
+    """Le corps d'une fonction, borné à sa fermeture."""
+    return js.split(entete, 1)[1].split("\n  }", 1)[0]
+
+
+def _sans_commentaires_css(css):
+    """⚠️ Un cliquet qui cherche une chaîne retire les COMMENTAIRES : il
+    s'attrape sinon lui-même sur l'explication de la règle qu'il garde —
+    c'est arrivé cinq fois dans ce dépôt."""
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
 # ⚠️ Ces cas relisent des SOURCES (JS, CSS, SQL, gabarit). L'arbre d'image est
 # compilé en bytecode mais garde `static/` et les gabarits ; seul le dossier
 # `tools/` en est retiré. Le cas qui lit le SQL se saute donc là-bas, comme la
@@ -343,11 +355,13 @@ class TestLesDeuxRegimesCohabitent:
     critère, et il décide de tout ce que l'écran affiche."""
 
     def test_le_dispatch_existe_et_passe_par_la_norme(self):
+        """⚠️ C'est la NORME qui décide, pas la nature de la sortie — et le
+        critère est le même des deux côtés de la feuille : l'ardoise montre le
+        chiffre attendu, la piste se laisse cliquer ou non."""
         js = _lire(JS)
-        assert "function carteSortie(" in js
-        assert "r.mesurable && r.performance" in js, \
-            "c'est la NORME qui décide, pas la nature de la sortie"
-
+        a = _corps(js, "  function ardoiseSortie(r, st, form) {")
+        assert "if (r.mesurable && perf.norme && !estNul(n.valeur))" in a
+        assert "const jePosePour = r => (jeSuisLeDev() ? !r.mesurable : true);" in js
     def test_une_sortie_mesuree_n_a_pas_de_note_a_saisir(self, auth_client, bob, comme_dev):
         """Le niveau vient du chiffre relevé en session. Une échelle 0→4 à
         côté dirait deux choses d'une seule."""
@@ -362,17 +376,17 @@ class TestLesDeuxRegimesCohabitent:
         assert r["mesurable"] is True
         assert r["demonstrated_level"] == 2, "le niveau est DÉDUIT de la mesure"
         assert r["performance"]["qualifie"] is True
+        # ⚠️ La note se pose sur la PISTE de la feuille (11/11) : c'est là que
+        # la règle se tient. Une sortie mesurée n'a pas de cran à cliquer pour
+        # le développeur — l'auto-évaluation, elle, reste toujours permise,
+        # c'est un repère que le collaborateur se donne.
         js = _lire(JS)
-        # ⚠️ La note se pose désormais sur la PISTE de l'axe partagé (10/11) :
-        # c'est là que la règle se tient. Une sortie mesurée n'a pas de zone
-        # cliquable pour le développeur — l'auto-évaluation, elle, reste
-        # toujours permise, c'est un repère que le collaborateur se donne.
-        bloc = js.split("  function rangeeSortie(r, st, i) {", 1)[1].split("\n  }", 1)[0]
-        assert "const modifiable = dev ? !r.mesurable : true;" in bloc
-        assert "if (modifiable) {" in bloc, "les crans ne se dessinent que là"
-        pied = js.split("  function majPied(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "const jePosePour = r => (jeSuisLeDev() ? !r.mesurable : true);" in js
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert "piste(off, req, soi, !mien)" in n, "lue, pas cliquable"
+        assert "if (!mien) return;" in n, "aucun écouteur sur une piste lue"
+        pied = _corps(js, "  function majPied(st) {")
         assert "every(r => r.mesurable)" in pied and "pal_pas_de_note" in pied
-
     def test_une_sortie_SANS_norme_garde_son_echelle(self, app, auth_client, bob, comme_dev):
         from Code.models.models import Data
         with app.app_context():
@@ -531,27 +545,24 @@ class TestEvaluerEstUnePage:
 
     def test_la_page_ne_fait_qu_UN_aller_retour(self):
         """Le relief se dessine depuis les paliers que `/mastery/activity`
-        porte déjà. `/paliers/historique` n'en rendait qu'un sous-ensemble (les
-        seuls évalués) : une requête dont personne ne lit la réponse, c'est du
-        temps pris à l'ouverture de la page.
+        porte déjà. `/paliers/historique` n'en rendait qu'un sous-ensemble.
 
-        ⚠️ Depuis le 10/11 l'écran porte un vrai HISTORIQUE, et il demande une
-        seconde lecture. Elle ne doit PAS retenir le rendu : la carte part
-        vide, se remplit quand la réponse arrive, et se retire si elle
-        n'arrive pas. C'est la leçon de `/panel`, qui retenait son HTML le
-        temps d'un appel inter-services et annonçait ensuite une panne.
+        ⚠️ Depuis le 11/11 l'historique ne se charge QUE dans la fenêtre des
+        courbes, et une seule fois : il ne pèse plus du tout sur l'ouverture
+        d'une activité, où personne ne l'avait demandé.
         """
         js = _lire(JS)
         bloc = js.split("async function ouvrirEvaluation(", 1)[1][:900]
         assert "/mastery/activity/" in bloc
         assert "/paliers/historique/" not in bloc
         assert "Promise.all" not in bloc
-        centre = js.split("  function remplirCentre(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "chargerHistorique(st);" in centre
-        assert "await chargerHistorique" not in centre, "elle ne retient pas le rendu"
-        charge = js.split("  async function chargerHistorique(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "c.remove();" in charge, "pas de réponse, pas de carte"
-
+        classeur = _corps(js, "  function remplirClasseur(st) {")
+        assert "historique" not in classeur, "l'historique ne s'ouvre plus avec la page"
+        assert js.count("/mastery/historique/") == 1, \
+            "une seule lecture, et c'est la fenêtre des courbes qui la fait"
+        crb = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "if (!crb.histo) {" in crb, "une fois, puis gardée"
+        assert "box.innerHTML = `<p class=\"crb-vide\">" in crb, "pas de réponse, pas de carte"
     def test_le_tiroir_ne_porte_plus_que_les_dialogues(self):
         js = _lire(JS)
         assert "function ouvrirDialogue(" in js
@@ -985,12 +996,15 @@ class TestLeNiveauAttenduQuitteLEvaluation:
     Le niveau attendu se règle là où les rôles se regardent."""
 
     def test_il_n_est_plus_dans_la_colonne_de_droite(self):
+        """⚠️ Et depuis le 11/11 il n'y a PLUS de colonne de droite du tout :
+        elle redisait les sorties mot pour mot, et ses deux réglages sont des
+        pastilles sur la bande du classeur."""
         js = _lire(JS)
         assert "function cibleRequise(" not in js
         assert "ev_attendu" not in js
-        corps = js.split("  function remplirContexte(st) {", 1)[1].split("\n  }\n", 1)[0]
-        assert "cv2-cible" not in corps
-
+        assert "function remplirContexte(" not in js
+        assert "ev-ctx" not in js
+        assert "ev-ctx" not in _lire(GABARIT)
     def test_il_se_regle_dans_le_detail_d_un_role(self):
         js = _lire(JS)
         corps = js.split("  function barresRole(role) {", 1)[1].split("\n  }\n", 1)[0]
@@ -1010,21 +1024,26 @@ class TestLeNiveauAttenduQuitteLEvaluation:
 
 class TestLesDeuxColonnesSeDistinguent:
 
-    def test_chacune_porte_son_numero_et_ce_qu_elle_montre(self):
+    def test_le_rail_dit_combien_d_activites_et_la_bande_laquelle(self):
+        """⚠️ Les deux colonnes numérotées ont disparu avec elles : le rail
+        des activités est une LIGNE de pastilles posée sur le papier, et c'est
+        la bande du classeur qui nomme celle qu'on regarde."""
         js = _lire(JS)
-        assert '<span class="num">1</span>' in js and '<span class="num">2</span>' in js
-        assert "T('ev_col_sor')" in js and "T('ev_col_sor_d')" in js
-        # ⚠️ `remplirCentre` VIDE `#ev-centre` : un en-tête écrit dans le
-        # gabarit de la page serait effacé au premier remplissage.
-        corps = js.split("  function remplirCentre(st) {", 1)[1][:400]
-        assert "ev-centre-h" in corps
-
-    def test_le_gabarit_de_la_page_ne_le_redit_pas(self):
+        rail = _corps(js, "  function remplirActivites() {")
+        assert "nf('ev_nb_act', state.rows.length)" in rail
+        assert "$('#ev-rail-l')" in rail and "class=\"rh\"" not in rail
+        assert "el.className = 'rh'" in rail
+        bande = _corps(js, "  function bandeClasseur(st) {")
+        assert "state.activity.activity_name" in bande
+        assert "T('cl_tenu')" in bande
+    def test_le_gabarit_de_la_page_ne_porte_aucun_libelle(self):
+        """⚠️ `remplirClasseur` VIDE la feuille et les languettes : un libellé
+        écrit dans le squelette serait effacé au premier remplissage."""
         js = _lire(JS)
-        sk = js.split('<main class="ev-centre" id="ev-centre"', 1)[1][:80]
-        assert "ev-centre-h" not in sk
-
-
+        sk = js.split('<div class="cl" id="ev-cl">', 1)[1][:420]
+        for creux in ('id="ev-cl-h"></div>', 'id="ev-ong"></div>',
+                      'id="ev-feuille"></div>'):
+            assert creux in sk, creux
 class TestLEvolutionSeFermeParLeBas:
     """Une fois l'historique déplié, le bouton qui a OUVERT la section se
     retrouve en plein milieu : il faut le chercher pour refermer."""
@@ -1195,20 +1214,18 @@ class TestOnPeutDonnerUneNormeApresCoup:
     recevoir. On notait 0→4 à la main, on revenait, et c'était tout — aucun
     écran ne proposait de poser le standard de l'entreprise."""
 
-    def test_la_carte_a_la_main_porte_la_porte_vers_les_paliers(self):
+    def test_la_feuille_a_la_main_porte_la_porte_vers_les_paliers(self):
         js = _lire(JS)
-        corps = js.split("  function resultCard(r, requis) {", 1)[1].split("\n  }\n", 1)[0]
-        # ⚠️ `data-poser-norme>` et pas `data-poser-norme` : le sélecteur de la
-        # liaison (`[data-poser-norme]`) vit dans le même corps, et il suffisait
-        # à faire passer le contrôle alors que le BOUTON avait disparu.
-        assert "data-poser-norme>" in corps, "le bouton lui-même doit porter l'attribut"
-        assert "pal_definir_norme" in corps
-        # ⚠️ Et c'est la PREMIÈRE MESURE qui s'ouvre, pas la seule norme :
-        # poser la norme bascule la sortie en régime mesuré, et la note à la
-        # main qu'on lit juste au-dessus cesse alors d'être saisissable.
-        assert "formPremiere(card.querySelector('.pal-form'), r)" in js
-        assert "formNorme(card.querySelector('.pal-form'), r)" not in js
-
+        a = _corps(js, "  function ardoiseSortie(r, st, form) {")
+        assert "T('pal_definir_norme')" in a
+        # ⚠️ C'est la PREMIÈRE MESURE qui s'ouvre, pas la seule norme : poser
+        # la norme bascule la sortie en régime mesuré, et la note à la main
+        # cesse alors d'être saisissable. Les deux se décident ensemble.
+        assert "formPremiere(form, r)" in a
+        # ⚠️ Et seulement APRÈS une première note : offerte sur une sortie que
+        # personne n'a regardée, elle demandait d'arbitrer un chiffre attendu
+        # avant d'avoir jamais jugé la chose.
+        assert "if (!estNul(maNote(r)) || !estNul(r.demonstrated_level)) {" in a
     def test_poser_la_norme_fait_basculer_la_sortie(self, app, auth_client, bob, comme_dev):
         """La même route sert aux deux : une sortie jugée à la main devient
         mesurable dès qu'elle porte un chiffre attendu."""
@@ -1240,9 +1257,9 @@ class TestMoinsDePhrasesPosees:
 
     def test_les_deux_explications_attendent_derriere_un_i(self):
         js = _lire(JS)
-        assert "boutonInfo(T('ev_col_sor'), T('ev_col_sor_d'))" in js
+        assert "boutonInfo(T('pal_echelle_t'), texteEchelle())" in js
+        assert "boutonInfo(T('ev_min_t'), texteMinimum())" in js
         assert "boutonInfo(T('ses_verdicts_t'), T('ses_verdicts_calc'))" in js
-
     def test_le_verdict_s_explique_au_lieu_de_s_affirmer(self):
         """« Les verdicts se calculent, ils ne se cochent pas » ne disait ni
         ce qu'est un verdict, ni ce qu'on attend du lecteur."""
@@ -1264,24 +1281,25 @@ class TestLesDeuxNotesSeTiennent:
     empilés, chacun avec son petit en-tête : on ne voyait pas que c'est UNE
     décision regardée de deux côtés."""
 
-    def test_elles_vivent_dans_la_colonne_de_ce_qu_on_pose(self):
-        """Elles partageaient un cadre ; elles partagent désormais la COLONNE
-        qui porte tout ce qu'on pose — et c'est leur liseré qui les
-        distingue, bleu pour ce qui fait foi, violet pour l'auto."""
+    def test_elles_partagent_UNE_piste(self):
+        """⚠️ Deux échelles de cinq crans l'une sous l'autre, c'étaient dix
+        crans pour une seule décision. Le niveau qui fait foi EST la piste, et
+        ce qu'il dit de lui-même est un repère SUR cette piste."""
         js = _lire(JS)
-        assert "${officielle}${auto}" in js
-        css = _lire(CSS)
-        assert ".fi-pose .cv2-nt--off { border-left-color: var(--pg-accent);" in css
-        assert ".fi-pose .cv2-nt--auto {" in css
-
+        assert "function blocNote(" not in js, "les deux blocs sont remplacés"
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert n.count("piste(") == 1, "UNE piste, pas deux échelles"
+        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
+        assert 'class="soi' in p, "l'auto-évaluation est un repère sur la piste"
+        css = _sans_commentaires_css(_lire(CSS))
+        assert ".crans .soi {" in css and "repeating-linear-gradient" in css
     def test_la_preuve_est_un_bouton_pas_un_lien_souligne(self):
         js = _lire(JS)
-        assert 'class="cv2-preuve-btn' in js and "fa-paperclip" in js
-        css = _lire(CSS)
-        bloc = css.rsplit("\n.cv2-preuve-btn {", 1)[1].split("}", 1)[0]
-        assert "border-radius: 999px" in bloc and "border: 1px solid" in bloc
-
-
+        p = _corps(js, "  function preuveSortie(r, st) {")
+        assert 'class="pb' in p and "fa-paperclip" in p
+        css = _sans_commentaires_css(_lire(CSS))
+        bloc = css.rsplit(".ev-corps .preuve .pb {", 1)[1].split("}", 1)[0]
+        assert "border-radius: 11px" in bloc and "border: 1px solid" in bloc
 class TestLeRelief:
     """⚠️ « Visuellement tout est à la même hauteur alors que le niveau
     augmente. » Le rail posait les marches côte à côte : rien n'y montrait la
@@ -1291,14 +1309,20 @@ class TestLeRelief:
     suis-je en train de mesurer », pas « comment cela a progressé ».
     """
 
-    def test_la_carte_mesuree_porte_le_relief_et_non_le_rail(self):
+    def test_le_relief_vit_dans_la_FENETRE_des_courbes(self):
+        """⚠️ Il était dans la carte, sous le nom de la sortie, dans l'écran où
+        l'on NOTE : deux sections de graphes mêlées à la notation. La feuille
+        dit l'ÉTAT, la fenêtre dit l'HISTOIRE."""
         js = _lire(JS)
-        corps = js.split("  function carteMesuree(r) {", 1)[1].split("\n  }", 1)[0]
-        assert "reliefSvg(r)" in corps and "bilanRelief(perf)" in corps
-        assert "railHtml(" not in corps, "le rail ne vit plus dans la carte"
+        v = _corps(js, "  function rendreValeurs(st, box) {")
+        assert "reliefSvg(r)" in v and "bilanRelief(r.performance)" in v
+        assert "railHtml(" not in v, "le rail ne vit pas dans le relief"
         # …mais il vit toujours à la séance : c'est une AUTRE question.
         assert 'class="sq-rail">${railHtml(' in js
-
+        # et plus une seule courbe dans la feuille
+        f = _corps(js, "  function feuilleSortie(r, st) {")
+        for mort in ("reliefSvg", "friseSvg", "cv2-histo", "pal-relief"):
+            assert mort not in f, mort
     def test_l_axe_vertical_est_ordonne_par_MERITE(self):
         """Une durée compte à rebours, un taux à l'endroit : dans les deux cas
         MONTER veut dire progresser. Sans cela, une sortie où l'on gagne du
@@ -1417,13 +1441,18 @@ class TestLeRelief:
 
     def test_le_lien_du_detail_est_cable_AVEC_une_garde(self):
         """Il n'existe pas sur une sortie sans palier ni norme : un câblage
-        sans garde couperait toute la suite de l'init de la carte — c'est le
-        piège du contrat DOM de l'éditeur de carto."""
+        sans garde couperait toute la suite — c'est le piège du contrat DOM de
+        l'éditeur de carto."""
         js = _lire(JS)
-        assert "if (q('[data-evol]')) q('[data-evol]').onclick" in js
+        v = _corps(js, "  function rendreValeurs(st, box) {")
+        assert "const b = card.querySelector('[data-evol]');" in v
+        assert "if (b) b.onclick = () => basculerHisto(card, r);" in v
         assert "function basculerHisto(card, r) {" in js
         assert "function blocGraphe(" not in js, "le relief EST le graphe"
-
+        # ⚠️ `.pal-pied` n'existe plus : un `querySelector` qui rend `null`
+        # aurait coupé toute la suite sans rien dire.
+        h = _corps(js, "  function basculerHisto(card, r) {")
+        assert "card.querySelector('.pal-bilan') || card.lastElementChild" in h
     def test_les_libelles_du_relief_sont_dans_les_deux_catalogues(self):
         js = _lire(JS)
         fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
@@ -1586,26 +1615,23 @@ class TestLEcranPoseLesTroisElements:
 
     def test_une_sortie_sans_palier_propose_la_premiere_mesure(self):
         js = _lire(JS)
-        corps = js.split("  function carteMesuree(r) {", 1)[1].split("\n  }", 1)[0]
-        assert "const vierge = !(perf.paliers || []).length;" in corps
-        assert "data-premiere" in corps
-        # ⚠️ Et tant que rien n'est mesuré, c'est la note posée à la main qui
-        # se lit — la carte disait « Non évalué » pendant que l'activité
-        # affichait encore 4.
-        assert "const lu = expert ? 4 : (estNul(niv) ? perf.niveau_pose : niv);" in corps
-        assert "pal_niveau_pose" in corps
-        # ⚠️ Et dans l'AUTRE sens : l'expertise posée est le niveau qui
-        # compte, la déduction plafonnant à 3. La carte affichait
-        # « 1 · En acquisition » pendant que l'activité lisait 4.
-        assert "pal_exp_mesure" in corps, "le niveau mesuré reste lisible à côté"
-
-    def test_l_expertise_se_pose_depuis_la_carte(self):
+        a = _corps(js, "  function ardoiseSortie(r, st, form) {")
+        assert "const vierge = !(perf.paliers || []).length;" in a
+        assert "if (vierge) gb('prem', 'fa-ruler', true, T('pal_premiere'))" in a
+        n = _corps(js, "  function majNota(z, r, st) {")
+        # ⚠️ L'expertise POSÉE est le niveau qui compte — la déduction
+        # plafonne à 3. La carte affichait « 1 · En acquisition » pendant que
+        # l'activité lisait 4.
+        assert "pal_exp_posee" in n and "pal_exp_mesure" in n
+        o = _corps(js, "  function niveauOfficiel(r) {")
+        assert "if (p.expertise === true) return 4;" in o
+    def test_l_expertise_se_pose_depuis_l_ardoise(self):
         js = _lire(JS)
         assert "async function poserExpertise(r, oui) {" in js
-        corps = js.split("  async function poserExpertise(r, oui) {", 1)[1].split("\n  }", 1)[0]
+        corps = _corps(js, "  async function poserExpertise(r, oui) {")
         assert "mastery_level: oui ? 4 : null" in corps
-        assert "data-exp" in js
-
+        a = _corps(js, "  function ardoiseSortie(r, st, form) {")
+        assert "gb('exp', 'fa-award'" in a
     def test_l_unite_se_choisit_dans_une_liste(self):
         """%, jours et heures reviennent à chaque sortie : les retaper est une
         corvée, et deux orthographes de la même grandeur se liraient comme
@@ -1632,154 +1658,6 @@ class TestLEcranPoseLesTroisElements:
                   "pal_exp_retirer", "pal_exp_posee", "pal_exp_d",
                   "pal_exp_mesure", "rel_tenues_1", "rel_suivi_1",
                   "pal_exp_ok", "pal_exp_off"):
-            assert ("%s:" % k) in fr, "manque en FR : %s" % k
-            assert ("%s:" % k) in en, "manque en EN : %s" % k
-
-
-class TestLaFicheDeNotation:
-    """⚠️ « Autant dans le style que dans l'agencement que dans son manque de
-    couleurs, les phrases en petits et en gris au lieu de mettre des i. »
-    Trois boîtes grises de poids égal, cinq carrés blancs bordés de gris où un
-    0 et un 4 se ressemblaient trait pour trait, et deux lignes de douze px
-    gris pour expliquer le régime. La section se sépare en deux — ce qu'on
-    JUGE sur fond de nuit, ce qu'on POSE à sa droite.
-    """
-
-    def _corps(self, js):
-        return js.split("  function resultCard(r, requis) {", 1)[1].split("\n  }\n", 1)[0]
-
-    def test_le_sujet_passe_sur_fond_de_nuit(self):
-        """C'est le CONTRASTE qui désigne ce qu'on vient noter : sans lui, la
-        colonne de gauche n'était qu'une quatrième boîte grise."""
-        js = _lire(JS)
-        corps = self._corps(js)
-        assert 'class="fi-sujet"' in corps and 'class="fi-pose"' in corps
-        css = _lire(CSS)
-        bloc = css.split(".fi-sujet {", 1)[1].split("}", 1)[0]
-        assert "#0b1120" in bloc, "le même fond que l'en-tête de la page"
-        assert "radial-gradient" in bloc
-
-    def test_le_niveau_attendu_se_lit_de_loin(self):
-        js = _lire(JS)
-        assert 'class="fi-req-v"' in self._corps(js)
-        css = _lire(CSS)
-        bloc = css.split(".fi-req-v b {", 1)[1].split("}", 1)[0]
-        assert "font-size: 44px" in bloc
-        teinte = css.split(".fi-req-v {", 1)[1].split("}", 1)[0]
-        assert "#7ee0b8" in teinte, "le vert pastel du fond sombre"
-
-    def test_un_cran_ne_porte_que_SON_CHIFFRE(self):
-        """« Autonome / compétent » sur un cran de 50 px, cinq fois de suite,
-        deux fois par sortie : illisible, et la moitié du petit texte gris de
-        la fenêtre."""
-        js = _lire(JS)
-        corps = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
-        assert 'aria-label="${esc(lv + \' · \' + nom)}">${lv}</button>' in corps
-        # ⚠️ Pas de `title` : l'info-bulle du système sortirait PAR-DESSUS la
-        # nôtre, une seconde plus tard et sans sa couleur.
-        assert "title=" not in corps
-
-    def test_le_nom_vient_au_survol_apres_une_demi_seconde(self):
-        js = _lire(JS)
-        corps = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
-        assert 'data-nom="${esc(nom)}"' in corps
-        css = _lire(CSS)
-        apres = css.split(".fi-pose .cv2-niv::after {", 1)[1].split("}", 1)[0]
-        assert "content: attr(data-nom)" in apres
-        assert "opacity: 0" in apres
-        survol = css.split(".fi-pose .cv2-niv:hover::after {", 1)[1].split("}", 1)[0]
-        assert "transition-delay: .5s" in survol, "assez pour traverser la rangée"
-        # Au clavier il n'y a pas de survol : la bulle sort au focus, sans délai.
-        assert ".fi-pose .cv2-niv:focus-visible::after" in css
-
-    def test_la_rampe_se_voit_AU_REPOS(self):
-        """Cinq carrés blancs ne disaient pas qu'un 4 vaut mieux qu'un 0. La
-        teinte bascule UNE fois, au seuil d'autonomie — la même bascule que le
-        relief au franchissement de la norme."""
-        css = _lire(CSS)
-        for lv, teinte in ((0, "#eef1f5"), (1, "#e8f0fc"), (2, "#e4f1ec"),
-                           (3, "#e0eee8"), (4, "#e3eaeb")):
-            regle = '.fi-pose .cv2-nt--off .cv2-niv[data-lv="%d"] {' % lv
-            assert regle in css, regle
-            assert teinte in css.split(regle, 1)[1].split("}", 1)[0]
-        # Et le cran choisi prend la couleur PLEINE de son palier.
-        assert '.fi-pose .cv2-nt--off .cv2-niv.sel[data-lv="2"] { background: #11835e;' in css
-
-    def test_l_auto_evaluation_garde_son_identite(self):
-        """Sur le bloc qui fait foi, la couleur dit le NIVEAU ; sur celui qui
-        commente, elle dit QUI — et cela ne change pas selon qui regarde."""
-        css = _lire(CSS)
-        assert ".fi-pose .cv2-nt--auto .cv2-niv.sel { background: var(--cv-auto);" in css
-
-    def test_les_phrases_grises_passent_derriere_un_i(self):
-        js = _lire(JS)
-        corps = self._corps(js)
-        assert "boutonInfo(T('pal_echelle_t'), texteEchelle())" in corps
-        assert "boutonInfo(T('pal_sans_norme'), T('pal_sans_norme_d'))" in corps
-        # La phrase n'est plus ÉCRITE dans la carte.
-        assert "T('pal_sans_norme_d')}" not in corps
-
-    def test_le_standard_minimal_revient_ECRIT(self):
-        """Derrière une info-bulle que personne ne survole, la phrase qui dit
-        sur quoi on note n'existait pas."""
-        js = _lire(JS)
-        corps = self._corps(js)
-        assert 'class="fi-std-t"' in corps
-        assert "r.minimum_performance_text" in corps
-        # ⚠️ Un <q>, pas des chevrons écrits à la main : ils sont une
-        # convention FRANÇAISE, et le navigateur pose les guillemets de la
-        # langue du document. Le contrôle lit aussi les COMMENTAIRES : en
-        # écrire un ici le ferait échouer sur son propre texte.
-        assert '<q class="fi-std-t">' in corps
-        assert '«' not in corps
-        assert "cv2-astuce" not in corps, "plus de point d'interrogation en 11 px"
-
-    def test_la_porte_est_VERTE_en_rappel_du_niveau_attendu(self):
-        """Elle était en ocre quand rien d'autre ne portait de couleur. Le vert
-        du chiffre attendu la reprend — en plusieurs teintes, pour qu'elle ne
-        soit pas un aplat."""
-        js = _lire(JS)
-        assert 'class="fi-porte"' in self._corps(js)
-        css = _lire(CSS)
-        porte = css.split("\n.fi-porte {", 1)[1].split("}", 1)[0]
-        assert "#eaf6f1" in porte and "#bfe3d4" in porte
-        bouton = css.split("\n.fi-b {", 1)[1].split("}", 1)[0]
-        assert "#11835e" in bouton and "#0a5540" in bouton
-        assert "#93571a" not in porte, "plus d'ocre"
-
-    def test_le_verdict_sort_des_deux_blocs(self):
-        """Posé dans celui du bas, il se lisait comme un commentaire de
-        l'auto-évaluation. Il parle de l'ÉCART, donc des deux."""
-        js = _lire(JS)
-        corps = self._corps(js)
-        assert "qi('[data-accord]').innerHTML = accordBadge(" in corps
-        maj = js.split("  function majValeur(bloc, card, r, dev) {", 1)[1].split("\n  }", 1)[0]
-        assert "card.querySelector('[data-accord]')" in maj
-        assert "cv2-nt--auto" not in maj
-
-    def test_les_crochets_de_l_enregistrement_survivent(self):
-        """⚠️ La gomme fait partie de l'échelle : hors du bloc, un niveau
-        effacé ne serait plus trouvé et l'enregistrement le sauterait.
-
-        ⚠️ Et depuis que la fiche s'ouvre en DÉTAIL sous l'axe (10/11), son
-        échelle et la piste posent la MÊME note : les deux doivent écrire
-        dans `state.saisie`, sinon celle du détail n'est jamais enregistrée.
-        """
-        js = _lire(JS)
-        bloc = js.split("  function blocNote(o) {", 1)[1].split("\n  }", 1)[0]
-        assert "cv2-nt cv2-nt--${o.genre}${o.modifiable ? ' is-mienne'" in bloc
-        gomme = bloc.split('class="cv2-gomme', 1)[1].split("button>", 1)[0]
-        assert 'data-lv=""' in gomme
-        det = js.split("  function basculerDetail(r, st, rangee) {", 1)[1].split("\n  }", 1)[0]
-        assert ".cv2-nt.is-mienne [data-lv]" in det
-        assert "poserNote(r, b.dataset.lv === '' ? null : +b.dataset.lv, st);" in det
-
-    def test_les_libelles_de_la_fiche_sont_dans_les_deux_langues(self):
-        js = _lire(JS)
-        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
-        en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
-        for k in ("fi_sujet", "fi_pose", "fi_requis", "fi_sans_requis",
-                  "fi_suivre", "fi_suivre_d"):
             assert ("%s:" % k) in fr, "manque en FR : %s" % k
             assert ("%s:" % k) in en, "manque en EN : %s" % k
 

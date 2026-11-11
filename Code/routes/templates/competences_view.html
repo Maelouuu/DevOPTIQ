@@ -107,6 +107,22 @@
     <div class="cv2-df" id="cv2-plan-footer"></div>
   </aside>
 
+  {# Fenêtre des courbes — DEUX schémas pour une même progression : les
+     niveaux (une ligne par sortie, de 0 à 4) et les valeurs (le relief d'une
+     sortie mesurée, dans son unité). Elles vivaient toutes deux dans l'écran
+     où l'on note, l'une sous l'autre : deux sections de graphes mêlées à la
+     notation. Le détail des séances les accompagne — la feuille dit l'ÉTAT,
+     cette fenêtre dit l'HISTOIRE. #}
+  <aside class="cv2-crb-win" id="cv2-crb-win" role="dialog" aria-modal="true">
+    <div class="cv2-ph">
+      <button class="x" id="cv2-crb-close" aria-label="{{ t('btn.close') }}">&times;</button>
+      <h2 data-i18n="crb_titre">Les courbes</h2>
+      <div class="cv2-sub" id="cv2-crb-sub"></div>
+    </div>
+    <div class="crb-ong" id="cv2-crb-ong"></div>
+    <div class="cv2-pb" id="cv2-crb-body"></div>
+  </aside>
+
 
   <div class="cv2-toast" id="cv2-toast"></div>
 

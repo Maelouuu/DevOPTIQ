@@ -519,18 +519,23 @@ class TestLaNormeVientDeLaListeDesActivites:
     def test_la_porte_napparait_quune_fois_la_sortie_notee(self):
         """Poser la norme bascule la sortie en régime mesuré : offerte sur une
         sortie que personne n'a regardée, elle demandait d'arbitrer un chiffre
-        attendu avant d'avoir jamais jugé la chose."""
+        attendu avant d'avoir jamais jugé la chose.
+
+        ⚠️ La fiche est devenue l'ARDOISE du classeur (11/11) : la règle n'a
+        pas changé, c'est l'endroit où elle se tient qui a bougé.
+        """
         js = _lire("static/js/competences_v2.js")
-        i = js.index("function resultCard(")
-        corps = js[i:js.index("  function majValeur(")]
-        assert "const estNote = !estNul(maNote);" in corps
-        assert "${dev && estNote ? `<div class=\"fi-porte\">" in corps
-        assert "${dev ? `<div class=\"fi-porte\">" not in corps
+        corps = js.split("  function ardoiseSortie(r, st, form) {", 1)[1] \
+                  .split("\n  }", 1)[0]
+        assert "if (!estNul(maNote(r)) || !estNul(r.demonstrated_level)) {" in corps
+        i = corps.index("if (!estNul(maNote(r))")
+        assert "T('pal_definir_norme')" in corps[i:], \
+            "la porte se dessine DANS cette garde"
 
     def test_la_fiche_montre_lindicateur_a_defaut_de_repere(self):
         js = _lire("static/js/competences_v2.js")
-        i = js.index("function resultCard(")
-        corps = js[i:js.index("  function majValeur(")]
+        corps = js.split("  function ardoiseSortie(r, st, form) {", 1)[1] \
+                  .split("\n  }", 1)[0]
         assert "r.minimum_performance_text || r.indicateur" in corps
         assert "T('pal_indic')" in corps
 

@@ -7933,6 +7933,180 @@ deux notes posées d'affilée, la courbe gagne son point et le niveau suit.
 
 ---
 
+### LE CLASSEUR — l'écran d'évaluation, et les courbes en fenêtre (2026-11-11)
+
+« Le seul truc sympa de la page c'est le bandeau. » Trois passes avaient été
+refusées l'une après l'autre (« hideux », « ça ne m'en met pas plein les
+yeux », « les notes ne sont vraiment pas au niveau »). La quatrième est passée
+par un **prototype cliquable à l'échelle réelle**, repris en quatre versions —
+la méthode pour tout ce qui se juge en trois secondes, et la septième fois
+qu'elle évite une journée écrite pour rien.
+
+**Ce qui était reproché, mesuré avant d'être corrigé :**
+
+| | avant | après |
+|---|---|---|
+| surfaces à l'écran | 12 | **4** |
+| familles de couleur | 6 (bleu, vert, ambre, teal, violet, rouge) | **3** |
+| crans de notation | 10 (deux échelles) | **5** (une piste) |
+| sections de courbes dans l'écran de note | 2 | **0** |
+| colonne de droite redisant les sorties | 1 | 0 |
+| hauteur | 721 à 1 070 px pour la seule colonne de travail | **395 à 446 px** en tout |
+
+#### Trois surfaces, trois rôles — l'inversion STRUCTURE, elle ne décore pas
+
+**NUIT** = qui on regarde (le bandeau, **inchangé** : c'est le morceau qui
+tient). **BLEU** = le résultat — la bande du classeur, son nom d'activité en
+Fraunces 28 px, le niveau tenu en 50 px, et les **languettes découpées dans
+son bord bas**. **ARDOISE** = ce qui est DONNÉ et ne se règle pas ici : la
+norme de l'entreprise, le repère de réussite, gravés.
+
+⚠️ **Bande + languettes + feuille ne font qu'UN objet** : un rayon, une ombre,
+un `overflow: hidden`. Trois cartes empilées, c'étaient trois contours pour un
+seul sujet — et c'est l'empilement qu'on reprochait à l'écran.
+
+#### Les LANGUETTES portent la comparaison
+
+C'est ce qui manquait au premier jet : un onglet portait un chiffre de 23 px
+et rien d'autre. Chaque languette porte **sa jauge en quatre pas et le trait
+de l'attendu** — la convention de toute l'application — plus son numéro et son
+régime (« mesurée · 5 j », « jugée à la main », « rien encore »). On compare
+les sorties sans ouvrir quoi que ce soit : c'est l'axe partagé du 10/11, rangé
+là où il ne coûte plus une section.
+- ⚠️ **Pas de largeur maximale** : relevé SUR CAPTURE, un plafond de 420 px
+  laissait un grand vide bleu à droite de la bande dès qu'il n'y avait que
+  deux sorties. Elles remplissent la bande ; sous 212 px elles défilent dedans.
+- ⚠️ **La sortie ouverte survit au re-rendu** (`sortieOuverte`) : sinon toute
+  note posée ramènerait à la première.
+
+#### UNE piste, cinq marches
+
+Le niveau qui fait foi **EST** la piste, et ce qu'il dit de lui-même est un
+repère **sur** cette piste. Avant : deux échelles de cinq crans l'une sous
+l'autre, la distinction portée par la seule couleur.
+- ⚠️ **Le 0 ne se remplit JAMAIS** — « non démontré », c'est une jauge vide.
+  Posé, il porte un anneau : sinon rien ne distinguerait « 0 » de « rien ».
+- ⚠️ **La zone attendue est une SURFACE**, pas un trait : « la barre doit
+  entrer dans le vert » se regarde, un filet de 2 px se cherche. Et NULL ≠ 0 :
+  sans requis, pas de zone.
+- ⚠️ **La gomme vit HORS des crans** (`.crans` l'exclut) : effacer n'est pas un
+  niveau de plus, et la zone attendue ne doit pas l'englober — elle aurait
+  l'air d'un sixième cran.
+- ⚠️ **Une sortie mesurée se LIT** (`.piste.lue`) : son niveau vient du chiffre
+  relevé en séance. L'auto-évaluation, elle, reste toujours permise — c'est un
+  repère que le collaborateur se donne.
+- ⚠️ **Un cran ne porte que son chiffre** ; le nom du palier vient au survol
+  après une demi-seconde. **Pas d'attribut `title`** : l'info-bulle du système
+  sortirait par-dessus la nôtre, une seconde plus tard et sans sa couleur.
+- ⚠️ **La mise à jour se fait SUR PLACE** (`majNota`, `majLanguette`) :
+  réécrire la piste ferait perdre le focus du cran qu'on vient de cliquer et
+  couperait la transition de la marche qui se remplit — c'est elle qui fait
+  comprendre le geste.
+
+#### LES COURBES quittent la page — une fenêtre, DEUX schémas
+
+« Mettre les courbes à part dans un truc qu'on peut ouvrir, pour différencier
+les deux ; on mettrait donc ici toutes les courbes, avec deux types de schémas
+différents. » Les deux vivaient dans l'écran où l'on NOTE, l'une sous l'autre.
+
+`#cv2-crb-win` (`ouvrirCourbes`) porte les deux, choisis par **languettes** —
+la même grammaire que le classeur, parce que c'est le même geste (choisir ce
+qu'on regarde) :
+- **LES NIVEAUX** — la frise : une ligne par sortie, de 0 à 4, plus celle de
+  l'activité (le plus bas des sorties). On compare les sorties ENTRE ELLES, ce
+  que seule une échelle commune permet ;
+- **LES VALEURS** — le relief d'UNE sortie mesurée, dans son unité réelle,
+  avec sa norme et ses marches. On ne compare plus, on suit une progression.
+
+Le **détail des séances** les accompagne : la feuille dit l'ÉTAT, la fenêtre
+dit l'HISTOIRE.
+- ⚠️ **L'historique ne se charge QUE là, et une fois** : il ne pèse plus du
+  tout sur l'ouverture d'une activité, où personne ne l'avait demandé.
+- ⚠️ **UNE seule porte**, et elle est sur la bande. Relevé sur capture : le
+  bouton s'affichait des DEUX côtés sur une sortie mesurée — c'est la faute
+  que mon propre commentaire annonçait.
+- ⚠️ **Sans sortie mesurée, la languette « Les valeurs » le DIT** au lieu
+  d'ouvrir un écran vide ; et le sélecteur de sortie n'existe que s'il y a de
+  quoi choisir — une rangée d'un seul bouton est un titre déguisé.
+- ⚠️ **Le voile est partagé par les TROIS fenêtres** (tiroir, plan, courbes) :
+  le retirer dès qu'une se ferme laisserait les deux autres posées sur la
+  page, sans voile et sans clic pour en sortir.
+- ⚠️ `basculerHisto` s'accrochait à `.pal-pied`, qui n'existe plus : un
+  `querySelector` qui rend `null` aurait coupé toute la suite sans rien dire.
+  Il vise `.pal-bilan`, avec un repli.
+
+#### Ce qui quitte la page avec elles
+
+- **La colonne de droite** : elle redisait les sorties mot pour mot. Ses deux
+  réglages deviennent des **pastilles de verre sur la bande** — la technicité
+  (qui ouvre le tiroir, comme les deux autres dialogues courts) et la
+  prochaine séance, en ambre.
+  ⚠️ **UNE source pour les domaines** (`state.tech`) : la pastille et le
+  dialogue la relisent tous deux, deux chargements finiraient par afficher
+  deux comptes du même réglage.
+- **Le rail des activités** passe à l'horizontale : 218 px rendus à la largeur
+  de ce qu'on vient lire, pour une liste qu'on parcourt une fois. Des
+  pastilles posées sur le papier, pas une carte — un contour autour de six
+  boutons, c'était un contour pour rien. Le bandeau de situation le suit : il
+  FILTRE, il reste donc avec ce qu'il résume.
+- **830 lignes de CSS mort** (`.cv2-axe`, `.cv2-rg`, `.fi-*`, `.cv2-nt*`,
+  `.pal-tete/-corps/-pied`, `.ev-ctx`, `.ev-acts`…). ⚠️ Retirées par un
+  découpage de RÈGLES, pas par un motif de texte : une règle partagée —
+  `.cv2-axe, .cv2-histo, .cv2-det { --ax-… }` — perd ses sélecteurs morts et
+  garde le vivant, car la frise lit encore ces jetons.
+
+#### ⚠️⚠️ `perl -0pi` a mis tout `competences.css` en MOJIBAKE
+
+Une substitution d'une ligne, et les 4 386 lignes du fichier sont ressorties
+en « Page CompÃ©tences » : sans `-CSD`, perl relit les octets en latin-1 et
+réécrit en UTF-8. Restauré depuis git, refait en Python avec l'encodage dit
+explicitement. **Ne jamais employer `perl -0pi` sur un fichier de ce dépôt.**
+
+⚠️ Et **le heredoc du shell avale les backticks** — troisième et quatrième
+fois dans ce dépôt le même jour : un `bash -c '... <<"EOF" ...'` dont le
+contenu Python porte des gabarits JS (`` ` ``) les évalue comme des
+substitutions de commande. Passer par un fichier.
+
+#### Deux pièges déjà connus, revus ici
+
+- ⚠️ **Une vieille règle `.piste { height: 36px }`** (la piste de la rangée de
+  l'axe partagé) écrasait la neuve : les crans de 76 px débordaient d'une
+  boîte de 36. Toute refonte qui reprend un nom de classe doit vérifier qu'il
+  n'existe pas plus haut dans la feuille.
+- ⚠️ **`.ev-corps` gardait `align-items: start`** de sa grille à trois
+  colonnes : en flex-column, le classeur se dimensionnait à son contenu et
+  faisait 196 px de moins que le bandeau au-dessus. Remplacer un `display` ne
+  suffit pas — la règle entière part.
+- ⚠️ **Le cliquet des chevrons français s'est attrapé sur le commentaire qui
+  l'explique** : sixième occurrence. Les commentaires se retirent avant de
+  chercher, en CSS comme en JS.
+- ⚠️⚠️ **Le repère d'auto-évaluation VOLAIT le clic du cran qu'il désigne.**
+  Posé par-dessus les crans (`z-index: 2`), il tombe pile au milieu de l'un
+  d'eux : ce cran-là ne se posait plus, et rien ne le disait. Trouvé au banc
+  en rejouant le parcours complet — noter, enregistrer, **recharger la page**,
+  relire — pas à l'œil. `pointer-events: none`, la règle déjà écrite pour la
+  bulle de la matrice RH : ce qui explique ne vole jamais le clic de ce qu'il
+  explique. Vérifié ensuite de bout en bout : niveau 2 et preuve relus après
+  rechargement.
+
+Tests : `tests/test_140_classeur_evaluation.py` (46 cas, **15 défauts remis un
+par un, 15 cliquets tombés**) ; `test_109` voit **quatorze de ses cas
+réécrits** et `TestLaFicheDeNotation` retirée — ils affirmaient la structure
+d'avant, et un cas qui affirme une structure remplacée ne garde plus rien.
+Éprouvé au banc (`tools/devrun_competences.py`) de 1280 à 1600 px dans les
+deux langues : les deux régimes de sortie, la fenêtre et ses deux schémas, le
+détail des séances, le dialogue de technicité — **zéro fuite française sur
+l'écran anglais** (119 textes relevés, attributs compris), zéro clé brute,
+zéro erreur console, aucun débordement horizontal.
+
+**Reste à faire** : 77 clés de catalogue ne sont plus lues (dont une
+cinquantaine orphelines depuis cette refonte — `ax_*`, `fi_*`, `n_*`,
+`ev_col_*`). Elles ne coûtent rien à l'exécution et une clé retirée à tort
+s'affiche TELLE QUELLE à l'écran sans rien lever : le ménage se fait à part,
+en vérifiant qu'aucune n'est construite par concaténation.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.
