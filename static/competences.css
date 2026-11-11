@@ -2411,25 +2411,9 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .ev-i:hover, .ev-i:focus-visible { opacity: 1; background: rgba(15, 23, 42, .18); }
 .cv2-info .d { max-width: 330px; }
 
-/* ───────────── Le filtre, en tête de la colonne des activités ───────── */
-.ev-acts-f { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 10px; }
-.ev-f {
-  flex: 1 1 auto; cursor: pointer; font-family: inherit;
-  border: 1px solid var(--border); border-radius: 9px; background: var(--card);
-  padding: 5px 8px; text-align: center; line-height: 1.15;
-}
-.ev-f .n { display: block; font-size: 15px; font-weight: 700; }
-.ev-f .k { display: block; font-size: 10px; font-weight: 600; color: var(--muted); }
-.ev-f:hover { border-color: var(--border-strong, var(--border)); }
-.ev-f.is-on { border-width: 1.5px; }
-.ev-f--green { background: #f2fbf5; border-color: #bfe7cd; } .ev-f--green .n { color: #15803d; }
-.ev-f--orange { background: #fdf6e7; border-color: #ead9ae; } .ev-f--orange .n { color: #a8690f; }
-.ev-f--blue { background: #eff5ff; border-color: #c2d8fb; } .ev-f--blue .n { color: #1d4ed8; }
-.ev-f--grey { background: #f6f7fa; border-color: #dfe3ec; } .ev-f--grey .n { color: #5b6676; }
-.ev-f.is-on.ev-f--green { border-color: #15803d; }
-.ev-f.is-on.ev-f--orange { border-color: #a8690f; }
-.ev-f.is-on.ev-f--blue { border-color: #1d4ed8; }
-.ev-f.is-on.ev-f--grey { border-color: #5b6676; }
+/* ⚠️ Les quatre tuiles de filtre sont parties avec le rail : un filtre qui
+   n'a plus de liste à filtrer ne filtre rien. Le bandeau de situation de la
+   VUE D'ENSEMBLE (`.cv2-tuile`) n'est pas touché — c'est un autre écran. */
 
 /* ───────────── Le calendrier, en page ───────────── */
 #cv2-ecran-cal .cal-tuiles { margin: 16px 0; }
@@ -3061,50 +3045,57 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   --v1: #f0fdf5; --v2: #dcfce7; --v3: #bbf7d0; --v4: #86efac;
   --v6: #22c55e; --v7: #16a34a; --v9: #047857;
   --a1: #fffbeb; --a2: #fef3c7; --a3: #fde68a; --a5: #d97706; --a6: #b45309;
-  --ard1: #3b4a61; --ard2: #1e293b;
+  /* ⚠️ L'ardoise porte le fond de l'EN-TÊTE, au dégradé près : deux
+     surfaces sombres de deux bleus différents sur le même écran se lisaient
+     comme un défaut d'impression. Si l'une change, l'autre suit — un
+     cliquet compare les deux déclarations. */
+  --nuit: linear-gradient(118deg, #1b2a4a 0%, #101a30 58%, #0b1120 100%);
   --cl-f2: #cfd8e6;
 }
 
 /* La page est une COLONNE : le rail, le classeur, le pied. */
 .ev-corps { display: flex; flex-direction: column; gap: 0; }
 
-/* ───────── Le rail des activités : des pastilles sur le PAPIER ─────────
-   ⚠️ Pas une carte. Un contour autour de six boutons, c'était un contour pour
-   rien — et c'est une surface de moins à l'écran. */
-.ev-rail {
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin: 2px 2px 13px;
+/* ───────── LA NAVIGATION : une flèche de chaque côté ─────────
+   ⚠️ Elle remplace le RAIL des activités — une ligne de pastilles au-dessus
+   du classeur, pour une liste qu'on parcourt une fois. Elle vit à DROITE du
+   niveau tenu : c'est là qu'on lit le nom de l'activité, c'est là qu'on en
+   change. Le compte « 2 / 5 » dit où l'on est, et qu'il y en a d'autres. */
+.cl-nav {
+  flex: none; display: flex; align-items: center; gap: 7px;
+  padding-left: 20px; border-left: 1px solid rgba(255, 255, 255, .18);
 }
-.ev-rail > .k {
-  font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--muted); font-weight: 700; flex: none; padding-right: 4px;
+.cl-nav-b {
+  width: 38px; height: 38px; flex: none; border-radius: 50%; cursor: pointer;
+  font: inherit; font-size: 14px; color: #fff;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .24);
+  display: grid; place-items: center;
+  transition: background .14s ease, transform .14s ease;
 }
-/* ⚠️ Vingt activités ne tiennent pas sur une ligne : la liste défile DANS le
-   rail, et la page ne défile jamais à l'horizontale. */
-.ev-rail-l {
-  display: flex; gap: 8px; align-items: center; flex: 1; min-width: 0;
-  overflow-x: auto; padding-bottom: 3px;
-  scrollbar-width: thin;
+.cl-nav-b:hover { background: rgba(255, 255, 255, .26); }
+.cl-nav-b[data-sens="1"]:hover { transform: translateX(2px); }
+.cl-nav-b[data-sens="-1"]:hover { transform: translateX(-2px); }
+.cl-nav-p {
+  font-family: var(--pg-font-display); font-size: 13.5px; font-weight: 700;
+  color: #9fb6e4; min-width: 36px; text-align: center;
 }
-.ev-rail-f { display: flex; gap: 5px; flex: none; }
-.rh {
-  font: inherit; cursor: pointer; background: var(--card);
-  border: 1px solid var(--border); border-radius: 11px; padding: 7px 12px;
-  color: var(--ink-2); display: flex; align-items: center; gap: 9px;
-  font-size: 14px; font-weight: 600; white-space: nowrap; flex: none;
+
+/* Le classeur neuf entre du côté d'où l'on vient, le sortant s'efface vers
+   l'autre : sans ce mouvement, changer d'activité se lit comme un
+   rechargement de page. */
+@keyframes cl-ent-d { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+@keyframes cl-ent-g { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: none; } }
+.cl.est-ent-d { animation: cl-ent-d .3s cubic-bezier(.22, .8, .3, 1) both; }
+.cl.est-ent-g { animation: cl-ent-g .3s cubic-bezier(.22, .8, .3, 1) both; }
+.cl.est-sort-d, .cl.est-sort-g {
+  opacity: 0; transition: opacity .16s ease-in, transform .16s ease-in;
 }
-.rh:hover { border-color: var(--b4); color: var(--b8); }
-.rh u {
-  text-decoration: none; font-family: var(--pg-font-display);
-  font-size: 16px; font-weight: 700; width: 24px; height: 24px;
-  border-radius: 50%; display: grid; place-items: center;
-  background: #eef1f7; color: var(--ink-2);
+.cl.est-sort-d { transform: translateX(-22px); }
+.cl.est-sort-g { transform: translateX(22px); }
+@media (prefers-reduced-motion: reduce) {
+  .cl.est-ent-d, .cl.est-ent-g { animation: none; }
+  .cl.est-sort-d, .cl.est-sort-g { transition: none; opacity: 1; transform: none; }
 }
-.rh.on { background: var(--b2); border-color: var(--b4); color: var(--b9); }
-.rh.on u { background: linear-gradient(165deg, var(--b5), var(--b8)); color: #fff; }
-.rh.v u { background: linear-gradient(165deg, var(--v4), var(--v7)); color: #fff; }
-.rh.x u { color: #94a3b8; }
-.rh.c u { background: var(--a2); color: var(--a6); font-size: 11px; }
 
 /* ═══════════ LE CLASSEUR : bande + languettes + feuille = UN objet ═══════
    ⚠️ Une seule ombre, un seul rayon, un seul `overflow: hidden`. Trois
@@ -3142,7 +3133,6 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   white-space: nowrap;
 }
 .cl-rb:hover { background: rgba(255, 255, 255, .2); }
-.cl-rb i { opacity: .7; }
 .cl-rb b { font-weight: 700; color: #fff; }
 .cl-rb.amb {
   background: rgba(253, 230, 138, .16); border-color: rgba(253, 230, 138, .42);
@@ -3262,7 +3252,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    « mesuré 46 h le 12 oct. » était une ligne grise de plus sous chaque
    sortie. */
 .grav {
-  background: linear-gradient(100deg, var(--ard1), var(--ard2));
+  background: var(--nuit);
   border-radius: 13px; padding: 12px 17px; color: #fff;
   display: flex; align-items: center; gap: 14px 20px; flex-wrap: wrap;
 }
@@ -3301,42 +3291,42 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   white-space: nowrap;
 }
 .gb:hover { background: rgba(255, 255, 255, .22); }
-.gb i { opacity: .8; }
 .gb.prim {
   background: linear-gradient(160deg, var(--b6), var(--b8)); border-color: transparent;
 }
 .gb.prim:hover { background: linear-gradient(160deg, var(--b5), var(--b7)); }
 
+/* ═══════ LES BOUTONS : UN SEUL VOCABULAIRE ═════════════════════════
+   Trois formes cohabitaient sur le même écran : des PILULES à pastille ronde
+   (l'en-tête, les formulaires), des RECTANGLES arrondis à icône nue (la bande,
+   l'ardoise), et le bouton de retour. Une seule grammaire désormais, celle
+   déjà tranchée sur la page Temps : tout ce qui AGIT est une pilule, son
+   icône porte une pastille ronde dès qu'il y a un libellé, et le bouton est un
+   DISQUE quand il n'y en a pas (les flèches de navigation).
+   ⚠️ Les CRANS n'en sont pas. Ce sont les graduations d'une échelle, pas des
+   actions : ils gardent leur rectangle — une règle se lit, elle ne s'actionne
+   pas — et ne reçoivent d'ici que le soin, jamais la forme. */
+.ev-retour, .cl-rb, .gb {
+  border-radius: 999px; padding: 6px 15px 6px 6px; gap: 9px;
+  transition: background .14s ease, border-color .14s ease, box-shadow .14s ease;
+}
+.ev-retour > i, .cl-rb > i, .gb > i {
+  width: 26px; height: 26px; flex: none; border-radius: 50%; opacity: 1;
+  display: grid; place-items: center; font-size: 11.5px;
+  background: rgba(255, 255, 255, .17); color: #fff;
+}
+.cl-rb.amb > i { background: rgba(253, 230, 138, .26); color: #fff; }
+/* l'action pose une pastille PASTEL sur un fond vif — le rapport INVERSÉ du
+   réglage, qui pose une pastille vive sur un fond de verre. */
+.gb.prim > i { background: rgba(255, 255, 255, .26); }
+.gb.prim { box-shadow: 0 6px 16px -7px rgba(29, 78, 216, .75); }
+.gb.prim:hover { box-shadow: 0 9px 20px -7px rgba(29, 78, 216, .85); }
+
 /* ═══════ LA NOTATION — une seule piste, cinq marches ════════════════════
    Avant : deux échelles de cinq crans l'une sous l'autre, et la distinction
    portée par la seule couleur. Ici le niveau qui fait foi EST la piste, et ce
    qu'il dit de lui-même est un repère SUR cette piste. */
-.nota {
-  display: grid; grid-template-columns: minmax(0, 1fr) 332px; gap: 0 30px;
-  align-items: center;
-}
-.nota-g { min-width: 0; }
-.nota-k { display: flex; align-items: center; gap: 10px; margin: 0 0 15px; flex-wrap: wrap; }
-.nota-k .ecu {
-  width: 24px; height: 24px; border-radius: 7px; flex: none; display: grid; place-items: center;
-  background: linear-gradient(160deg, var(--b6), var(--b8)); color: #fff; font-size: 12px;
-}
-.nota-k .t {
-  font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase;
-  font-weight: 700; color: var(--ink-2);
-}
-.nota-k .vous {
-  font-size: 12px; font-weight: 600; color: var(--b8); background: var(--b2);
-  border-radius: 999px; padding: 3px 11px;
-}
-.nota-k .vous.non {
-  color: var(--muted); background: var(--card-2); border: 1px solid var(--border);
-}
-.nota-k .att {
-  margin-left: auto; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
-  font-weight: 700; color: var(--v9);
-}
-.nota.est-lue .nota-k .ecu { background: linear-gradient(160deg, #94a3b8, #475569); }
+.nota { display: flex; align-items: center; gap: 30px; flex-wrap: wrap; }
 
 /* ⚠️ La gomme vit HORS des crans : effacer n'est pas un niveau de plus, et la
    zone attendue ne doit pas l'englober — elle aurait l'air d'un sixième
@@ -3344,7 +3334,12 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 /* ⚠️ De la place des DEUX côtés : au-dessus la pastille du niveau choisi,
    en dessous le repère de l'auto-évaluation. Ce qui fait foi est au-dessus,
    ce qu'on se dit en dessous — on sait toujours lequel on lit. */
-.piste { display: flex; align-items: stretch; margin: 42px 0 26px; }
+.piste {
+  display: flex; align-items: stretch; margin: 42px 0 26px;
+  flex: 1 1 520px; max-width: 780px;
+}
+/* l'échelle 0 → 4 se range où elle sert : au bout de SA piste */
+.piste > .cv2-i { align-self: center; flex: none; margin-left: 11px; }
 .crans { position: relative; display: flex; gap: 11px; flex: 1; min-width: 0; }
 /* la zone attendue : une SURFACE, pas un trait — « la barre doit entrer dans
    le vert » se regarde, un filet de 2 px se cherche. */
@@ -3354,17 +3349,23 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 }
 .cran {
   position: relative; z-index: 1; flex: 1; min-width: 0; font: inherit; cursor: pointer;
-  height: 76px; border-radius: 13px; border: 1px solid var(--cl-f2);
+  height: 76px; border-radius: 14px; border: 1px solid var(--cl-f2);
   background: var(--card-2); color: #94a3b8;
   font-family: var(--pg-font-display); font-size: 31px; font-weight: 700; line-height: 1;
-  transition: background .16s, color .16s, border-color .16s;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75);
+  transition: background .16s, color .16s, border-color .16s,
+              box-shadow .16s, transform .16s;
 }
-.cran:hover { border-color: var(--b4); color: var(--b7); }
+.cran:hover { border-color: var(--b4); color: var(--b7); transform: translateY(-1px); }
 .cran.f {
   background: linear-gradient(160deg, var(--b5), var(--b8));
   border-color: transparent; color: #fff;
+  box-shadow: 0 9px 20px -11px rgba(29, 78, 216, .95);
 }
-.cran.f.v { background: linear-gradient(160deg, var(--v6), var(--v9)); }
+.cran.f.v {
+  background: linear-gradient(160deg, var(--v6), var(--v9));
+  box-shadow: 0 9px 20px -11px rgba(4, 120, 87, .95);
+}
 .cran.but { box-shadow: inset 0 0 0 2px var(--v6); }
 /* ⚠️ LA PASTILLE DU NIVEAU CHOISI, posée sur SON cran. Elle dit de quoi il
    s'agit sans qu'on aille lire le mot à l'autre bout de la ligne, et elle
@@ -3403,7 +3404,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .cran:hover::after { opacity: 1; transition-delay: .5s; }
 .cran:focus-visible::after { opacity: 1; }
 .gomme {
-  flex: none; width: 58px; height: 76px; border-radius: 13px; font: inherit; cursor: pointer;
+  flex: none; width: 58px; height: 76px; border-radius: 14px; font: inherit; cursor: pointer;
   background: var(--card); border: 1px dashed var(--cl-f2); color: #94a3b8; font-size: 15px;
   margin-left: 7px; position: relative; z-index: 1;
 }
@@ -3441,25 +3442,16 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   font-size: 12px; font-weight: 600; color: var(--muted);
 }
 
-/* la lecture, à droite : le niveau de CETTE sortie */
-.nota-d { border-left: 1px solid var(--border); padding-left: 28px; }
-.nota-d .k {
-  margin: 0; font-size: 12px; letter-spacing: .09em; text-transform: uppercase;
-  color: #94a3b8; font-weight: 700;
+/* ⚠️ Le verdict d'accord est TOUT ce qui restait de la colonne de droite.
+   Elle écrivait aussi le niveau en 52 px — une TROISIÈME fois, après la
+   languette et la bande. Lui parle de l'ÉCART entre les deux notes : il n'est
+   écrit nulle part ailleurs, et il se lit à côté de la piste qui les porte. */
+.nota-vd {
+  flex: 1 1 210px; min-width: 0; margin: 0;
+  font-size: 13.5px; line-height: 1.45; color: var(--muted);
 }
-.nota-d .n {
-  margin: 3px 0 0; font-family: var(--pg-font-display); font-size: 52px; font-weight: 700;
-  line-height: 1; color: var(--b8);
-}
-.nota-d .n.v { color: var(--v9); }
-.nota-d .n.a { color: var(--a5); }
-.nota-d .p { margin: 1px 0 0; font-size: 15px; font-weight: 600; color: var(--ink-2); }
-.nota-d .vd {
-  margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--border);
-  font-size: 13.5px; color: var(--muted);
-}
-.nota-d .vd:empty { display: none; }
-.nota-d .vd b, .nota-d .vd strong { color: var(--ink); }
+.nota-vd:empty { display: none; }
+.nota-vd b, .nota-vd strong { color: var(--ink); }
 
 /* ───────── La preuve ───────── */
 .ev-corps .preuve { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
@@ -3562,14 +3554,16 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    `body.pg` porte `zoom: .8` (ui-theme) et les requêtes média IGNORENT ce
    zoom. 1180 px écrits = 944 px réels. */
 @media (max-width: 1180px) {
-  .nota { grid-template-columns: minmax(0, 1fr); gap: 17px 0; }
-  .nota-d {
-    border-left: 0; border-top: 1px solid var(--border); padding: 15px 0 0;
-    display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap;
+  .nota { gap: 0; }
+  .piste { flex: 1 1 100%; max-width: none; }
+  .nota-vd {
+    flex: 1 1 100%; border-top: 1px solid var(--border);
+    margin-top: -8px; padding-top: 14px;
   }
-  .nota-d .n { font-size: 38px; margin: 0; }
-  .nota-d .vd { flex: 1 1 100%; margin-top: 4px; }
   .cl-h { flex-wrap: wrap; }
+  /* la navigation suit le niveau tenu : sur une ligne repliée, un filet à
+     gauche se retrouverait au milieu de rien. */
+  .cl-nav { border-left: 0; padding-left: 0; margin-left: auto; }
   .cl-niv {
     border-left: 0; padding-left: 0; text-align: left; min-width: 0;
     display: flex; align-items: baseline; gap: 6px 12px; flex-wrap: wrap;

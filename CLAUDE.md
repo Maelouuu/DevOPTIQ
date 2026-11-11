@@ -8174,12 +8174,99 @@ son cas sur le cache suivre. Éprouvé au banc dans les deux langues : zéro
 chevauchement de la pastille, zéro erreur console, zéro débordement, et les
 trois collaborateurs lus d'affilée sans rechargement.
 
+#### Le rail s'en va, les flèches arrivent — et trois surfaces de moins (2026-11-11)
+
+Cinq retouches sur le classeur livré le matin même, chacune mesurée avant
+d'être faite.
+
+**1 · L'ardoise porte le fond de l'EN-TÊTE.** Elle avait ses deux bleus à elle
+(`--ard1` / `--ard2`, un dégradé à 100°) quand l'en-tête d'identité en a trois
+à 118° : deux surfaces sombres de deux bleus différents sur le même écran se
+lisent comme un défaut d'impression. ⚠️ Ce sont DEUX déclarations — l'en-tête
+écrit son dégradé, l'ardoise lit le jeton `--nuit` — donc un cliquet compare
+les deux : sinon l'une changerait sans l'autre.
+
+**2 · Le RAIL des activités est remplacé par deux flèches sur la bande.** Une
+ligne de pastilles au-dessus du classeur, pour une liste qu'on parcourt une
+fois : une surface de plus pour un geste qu'on fait deux fois. On change
+d'activité là où on lit son nom, à droite du niveau tenu.
+
+- ⚠️ **Une flèche qui ne mène nulle part n'est pas un bouton** : la gauche
+  n'existe que passé la première activité, la droite que tant qu'il en reste
+  une. Et sous deux activités, pas de navigation du tout.
+- ⚠️ Le compte **« 2 / 6 »** entre les deux remplace le « 6 activités » que
+  portait le rail : sans lui, rien ne dirait qu'il y en a d'autres.
+- ⚠️ L'info-bulle de chaque flèche **nomme l'activité visée** : une flèche nue
+  ne dit même pas comment s'appelle celle d'à côté.
+- ⚠️ **Le classeur GLISSE** — le sortant s'efface, le neuf entre du côté d'où
+  l'on vient. Sans mouvement, changer d'activité se lit comme un rechargement
+  de page. On ne passe donc PAS par l'attente : `showBusy` remplacerait le
+  classeur par une roue, ce qui couperait le glissé. Et un échec réseau rend
+  le classeur tel qu'il était, plutôt qu'un écran à moitié sorti.
+- ⚠️ La classe d'animation est retirée à `animationend` : un
+  `animation-fill-mode: both` laisse son `transform` appliqué, et un élément
+  transformé devient le repère des descendants `position: fixed` — le piège
+  déjà payé sur la fiche d'examen de l'éditeur.
+- ⚠️ **Les quatre tuiles de filtre sont parties avec le rail** : un filtre qui
+  n'a plus de liste à filtrer ne filtre rien. Le bandeau de situation de la
+  VUE D'ENSEMBLE (`renderBilan`) n'est pas touché — c'est un autre écran, et
+  il garde ses quatre tuiles.
+
+**3 · `nota-k` et `nota-d` sont supprimés.** Le premier annonçait le régime
+(« Le niveau vient de la mesure · rien à poser ») et redisait l'attendu, que
+la zone verte de la piste DESSINE ; le second écrivait le niveau en 52 px —
+une TROISIÈME fois, après la languette et la bande. Ne reste que ce qui n'est
+écrit nulle part ailleurs : la piste, et **le verdict d'accord**, qui parle de
+l'ÉCART entre les deux notes et se lit à côté d'elles. Sept clés quittent le
+catalogue (`nota_foi`, `nota_mes`, `nota_vous`, `nota_vous_auto`, `nota_rien`,
+`nota_att`, `nota_cette`).
+
+- ⚠️ **L'échelle 0 → 4 se range au bout de SA piste** : son explication vivait
+  dans l'en-tête parti. C'est le motif de la maison — une phrase passe derrière
+  un « i », elle ne disparaît pas.
+- ⚠️ **La piste est BORNÉE** (780 px) : cinq crans étalés sur les 1 700 px de
+  la feuille ne sont plus une échelle, ce sont cinq panneaux.
+
+**4 · Un seul vocabulaire de boutons.** Trois formes cohabitaient sur le même
+écran : des PILULES à pastille ronde (l'en-tête, les formulaires), des
+RECTANGLES arrondis à icône nue (la bande, l'ardoise), et le bouton de retour,
+qui dessinait son chevron en SVG — il ne pouvait donc pas recevoir la pastille
+des autres. Une seule grammaire désormais, celle déjà tranchée sur la page
+Temps : **tout ce qui AGIT est une pilule**, son icône porte une pastille ronde
+dès qu'il y a un libellé, et le bouton EST un disque quand il n'y en a pas (les
+flèches de navigation).
+⚠️ **Les CRANS n'en sont pas.** Ce sont les graduations d'une échelle, pas des
+actions : ils gardent leur rectangle — une règle se lit, elle ne s'actionne pas
+— et ne reçoivent du vocabulaire commun que le SOIN (relief, ombre colorée sous
+la marche qui porte le niveau, légère levée au survol), jamais la forme.
+
+**5 · Et la bulle d'un « i » se posait SUR son propre bouton.** Mesuré au banc :
+son bas tombait **18 px sous le haut du « i »** (31 px pour celui du niveau
+tenu), c'est-à-dire par-dessus ce qu'elle explique. ⚠️
+`getBoundingClientRect()` rend DÉJÀ des pixels d'écran — le `zoom: .8` du corps
+y est appliqué ; seules les coordonnées qu'on ÉCRIT repassent par lui.
+`brancherInfo` multipliait pourtant la hauteur par le zoom avant de la
+soustraire. **C'est exactement le correctif appliqué à la page Temps le 08/11,
+resté à faire ici — alors que c'est d'ICI que le motif y avait été recopié.**
+Mesuré après : 8 px au-dessus et zéro chevauchement, des deux côtés.
+
+Tests : `tests/test_140_classeur_evaluation.py` passe à **65 cas**, plus un cas
+réécrit dans `test_109` ; **21 défauts remis un par un, 21 cliquets tombés**.
+Éprouvé au banc (`tools/devrun_competences.py`) à 1280 et 1600 px dans les deux
+langues : les deux régimes de sortie, les flèches dans les deux sens, le
+glissé, et l'enregistrement **relu après rechargement** (niveau 2 reposé,
+retrouvé) — zéro erreur console, zéro débordement horizontal, zéro fuite
+française sur l'écran anglais.
+
 **Reste à faire** : 73 clés de catalogue ne sont plus lues (quatre sont
 parties le 11/11 au soir avec les libellés qu elles portaient ; dont une
 cinquantaine orphelines depuis cette refonte — `ax_*`, `fi_*`, `n_*`,
 `ev_col_*`). Elles ne coûtent rien à l'exécution et une clé retirée à tort
 s'affiche TELLE QUELLE à l'écran sans rien lever : le ménage se fait à part,
-en vérifiant qu'aucune n'est construite par concaténation.
+en vérifiant qu'aucune n'est construite par concaténation. Les sept clés
+`nota_*` du bloc supprimé ci-dessus, elles, ont quitté le catalogue avec lui —
+une clé qu'on retire en même temps que son seul lecteur ne laisse rien
+derrière elle.
 
 ---
 

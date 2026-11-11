@@ -41,6 +41,8 @@
       cl_reste_1: '1 reste à noter',
       cl_reste_n: '[[n]] restent à noter',
       cl_courbes: 'Les courbes',
+      cl_prec: 'Activité précédente',
+      cl_suiv: 'Activité suivante',
       cl_seance: 'Séance',
       cl_mes: 'mesurée',
       cl_main: 'jugée à la main',
@@ -51,13 +53,6 @@
       cl_tech_ecart_1: '1 en écart',
       cl_tech_ecart_n: '[[n]] en écart',
       grv_mesure: 'mesuré [[x]]',
-      nota_foi: 'Le niveau qui fait foi',
-      nota_mes: 'Le niveau vient de la mesure',
-      nota_vous: 'vous le posez',
-      nota_vous_auto: 'vous posez votre auto-évaluation',
-      nota_rien: 'rien à poser',
-      nota_att: 'Attendu [[n]]',
-      nota_cette: 'Cette sortie',
       nota_zero: 'Non évalué n’est pas zéro : [[b]]zéro se pose[[/b]], et il veut dire « non démontré ».',
       nota_mes_ko: 'La norme n’est pas encore atteinte : c’est la mesure qui fera monter le niveau.',
       pr_k: 'La preuve',
@@ -440,6 +435,8 @@
       cl_reste_1: '1 still to rate',
       cl_reste_n: '[[n]] still to rate',
       cl_courbes: 'The curves',
+      cl_prec: 'Previous activity',
+      cl_suiv: 'Next activity',
       cl_seance: 'Session',
       cl_mes: 'measured',
       cl_main: 'rated by hand',
@@ -450,13 +447,6 @@
       cl_tech_ecart_1: '1 short',
       cl_tech_ecart_n: '[[n]] short',
       grv_mesure: 'measured [[x]]',
-      nota_foi: 'The level that counts',
-      nota_mes: 'The level comes from the measurement',
-      nota_vous: 'you set it',
-      nota_vous_auto: 'you set your self-assessment',
-      nota_rien: 'nothing to set',
-      nota_att: 'Target [[n]]',
-      nota_cette: 'This output',
       nota_zero: 'Not assessed is not zero: [[b]]zero is set[[/b]], and it means “not demonstrated”.',
       nota_mes_ko: 'The standard is not met yet: the measurement is what raises the level.',
       pr_k: 'Evidence',
@@ -1095,7 +1085,7 @@
 
   function renderDashboard(d, reutiliser) {
     if (!reutiliser) state.rows = (d && d.activities) || [];
-    if (state.ecran === 'eval' && $('#ev-rail')) remplirActivites();
+    if (state.ecran === 'eval') majNav();
   }
 
 
@@ -1515,9 +1505,15 @@
       // défilement, une carte posée dedans serait tronquée.
       const r = bouton.getBoundingClientRect(), b = carte.getBoundingClientRect();
       const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
-      const large = b.width * z;
-      carte.style.left = Math.max(8, Math.min(r.left, window.innerWidth - large - 8)) / z + 'px';
-      const dessus = r.top - b.height * z - 8;
+      // ⚠️⚠️ `getBoundingClientRect()` rend DÉJÀ des pixels d'écran — le zoom
+      // y est appliqué. Seules les coordonnées qu'on ÉCRIT repassent par lui :
+      // on divise à l'écriture, et on ne multiplie NULLE PART. Mesuré avant
+      // correction : la bulle se posait SUR son propre bouton, son bas 18 px
+      // sous le haut du « i » — exactement sa hauteur fois (1 − zoom), moins
+      // les 8 px voulus. Même correctif que la page Temps (08/11), resté à
+      // faire ici : c'est pourtant d'ICI que le motif y avait été recopié.
+      carte.style.left = Math.max(8, Math.min(r.left, window.innerWidth - b.width - 8)) / z + 'px';
+      const dessus = r.top - b.height - 8;
       carte.style.top = (dessus > 8 ? dessus : r.bottom + 8) / z + 'px';
     };
     bouton.addEventListener('mouseenter', ouvrir);
@@ -1832,25 +1828,15 @@
 
     const z = document.createElement('div');
     z.className = 'nota' + (mien ? '' : ' est-lue');
-    z.innerHTML = `
-      <div class="nota-g">
-        <p class="nota-k">
-          <span class="ecu"><i class="fa-solid fa-shield-halved"></i></span>
-          <span class="t">${esc(mien || !dev ? T('nota_foi') : T('nota_mes'))}</span>
-          <span class="vous${mien ? '' : ' non'}">${esc(mien
-            ? (dev ? T('nota_vous') : T('nota_vous_auto')) : T('nota_rien'))}</span>
-          ${req === null ? '' : `<span class="att">${esc(Tv('nota_att', { n: req }))}</span>`}
-          <span data-echelle></span>
-        </p>
-        ${piste(off, req, soi, !mien)}
-      </div>
-      <div class="nota-d">
-        <p class="k">${esc(T('nota_cette'))}</p>
-        <p class="n" data-gros></p>
-        <p class="p" data-mot></p>
-        <p class="vd" data-vd></p>
-      </div>`;
-    z.querySelector('[data-echelle]').appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
+    // ⚠️ DEUX blocs sont partis d'ici. `nota-k` annonçait le régime et
+    // redisait l'attendu, que la zone verte de la piste DESSINE. `nota-d`
+    // écrivait le niveau en 52 px — une TROISIÈME fois : il est déjà sur la
+    // languette, et en 50 px sur la bande. Ne reste que ce qui n'est écrit
+    // nulle part ailleurs : la piste, et le verdict d'accord entre les deux
+    // notes — qui parle de l'ÉCART, donc des deux.
+    z.innerHTML = piste(off, req, soi, !mien) + '<p class="nota-vd" data-vd></p>';
+    // L'échelle 0 → 4 se range où elle sert : au bout de SA piste.
+    z.querySelector('.piste').appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
     z.querySelectorAll('.cran, .gomme').forEach(b => {
       if (!mien) return;
       b.onclick = () => poserNote(r, b.dataset.lv === '' ? null : +b.dataset.lv, st);
@@ -1891,12 +1877,6 @@
     s.classList.toggle('est-off', estNul(soi));
     s.style.setProperty('--x', (estNul(soi) ? 0 : soi * 20 + 10) + '%');
     s.dataset.nom = (dev ? T('ax_se_dit') : T('ax_je_me_dis')) + ' ' + (estNul(soi) ? '' : soi);
-
-    const fam = estNul(off) ? 'a' : (req !== null && off >= req ? 'v' : '');
-    const gros = z.querySelector('[data-gros]');
-    gros.className = 'n' + (fam ? ' ' + fam : '');
-    gros.textContent = estNul(off) ? '—' : String(off);
-    z.querySelector('[data-mot]').textContent = estNul(off) ? T('not_assessed') : levelName(off);
 
     // Le verdict : l'écart entre les deux notes quand les deux existent,
     // sinon ce que la situation appelle.
@@ -2025,9 +2005,10 @@
       renderDashboard(d);
       const row = d.activities.find(a => a.activity_id === (state.activity || {}).activity_id);
       if (row) state.activity = row;
-      // La colonne de gauche de la page porte les niveaux : trancher un
-      // palier sans la rafraîchir laisserait l'ancien juste à côté du neuf.
-      if (state.ecran === 'eval' && $('#ev-rail')) remplirActivites();
+      // Les fleches de la bande se lisent sur `state.rows` : trancher un
+      // palier change le niveau de l'activite, et l'info-bulle d'une fleche
+      // nomme celle d'a cote.
+      if (state.ecran === 'eval') majNav();
     }
   }
 
@@ -4129,17 +4110,31 @@
     return Tv(k, { n: n, t: u });
   }
 
-  async function ouvrirEvaluation(row) {
+  // ⚠️ `sens` : +1 pour l'activite suivante, −1 pour la precedente. Les
+  // fleches de la bande ont remplace le rail, et passer d'une activite a
+  // l'autre sans mouvement se lit comme un rechargement de page. On ne passe
+  // donc pas par l'attente — `showBusy` remplacerait le classeur par une
+  // roue, ce qui couperait le glisse : le sortant s'efface, le neuf entre.
+  async function ouvrirEvaluation(row, sens) {
     state.activity = row;
     montrerEcran('eval');
-    showBusy(null, '#cv2-ecran-eval');
+    state.glisse = sens || 0;
+    const sortant = state.glisse ? $('#ev-cl') : null;
+    if (sortant) sortant.classList.add(state.glisse > 0 ? 'est-sort-d' : 'est-sort-g');
+    else showBusy(null, '#cv2-ecran-eval');
     // ⚠️ UN SEUL appel. Le relief se dessine depuis les paliers que
     // `/mastery/activity` porte déjà (cible, mesure, date, échéance) :
     // `/paliers/historique` n'en rendait qu'un sous-ensemble, et une requête
     // dont personne ne lit la réponse est du temps pris à l'ouverture.
     const st = await api(
       `/mastery/activity/${state.cible}/${row.activity_id}?role_id=${state.roleId}`);
-    if (st.__error) return;
+    if (st.__error) {
+      // ⚠️ Un echec reseau ne doit pas laisser le classeur efface : on le
+      // rend tel qu'il etait plutot qu'un ecran a moitie sorti.
+      if (sortant) sortant.classList.remove('est-sort-d', 'est-sort-g');
+      state.glisse = 0;
+      return;
+    }
     state.lastState = st;
     renderEval(st);
   }
@@ -4148,14 +4143,11 @@
     const z = $('#cv2-ecran-eval');
     const dev = jeSuisLeDev();
     const nAct = state.rows.length;
-    const nEval = state.rows.filter(a => !estNul(a.demonstrated_level)).length;
     z.innerHTML = `
       <header class="ev-tete">
         <div class="ev-tete-in">
           <button type="button" class="ev-retour" data-retour>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
-            ${esc(state.roleName || T('ev_retour_role'))}</button>
+            <i class="fa-solid fa-chevron-left"></i>${esc(state.roleName || T('ev_retour_role'))}</button>
           <span class="ev-sep"></span>
           <span class="ev-av">${esc(initials(...String(state.cibleNom).split(' ')))}</span>
           <div class="ev-qui">
@@ -4179,7 +4171,6 @@
       </header>
 
       <div class="ev-corps">
-        <div class="ev-rail" id="ev-rail"></div>
         <div class="cl" id="ev-cl">
           <div class="cl-bande">
             <div class="cl-h" id="ev-cl-h"></div>
@@ -4195,12 +4186,16 @@
     const bp = z.querySelector('[data-plan]');
     if (bp) bp.onclick = () => ouvrirPlan();
 
-    remplirActivites();
     remplirClasseur(st);
     // La technicité ne retient pas l'écran : elle remplit sa pastille quand
     // elle arrive. Elle vivait dans une colonne, elle est un réglage.
     chargerTech();
-    z.scrollIntoView({ block: 'start' });
+    // Le classeur neuf entre du cote d'ou l'on vient. On ne remonte la page
+    // que si l'on ARRIVE sur l'ecran : en changeant d'activite on est deja
+    // dessus, et la faire sauter effacerait le glisse.
+    glisserEntree();
+    if (!state.glisse) z.scrollIntoView({ block: 'start' });
+    state.glisse = 0;
   }
 
   function niveauRole() {
@@ -4210,52 +4205,58 @@
     return m + ' · ' + levelName(m);
   }
 
-  // ⚠️ Les activités du rôle étaient une COLONNE de cartes : 218 px pris à la
-  // largeur de ce qu'on vient lire, pour une liste qu'on parcourt une fois.
-  // Des pastilles posées sur le papier, en une ligne — pas une carte : un
-  // contour autour de six boutons, c'était un contour pour rien.
-  function remplirActivites() {
-    const z = $('#ev-rail'); if (!z) return;
-    z.innerHTML = `<span class="k">${esc(nf('ev_nb_act', state.rows.length))}</span>
-      <div class="ev-rail-l" id="ev-rail-l"></div>
-      <div class="ev-rail-f" id="ev-rail-f"></div>`;
-    const l = $('#ev-rail-l');
-    const vues = state.filtre
-      ? state.rows.filter(a => categorie(a) === state.filtre) : state.rows;
-    if (!vues.length) l.innerHTML = `<p class="pal-vide">${esc(T('no_match'))}</p>`;
-    vues.forEach(a => {
-      const cat = categorie(a);
-      const ouverte = a.activity_id === (state.activity || {}).activity_id;
-      const niv = estNul(a.demonstrated_level) ? null : a.demonstrated_level;
-      const el = document.createElement('button');
-      el.type = 'button';
-      el.className = 'rh' + (ouverte ? ' on' : '')
-        + (cat === 'setup' ? ' c' : (niv === null ? ' x'
-          : (!estNul(a.required_level) && niv >= a.required_level ? ' v' : '')));
-      el.innerHTML = `<u>${cat === 'setup'
-        ? '<i class="fa-solid fa-sliders"></i>' : (niv === null ? '—' : niv)}</u>`
-        + `<span>${esc(a.activity_name)}</span>`;
-      el.onclick = () => { if (!ouverte) ouvrirEvaluation(a); };
-      l.appendChild(el);
-    });
-    rendreFiltres();
+  // ── LA NAVIGATION : une fleche de chaque cote, sur la bande ──────────
+  // ⚠️ Le RAIL des activites est parti : une ligne de pastilles au-dessus du
+  // classeur, pour une liste qu'on parcourt une fois — une surface de plus
+  // pour un geste qu'on fait deux fois. On passe d'une activite a l'autre la
+  // ou on lit son nom, a cote du niveau tenu.
+  // ⚠️ Et ses quatre tuiles de filtre sont parties avec lui : un filtre qui
+  // n'a plus de liste a filtrer ne filtre rien. Le bandeau de situation de la
+  // VUE D'ENSEMBLE (`renderBilan`) n'est pas touche — c'est un autre ecran.
+  // ⚠️ La fleche gauche n'existe que passe la premiere, la droite que tant
+  // qu'il en reste une : un bouton qui ne mene nulle part n'est pas un
+  // bouton. Le compte « 2 / 5 » dit ou l'on est — sans lui, rien ne dirait
+  // qu'il y en a d'autres.
+  function indexActivite() {
+    const id = (state.activity || {}).activity_id;
+    return state.rows.findIndex(a => a.activity_id === id);
   }
 
-  function rendreFiltres() {
-    const z = $('#ev-rail-f'); if (!z) return;
-    const compte = { held: 0, gap: 0, todo: 0, setup: 0 };
-    state.rows.forEach(a => { compte[categorie(a)] += 1; });
-    const tuiles = [['gap', T('b_gap'), 'orange'],
-                    ['todo', T('b_todo'), 'blue'], ['setup', T('b_setup'), 'grey']];
-    z.innerHTML = tuiles.filter(([c]) => compte[c] || state.filtre === c)
-      .map(([c, lbl, teinte]) => `<button type="button"
-          class="ev-f ev-f--${teinte}${state.filtre === c ? ' is-on' : ''}"
-          data-f="${c}" title="${esc(state.filtre === c ? T('filter_off') : lbl)}">
-          <span class="n">${compte[c]}</span><span class="k">${esc(lbl)}</span></button>`).join('');
-    z.querySelectorAll('[data-f]').forEach(b => b.onclick = () => {
-      state.filtre = state.filtre === b.dataset.f ? null : b.dataset.f;
-      remplirActivites();
-    });
+  function majNav() {
+    const z = $('#ev-nav'); if (!z) return;
+    const i = indexActivite(), n = state.rows.length;
+    z.innerHTML = '';
+    // Une seule activite : il n'y a nulle part ou aller.
+    z.classList.toggle('hidden', i < 0 || n < 2);
+    if (i < 0 || n < 2) return;
+    const fleche = (sens, cible) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cl-nav-b'; b.dataset.sens = String(sens);
+      // ⚠️ L'info-bulle dit OU l'on va : une fleche nue ne dit meme pas
+      // comment s'appelle l'activite d'a cote.
+      const lbl = T(sens > 0 ? 'cl_suiv' : 'cl_prec') + ' · ' + cible.activity_name;
+      b.title = lbl; b.setAttribute('aria-label', lbl);
+      b.innerHTML = `<i class="fa-solid fa-chevron-${sens > 0 ? 'right' : 'left'}"></i>`;
+      b.onclick = () => ouvrirEvaluation(cible, sens);
+      return b;
+    };
+    if (i > 0) z.appendChild(fleche(-1, state.rows[i - 1]));
+    const p = document.createElement('span');
+    p.className = 'cl-nav-p'; p.textContent = (i + 1) + ' / ' + n;
+    z.appendChild(p);
+    if (i < n - 1) z.appendChild(fleche(1, state.rows[i + 1]));
+  }
+
+  // ⚠️ La classe est retiree a la fin de l'animation : un
+  // `animation-fill-mode: both` laisse son `transform` applique, et un element
+  // transforme devient le repere des descendants `position: fixed` — le piege
+  // deja paye sur la fiche d'examen de l'editeur.
+  function glisserEntree() {
+    if (!state.glisse) return;
+    const cl = $('#ev-cl'); if (!cl) return;
+    const c = state.glisse > 0 ? 'est-ent-d' : 'est-ent-g';
+    cl.classList.add(c);
+    cl.addEventListener('animationend', () => cl.classList.remove(c), { once: true });
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -4512,7 +4513,8 @@
           ? `<span class="n mot">${esc(T('not_assessed'))}</span>`
           : `<span class="n">${niv}</span>`}
         <span class="m"></span>
-      </div>`;
+      </div>
+      <div class="cl-nav" id="ev-nav"></div>`;
     // ⚠️ `.m` porte un `<b>` : il se construit en HTML, pas en textContent.
     h.querySelector('.cl-niv .m').innerHTML =
       reste ? `<b>${esc(nf('cl_reste', reste))}</b>` : '';
@@ -4538,6 +4540,7 @@
         .onclick = () => ouvrirCalendrier();
     }
     majChipTech();
+    majNav();
   }
 
   // ── LES LANGUETTES ───────────────────────────────────────────────────
@@ -4905,9 +4908,7 @@
       <header class="sq-tete">
         <div class="sq-tete-in">
           <button type="button" class="ev-retour" data-cal>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
-            ${esc(T('ses_cal'))}</button>
+            <i class="fa-solid fa-chevron-left"></i>${esc(T('ses_cal'))}</button>
           <div class="sq-quand">
             <p class="k">${esc(T('sq_titre'))}</p>
             <p class="v">${esc(fmtDate(s.date_prevue))}</p>
@@ -5087,9 +5088,7 @@
   function enteteSombre(retour, bloc, droite) {
     return `<div class="ev-tete-in">
         <button type="button" class="ev-retour" data-retour>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
-          ${esc(retour)}</button>
+          <i class="fa-solid fa-chevron-left"></i>${esc(retour)}</button>
         <span class="ev-sep"></span>
         ${bloc}
         <span class="ev-pousse"></span>

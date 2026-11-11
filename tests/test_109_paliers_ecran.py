@@ -1025,15 +1025,15 @@ class TestLeNiveauAttenduQuitteLEvaluation:
 
 class TestLesDeuxColonnesSeDistinguent:
 
-    def test_le_rail_dit_combien_d_activites_et_la_bande_laquelle(self):
-        """⚠️ Les deux colonnes numérotées ont disparu avec elles : le rail
-        des activités est une LIGNE de pastilles posée sur le papier, et c'est
-        la bande du classeur qui nomme celle qu'on regarde."""
+    def test_la_bande_nomme_l_activite_et_dit_combien_il_y_en_a(self):
+        """⚠️ Les deux colonnes numérotées ont disparu avec la refonte, puis
+        le RAIL des activités avec les flèches : c'est la bande du classeur
+        qui nomme celle qu'on regarde, et sa navigation qui dit « 2 / 6 » — le
+        seul endroit où le nombre d'activités se lit sur cet écran."""
         js = _lire(JS)
-        rail = _corps(js, "  function remplirActivites() {")
-        assert "nf('ev_nb_act', state.rows.length)" in rail
-        assert "$('#ev-rail-l')" in rail and "class=\"rh\"" not in rail
-        assert "el.className = 'rh'" in rail
+        assert "function remplirActivites" not in js
+        nav = _corps(js, "  function majNav() {")
+        assert "(i + 1) + ' / ' + n" in nav
         bande = _corps(js, "  function bandeClasseur(st) {")
         assert "state.activity.activity_name" in bande
         assert "T('cl_tenu')" in bande
