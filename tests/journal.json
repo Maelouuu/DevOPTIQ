@@ -2,21 +2,21 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "21/09/2026",
+    "updated_at": "11/11/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
-        "progress": 95,
-        "note": "Couverture par routes quasi complète ; passage à une mesure fine par lignes (coverage.py) qui révèle les branches d erreur DB et cas limites encore non exercés. 8 fichiers passés a 97-100% ce run."
+        "progress": 96,
+        "note": "Couverture par lignes : 92 % sur Code/. Ce run : bienvenue 97 %, propositions_activite et role_i18n 100 %. Restent surtout test_panel.py et app.py."
       },
       {
         "id": "green",
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
-        "progress": 98,
-        "note": "Correction continue des tests défaillants à chaque run."
+        "progress": 100,
+        "note": "Suite complète verte : 4049 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
@@ -49,6 +49,24 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-11-11T03:25:03",
+      "date": "11/11/2026 · 03:25",
+      "author": "routine",
+      "title": "Modules transverses : bienvenue, propositions d activité, noms de rôles",
+      "summary": "Suite déjà entièrement verte au départ : tout le temps est allé à la couverture. 62 nouveaux tests sur trois modules partagés par toute l application.",
+      "new_tests": 62,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "modules_residuels",
+      "highlights": [
+        "Fenêtre de bienvenue : chaque source en panne (nouveautés, files, tables) laisse la page intacte — couverture 77 % → 97 %",
+        "Propositions d activité : lecture des gestes et rejeu tout-ou-rien couverts à 100 %",
+        "Traduction des noms de rôles : avec et sans IA, couverte à 100 %",
+        "Suite complète : 4049 réussis, 0 échec ; couverture globale 91 % → 92 %"
+      ],
+      "next": "Poursuivre sur le panel de tests (83 %) et app.py (81 %)."
+    },
     {
       "at": "2026-09-21T03:24:25",
       "date": "21/09/2026 · 03:24",
