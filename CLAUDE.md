@@ -8270,6 +8270,76 @@ derrière elle.
 
 ---
 
+### Le report sur le pilote SANS la page Compétences (2026-11-11)
+
+« Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime
+qu'elle a encore besoin de travail pour être au niveau de ce que j'attends. »
+91 commits de retard rattrapés, **un seul écran retenu**.
+
+⚠️ **`deploy-beta.yml` n'est plus propre au pilote** : staging le porte à
+l'identique. La recette du 17/09 (« l'arbre de staging + ce fichier ») se
+simplifie donc en **l'arbre de staging, et rien d'autre** — vérifié, aucun
+fichier n'existe chez le pilote qui manque à staging
+(`git diff --diff-filter=D` ne rend rien).
+
+**L'écran Compétences tient en TROIS fichiers**, et c'est tout ce qui est gelé
+à la version du pilote : `Code/routes/templates/competences_view.html`,
+`static/competences.css`, `static/js/competences_v2.js` (5 500 lignes ajoutées,
+541 retirées entre les deux versions).
+
+⚠️⚠️ **Le BACKEND Compétences, lui, part en ENTIER — il n'y a pas le choix, et
+c'est mesuré.** `Code/competences_globales.py`, qui alimente le tableau de la
+page RH, importe `output_ids_en_bloc` de `qualify_outputs` et cinq symboles de
+`mastery` ; `historique_notes.py`, appelé au DÉMARRAGE par `app.py`, importe
+`get_activity_outputs` et les aides de `paliers` ; et `paliers_routes.py`
+appelle `peut_lire(..., role_id=)` / `peut_noter(..., role_id=)`, signatures qui
+n'existent que dans la version neuve de `competences_acces.py`. Reculer un seul
+de ces fichiers casse la page RH ou le démarrage. Et il y aurait un prix :
+`competences_acces` porte le correctif du **développeur par rôle** (un
+développeur de 2 rôles sur 4 pouvait NOTER les 4), et `mastery` deux routes qui
+n'avaient **aucun contrôle d'accès** (`/mastery/activity`, `/mastery/required`)
+— on ne livre pas sciemment trois trous à un client pour geler un écran.
+
+⚠️ **Conséquence VISIBLE sur l'ancien écran, et il faut la dire** :
+`activity_mastery` ne filtre plus sur `semantic_nature == "RESULT"` (toute
+sortie est évaluable). L'ancien écran en tire son état « À configurer »
+(`if (!a.n_results) return 'setup'`), et c'est sa SEULE porte vers la fenêtre de
+qualification : elle devient inatteignable chez le pilote. Rien n'est perdu —
+depuis le 10/11, ce que l'entreprise attend d'une sortie se lit dans la colonne
+**Performance** de la liste des activités, que le pilote édite toujours ; c'est
+l'ancien écran qui ne sait pas l'afficher.
+
+⚠️ **La NOTATION, elle, marche — vérifié, pas supposé** : l'ancien écran envoie
+déjà `role_id` à `/mastery/evaluate` (que la version neuve exige), et
+`mesurable(d)` réclame `d.norme_valeur`, que rien n'écrit sans le nouvel écran
+— aucune sortie n'est donc « mesurée » chez eux et le refus `measured_output`
+ne se déclenche pas.
+
+⚠️ Et `translations.py` ne retire **aucune** clé Compétences (ses 41 retraits
+sont `time.*`, `droit.*`, `acttime.*`) : le catalogue de cette page vit DANS
+`competences_v2.js` (`I18N`, `T = k => I18N[LANG][k] || k`), donc l'écran gelé
+emporte le sien.
+
+**Les tests : une garde de saut qui est un PRÉDICAT SUR LE FICHIER.**
+Trois fichiers lisent cet écran et rougissaient — mesuré, **158 rouges**. Le
+saut vaut `"cv2-ecran-eval" in competences_v2.js`, jamais un drapeau de branche :
+
+- `test_109_paliers_ecran` et `test_140_classeur_evaluation` sautent en entier.
+  Leurs rouges se répartissent sur **26 et 15 classes** : un saut par classe
+  serait 41 retouches. ⚠️ Le MOTEUR des paliers reste tenu par `test_108`, qui
+  ne lit aucun gabarit et tourne partout ;
+- `test_130_retours_du_pilote` saute **deux classes seulement**
+  (`TestLesCartesDeRoleDuBas`, `TestLaNormeVientDeLaListeDesActivites`) : ses
+  55 autres cas gardent des correctifs qui, eux, partent.
+
+⚠️ **Il ne saute JAMAIS sur staging**, et c'est vérifié dans les deux sens :
+**295 passés / 0 sauté** avec l'écran neuf, **85 passés / 210 sautés / 0 rouge**
+avec l'écran gelé. L'arbre du pilote reste donc celui de staging aux trois
+fichiers près, et le jour où l'écran part le saut s'éteint de lui-même :
+**rien à défaire au prochain report**.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

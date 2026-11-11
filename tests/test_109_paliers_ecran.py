@@ -37,6 +37,19 @@ def _lire(p):
     return io.open(p, encoding="utf-8").read()
 
 
+# ⚠️ Tout ce fichier lit l'ÉCRAN d'évaluation refondu (14/10 → 11/11). Le pilote
+# ARaymond tourne encore sur l'écran d'avant : la page Compétences est la SEULE
+# chose que le report lui a laissée de côté, le temps qu'elle soit au niveau.
+# Un contrôle qui rougit toujours n'est plus lu — celui-ci se rallume tout seul
+# le jour où l'écran arrive, sans rien à défaire.
+# ⚠️ Le MOTEUR des paliers, lui, est tenu par test_108, qui ne lit aucun
+# gabarit : il tourne partout.
+ECRAN_REFONDU = "cv2-ecran-eval" in _lire(JS)
+pytestmark = pytest.mark.skipif(
+    not ECRAN_REFONDU,
+    reason="l'écran d'évaluation refondu n'est pas dans cet arbre")
+
+
 def _corps(js, entete):
     """Le corps d'une fonction, borné à sa fermeture."""
     return js.split(entete, 1)[1].split("\n  }", 1)[0]

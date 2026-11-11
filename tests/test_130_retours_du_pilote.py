@@ -23,6 +23,16 @@ def _lire(rel):
     return io.open(os.path.join(RACINE, *rel.split("/")), encoding="utf-8").read()
 
 
+# ⚠️ Deux classes de ce fichier lisent l'ÉCRAN d'évaluation refondu, que le
+# report a laissé de côté chez le pilote (la page Compétences demande encore du
+# travail). Les autres cas gardent des correctifs qui, eux, partent : le saut
+# est donc posé sur CES DEUX CLASSES, jamais sur le fichier.
+ECRAN_REFONDU = "cv2-ecran-eval" in _lire("static/js/competences_v2.js")
+SAUT_ECRAN = pytest.mark.skipif(
+    not ECRAN_REFONDU,
+    reason="l'écran d'évaluation refondu n'est pas dans cet arbre")
+
+
 # ════════════════════════════════════════════════════════════════════════
 #  Les unités de durée
 # ════════════════════════════════════════════════════════════════════════
@@ -449,6 +459,7 @@ class TestLaFaiblesse:
 # ════════════════════════════════════════════════════════════════════════
 #  Page Compétences — les cartes du bas
 # ════════════════════════════════════════════════════════════════════════
+@SAUT_ECRAN
 class TestLesCartesDeRoleDuBas:
     """Elles REDISAIENT la liste « par rôle » posée à côté du radar : même
     liste, même ordre, même geste. Les compteurs et le bouton du plan qu'elles
@@ -486,6 +497,7 @@ class TestLesCartesDeRoleDuBas:
 # ════════════════════════════════════════════════════════════════════════
 #  Page Compétences — la norme vient de la liste des activités
 # ════════════════════════════════════════════════════════════════════════
+@SAUT_ECRAN
 class TestLaNormeVientDeLaListeDesActivites:
     """« Enlever la définition de la norme quand elles ne sont pas encore
     notées. La norme de l'entreprise est récupérée par ce que l'on a noté dans
