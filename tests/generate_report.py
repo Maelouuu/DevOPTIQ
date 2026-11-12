@@ -28,6 +28,7 @@ PAGE_LABELS = {
     "test_136_rh_dev_scope_gaps": "Gestion RH — Suivi développeur & accès cartos (erreurs)",
     "test_138_couverture_residuelle": "Couverture résiduelle (rendu tâches, outils, réglages)",
     "test_141_modules_residuels": "Modules transverses — Bienvenue, propositions d'activité, noms de rôles",
+    "test_142_modules_utilitaires": "Modules utilitaires (console, IA, prompts, accès, porte, paliers)",
     "test_13_competences":      "Compétences & Évaluations",
     "test_118_competences_gaps": "Compétences — Évaluations d'activité & synthèses",
     "test_125_competences_items_gaps": "Compétences — Notes d'items & structure de rôle",
