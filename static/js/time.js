@@ -139,6 +139,10 @@
      vient le plus souvent ici pour RELIRE. */
   $$('.tm-rail-t').forEach(
     b => b.addEventListener('click', () => montrerGroupe(b.dataset.analyse)));
+  /* L'état vide d'une carte, lui, CRÉE : il n'y a rien à relire. Câblé par
+     son id et non par `.tm-porte`, dont il n'a ni la place ni l'habillage. */
+  $('#tm-role-vide .tm-vide-b')?.addEventListener('click',
+    () => { sortirEdition(); ouvrirAnalyse('role'); });
   /* ⚠️ Le repère MÈNE au champ, il ne porte pas une seconde saisie : le nom
      n'a qu'une source. C'est là que l'utilisateur vient le chercher — un
      crayon et un nom — et il n'y trouvait qu'une croix qui QUITTE. */
@@ -349,6 +353,25 @@
   }
   ['#fw-del', '#fw-del-unit', '#fw-dur', '#fw-dur-unit'].forEach(
     sel => $(sel)?.addEventListener('change', borneDelaiStandard));
+
+  /* Les deux saisies d'une même section se comparent : une durée en heures
+     à côté d'un délai en minutes se lit de travers, et `borneDelaiStandard`
+     ramène alors l'une sur l'autre sans qu'on comprenne pourquoi.
+     ⚠️ DANS UN SEUL SENS : la PREMIÈRE règle la seconde. Régler la seconde
+     ne touche pas à la première, sinon on ne pourrait plus jamais mettre
+     deux unités différentes — les deux s'annuleraient l'une l'autre.
+     ⚠️ Poser `.value` en JavaScript ne déclenche AUCUN événement : on émet
+     `change` (qui remonte à `#subtab-faiblesse`, d'où part le calcul). */
+  [['#fw-dur-unit', '#fw-del-unit'], ['#fw-l-unit', '#fw-m-unit']].forEach(
+    ([premier, second]) => {
+      const a = $(premier), b = $(second);
+      if (!a || !b) return;
+      a.addEventListener('change', () => {
+        if (b.value === a.value) return;
+        b.value = a.value;
+        b.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
 
   $('#fw-activity')?.addEventListener('change', refreshWeaknessDefaults);
   $('#fw-tasks')?.addEventListener('input', (e)=> {
@@ -645,20 +668,21 @@
     document.addEventListener('DOMContentLoaded', () => brancherAides());
   else brancherAides();
 
-  /* ══ LE SCHÉMA — il MONTRE ce que les chiffres disent ══════════════════
+  /* ══ LE SCHÉMA — il MONTRE ce que les chiffres disent ══════════════
      ⚠️ Il LIT `B`, `C`, `L`, `Z` (= M) et `H` que le serveur renvoie : les
      recalculer ici ferait une seconde implémentation d'une borne
      (`delai_plancher`) et d'un calendrier (`H` compte en semaines
      TRAVAILLÉES), et deux implémentations d'une même règle finissent par
      diverger.
-     ⚠️ Le travail refait est marqué À PART, pas allongé sur la piste :
-     `Y = C + M` ne le compte pas dans la livraison, et un schéma qui
-     l'allongerait dirait autre chose que le calcul qu'il illustre.      */
+     ⚠️⚠️ Le travail refait est sur la PISTE, pas à côté : `Y = C + L + M`.
+     Il était marqué à part tant que `Y` valait `C + M` — mais ce `Y`-là
+     contredisait `T = C + (L+M)·O`, et le schéma disait donc, lui aussi,
+     autre chose que le calcul qu'il illustre.                            */
   function majSchemaFaiblesse(m){
     const pos = (x) => Math.max(0, +x || 0);
     const B = pos(m['B']), C = pos(m['C']), L = pos(m['L']),
           M = pos(m['Z']), H = pos(m['H']), AA = pos(m['AA']);
-    const total = C + M;
+    const total = C + L + M;
 
     document.getElementById('fw-chrono')?.classList.toggle('hidden', !(total > 0));
 
@@ -674,7 +698,8 @@
         : Math.min(100, val * 100 / total).toFixed(3) + '%';
     };
     pose('fw-sg-b1', B); pose('fw-sg-a1', C - B);
-    pose('fw-sg-b2', B); pose('fw-sg-a2', C - B); pose('fw-sg-m', M);
+    pose('fw-sg-b2', B); pose('fw-sg-a2', C - B);
+    pose('fw-sg-l-seg', L); pose('fw-sg-m', M);
 
     updateKpi('fw-sg-c', fmtH(C));
     updateKpi('fw-sg-l', fmtH(L));
@@ -758,7 +783,7 @@
     const j = await r.json();
     if (j.ok) {
       flashFeedback('proj-feedback', true,
-                    modif ? tl('tm_maj', '') : 'Projet enregistré avec succès');
+                    modif ? tl('tm_maj', '') : tl('saved_project', ''));
       if (modif) { edition.nom = payload.name; majBandeauEdition(); }
       else {
         projectBody.innerHTML = '';
@@ -766,7 +791,7 @@
         addProjectRow(); recalcProjectTotals();
       }
     } else {
-      flashFeedback('proj-feedback', false, "Erreur d'enregistrement");
+      flashFeedback('proj-feedback', false, tl('save_error', ''));
     }
   });
 
@@ -825,13 +850,13 @@
     if (currentActivityEditId) {
       const r = await fetch(`/temps/api/activity_workload/${currentActivityEditId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       j = await r.json();
-      if (!j.ok) return flashFeedback('act-feedback', false, 'Erreur de mise à jour');
-      flashFeedback('act-feedback', true, 'Analyse activité mise à jour.');
+      if (!j.ok) return flashFeedback('act-feedback', false, tl('update_error', ''));
+      flashFeedback('act-feedback', true, tl('updated_activity', ''));
     } else {
       const r = await fetch('/temps/api/activity_workload', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
       j = await r.json();
-      if (!j.ok) return flashFeedback('act-feedback', false, "Erreur d'enregistrement");
-      flashFeedback('act-feedback', true, 'Analyse activité enregistrée.');
+      if (!j.ok) return flashFeedback('act-feedback', false, tl('save_error', ''));
+      flashFeedback('act-feedback', true, tl('saved_activity', ''));
     }
 
     majResultatActivite();
@@ -985,9 +1010,19 @@
     }));
     const payload = {
       role_id: parseInt($('#role-select').value,10),
-      name: $('#role-name').value || 'Analyse rôle',
+      // ⚠️ Le nom par défaut est ENREGISTRÉ : écrit en dur, il nommait
+      //    « Analyse rôle » une analyse créée depuis l'écran anglais.
+      name: $('#role-name').value || tl('role_analysis_defaut', ''),
       lines
     };
+    /* ⚠️ Une analyse sans ligne ne peut apparaître NULLE PART : le tableau de
+       bord ne retient que ce qui porte sur la carto active. On l'enregistrait
+       quand même, l'écran annonçait « enregistrée », et rien ne se voyait —
+       c'est le défaut signalé. Le serveur refuse ; l'écran dit pourquoi. */
+    if (!lines.length) {
+      flashFeedback('role-feedback', false, tl('role_sans_ligne', ''));
+      return;
+    }
     const modif = edition && edition.type === 'role';
     const r = await fetch(modif ? '/temps/api/role_analysis/' + edition.id
                                 : '/temps/api/role_analysis',
@@ -997,10 +1032,12 @@
     const j = await r.json();
     if (j.ok){
       flashFeedback('role-feedback', true,
-                    modif ? tl('tm_maj', '') : 'Analyse rôle enregistrée.');
+                    modif ? tl('tm_maj', '') : tl('role_saved', ''));
       if (modif) { edition.nom = payload.name; majBandeauEdition(); }
       else $('#role-name').value='';
-    } else flashFeedback('role-feedback', false, "Erreur d'enregistrement");
+    } else flashFeedback('role-feedback', false,
+                         j.code === 'aucune_ligne' ? tl('role_sans_ligne', '')
+                                                   : tl('save_error', ''));
   });
 
   // =====================================================
@@ -1110,7 +1147,20 @@
   // =====================================================
   const PLAFOND_BARRES = 8;
   // Au-dela, on ne COMPTE plus des carres : on les estime a l'oeil.
-  const PLAFOND_PILE = 24;
+  /* ⚠️ REVISION du 13/11 : le plafond valait 24, et une carto de 45
+     activités — la taille courante — n'avait donc PAS de pile du tout,
+     juste sa phrase. On ne compte pas 45 carrés un par un, mais on en voit
+     la proportion d'un coup d'œil, et c'est ce qu'on vient y chercher. Les
+     carrés rétrécissent avec le nombre (`tailleCarre`) ; au-delà, c'est une
+     barre pleine largeur — compter n'a plus de sens, la proportion si. */
+  const PLAFOND_PILE = 60;
+
+  function tailleCarre(n){
+    if (n <= 16) return 14;
+    if (n <= 30) return 12;
+    if (n <= 45) return 10;
+    return 8;
+  }
 
   /* ⚠️ Un ORDRE DE GRANDEUR ne se donne pas a l'heure pres : « ~ 2 499 h ? »
      se contredit lui-meme — le tilde annonce une approximation, le chiffre
@@ -1378,9 +1428,16 @@
     if (!d || !d.ok) return;
 
     const c = d.calendrier || {};
+    /* ⚠️ Les trois valeurs sont la BASE de tous les chiffres de l'écran :
+       elles vivaient dans une ligne de 12 px sous le titre. Trois pastilles,
+       remplies DANS l'ordre du gabarit — semaines, jours, heures. */
     const base = $('#tm-base');
-    if (base) base.textContent = fmtPhrase('tm_base', '', {
-      sem: c.weeks_per_year, jours: c.days_per_week, heures: c.hours_per_day });
+    if (base) {
+      const vals = [c.weeks_per_year, c.days_per_week, c.hours_per_day];
+      base.querySelectorAll('.tm-cal-i > b').forEach((b, i) => {
+        b.textContent = vals[i] != null ? nombre(vals[i]) : '\u2014';
+      });
+    }
 
     // — Carte 1 · DEUX ÉTAGES : le total, les trois rythmes, puis ce qu'il couvre
     const an = (d.charge || {}).annuel_min || 0;
@@ -1389,28 +1446,23 @@
     updateKpi('tm-charge-mois', an ? fmtH(d.charge.mensuel_min) : '\u2014');
     updateKpi('tm-charge-sem', an ? fmtH(d.charge.hebdo_min) : '\u2014');
     updateKpi('tm-charge-jour', an ? fmtH(d.charge.quotidien_min) : '\u2014');
-    const etp = $('#tm-etp');
-    if (etp) {
-      // ⚠️ `etp` est NUL quand rien n'est mesure : « 0 equivalent temps
-      // plein » se lirait comme un resultat, pas comme une absence.
-      if (d.charge.etp == null) etp.textContent = tl('tm_rien_mesure', '');
-      else {
-        const v2 = Math.round(d.charge.etp * 100) / 100;
-        etp.textContent = fmtPhrase(v2 > 1 ? 'tm_etp_pl' : 'tm_etp', '{n}',
-                                    { n: nombre(v2) });
-      }
-    }
-
     /* La couverture se COMPTE en carres : une jauge a moitie pleine se lit
        « a moitie fait ».
-       ⚠️ Au-dela de PLAFOND_PILE carres on ne compte plus, on estime : la
-       pile cede alors la place a sa seule phrase. */
+       ⚠️ Au-dela de PLAFOND_PILE on ne compte plus, on estime : la pile
+       cede alors la place a une barre, qui dit la meme proportion. */
     const pile = $('#tm-pile');
     if (pile) {
-      pile.innerHTML = (couv.total && couv.total <= PLAFOND_PILE)
-        ? Array.from({ length: couv.total },
-            (_, i) => `<b class="${i < couv.chiffrees ? '' : 'vide'}"></b>`).join('')
-        : '';
+      const n = couv.total || 0;
+      pile.classList.toggle('est-barre', n > PLAFOND_PILE);
+      if (!n) pile.innerHTML = '';
+      else if (n > PLAFOND_PILE) {
+        const p = Math.max(0, Math.min(100, (couv.chiffrees / n) * 100));
+        pile.innerHTML = `<i style="width:${p.toFixed(2)}%"></i>`;
+      } else {
+        pile.style.setProperty('--pile-sq', tailleCarre(n) + 'px');
+        pile.innerHTML = Array.from({ length: n },
+          (_, i) => `<b class="${i < couv.chiffrees ? '' : 'vide'}"></b>`).join('');
+      }
     }
     const pileL = $('#tm-pile-l');
     if (pileL) {
@@ -1517,8 +1569,11 @@
       }
     }
     barres($('#tm-role-liste'), roles, plein);
-    if (!roles.length && $('#tm-role-liste'))
-      $('#tm-role-liste').innerHTML = `<div class="muted">${tl('tm_vide_role', '')}</div>`;
+    /* ⚠️ L'état vide est un BLOC du gabarit, pas une ligne grise injectée
+       en haut d'une carte haute : on la lisait comme un défaut de
+       chargement, et elle ne disait pas quoi faire. */
+    const vide = $('#tm-role-vide');
+    if (vide) vide.hidden = roles.length > 0;
 
     // — Carte 5 · LE CUMUL : une seule barre de 100 %
     rendreCumul((d.par_activite || []).slice()
@@ -1531,17 +1586,38 @@
      ⚠️ Au-dela de TEINTES.length - 1 segments nommes, la queue est reunie
      en un dernier segment : six cents activites donneraient six cents traits
      d'un pixel et une legende illisible. */
-  const TEINTES = ['#6d28d9', '#7c3aed', '#9361f0', '#b79af5', '#d3c3fa', '#e9e2fd'];
+  /* ⚠️ La rampe S'ÉTALE sur le nombre de segments. Figée à six teintes,
+     trois activités n'en prenaient que les trois premières — trois violets
+     voisins, dont on ne distinguait pas les segments. On interpole donc le
+     long de la rampe entière : deux valeurs prennent ses deux bouts, six la
+     parcourent lentement. Plus il y en a, plus le dégradé est progressif. */
+  const RAMPE = ['#4c1d95', '#6d28d9', '#8b5cf6', '#c4b5fd', '#e9e2fd'];
+  const MAX_SEGMENTS = 6;
+
+  function _lire(hex){
+    return [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16));
+  }
+  function _ecrire(rgb){
+    return '#' + rgb.map(c => Math.round(c).toString(16).padStart(2, '0')).join('');
+  }
+  function teintes(n){
+    if (n <= 1) return [RAMPE[0]];
+    const bouts = RAMPE.map(_lire);
+    return Array.from({ length: n }, (_, i) => {
+      const p = (i / (n - 1)) * (bouts.length - 1);
+      const k = Math.min(bouts.length - 2, Math.floor(p)), f = p - k;
+      return _ecrire(bouts[k].map((c, j) => c + (bouts[k + 1][j] - c) * f));
+    });
+  }
 
   function rendreCumul(acts){
     const barre = $('#tm-cumul'), leg = $('#tm-cumul-leg');
-    const sub = $('#tm-act-sub'), pied = $('#tm-act-pied');
+    const sub = $('#tm-act-sub');
     const total = acts.reduce((s, a) => s + (a.annuel_min || 0), 0);
     if (!barre || !leg) return;
     if (!acts.length || !total) {
       barre.innerHTML = ''; leg.innerHTML = '';
       if (sub) sub.textContent = '';
-      if (pied) pied.textContent = '';
       if ($('#tm-cumul-leg')) leg.innerHTML =
         `<div class="muted">${tl('tm_vide_act', '')}</div>`;
       return;
@@ -1549,16 +1625,17 @@
     /* ⚠️ Avec six activites pour six teintes, la sixieme devenait
        « + 1 autres » : on ne reunit une queue que si elle contient PLUS d'une
        activite — sinon autant la nommer. */
-    const nommees = acts.length <= TEINTES.length
-      ? acts.length : TEINTES.length - 1;
-    const vus = acts.slice(0, nommees).map((a, i) => ({
-      nom: a.activite, min: a.annuel_min, teinte: TEINTES[i] }));
+    const nommees = acts.length <= MAX_SEGMENTS
+      ? acts.length : MAX_SEGMENTS - 1;
     const reste = acts.slice(nommees);
+    const palette = teintes(nommees + (reste.length ? 1 : 0));
+    const vus = acts.slice(0, nommees).map((a, i) => ({
+      nom: a.activite, min: a.annuel_min, teinte: palette[i] }));
     if (reste.length) vus.push({
       nom: fmtPhrase(reste.length === 1 ? 'tm_cumul_autre' : 'tm_cumul_autres',
                      '+ {n}', { n: reste.length }),
       min: reste.reduce((s, a) => s + (a.annuel_min || 0), 0),
-      teinte: TEINTES[TEINTES.length - 1] });
+      teinte: palette[palette.length - 1] });
 
     const part = (v) => (v / total) * 100;
     barre.innerHTML = vus.map(v =>
@@ -1568,14 +1645,9 @@
       + `<span class="nom" title="${echap(v.nom)}">${echap(v.nom)}</span>`
       + `<b>${pourCent(Math.round(part(v.min)))}</b></span>`).join('');
     if (sub) sub.textContent = fmtPhrase('tm_act_sub', '', { h: fmtHr(total) });
-    if (pied) {
-      // ⚠️ « Les trois premieres font n % » n'a de sens qu'a partir de
-      //    quatre activites : en dessous, la legende dit deja tout.
-      const n3 = acts.slice(0, 3).reduce((s, a) => s + (a.annuel_min || 0), 0);
-      pied.textContent = acts.length >= 4
-        ? fmtPhrase('tm_act_trois', '', { p: Math.round(part(n3)) }) : '';
-    }
   }
+
+  // ---------------------- INIT ------------------------  }
 
   // ---------------------- INIT ------------------------
   (async () => {

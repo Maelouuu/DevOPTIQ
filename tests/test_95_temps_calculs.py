@@ -245,10 +245,26 @@ class TestRoleAnalysisSummary:
         assert row["sum_daily_minutes"] == 8
 
     def test_empty_name_defaults_to_analyse_role(self, auth_client, app, ids):
+        """⚠️ Le décor posait `lines: []` : depuis le 13/11 une analyse SANS
+        LIGNE est refusée — elle ne pouvait apparaître nulle part, et l'écran
+        annonçait pourtant « enregistrée ». Le sujet du cas, lui, ne change
+        pas : c'est le nom par défaut."""
         rid = _role(app, ids["entity_id"])
         analysis = _post(auth_client, "/temps/api/role_analysis",
-                         {"role_id": rid, "name": "", "lines": []}).get_json()["id"]
+                         {"role_id": rid, "name": "",
+                          "lines": [{"activity_id": ids["activity_id"],
+                                     "duration": 30, "recurrence": "annuel",
+                                     "frequency": 1}]}).get_json()["id"]
         assert auth_client.get(f"/temps/api/role_analysis/{analysis}").get_json()["role"]["name"] == "Analyse rôle"
+
+    def test_une_analyse_SANS_LIGNE_est_refusee(self, auth_client, app, ids):
+        """L'autre moitié du même fait : le refus, là où le cas ci-dessus
+        n'a plus qu'à fournir sa ligne."""
+        rid = _role(app, ids["entity_id"])
+        r = _post(auth_client, "/temps/api/role_analysis",
+                  {"role_id": rid, "name": "", "lines": []})
+        assert r.status_code == 400, r.data
+        assert r.get_json()["code"] == "aucune_ligne"
 
 
 class TestWeaknessRecurrences:
@@ -288,7 +304,11 @@ class TestWeaknessRecurrences:
         assert c["R"] == 3.75
         assert c["S"] == 62.5
         assert c["T"] == 123.75          # C + R, avec C = 120
-        assert c["Y"] == 125             # C + M
+        # ⚠️⚠️ RENVERSEMENT du 13/11 : `Y = C + L + M`, et non plus `C + M`.
+        # Ecrit `C + M`, il contredisait `T = C + (L+M)·O` — l'écran annonçait
+        # 14 h de délai moyen pendant que le bilan disait « 4 h au lieu de 4 h ».
+        assert c["Y"] == 135             # C + L + M = 120 + 10 + 5
+        assert c["T"] == c["C"] + (c["Y"] - c["C"]) * c["O"]
         assert c["Z"] == 5
 
     def test_prob_denom_zero_is_clamped_to_one(self, auth_client, app, ids):

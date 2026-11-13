@@ -203,15 +203,23 @@ def cout_faiblesse(duree_std_min, delai_std_min, recurrence, frequence,
     base_mois = (Sa / SEMAINES_PAR_MOIS)
     W = U / base_mois if base_mois else 0
     X = V / base_mois if base_mois else 0
-    Y = C + M
+    # ⚠️⚠️ Le travail refait DECALE la livraison : `Y = C + L + M`.
+    # Ecrit `C + M`, il contredisait `T = C + (L+M)·O` — le delai moyen
+    # corrige, qui est la moyenne de `C` (cas normal) et de `Y` (cas degrade)
+    # ponderee par `O`. Avec 10 h de travail refait et 4 h de delai standard,
+    # le panneau annoncait 14 h de delai moyen pendant que le bilan du temps 2
+    # disait « le resultat sort en 4 h au lieu de 4 h ». L'un des deux avait
+    # tort, et c'est `Y` : refaire du travail retarde bien la sortie.
+    # ⚠️ Le CUMUL ANNUEL, lui, ne change pas — `U = L·P` et `V = M·P` comptent
+    # chaque minute une fois, et c'est ce que le correctif du 03/11 a pose.
+    Y = C + L + M
     Z = M
     AA = P_
     # ⚠️ `B`, `C`, `L` et `H` sont rendus pour que le SCHEMA et les bilans
     # de l'écran les LISENT au lieu de les recalculer : `C` est borné par
     # `delai_plancher`, et `H` compte les exécutions de l'année (dont `AA`
     # ratees). Une seconde implémentation dans le navigateur finirait par en
-    # diverger. `L` est le travail refait : le schéma le marque A PART,
-    # parce que `Y = C + M` ne le compte pas dans la livraison.
+    # diverger.
     return {"B": B, "C": C, "L": L, "H": H,
             "O": O, "P": P_, "Q": Q, "R": Rv, "S": S, "T": T,
             "U": U, "V": V, "W": W, "X": X, "Y": Y, "Z": Z, "AA": AA}
@@ -243,11 +251,32 @@ def ensure_time_role_schema():
         db.session.rollback()
 
 # ---------- Page ----------
+def roles_de_la_carto(activity_ids):
+    """Les roles qui tiennent AU MOINS une activite de la carto regardee.
+
+    ⚠️ `Role.query.all()` listait tous les roles de l'entreprise : depuis que
+    les roles sont COMMUNS (23/09), un role peut n'avoir aucune activite ici.
+    On choisissait alors un role qui ne tient rien, la table des lignes
+    restait vide, l'analyse s'enregistrait sans aucune ligne — et le tableau
+    de bord, qui ne montre que les analyses portant sur cette carto, n'en
+    affichait jamais la moindre. L'ecran disait « enregistre » et rien
+    n'apparaissait.
+    """
+    if not activity_ids:
+        return []
+    return (Role.query
+            .join(activity_roles, Role.id == activity_roles.c.role_id)
+            .filter(activity_roles.c.activity_id.in_(activity_ids))
+            .order_by(Role.name.asc())
+            .distinct()
+            .all())
+
+
 @time_bp.route('/', methods=['GET'])
 def page():
     # MODIFIÉ: Filtrer par entité active
     activities = Activities.for_active_entity().order_by(Activities.name.asc()).all()
-    roles = Role.query.order_by(Role.name.asc()).all()
+    roles = roles_de_la_carto([a.id for a in activities])
     return render_template('time_dashboard.html', activities=activities, roles=roles)
 
 @time_bp.route('/api/calendar_params', methods=['GET'])
@@ -603,7 +632,13 @@ def api_activity_workloads_list():
 
 @time_bp.route('/api/role_activities/<int:role_id>', methods=['GET'])
 def api_role_activities(role_id):
-    qs = (Activities.query
+    # ⚠️ Cadre sur la carto ACTIVE. Un role est commun a l'entreprise : sans
+    # ce filtre, une analyse pouvait se batir entierement sur les activites
+    # d'une AUTRE carto, et disparaissait aussitot du tableau de bord — qui
+    # ne montre, lui, que ce qui porte sur la carto regardee. Et le total du
+    # role aurait compte des activites qui ne sont pas « le temps de
+    # l'entite » que cet ecran annonce.
+    qs = (Activities.for_active_entity()
           .join(activity_roles, Activities.id == activity_roles.c.activity_id)
           .filter(activity_roles.c.role_id == role_id)
           .order_by(Activities.name.asc()))
@@ -634,6 +669,14 @@ def api_role_analysis_create():
     role_id = int(d.get('role_id'))
     name = (d.get('name') or 'Analyse rôle').strip()
     lines = d.get('lines') or []
+
+    # ⚠️ Une analyse SANS ligne ne peut apparaitre nulle part : le tableau de
+    # bord ne retient que celles qui portent sur la carto active, et `any()`
+    # sur une liste vide est faux. On l'enregistrait quand meme, l'ecran
+    # annoncait « enregistre », et plus rien ne se voyait. Un enregistrement
+    # silencieux qui se felicite est pire qu'un refus.
+    if not lines:
+        return jsonify({"ok": False, "code": "aucune_ligne"}), 400
 
     R = TimeRoleAnalysis(role_id=role_id, name=name, created_at=datetime.utcnow())
     db.session.add(R)
@@ -693,6 +736,12 @@ def api_role_analysis_read_patch_delete(rid):
             R.role_id = int(data['role_id'])
         # Le renommage seul reste possible : `lines` absent ne touche à rien.
         lignes = data.get('lines')
+        # ⚠️ Mais une liste VIDE viderait l'analyse, qui disparaitrait alors
+        # du tableau de bord sans qu'on l'ait supprimee. Meme refus qu'a la
+        # creation : on ne laisse pas un enregistrement effacer ce qu'il
+        # pretend mettre a jour.
+        if lignes is not None and not lignes:
+            return jsonify({"ok": False, "code": "aucune_ligne"}), 400
         if lignes is not None:
             for ancienne in TimeRoleLine.query.filter_by(role_analysis_id=R.id).all():
                 db.session.delete(ancienne)

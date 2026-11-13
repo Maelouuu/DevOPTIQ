@@ -7675,6 +7675,223 @@ attributs compris — tout ce qui reste en français est une DONNÉE du banc),
 zéro erreur console, aucun débordement horizontal.
 Maquette : artefact « Les cartes, une par une ».
 
+#### Sept retours sur la page Temps — dont deux défauts de FOND (2026-11-14)
+
+Relevés à l'écran par l'utilisateur, sur ses propres données. Deux d'entre eux
+cachaient autre chose qu'un défaut d'affichage.
+
+##### ⚠️⚠️ RENVERSEMENT : le travail refait DÉCALE la livraison
+
+« Avec 10 heures en surcroît de travail, le message du dessous nous dit que le
+travail sort en 4 h comme d'hab ; cela devrait être 14 non ? » Oui. Et c'est
+le modèle qui se contredisait, pas l'affichage.
+
+`Y` valait `C + M` — et la note du 08/11 justifiait le schéma par là même :
+« le travail refait est marqué À PART, pas allongé sur la piste : `Y = C + M`
+ne le compte pas dans la livraison ». Or `T = C + (L+M)·O`, le **délai moyen
+corrigé**, est la moyenne de `C` (cas normal) et de `Y` (cas dégradé) pondérée
+par `O` : il compte `L` depuis toujours. Les deux ne pouvaient pas être vrais
+ensemble, et c'est ce que l'écran montrait — relevé sur la capture, aux
+chiffres exacts : **le panneau de droite annonçait « Délai moyen corrigé :
+14,0 h » pendant que le bilan du temps 2 disait « le résultat sort en 4,0 h au
+lieu de 4,0 h »**, à dix centimètres l'un de l'autre.
+
+`Y = C + L + M`. Refaire du travail retarde la sortie.
+
+- ⚠️ **Le CUMUL ANNUEL ne bouge pas** : `U = L·P` et `V = M·P` comptent chaque
+  minute une fois, et c'est le correctif du 03/11. Deux questions
+  différentes — ce qui coûte sur l'année, et ce que subit l'aval un jour où ça
+  rate — qui ne s'additionnent pas de la même façon.
+- **Le schéma suit** : le travail refait a son segment sur la piste dégradée
+  (`fw-sg-l-seg`), PLEIN et non hachuré — c'est du travail, comme le segment
+  du début ; c'est l'attente qui se hachure, elle que personne ne passe à
+  travailler. La pastille « la livraison ne bouge pas pour autant » est partie
+  avec la règle qu'elle énonçait.
+- ⚠️ **La légende doit décrire EXACTEMENT ce qui est sur la piste.** Le
+  cliquet compare les deux jeux (`fw-seg--*` et `fw-pt--*`) et exige
+  l'égalité : une légende qui promet un remplissage absent envoie chercher ce
+  qui n'existe pas, une légende qui en oublie un laisse une couleur sans nom.
+  Les deux se sont présentés en un mois.
+
+##### ⚠️⚠️ L'analyse de rôle s'enregistrait sans pouvoir jamais s'afficher
+
+« On la saisit, on enregistre, ça dit bien enregistré, mais quechi. » Rien
+n'était perdu : il n'y avait simplement **aucune ligne** dans ce qui partait.
+
+Depuis que les rôles sont COMMUNS à l'entreprise (23/09), un rôle peut ne
+tenir aucune activité de la carto qu'on regarde. Or :
+- `page()` listait `Role.query.all()` — **tous** les rôles de l'entreprise ;
+- `/api/role_activities/<id>` ne filtrait sur aucune entité.
+
+On choisissait donc un rôle qui ne tient rien ici (table vide), ou dont les
+activités sont dans une AUTRE carto. Le tableau de bord, lui, ne retient que
+les analyses portant sur la carto active (`any(ln.activity_id in noms …)`, et
+`any()` sur une liste vide est faux) : l'analyse n'apparaissait nulle part.
+
+Trois correctifs, et c'est le troisième qui ferme le défaut :
+1. `roles_de_la_carto()` — le sélecteur n'offre que les rôles qui tiennent au
+   moins une activité d'ici ;
+2. `/api/role_activities` passe par `Activities.for_active_entity()` — une
+   ligne appartient à la carto qu'on regarde, sinon le total du rôle
+   compterait des activités qui ne sont pas « le temps de l'entité » que cet
+   écran annonce ;
+3. ⚠️ **une analyse SANS LIGNE est refusée** (400 `aucune_ligne`), à la
+   création comme au `PATCH`. Quelle que soit la cause, on ne peut plus
+   enregistrer quelque chose qui n'apparaîtra jamais. **Un enregistrement
+   silencieux qui se félicite est pire qu'une erreur** : il n'y a aucun moment
+   où l'on peut s'apercevoir de la perte.
+   ⚠️ `lines` ABSENT ne touche à rien (le renommage seul reste possible) ;
+   c'est la liste VIDE qui est refusée.
+
+##### Les deux unités d'une même section se suivent — dans UN SEUL sens
+
+Une durée en heures à côté d'un délai en minutes se lit de travers, et
+`borneDelaiStandard` ramène alors l'une sur l'autre sans qu'on comprenne
+pourquoi. La PREMIÈRE règle la seconde (`#fw-dur-unit` → `#fw-del-unit`,
+`#fw-l-unit` → `#fw-m-unit`).
+⚠️ **Jamais l'inverse** : dans les deux sens elles s'annuleraient, et on ne
+pourrait plus jamais en mettre deux différentes.
+⚠️ Poser `.value` en JavaScript ne déclenche AUCUN événement : on émet
+`change`, qui remonte à `#subtab-faiblesse` d'où part le calcul.
+
+##### Les listes déroulantes sont DESSINÉES (`static/js/tm_select.js`)
+
+« Le truc par défaut qui ne s'ouvre pas tout le temps de manière pratique, et
+visuellement tout blanc et noir. » On ne peut pas styler le panneau d'un
+`<select>` : la seule façon de le tenir est de le dessiner.
+
+- ⚠️ **Le `<select>` RESTE, et il reste la source de vérité.** Une quinzaine
+  d'endroits lisent `tr.querySelector('.r-rec select').value`, écrivent
+  `$('#fw-dur-unit').value = 'minutes'`, ou reconstruisent `innerHTML` : les
+  reprendre un par un serait quinze occasions d'en oublier un. Il est masqué à
+  l'œil (jamais `display: none` — la largeur du bouton se règle sur
+  l'enveloppe), sorti de la tabulation, et c'est LUI qu'on écrit.
+- ⚠️ La propriété `value` est interceptée **sur l'élément**, jamais sur le
+  prototype : un `defineProperty` sur `HTMLSelectElement.prototype` vaudrait
+  pour toute l'application.
+- ⚠️ **Les DEUX événements, et ils remontent** : un `<select>` natif émet
+  `input` ET `change`, et la page écoute tantôt l'un (la table des rôles
+  recalcule sur `input` posé sur le `<tr>`) tantôt l'autre. N'en émettre qu'un
+  casse silencieusement l'autre moitié.
+- ⚠️ **Le panneau est posé sur le BODY en `position: fixed`** : dans une
+  cellule de tableau, `.table-wrap` est en `overflow-x: auto` et le
+  découperait. Donc la conversion de zoom — `body.pg` porte `zoom: .8`, un
+  enfant du body en `fixed` voit ses coordonnées MULTIPLIÉES par ce zoom alors
+  que `getBoundingClientRect()` les rend déjà en pixels d'écran. **Sixième
+  fois** que ce piège se présente. Mesuré après : 0,0 px d'écart à gauche, et
+  le panneau bascule au-dessus du bouton quand il n'y a pas la place dessous.
+- ⚠️ Un observateur sur `#page-temps` habille les `<select>` créés APRÈS le
+  chargement (lignes de projet, de rôle, de tâche, sélecteur cloné) : un
+  balayage unique n'en verrait aucun.
+- ⚠️ **Dans une rangée `.inline`** (un nombre et son unité), une enveloppe en
+  `width: 100 %` devient un élément flex de 470 px et passe à la ligne sous son
+  champ. Vu à l'écran : la mise en page d'un composant se vérifie LÀ OÙ il est
+  posé, pas dans l'abstrait.
+
+##### La carte 1 : la pile revient, et la carte prend du relief
+
+⚠️ **RÉVISION du plafond.** Il valait 24 (« au-delà, on n'ose plus compter »)
+— et une carto de **45 activités**, la taille courante, n'avait donc AUCUNE
+pile : juste sa phrase. C'est ce que l'utilisateur a signalé. On ne compte pas
+45 carrés un par un, mais on en voit la proportion d'un coup d'œil, et c'est
+ce qu'on vient y chercher. Les carrés rétrécissent avec le nombre
+(`tailleCarre` : 14 → 8 px, le pas d'écart proportionnel) ; au-delà de **60**,
+c'est une barre pleine largeur. Mesuré : 45 activités → carrés de 10 px, deux
+rangées, aucun débordement.
+
+**Le relief** : quatre ombres portées empilées (la lumière n'en fait pas une
+seule, nette) plus deux arêtes internes — le haut éclairé, le bas dans
+l'épaisseur.
+⚠️ **Pas de `transform`** : il ferait de la carte le repère des descendants
+`position: fixed`, et les bulles d'aide comme le panneau des listes sont posés
+sur le BODY.
+
+« Soit 10,31 équivalents temps plein » est retiré, avec ses deux clefs.
+
+##### Le calendrier de travail n'est plus écrit en 10 px
+
+« C'est une bonne idée de rappeler ces éléments, mais pas en tout petit sous
+le titre. » Il était en 13 px — **10,4 px réels** sous le `zoom: .8` du corps.
+C'est pourtant la BASE de tous les chiffres de l'écran : changez une des trois
+valeurs et la page entière bouge. Trois pastilles, le chiffre dans la police
+d'affichage, à côté du bouton qui les règle.
+
+##### À quoi servait le bouton « Calendrier de travail »
+
+Question de l'utilisateur. Il n'ouvre pas un calendrier : il mène aux
+**réglages du temps de travail** (semaines / jours / heures), qui vivent dans
+le bandeau de la page RH et que `get_calendar_params()` lit. Il y menait déjà,
+mais sans rien désigner — d'où « il amène simplement en haut de la page RH ».
+Il pointe maintenant `#calendrier`, et `rendreBandeau` fait défiler jusqu'au
+bloc et l'**allume** 1,6 s.
+⚠️ Un ancrage HTML ne suffisait pas : ce bandeau est construit en JS,
+l'élément n'existe pas au chargement.
+
+##### La carte 4 a un vrai état vide, la carte 5 une rampe qui s'étale
+
+- **L'état vide du rôle** était une ligne grise de 12 px collée en haut à
+  gauche d'une carte haute : on la lisait comme un défaut de chargement, et
+  elle ne disait pas quoi faire. C'est un bloc — icône, phrase, et le bouton
+  qui crée l'analyse.
+  ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose un
+  `display` l'emporte. **Sixième fois** que ce piège se présente.
+- **« Les trois premières font 79 % »** est parti : la barre le MONTRE, et la
+  phrase prenait la place qui manquait à la barre et à sa légende. La clef
+  part avec son seul lecteur.
+- ⚠️ **La rampe S'ÉTALE sur le nombre de segments.** Figée à six teintes,
+  trois activités n'en prenaient que les trois premières — trois violets
+  voisins, dont on ne distinguait pas les segments. On interpole le long de la
+  rampe entière : mesuré à l'écran, trois valeurs donnent `#4c1d95`,
+  `#8b5cf6`, `#e9e2fd` ; six la parcourent lentement. Plus il y en a, plus le
+  dégradé est progressif.
+
+##### ⚠️ Six libellés de retour étaient écrits EN DUR, en français
+
+Relevés en passant : les `flashFeedback` des trois formulaires portaient leur
+phrase dans le code (« Analyse activité enregistrée. », « Erreur
+d'enregistrement »…), et le nom par DÉFAUT d'une analyse de rôle aussi — celui
+qui est ENREGISTRÉ. L'écran anglais les affichait tels quels. Sept clefs
+neuves.
+
+##### Trois pièges rencontrés, tous déjà connus
+
+- ⚠️ **Un remplacement entre bornes CONSERVE sa borne de fin.** Un anchor
+  partiel (« carte 2 · la part ») coupe donc le début de sa propre ligne : le
+  `# ─────` d'un séparateur est parti ainsi, et le fichier de tests ne se
+  compilait plus. On recule jusqu'au début de la ligne de la borne.
+- ⚠️ **Un commentaire HTML dupliqué** par la même cause a laissé un `<!--`
+  jamais fermé dans le gabarit. `test_85` l'a attrapé — c'est exactement ce
+  pour quoi il existe.
+- ⚠️ **Trois cliquets ne gardaient RIEN au premier essai** : l'un appelait
+  l'aide `roles_de_la_carto` au lieu de regarder ce que la PAGE offre (remettre
+  `Role.query.all()` dans la route le laissait vert) ; un autre comptait les
+  occurrences d'une couleur au lieu des COUCHES d'ombre ; le troisième
+  cherchait `new MutationObserver`, qui apparaît deux fois dans le fichier.
+- ⚠️⚠️ **Et DEUX cas écrits la veille lisaient `Code/routes/time_view.py`
+  comme une SOURCE** : verts ici, ROUGES à chaque exécution dans l'arbre
+  d'image, compilé en bytecode. **Sixième occurrence de ce piège** — et la
+  première que j'écris après l'avoir documentée. Réécrits sur le COMPORTEMENT
+  (une carto jetable, `_CartoJetable`, avec 62 activités non chiffrées) plutôt
+  que sautés : c'est portable, et c'est un contrôle plus fort — il mordrait
+  aussi sur un plafond écrit autrement. *Un contrôle qui saute ne garde rien ;
+  un contrôle réécrit sur le comportement y gagne.*
+
+Tests : `tests/test_105_temps_refonte.py` passe de 128 à **146 cas**, plus
+deux cas alignés dans `test_95` ; **32 défauts remis un par un, 32 cliquets
+tombés**. Suite : **4 222 passés**, 1 sauté ; `repet_image` **4 151 passés**
++ 72 sautés.
+ℹ️ `test_139::test_une_note_EFFACEE_arrete_le_report` échoue, et il échouait
+**déjà sur l'arbre propre** (vérifié en mettant ce travail de côté) : il est
+antérieur à cette passe et reste à traiter.
+Éprouvé au banc (`tools/devrun_temps.py`) à 1600 px dans les deux langues :
+les chiffres exacts de la capture (2 h / 4 h / 10 h → « sort en 14,0 h au lieu
+de 4,0 h », délai moyen 14,0 h, les deux enfin d'accord), le lien des unités
+dans les deux sens, le panneau d'une liste à 0,0 px de son bouton, une analyse
+de rôle enregistrée qui apparaît aussitôt sur l'accueil, le refus d'une
+analyse vide, l'état vide, et **zéro fuite française sur l'écran anglais** sur
+les cinq écrans (texte et attributs ; tout ce qui reste en français est une
+DONNÉE du banc).
+
 ### Quatre retours du pilote corrigés — et trois étaient PETITS (2026-11-10)
 
 Sur les douze points laissés ouverts le 09/11, l'utilisateur en a tranché

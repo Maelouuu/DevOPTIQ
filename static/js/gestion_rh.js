@@ -176,6 +176,20 @@
       charger({ entityId: parseInt(ev.target.value, 10) }));
     document.querySelectorAll('.grh-cal-item').forEach((b) =>
       b.addEventListener('click', () => editerCalendrier(b)));
+
+    /* ⚠️ La page Temps renvoie ici par `#calendrier` : tous ses chiffres sont
+       calculés sur ces trois valeurs. Un ancrage HTML ne suffit pas — ce
+       bandeau est construit en JS, l'élément n'existe pas au chargement.
+       Et on le DÉSIGNE : un défilement seul passe inaperçu quand le bloc
+       visé est déjà en haut de l'écran, ce qui est exactement le cas ici. */
+    if (location.hash === '#calendrier') {
+      const cal = document.querySelector('.grh-cal');
+      if (cal) {
+        cal.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        cal.classList.add('est-pointe');
+        setTimeout(() => cal.classList.remove('est-pointe'), 1600);
+      }
+    }
   }
 
   // Modifier sur place : un champ qui remplace le chiffre, Entrée valide.
