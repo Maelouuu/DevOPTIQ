@@ -1109,6 +1109,34 @@
   // ================== TABLEAU DE BORD ==================
   // =====================================================
   const PLAFOND_BARRES = 8;
+  // Au-dela, on ne COMPTE plus des carres : on les estime a l'oeil.
+  const PLAFOND_PILE = 24;
+
+  /* ⚠️ Un ORDRE DE GRANDEUR ne se donne pas a l'heure pres : « ~ 2 499 h ? »
+     se contredit lui-meme — le tilde annonce une approximation, le chiffre
+     pretend le contraire. On garde deux chiffres significatifs, jamais moins
+     que l'unite. Ecrit UNE fois : le grand chiffre et le calcul qui
+     l'explique doivent annoncer le meme nombre. */
+  /* ⚠️ La carte 1 ecrit « 1 250 » et `fmtH` « 1249.5h » : deux chiffres
+     pour la MEME grandeur, a deux centimetres l'un de l'autre. Tout ce qui
+     parle de la charge en BLOC s'ecrit donc en heures entieres. */
+  function fmtHr(min){
+    if (min === null || min === undefined || isNaN(min)) return '\u2014';
+    return nombre(Math.round(min / 60)) + '\u00a0h';
+  }
+
+  /* ⚠️ L'espace avant le % est une regle FRANCAISE : l'ecran anglais
+     ecrivait « 5% of the load » juste a cote d'un « 4 % ». */
+  function pourCent(n){
+    return (L.lang === 'en') ? (n + '%') : (n + '\u202f%');
+  }
+
+  function ordreDeGrandeur(min){
+    const h = (min || 0) / 60;
+    if (h <= 0) return 0;
+    const p = Math.pow(10, Math.max(0, Math.floor(Math.log10(h)) - 1));
+    return Math.round(h / p) * p;
+  }
 
   function fmtPhrase(cle, defaut, vals){
     let out = tl(cle, defaut);
@@ -1138,28 +1166,68 @@
     }
   }
 
+  /* Carte 2 · LA PART, ET SUR QUOI — chaque barre nomme SON tout.
+     ⚠️ On n'additionne JAMAIS le travail refait et l'attente : le premier
+     est du travail, comparable a la charge ; la seconde est du temps
+     d'horloge, qui ne coute de travail a personne. Les sommer annoncait
+     « 84 % de la charge » pour 5 % reels. */
+  function partBarre(largeur, cls, gauche, droite){
+    return `<div class="tm-part"><div class="p">`
+      + `<i class="${cls}" style="width:${Math.max(0, Math.min(100, largeur))}%"></i></div>`
+      + `<div class="q"><span>${gauche}</span><span>${droite}</span></div></div>`;
+  }
+
   function rendreFaiblesses(d){
     const items = (d.faiblesses || {}).items || [];
-    updateKpi('tm-faib', items.length ? Math.round((d.faiblesses.travail_min || 0) / 60) : '—');
+    const travail = (d.faiblesses || {}).travail_min || 0;
+    const attente = (d.faiblesses || {}).attente_min || 0;
+    const charge = (d.charge || {}).annuel_min || 0;
+    const pct = (v) => charge ? Math.round((v / charge) * 100) : null;
+    updateKpi('tm-faib', items.length ? Math.round(travail / 60) : '\u2014');
 
-    // L'attente, dite a part et nommee pour ce qu'elle est.
-    const att = $('#tm-attente');
-    if (att) {
-      const v = (d.faiblesses || {}).attente_min || 0;
-      att.innerHTML = (items.length && v)
-        ? `<span>${echap(tl('tm_faib_attente', ''))}</span>`
-          + `<b>${fmtH(v)}</b>`
-          + `<i>${echap(tl('tm_faib_attente_dit', ''))}</i>` : '';
+    const parts = $('#tm-parts');
+    if (parts) {
+      if (!items.length) {
+        parts.innerHTML = `<div class="tm-sous">${echap(tl('tm_faib_aucune', ''))}</div>`;
+      } else if (!charge) {
+        // ⚠️ Sans charge mesuree, une barre n'a aucun TOUT a nommer : on dit
+        //    les deux natures en chiffres plutot qu'en proportions fausses.
+        parts.innerHTML = `<div class="tm-sous">`
+          + echap(fmtPhrase('tm_part_sans_charge', '', { h: fmtH(travail) })) + `</div>`;
+      } else {
+        parts.innerHTML =
+          partBarre(pct(travail), '', echap(tl('tm_part_travail', '')),
+                    `<b>${echap(fmtPhrase('tm_part_de', '',
+                      { p: pct(travail), h: fmtHr(charge) }))}</b>`)
+          + (attente ? partBarre(pct(attente), 'horloge',
+                    echap(fmtPhrase('tm_part_attente', '', { h: fmtH(attente) })),
+                    `<b>${echap(fmtPhrase('tm_part_de', '',
+                      { p: pct(attente), h: fmtHr(charge) }))}</b>`) : '');
+      }
     }
 
-    const sous = $('#tm-faib-sous');
-    if (sous) {
-      if (!items.length) sous.textContent = tl('tm_faib_aucune', '');
+    /* Ce qu'on GAGNERAIT a lever ces faiblesses — le bloc portait avant une
+       regle d'arithmetique, qui n'apprenait rien a personne.
+       ⚠️ Deux tournures : sans attente, la seconde moitie de la phrase
+       parlerait de zero. Et le singulier ne se devine pas du pluriel. */
+    const gain = $('#tm-gain');
+    if (gain) {
+      const hj = (d.calendrier || {}).hours_per_day || 7;
+      const j = Math.round((hj ? (travail / 60) / hj : 0) * 10) / 10;
+      if (!items.length || !travail) gain.innerHTML = '';
       else {
-        const part = d.faiblesses.part != null
-          ? fmtPhrase('tm_faib_part', '{p} %', { p: Math.round(d.faiblesses.part * 100) }) + ' · ' : '';
-        const cle = items.length > 1 ? 'tm_faib_n_pl' : 'tm_faib_n';
-        sous.textContent = part + fmtPhrase(cle, '{n}', { n: items.length });
+        /* \u26a0\ufe0f Les JOURS, pas les heures : \u00ab 61,2 h \u00bb est abstrait, \u00ab 8,7 jours \u00bb
+           se compare a une semaine de travail. C'est tout l'interet du bloc.
+           \u26a0\ufe0f Et l'accord ne se devine pas d'une langue a l'autre : le francais
+           met au singulier sous 2 (\u00ab 1,5 jour \u00bb), l'anglais au pluriel des
+           qu'on quitte 1 (\u00ab 0.8 days \u00bb). */
+        const unite = (L.lang === 'en' ? (j === 1) : (j < 2))
+          ? 'tm_unite_jour' : 'tm_unite_jours';
+        const cle = (attente ? 'tm_gain_att' : 'tm_gain') + (items.length === 1 ? '_1' : '');
+        gain.innerHTML = fmtPhrase(cle, '', {
+          n: items.length,
+          j: '<b>' + nombre(j) + '\u00a0' + echap(tl(unite, '')) + '</b>',
+          h: '<b>' + fmtH(attente) + '</b>' });
       }
     }
 
@@ -1171,6 +1239,7 @@
           <span class="tm-faib-nom" title="${echap(f.nom || f.activite)}">${echap(f.nom || f.activite)}</span>
           <span class="tm-faib-barre" style="width:${Math.max(6, (f.travail_annuel_min / max) * 46)}px"></span>
           <span class="tm-faib-val">${fmtH(f.travail_annuel_min)}</span>
+          <span class="tm-faib-pct">${pct(f.travail_annuel_min) == null ? '' : pourCent(pct(f.travail_annuel_min))}</span>
         </div>`).join('');
     }
 
@@ -1313,11 +1382,13 @@
     if (base) base.textContent = fmtPhrase('tm_base', '', {
       sem: c.weeks_per_year, jours: c.days_per_week, heures: c.hours_per_day });
 
-    // — Charge
+    // — Carte 1 · DEUX ÉTAGES : le total, les trois rythmes, puis ce qu'il couvre
     const an = (d.charge || {}).annuel_min || 0;
-    updateKpi('tm-charge', an ? nombre(Math.round(an / 60)) : '—');
-    updateKpi('tm-charge-mois', an ? fmtH(d.charge.mensuel_min) : '—');
-    updateKpi('tm-charge-sem', an ? fmtH(d.charge.hebdo_min) : '—');
+    const couv = d.couverture || { chiffrees: 0, total: 0 };
+    updateKpi('tm-charge', an ? nombre(Math.round(an / 60)) : '\u2014');
+    updateKpi('tm-charge-mois', an ? fmtH(d.charge.mensuel_min) : '\u2014');
+    updateKpi('tm-charge-sem', an ? fmtH(d.charge.hebdo_min) : '\u2014');
+    updateKpi('tm-charge-jour', an ? fmtH(d.charge.quotidien_min) : '\u2014');
     const etp = $('#tm-etp');
     if (etp) {
       // ⚠️ `etp` est NUL quand rien n'est mesure : « 0 equivalent temps
@@ -1330,41 +1401,83 @@
       }
     }
 
+    /* La couverture se COMPTE en carres : une jauge a moitie pleine se lit
+       « a moitie fait ».
+       ⚠️ Au-dela de PLAFOND_PILE carres on ne compte plus, on estime : la
+       pile cede alors la place a sa seule phrase. */
+    const pile = $('#tm-pile');
+    if (pile) {
+      pile.innerHTML = (couv.total && couv.total <= PLAFOND_PILE)
+        ? Array.from({ length: couv.total },
+            (_, i) => `<b class="${i < couv.chiffrees ? '' : 'vide'}"></b>`).join('')
+        : '';
+    }
+    const pileL = $('#tm-pile-l');
+    if (pileL) {
+      // ⚠️ Trois phrases, pas une : « 0 des 12 sont chiffrees » se lit mal,
+      //    et « le total ne porte que sur elles » est faux quand tout l'est.
+      const cle = !couv.total ? null
+                : (!couv.chiffrees ? 'tm_pile_rien'
+                : (couv.chiffrees >= couv.total ? 'tm_pile_tout' : 'tm_pile'));
+      pileL.textContent = cle
+        ? fmtPhrase(cle, '', { n: couv.chiffrees, t: couv.total }) : '';
+    }
+
     rendreFaiblesses(d);
     rendreAnalyses(d);
 
-    // — Couverture
-    const couv = d.couverture || { chiffrees: 0, total: 0 };
+    // — Carte 3 · L'ORDRE DE GRANDEUR
     const reste = Math.max(0, couv.total - couv.chiffrees);
     const manquent = couv.a_chiffrer || [];
-    updateKpi('tm-couv-nb', reste);
+    /* ⚠️ L'estimation n'a de sens que s'il reste quelque chose a chiffrer ET
+       qu'au moins une activite est mesuree : sans moyenne il n'y a rien a
+       extrapoler. Sinon la carte retombe sur le COMPTE de ce qui manque. */
+    const aEstim = couv.ordre_min != null && reste > 0;
+    $('#tm-estim')?.classList.toggle('hidden', !aEstim);
     const sur = $('#tm-couv-sur');
-    if (sur) sur.textContent = ' ' + fmtPhrase('tm_couv_sur', '/ {t}', { t: couv.total });
+    if (aEstim) {
+      updateKpi('tm-couv-nb', '~\u202f' + nombre(ordreDeGrandeur(couv.ordre_min)));
+      if (sur) sur.textContent = ' ' + tl('tm_h_estime', 'h ?');
+    } else {
+      updateKpi('tm-couv-nb', reste);
+      if (sur) sur.textContent = ' ' + fmtPhrase('tm_couv_sur', '/ {t}', { t: couv.total });
+    }
+
+    const duo = $('#tm-duo'), duoL = $('#tm-duo-l');
+    if (duo && duoL) {
+      if (!aEstim) { duo.innerHTML = ''; duoL.innerHTML = ''; }
+      else {
+        const p = Math.max(0, Math.min(100, (an / couv.ordre_min) * 100));
+        duo.innerHTML = `<i class="m" style="width:${p}%"></i>`
+                      + `<i class="u2" style="width:${100 - p}%"></i>`;
+        duoL.innerHTML =
+          `<span>${echap(tl('tm_mesure', ''))}<b>${fmtHr(an)}</b></span>`
+          + `<span style="text-align:right">${echap(tl('tm_estime', ''))}`
+          + `<span class="q2">+\u00a0${fmtHr(couv.estime_min)}</span></span>`;
+      }
+    }
+
     const cbase = $('#tm-couv-base');
     if (cbase) {
       // ⚠️ Trois phrases, pas une : « ne porte que sur 0 activites » ne veut
       // rien dire, et au pluriel en plus.
       if (reste === 0) cbase.textContent = tl('tm_couv_tout', '');
       else if (!couv.chiffrees) cbase.textContent = tl('tm_couv_aucune', '');
-      else cbase.textContent = fmtPhrase(
-        couv.chiffrees === 1 ? 'tm_couv_base_une' : 'tm_couv_base', '{n}',
-        { n: couv.chiffrees });
+      else cbase.textContent = '';
     }
-    const jauge = $('#tm-couv-jauge');
-    if (jauge) jauge.style.width = (couv.total ? (couv.chiffrees / couv.total) * 100 : 0) + '%';
 
-    const liste = $('#tm-couv-liste');
-    if (liste) {
-      liste.innerHTML = manquent.slice(0, 3).map(a2 =>
-        `<button type="button" class="tm-couv-l" data-chiffrer="${a2.id}">
-           <span>${echap(a2.nom)}</span><i class="fa-solid fa-arrow-right"></i>
-         </button>`).join('')
-        + (manquent.length > 3
-           ? `<div class="tm-couv-plus">${echap(fmtPhrase('tm_couv_autres', '+ {n}',
-                { n: manquent.length - 3 }))}</div>` : '');
-      $$('#tm-couv-liste .tm-couv-l').forEach(b => {
-        b.onclick = () => ouvrirAnalyse('activite', parseInt(b.dataset.chiffrer, 10));
-      });
+    /* Le CALCUL ecrit : d'ou vient le chiffre. « Ce n'est pas une mesure »
+       demandait de croire sur parole ; la moyenne appliquee a chacune des
+       activites sans duree se verifie. */
+    const calc = $('#tm-calcul');
+    if (calc) {
+      // ⚠️ « chacune des 1 activités sans durée » : le singulier a sa phrase.
+      calc.innerHTML = aEstim ? fmtPhrase(
+        reste === 1 ? 'tm_ordre_calc_1' : 'tm_ordre_calc', '', {
+        n: couv.chiffrees, r: reste,
+        m: '<b>' + fmtHr(couv.moyenne_min) + '</b>',
+        e: '<b>+\u00a0' + fmtHr(couv.estime_min) + '</b>',
+        o: '~\u202f' + nombre(ordreDeGrandeur(couv.ordre_min)) + '\u00a0h' }) : '';
     }
 
     const bouton = $('#tm-btn-couv');
@@ -1383,21 +1496,85 @@
     updateKpi('tm-n-role',      (d.par_role || []).length);
     updateKpi('tm-n-faiblesse', ((d.faiblesses || {}).items || []).length);
 
-    // — Deux lectures
-    barres($('#tm-role-liste'),
-           (d.par_role || []).map(r2 => ({ nom: r2.role || r2.nom, annuel_min: r2.annuel_min })),
-           d.plein_temps_min);
-    if (!(d.par_role || []).length && $('#tm-role-liste'))
+    // — Carte 4 · LA PHRASE, puis les roles pour la verifier
+    const roles = (d.par_role || []).map(r2 => ({
+      nom: r2.role || r2.nom, annuel_min: r2.annuel_min }));
+    const plein = d.plein_temps_min || 0;
+    const phr = $('#tm-role-phrase');
+    if (phr) {
+      /* ⚠️ La phrase ne s'ecrit JAMAIS d'avance : un role peut depasser le
+         temps plein, et il peut n'y en avoir qu'un — « le plus charge »
+         n'aurait alors aucun sens. Trois tournures, choisies sur les
+         chiffres. */
+      const top = roles.slice().sort((a, b) => b.annuel_min - a.annuel_min)[0];
+      if (!top || !plein) phr.innerHTML = '';
+      else {
+        const p = Math.round((top.annuel_min / plein) * 100);
+        const cle = p >= 100 ? 'tm_role_ph_sur'
+                  : (roles.length === 1 ? 'tm_role_ph_1' : 'tm_role_ph');
+        phr.innerHTML = fmtPhrase(cle, '', {
+          nom: '<b>' + echap(top.nom) + '</b>', p: p });
+      }
+    }
+    barres($('#tm-role-liste'), roles, plein);
+    if (!roles.length && $('#tm-role-liste'))
       $('#tm-role-liste').innerHTML = `<div class="muted">${tl('tm_vide_role', '')}</div>`;
-    const pied = $('#tm-role-pied');
-    if (pied) pied.textContent = (d.par_role || []).length
-      ? fmtPhrase('tm_repere_plein', '', { h: fmtH(d.plein_temps_min) }) : '';
 
-    barres($('#tm-act-liste'),
-           (d.par_activite || []).slice().sort((a, b) => b.annuel_min - a.annuel_min)
-             .map(a2 => ({ nom: a2.activite, annuel_min: a2.annuel_min })), 0);
-    if (!(d.par_activite || []).length && $('#tm-act-liste'))
-      $('#tm-act-liste').innerHTML = `<div class="muted">${tl('tm_vide_act', '')}</div>`;
+    // — Carte 5 · LE CUMUL : une seule barre de 100 %
+    rendreCumul((d.par_activite || []).slice()
+                  .sort((a, b) => b.annuel_min - a.annuel_min));
+  }
+
+  /* Les barres d'avant, mises a l'echelle du MAXIMUM, faisaient paraitre les
+     trois premieres activites presque egales. Une seule barre de 100 %
+     montre qu'elles font presque tout.
+     ⚠️ Au-dela de TEINTES.length - 1 segments nommes, la queue est reunie
+     en un dernier segment : six cents activites donneraient six cents traits
+     d'un pixel et une legende illisible. */
+  const TEINTES = ['#6d28d9', '#7c3aed', '#9361f0', '#b79af5', '#d3c3fa', '#e9e2fd'];
+
+  function rendreCumul(acts){
+    const barre = $('#tm-cumul'), leg = $('#tm-cumul-leg');
+    const sub = $('#tm-act-sub'), pied = $('#tm-act-pied');
+    const total = acts.reduce((s, a) => s + (a.annuel_min || 0), 0);
+    if (!barre || !leg) return;
+    if (!acts.length || !total) {
+      barre.innerHTML = ''; leg.innerHTML = '';
+      if (sub) sub.textContent = '';
+      if (pied) pied.textContent = '';
+      if ($('#tm-cumul-leg')) leg.innerHTML =
+        `<div class="muted">${tl('tm_vide_act', '')}</div>`;
+      return;
+    }
+    /* ⚠️ Avec six activites pour six teintes, la sixieme devenait
+       « + 1 autres » : on ne reunit une queue que si elle contient PLUS d'une
+       activite — sinon autant la nommer. */
+    const nommees = acts.length <= TEINTES.length
+      ? acts.length : TEINTES.length - 1;
+    const vus = acts.slice(0, nommees).map((a, i) => ({
+      nom: a.activite, min: a.annuel_min, teinte: TEINTES[i] }));
+    const reste = acts.slice(nommees);
+    if (reste.length) vus.push({
+      nom: fmtPhrase(reste.length === 1 ? 'tm_cumul_autre' : 'tm_cumul_autres',
+                     '+ {n}', { n: reste.length }),
+      min: reste.reduce((s, a) => s + (a.annuel_min || 0), 0),
+      teinte: TEINTES[TEINTES.length - 1] });
+
+    const part = (v) => (v / total) * 100;
+    barre.innerHTML = vus.map(v =>
+      `<i style="width:${part(v.min)}%;background:${v.teinte}" title="${echap(v.nom)}"></i>`).join('');
+    leg.innerHTML = vus.map(v =>
+      `<span><em style="background:${v.teinte}"></em>`
+      + `<span class="nom" title="${echap(v.nom)}">${echap(v.nom)}</span>`
+      + `<b>${pourCent(Math.round(part(v.min)))}</b></span>`).join('');
+    if (sub) sub.textContent = fmtPhrase('tm_act_sub', '', { h: fmtHr(total) });
+    if (pied) {
+      // ⚠️ « Les trois premieres font n % » n'a de sens qu'a partir de
+      //    quatre activites : en dessous, la legende dit deja tout.
+      const n3 = acts.slice(0, 3).reduce((s, a) => s + (a.annuel_min || 0), 0);
+      pied.textContent = acts.length >= 4
+        ? fmtPhrase('tm_act_trois', '', { p: Math.round(part(n3)) }) : '';
+    }
   }
 
   // ---------------------- INIT ------------------------

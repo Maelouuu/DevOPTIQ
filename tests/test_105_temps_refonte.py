@@ -493,12 +493,16 @@ class TestLaCarteDiLeQuiManque:
             db.session.delete(db.session.get(Activities, neuve.id))
             db.session.commit()
 
-    def test_la_liste_est_plafonnee(self):
-        """Une carto de six cents activites n'a pas a les envoyer toutes pour
-        remplir une carte qui en montre trois."""
-        src_js = _lire("static/js/time.js")
-        assert "manquent.slice(0, 3)" in src_js
-        assert "tm_couv_autres" in src_js
+    def test_la_liste_est_plafonnee_cote_SERVEUR(self):
+        """Une carto de six cents activites n'a pas a les envoyer toutes.
+
+        \u26a0\ufe0f La liste des trois noms a quitte la carte avec la maquette
+        « l'ordre de grandeur » : c'est le BOUTON qui porte l'action, et il
+        nomme ce qu'il ouvre (cas suivant). Le plafond, lui, reste \u2014 il
+        protege la reponse, pas l'affichage."""
+        src = _lire("Code/routes/time_view.py")
+        bloc = src[src.index("a_chiffrer = ["):][:300]
+        assert "[:60]" in bloc, bloc
 
     def test_le_bouton_NOMME_l_activite_qu_il_ouvre(self):
         js = _lire("static/js/time.js")
@@ -526,13 +530,19 @@ class TestLaCarteDiLeQuiManque:
         assert "if (!couv.chiffrees) cbase.textContent = tl('tm_couv_aucune'" in js
 
     @pytest.mark.parametrize("lang", ["fr", "en"])
-    def test_la_phrase_ne_designe_plus_une_carte_par_sa_POSITION(self, lang):
+    def test_aucune_phrase_ne_designe_une_carte_par_sa_POSITION(self, lang):
         """« ci-contre » / « opposite » : faux des que l'ecran se replie en
-        une seule colonne — c'est-a-dire sous 1000 px."""
-        from Code.translations import t
-        for cle in ("time.tm_couv_base", "time.tm_couv_base_une"):
-            phrase = t(cle, lang=lang).lower()
-            assert "ci-contre" not in phrase and "opposite" not in phrase, (cle, phrase)
+        une seule colonne — c'est-a-dire sous 1000 px.
+
+        \u26a0\ufe0f La regle valait pour deux clefs ; elle vaut pour TOUTES.
+        « ci-dessus » est en revanche juste : les cartes s'empilent dans
+        l'ordre du document, ce qui est au-dessus le reste."""
+        from Code.translations import TRANSLATIONS
+        for cle, phrase in TRANSLATIONS[lang].items():
+            if not cle.startswith("time."):
+                continue
+            bas = str(phrase).lower()
+            assert "ci-contre" not in bas and "opposite" not in bas, (cle, phrase)
 
 
 _N_ROLE_105 = [0]
@@ -1526,3 +1536,278 @@ class TestSousUneHeureOnEcritDesMinutes:
             for cle in ("time.col_charge", "time.col_weight"):
                 assert "(h)" not in TRANSLATIONS[lg][cle].lower(), (lg, cle)
             assert "(min)" in TRANSLATIONS[lg]["time.col_duration_min"], lg
+
+
+class TestLesCinqCartesArbitrees:
+    """Les cinq cartes du haut, tranchees sur maquette avant d'etre ecrites
+    (canvas « Les cartes, une par une »). Ce qui suit garde les regles que
+    chacune porte \u2014 pas son habillage."""
+
+    # ───────────────────────────── carte 1 · deux etages
+    def test_les_TROIS_rythmes_dont_le_jour_travaille(self):
+        """« Par jour travaille » est le rythme qu'on se represente le mieux,
+        et il manquait : la carte n'en donnait que deux."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for ident in ("tm-charge-mois", "tm-charge-sem", "tm-charge-jour"):
+            assert 'id="%s"' % ident in g, ident
+        js = _lire("static/js/time.js")
+        assert "quotidien_min" in js
+
+    def test_le_serveur_envoie_la_charge_par_jour_travaille(self, auth_client):
+        d = _tdb(auth_client)
+        assert "quotidien_min" in d["charge"], d["charge"]
+        c = d["calendrier"]
+        if d["charge"]["annuel_min"]:
+            attendu = (d["charge"]["annuel_min"]
+                       / (float(c["weeks_per_year"]) * float(c["days_per_week"])))
+            assert d["charge"]["quotidien_min"] == pytest.approx(attendu)
+
+    def test_la_couverture_se_COMPTE_en_carres(self):
+        """Une jauge a moitie pleine se lit « a moitie fait » ; douze carres
+        dont six pleins se comptent."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert 'id="tm-pile"' in g
+        assert "tm-jauge" not in g, "la jauge a cede la place aux carres"
+        js = _lire("static/js/time.js")
+        # ⚠️ APPLIQUE, pas seulement declare : une constante qui ne sert
+        # a rien ne plafonne rien.
+        assert "couv.total <= PLAFOND_PILE" in js, "au-dela, on n'ose plus compter"
+
+    # ───────────────────────────── carte 2 · la part, et sur quoi
+    def test_chaque_barre_nomme_SON_tout(self):
+        """⚠️ On n'additionne jamais le travail refait et l'attente ; mais
+        sans dire de quoi chacun est un pourcentage, deux barres de tailles
+        differentes laissent croire a une seule echelle."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            assert "{h}" in TRANSLATIONS[lg]["time.tm_part_de"], lg
+            assert "{p}" in TRANSLATIONS[lg]["time.tm_part_de"], lg
+
+    def test_le_bloc_gris_dit_ce_qu_on_GAGNERAIT(self):
+        """Il portait une regle d'arithmetique, qui n'apprenait rien.
+        ⚠️ Et le singulier ne se devine pas du pluriel : « si cette faiblesse
+        etait levee » n'est pas « si ces 1 faiblesses etaient levees »."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.tm_gain", "time.tm_gain_1",
+                        "time.tm_gain_att", "time.tm_gain_att_1"):
+                assert cle in TRANSLATIONS[lg], (cle, lg)
+            assert "{n}" not in TRANSLATIONS[lg]["time.tm_gain_1"]
+            assert "{h}" in TRANSLATIONS[lg]["time.tm_gain_att"]
+            assert "{h}" not in TRANSLATIONS[lg]["time.tm_gain"], (
+                "sans attente, la seconde moitie parlerait de zero")
+        js = _lire("static/js/time.js")
+        assert "(attente ? 'tm_gain_att' : 'tm_gain')" in js
+
+    # ───────────────────────────── carte 3 · l'ordre de grandeur
+    def test_la_moyenne_porte_sur_les_ACTIVITES_mesurees(self, auth_client):
+        """⚠️ Jamais sur le nombre d'ANALYSES : une meme activite peut en
+        porter plusieurs, et la moyenne tomberait sous la charge reelle
+        d'une activite.
+
+        ⚠️ Le cas ne se joue QUE si une activite porte deux analyses :
+        ailleurs les deux divisions donnent le meme chiffre, et le controle
+        ne garde rien. On le fabrique donc."""
+        from Code.models.models import Activities
+        depart = _tdb(auth_client)
+        temoin = (depart["couverture"]["a_chiffrer"] or depart["par_activite"])
+        assert temoin, "la carto active n'a aucune activite"
+        modele = db.session.get(
+            Activities, temoin[0].get("id") or temoin[0]["activity_id"])
+        neuve = Activities(name="TM-105-moyenne-deux-analyses",
+                           entity_id=modele.entity_id)
+        db.session.add(neuve)
+        db.session.commit()
+        ids = []
+        try:
+            for _ in range(2):
+                r = auth_client.post("/temps/api/activity_workload", json={
+                    "activity_id": neuve.id, "duration": 60,
+                    "duration_unit": "minutes", "recurrence": "annuel",
+                    "frequency": 1, "nb_people": 1})
+                ids.append(json.loads(r.data)["id"])
+
+            d = _tdb(auth_client)
+            couv = d["couverture"]
+            assert couv["chiffrees"] < len(d["par_activite"]), (
+                "le decor doit porter plus d'ANALYSES que d'ACTIVITES mesurees")
+            attendu = d["charge"]["annuel_min"] / couv["chiffrees"]
+            assert couv["moyenne_min"] == pytest.approx(attendu)
+        finally:
+            for i in ids:
+                auth_client.delete("/temps/api/activity_workload/%d" % i)
+            db.session.delete(db.session.get(Activities, neuve.id))
+            db.session.commit()
+
+    def test_l_estimation_n_entre_dans_AUCUN_total(self, auth_client):
+        """C'est une hypothese : elle est servie a part, et la charge
+        annuelle reste celle des activites REELLEMENT mesurees.
+
+        ⚠️ Il faut une activite chiffree ET une activite sans duree pour
+        qu'il y ait quelque chose a extrapoler : sans moyenne, ou sur une
+        carto entierement chiffree, le controle ne garderait rien. Le decor
+        du fichier n'assure ni l'une ni l'autre — on les seme."""
+        from Code.models.models import Activities
+        depart = _tdb(auth_client)
+        temoin = (depart["couverture"]["a_chiffrer"] or depart["par_activite"])
+        assert temoin, "la carto active n'a aucune activite"
+        modele = db.session.get(
+            Activities, temoin[0].get("id") or temoin[0]["activity_id"])
+        mesuree = Activities(name="TM-105-estimation-mesuree",
+                             entity_id=modele.entity_id)
+        vide = Activities(name="TM-105-estimation-sans-duree",
+                          entity_id=modele.entity_id)
+        db.session.add_all([mesuree, vide])
+        db.session.commit()
+        wid = None
+        try:
+            r = auth_client.post("/temps/api/activity_workload", json={
+                "activity_id": mesuree.id, "duration": 120,
+                "duration_unit": "minutes", "recurrence": "annuel",
+                "frequency": 1, "nb_people": 1})
+            wid = json.loads(r.data)["id"]
+
+            d = _tdb(auth_client)
+            couv = d["couverture"]
+            assert couv["chiffrees"], couv
+            assert couv["estime_min"], couv
+            assert couv["ordre_min"] == pytest.approx(
+                d["charge"]["annuel_min"] + couv["estime_min"])
+            assert d["charge"]["annuel_min"] < couv["ordre_min"]
+        finally:
+            if wid:
+                auth_client.delete("/temps/api/activity_workload/%d" % wid)
+            for a in (mesuree, vide):
+                db.session.delete(db.session.get(Activities, a.id))
+            db.session.commit()
+
+    def test_sans_rien_de_mesure_il_n_y_a_rien_a_extrapoler(self, auth_client):
+        """⚠️ NUL, pas zero : sans moyenne on ne peut rien en tirer, et un
+        zero se lirait comme un resultat."""
+        src = _lire("Code/routes/time_view.py")
+        bloc = src[src.index("moyenne_min = ("):][:260]
+        assert "if chiffrees else None" in bloc, bloc
+        js = _lire("static/js/time.js")
+        assert "couv.ordre_min != null && reste > 0" in js
+
+    def test_un_ordre_de_grandeur_ne_se_donne_pas_a_l_heure_pres(self):
+        """« ~ 2 499 h ? » se contredit : le tilde annonce une approximation,
+        le chiffre pretend le contraire. Deux chiffres significatifs."""
+        js = _lire("static/js/time.js")
+        assert "function ordreDeGrandeur(min){" in js
+        bloc = js[js.index("function ordreDeGrandeur(min){"):][:420]
+        assert "Math.log10" in bloc, bloc
+        # et le grand chiffre comme le calcul annoncent le MEME nombre
+        assert js.count("ordreDeGrandeur(couv.ordre_min)") == 2
+
+    def test_le_calcul_est_ECRIT_et_il_a_son_singulier(self):
+        """« Ce n'est pas une mesure » demandait de croire sur parole."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.tm_ordre_calc", "time.tm_ordre_calc_1"):
+                p = TRANSLATIONS[lg][cle]
+                assert "{m}" in p and "{e}" in p and "{o}" in p, (cle, lg)
+            assert "{r}" not in TRANSLATIONS[lg]["time.tm_ordre_calc_1"]
+        js = _lire("static/js/time.js")
+        assert "reste === 1 ? 'tm_ordre_calc_1' : 'tm_ordre_calc'" in js
+
+    def test_la_charge_s_ecrit_PAREIL_partout_ou_elle_est_citee_en_bloc(self):
+        """La carte 1 ecrit « 1 250 » et `fmtH` « 1249.5h » : deux chiffres
+        pour la meme grandeur, a deux centimetres l'un de l'autre."""
+        js = _lire("static/js/time.js")
+        assert "function fmtHr(min){" in js
+        for appel in ("fmtHr(an)", "fmtHr(charge)", "fmtHr(total)",
+                      "fmtHr(couv.estime_min)", "fmtHr(couv.moyenne_min)"):
+            assert appel in js, appel
+
+    # ───────────────────────────── carte 4 · la phrase
+    def test_la_phrase_a_ses_TROIS_tournures(self):
+        """⚠️ Elle ne s'ecrit jamais d'avance : un role peut depasser le temps
+        plein, et il peut n'y en avoir qu'un — « le plus charge » n'aurait
+        alors aucun sens."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.tm_role_ph", "time.tm_role_ph_1",
+                        "time.tm_role_ph_sur"):
+                assert cle in TRANSLATIONS[lg], (cle, lg)
+        js = _lire("static/js/time.js")
+        assert "p >= 100 ? 'tm_role_ph_sur'" in js
+        assert "roles.length === 1 ? 'tm_role_ph_1' : 'tm_role_ph'" in js
+
+    def test_le_nom_du_role_est_ECHAPPE(self):
+        """Il part en innerHTML pour porter son `<b>` : `fmtPhrase` ne fait
+        aucun echappement."""
+        js = _lire("static/js/time.js")
+        assert "nom: '<b>' + echap(top.nom) + '</b>'" in js
+
+    # ───────────────────────────── carte 5 · le cumul
+    def test_une_queue_d_UNE_activite_ne_se_reunit_pas(self):
+        """Avec six activites pour six teintes, la sixieme devenait
+        « + 1 autres » au lieu d'etre nommee."""
+        js = _lire("static/js/time.js")
+        assert "acts.length <= TEINTES.length" in js
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            assert "time.tm_cumul_autre" in TRANSLATIONS[lg], lg
+            assert "{n}" not in TRANSLATIONS[lg]["time.tm_cumul_autre"], lg
+        assert "reste.length === 1 ? 'tm_cumul_autre'" in js
+
+    def test_les_trois_premieres_ne_se_disent_qu_a_partir_de_quatre(self):
+        """« Les trois premieres font 100 % » n'apprend rien quand il y en a
+        trois."""
+        js = _lire("static/js/time.js")
+        assert "acts.length >= 4" in js
+
+    # ───────────────────────────── les deux langues
+    def test_le_pourcentage_suit_la_LANGUE(self):
+        """L'espace avant le % est une regle FRANCAISE : l'ecran anglais
+        ecrivait « 5% of the load » a cote d'un « 4 % »."""
+        js = _lire("static/js/time.js")
+        assert "function pourCent(n){" in js
+        bloc = js[js.index("function pourCent(n){"):][:200]
+        assert "L.lang === 'en'" in bloc, bloc
+        assert "\\u00a0%" not in js, "plus aucun % colle a la main"
+
+    def test_toute_clef_lue_par_le_JS_est_injectee_et_traduite(self):
+        """⚠️ `tl` rend la CLE quand elle manque : une clef oubliee s'affiche
+        telle quelle a l'ecran, sans la moindre erreur. C'est ce silence
+        qu'on ferme ici."""
+        import re
+        from Code.translations import TRANSLATIONS
+        js = _lire("static/js/time.js")
+        gab = _lire("Code/routes/templates/time_dashboard.html")
+        # Les commentaires d'abord : un exemple cite n'est pas une lecture.
+        net = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+        net = re.sub(r"//[^\n]*", "", net)
+        # ⚠️ On ne cherche PAS les seuls appels `tl('x')` : une clef
+        # choisie par un ternaire imbrique
+        # (`p >= 100 ? 'a' : (n === 1 ? 'b' : 'c')`) y echappe, et la clef
+        # oubliee s'affichait telle quelle a l'ecran. Toute chaine du JS qui
+        # porte le nom d'une clef `time.*` du catalogue est une lecture.
+        # ⚠️ Restreint a la famille de CET ecran : `loading` et `role`
+        # coincident avec `time.loading` et `time.role` sans etre des
+        # lectures, et un controle qui crie a tort n'est plus lu.
+        connues = {c[len("time."):] for c in TRANSLATIONS["fr"]
+                   if c.startswith("time.tm_") or c.startswith("time.fw_")}
+        lues = {s for s in re.findall(r"'([a-z0-9_]+)'", net) if s in connues}
+        lues |= set(re.findall(r"(?:tl|fmtPhrase)\(\s*'([a-z0-9_]+)'", net))
+        for base in re.findall(r"'(tm_gain(?:_att)?)'", net):
+            lues.update({base, base + "_1"})
+        # Celles que le JS construit par concatenation, hors d'atteinte.
+        lues -= {"sub_", "ok"}
+
+        paires = dict(re.findall(
+            r"^\s+([a-z0-9_]+):\s*\{\{ t\('([a-z0-9_.]+)'\)", gab, re.M))
+        manquantes = sorted(c for c in lues if c not in paires)
+        assert not manquantes, manquantes
+        for nom, cle in paires.items():
+            for lg in ("fr", "en"):
+                assert cle in TRANSLATIONS[lg], (nom, cle, lg)
+
+    def test_le_gabarit_ne_cite_que_des_clefs_qui_existent(self):
+        import re
+        from Code.translations import TRANSLATIONS
+        gab = _lire("Code/routes/templates/time_dashboard.html")
+        for cle in sorted(set(re.findall(r"t\('(time\.[a-z0-9_]+)'\)", gab))):
+            for lg in ("fr", "en"):
+                assert cle in TRANSLATIONS[lg], (cle, lg)

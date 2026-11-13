@@ -49,10 +49,20 @@
                        tab_weakness:  {{ t('time.tab_weakness')|tojson }},
                        tm_base:       {{ t('time.tm_base')|tojson }},
                        tm_rien_mesure: {{ t('time.tm_rien_mesure')|tojson }},
-                       tm_faib_part:  {{ t('time.tm_faib_part')|tojson }},
                        tm_faib_aucune: {{ t('time.tm_faib_aucune')|tojson }},
-                       tm_faib_attente: {{ t('time.tm_faib_attente')|tojson }},
-                       tm_faib_attente_dit: {{ t('time.tm_faib_attente_dit')|tojson }},
+                       tm_par_jour:   {{ t('time.tm_par_jour')|tojson }},
+                       tm_part_travail: {{ t('time.tm_part_travail')|tojson }},
+                       tm_part_attente: {{ t('time.tm_part_attente')|tojson }},
+                       tm_part_de:    {{ t('time.tm_part_de')|tojson }},
+                       tm_part_sans_charge: {{ t('time.tm_part_sans_charge')|tojson }},
+                       tm_estim:      {{ t('time.tm_estim')|tojson }},
+                       tm_h_estime:   {{ t('time.tm_h_estime')|tojson }},
+                       tm_mesure:     {{ t('time.tm_mesure')|tojson }},
+                       tm_estime:     {{ t('time.tm_estime')|tojson }},
+                       tm_act_sub:    {{ t('time.tm_act_sub')|tojson }},
+                       tm_act_trois:  {{ t('time.tm_act_trois')|tojson }},
+                       tm_cumul_autre: {{ t('time.tm_cumul_autre')|tojson }},
+                       tm_cumul_autres: {{ t('time.tm_cumul_autres')|tojson }},
                        tm_couv_sur:   {{ t('time.tm_couv_sur')|tojson }},
                        {# ⚠️ Ces six-là sont choisies par un TERNAIRE dans le
                           JS (singulier / pluriel, « rien » / « une » / « n ») :
@@ -61,15 +71,23 @@
                           la clé brute, sans la moindre erreur. #}
                        tm_etp:        {{ t('time.tm_etp')|tojson }},
                        tm_etp_pl:     {{ t('time.tm_etp_pl')|tojson }},
-                       tm_faib_n:     {{ t('time.tm_faib_n')|tojson }},
-                       tm_faib_n_pl:  {{ t('time.tm_faib_n_pl')|tojson }},
-                       tm_couv_base:  {{ t('time.tm_couv_base')|tojson }},
-                       tm_couv_base_une: {{ t('time.tm_couv_base_une')|tojson }},
+                       tm_pile:       {{ t('time.tm_pile')|tojson }},
+                       tm_pile_tout:  {{ t('time.tm_pile_tout')|tojson }},
+                       tm_pile_rien:  {{ t('time.tm_pile_rien')|tojson }},
+                       tm_unite_jour: {{ t('time.tm_unite_jour')|tojson }},
+                       tm_unite_jours: {{ t('time.tm_unite_jours')|tojson }},
+                       tm_gain:       {{ t('time.tm_gain')|tojson }},
+                       tm_gain_1:     {{ t('time.tm_gain_1')|tojson }},
+                       tm_gain_att:   {{ t('time.tm_gain_att')|tojson }},
+                       tm_gain_att_1: {{ t('time.tm_gain_att_1')|tojson }},
+                       tm_ordre_calc: {{ t('time.tm_ordre_calc')|tojson }},
+                       tm_ordre_calc_1: {{ t('time.tm_ordre_calc_1')|tojson }},
+                       tm_role_ph:    {{ t('time.tm_role_ph')|tojson }},
+                       tm_role_ph_1:  {{ t('time.tm_role_ph_1')|tojson }},
+                       tm_role_ph_sur: {{ t('time.tm_role_ph_sur')|tojson }},
                        tm_couv_tout:  {{ t('time.tm_couv_tout')|tojson }},
                        tm_couv_aucune: {{ t('time.tm_couv_aucune')|tojson }},
-                       tm_couv_autres: {{ t('time.tm_couv_autres')|tojson }},
                        tm_couv_btn_nom: {{ t('time.tm_couv_btn_nom')|tojson }},
-                       tm_repere_plein: {{ t('time.tm_repere_plein')|tojson }},
                        tm_vide_role:  {{ t('time.tm_vide_role')|tojson }},
                        tm_vide_act:   {{ t('time.tm_vide_act')|tojson }},
                        tm_mod:        {{ t('time.tm_mod')|tojson }},
@@ -127,38 +145,57 @@
       </div>
     </div>
 
-    <!-- Un chiffre de tête, deux secondaires — et ce qui n'est PAS chiffré -->
+    <!-- ══ Un chiffre de tête, puis le contexte ══════════════════════════
+         Les cinq cartes ont été tranchées sur maquette avant d'être écrites :
+         canvas « Les cartes, une par une ». Ce qui suit EST l'écran assemblé
+         de son dernier onglet. -->
     <div class="tm-chiffres">
+
+      <!-- 1 · DEUX ÉTAGES — le total, les trois rythmes, puis ce qu'il couvre.
+           ⚠️ « Par jour travaillé » est neuf : il manquait, et c'est le rythme
+           qu'on se représente le mieux. -->
       <div class="tm-carte tm-carte--phare">
         <div class="tm-lbl">{{ t('time.tm_charge_label') }}</div>
         <div class="tm-grand"><span id="tm-charge">—</span><span class="tm-unite">h</span></div>
         <div class="tm-etp" id="tm-etp"></div>
-        <div class="tm-filet"></div>
-        <div class="tm-secondaires">
-          <div><div class="tm-lbl2">{{ t('time.tm_par_mois') }}</div><div class="tm-moyen" id="tm-charge-mois">—</div></div>
-          <div><div class="tm-lbl2">{{ t('time.tm_par_semaine') }}</div><div class="tm-moyen" id="tm-charge-sem">—</div></div>
+        <div class="tm-panneau">
+          <div><div class="e">{{ t('time.tm_par_mois') }}</div><div class="v" id="tm-charge-mois">—</div></div>
+          <div><div class="e">{{ t('time.tm_par_semaine') }}</div><div class="v" id="tm-charge-sem">—</div></div>
+          <div><div class="e">{{ t('time.tm_par_jour') }}</div><div class="v" id="tm-charge-jour">—</div></div>
         </div>
+        <!-- On COMPTE les activités, on ne lit pas un pourcentage : une jauge
+             à moitié pleine se lit « à moitié fait ». -->
+        <div class="tm-pile" id="tm-pile"></div>
+        <div class="tm-pile-l" id="tm-pile-l"></div>
       </div>
 
+      <!-- 2 · LA PART, ET SUR QUOI — chaque barre nomme SON tout.
+           ⚠️ DEUX natures, jamais additionnées : `travail_min` est du travail
+           refait, comparable à la charge ; `attente_min` est du temps
+           d'horloge, qui ne coûte de travail à personne. Les sommer donnait
+           « 84 % de la charge » pour 5 % réels. -->
       <div class="tm-carte">
         <div class="tm-lbl">{{ t('time.tm_faib_label') }}</div>
         <div class="tm-grand tm-rouge">+ <span id="tm-faib">—</span><span class="tm-unite">h</span></div>
-        <div class="tm-sous" id="tm-faib-sous"></div>
+        <div id="tm-parts"></div>
+        <div class="tm-gain" id="tm-gain"></div>
         <div class="tm-faib-liste" id="tm-faib-liste"></div>
-        <!-- ⚠️ L'attente est posee A PART, jamais additionnee au travail
-             refait : c'est du temps d'horloge, il ne coute de travail a
-             personne. Les sommer annoncait « 84 % de la charge » pour 5 %. -->
-        <div class="tm-attente" id="tm-attente"></div>
       </div>
 
+      <!-- 3 · L'ORDRE DE GRANDEUR — la question qu'on se pose en lisant la
+           carte 1 : « et en vrai, ça fait combien ? »
+           ⚠️ C'est une HYPOTHÈSE, pas une mesure : étiquetée, hachurée, et le
+           calcul est écrit en toutes lettres. Elle n'entre dans aucun total.
+           ⚠️ La liste des trois noms a quitté cette carte avec la maquette ;
+           c'est le bouton qui porte l'action, et il NOMME ce qu'il ouvre. -->
       <div class="tm-carte">
         <div class="tm-lbl">{{ t('time.tm_couv_label') }}</div>
-        <div class="tm-grand"><span id="tm-couv-nb">—</span><span class="tm-unite" id="tm-couv-sur"></span></div>
+        <div class="tm-estim" id="tm-estim">{{ t('time.tm_estim') }}</div>
+        <div class="tm-grand tm-ordre"><span id="tm-couv-nb">—</span><span class="tm-unite" id="tm-couv-sur"></span></div>
+        <div class="tm-duo" id="tm-duo"></div>
+        <div class="tm-duo-l" id="tm-duo-l"></div>
         <div class="tm-sous" id="tm-couv-base"></div>
-        <div class="tm-jauge"><div class="tm-jauge-in" id="tm-couv-jauge"></div></div>
-        <!-- ⚠️ Les NOMS de ce qui manque : « 12 activités sur 12 » ne dit pas
-             quoi faire. Chaque ligne ouvre SON activité, déjà choisie. -->
-        <div class="tm-couv-liste" id="tm-couv-liste"></div>
+        <div class="tm-calcul" id="tm-calcul"></div>
         <button id="tm-btn-couv" class="btn btn-couv hidden">
           <span id="tm-btn-couv-txt">{{ t('time.tm_couv_btn') }}</span>
           <i class="fa-solid fa-arrow-right"></i>
@@ -168,27 +205,38 @@
 
     <!-- Deux lectures de la même charge -->
     <div class="tm-lectures">
+
+      <!-- 4 · LA PHRASE — le fait d'abord, écrit en toutes lettres ; les rôles
+           ensuite, sobres, pour le vérifier.
+           ⚠️ Elle ne s'écrit JAMAIS d'avance : un rôle peut dépasser le temps
+           plein, et il peut n'y en avoir qu'un. Trois tournures, choisies sur
+           les chiffres. -->
       <div class="card tm-lecture">
         <div class="tm-lecture-head">
           <span class="tm-pastille tm-pastille--role"><i class="fa-solid fa-user-tie"></i></span>
           <div>
             <div class="tm-lecture-titre">{{ t('time.tm_par_role') }}</div>
-            <div class="tm-lecture-sub">{{ t('time.tm_par_role_sub') }}</div>
           </div>
         </div>
+        <div class="tm-phrase" id="tm-role-phrase"></div>
         <div id="tm-role-liste" class="tm-barres"></div>
-        <div class="tm-lecture-pied" id="tm-role-pied"></div>
       </div>
 
+      <!-- 5 · LE CUMUL — une seule barre de 100 %, segmentée par activité : on
+           voit que trois segments font presque tout. Les barres d'avant, mises
+           à l'échelle du maximum, faisaient paraître les trois premières
+           presque égales. -->
       <div class="card tm-lecture">
         <div class="tm-lecture-head">
           <span class="tm-pastille tm-pastille--act"><i class="fa-solid fa-bolt"></i></span>
           <div>
             <div class="tm-lecture-titre">{{ t('time.tm_par_act') }}</div>
-            <div class="tm-lecture-sub">{{ t('time.tm_par_act_sub') }}</div>
+            <div class="tm-lecture-sub" id="tm-act-sub"></div>
           </div>
         </div>
-        <div id="tm-act-liste" class="tm-barres"></div>
+        <div class="tm-cumul" id="tm-cumul"></div>
+        <div class="tm-cumul-leg" id="tm-cumul-leg"></div>
+        <div class="tm-lecture-pied" id="tm-act-pied"></div>
       </div>
     </div>
 

@@ -508,9 +508,36 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-filet { height: 1px; background: rgba(255,255,255,.22); margin: 13px 0 11px; }
 .tm-carte:not(.tm-carte--phare) .tm-filet,
 .tm-res-bloc .tm-filet { background: var(--border); }
-.tm-secondaires { display: flex; gap: 22px; font-size: 12.5px; }
-.tm-lbl2 { opacity: .72; }
-.tm-moyen { font-size: 16px; font-weight: 700; margin-top: 1px; }
+
+/* ── Carte 1 · les trois rythmes, creuses dans la carte ─────────────────
+   ⚠️ « Par jour travaille » est NEUF : c'est le rythme qu'on se represente
+   le mieux, et il manquait. */
+.tm-panneau {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+  margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(0,0,0,.2);
+}
+.tm-panneau .e {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; opacity: .74;
+}
+.tm-panneau .v {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 21px; font-weight: 700; margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Carte 1 · la couverture, en carres qu'on COMPTE ────────────────────
+   Une jauge a moitie pleine se lit « a moitie fait » ; douze carres dont
+   six pleins se comptent. */
+.tm-pile { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 14px; }
+.tm-pile b {
+  width: 15px; height: 15px; border-radius: 4px; flex: none;
+  background: var(--tm-ambre-b); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+}
+.tm-pile b.vide { background: rgba(255,255,255,.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+.tm-pile-l { font-size: 12.5px; margin-top: 9px; color: rgba(255,255,255,.82); line-height: 1.4; }
+.tm-pile-l:empty, .tm-pile:empty { display: none; }
 
 .tm-faib-liste { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
 .tm-faib-l { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
@@ -521,8 +548,68 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-faib-barre { height: 6px; border-radius: 4px; background: #fca5a5; flex: none; }
 .tm-faib-val { font-weight: 700; color: #b91c1c; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.tm-jauge { height: 8px; border-radius: 5px; background: #eef0f6; margin-top: 12px; overflow: hidden; }
-.tm-jauge-in { height: 100%; background: linear-gradient(90deg, var(--tm-ambre-f), var(--tm-ambre)); }
+/* ── Carte 2 · la part, et sur quoi ─────────────────────────────────────
+   ⚠️ Chaque barre nomme SON tout. Le travail refait est plein, l'attente
+   est HACHUREE : ce n'est pas du travail, c'est du temps d'horloge. */
+.tm-part { margin-top: 13px; }
+.tm-part .p {
+  height: 10px; border-radius: 6px; background: #f1f3f8; overflow: hidden;
+  box-shadow: inset 0 0 0 1px #e6e9f0;
+}
+.tm-part .p i { display: block; height: 100%; min-width: 3px; border-radius: 6px;
+  background: linear-gradient(90deg, #ef4444, var(--tm-faiblesse)); }
+.tm-part .p i.horloge {
+  background: repeating-linear-gradient(135deg, #b4bdcb 0 4px, #eef2f7 4px 9px);
+  box-shadow: inset 0 0 0 1px #d7dde6;
+}
+.tm-part .q { display: flex; justify-content: space-between; gap: 10px;
+  margin-top: 5px; font-size: 12px; color: var(--muted); }
+.tm-part .q b { color: var(--ink-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+.tm-gain {
+  margin-top: 13px; padding: 11px 13px; border-radius: 9px; font-size: 13px;
+  line-height: 1.45; background: #f6f8fb; border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+.tm-gain:empty { display: none; }
+.tm-gain b { color: var(--ink-2); font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 16px; font-variant-numeric: tabular-nums; }
+.tm-faib-pct { width: 36px; text-align: right; color: var(--muted);
+  font-variant-numeric: tabular-nums; flex: none; }
+
+/* ── Carte 3 · l'ordre de grandeur ──────────────────────────────────────
+   ⚠️ C'est une HYPOTHESE, pas une mesure : l'etiquette le dit, la hachure
+   le montre, et le calcul est ecrit. Elle n'entre dans aucun total. */
+.tm-estim {
+  display: inline-flex; align-items: center; margin-top: 10px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: #92400e; background: var(--tm-ambre-p);
+  border: 1px solid var(--tm-ambre-b); border-radius: 999px; padding: 3px 10px;
+}
+.tm-estim.hidden { display: none; }
+.tm-carte .tm-grand.tm-ordre { opacity: .8; margin-top: 4px; }
+.tm-duo { display: flex; height: 15px; border-radius: 8px; overflow: hidden;
+  margin-top: 14px; box-shadow: inset 0 0 0 1px #e2e8f0; }
+.tm-duo:empty { display: none; }
+.tm-duo i { display: block; }
+.tm-duo .m { background: linear-gradient(90deg, var(--tm-ambre-f), var(--tm-ambre)); }
+.tm-duo .u2 { background: repeating-linear-gradient(135deg, #b4bdcb 0 4px, #eef2f7 4px 9px); }
+.tm-duo-l { display: flex; justify-content: space-between; gap: 12px;
+  margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.tm-duo-l:empty { display: none; }
+.tm-duo-l b, .tm-duo-l .q2 {
+  display: block; font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 17px; font-variant-numeric: tabular-nums;
+}
+.tm-duo-l b { color: var(--ink-2); }
+.tm-duo-l .q2 { color: var(--muted); }
+.tm-calcul {
+  margin-top: 13px; padding: 11px 13px; border-radius: 9px; font-size: 13px;
+  line-height: 1.45; background: #f6f8fb; border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+.tm-calcul:empty { display: none; }
+.tm-calcul b { color: var(--ink-2); font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 16px; font-variant-numeric: tabular-nums; }
 .btn-couv {
   margin-top: 12px; width: 100%; justify-content: center;
   background: var(--tm-ambre-p); border: 1px solid var(--tm-ambre-b); color: #92400e;
@@ -575,6 +662,36 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .tm-barre-plus { padding: 8px 18px; font-size: 12px; color: var(--muted); }
+
+/* ── Carte 4 · le fait, ecrit ───────────────────────────────────────────
+   ⚠️ La phrase ne s'ecrit jamais d'avance : un role peut depasser le temps
+   plein, et il peut n'y en avoir qu'un. */
+.tm-phrase {
+  padding: 14px 18px 2px; font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 19px; line-height: 1.35; font-weight: 500; color: var(--ink);
+  text-wrap: balance;
+}
+.tm-phrase:empty { display: none; }
+.tm-phrase b { font-weight: 700; color: var(--tm-role); }
+
+/* ── Carte 5 · le cumul ─────────────────────────────────────────────────
+   Les barres mises a l'echelle du MAXIMUM faisaient paraitre les trois
+   premieres presque egales ; une seule barre de 100 % montre qu'elles font
+   presque tout. */
+.tm-cumul {
+  display: flex; height: 17px; border-radius: 9px; overflow: hidden;
+  margin: 14px 18px 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.07);
+}
+.tm-cumul:empty { display: none; }
+.tm-cumul i { display: block; min-width: 2px; }
+.tm-cumul-leg {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 11px 18px 0;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.tm-cumul-leg span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.tm-cumul-leg em { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.tm-cumul-leg b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tm-cumul-leg .nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
 
 /* ── Vos analyses ──
    ⚠️ REPLIABLES, fermées au départ : avec de vraies données les quatre
@@ -828,21 +945,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 }
 
 /* Ce qui n'est pas chiffre : les NOMS, pas seulement le compte. */
-.tm-couv-liste { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; }
-.tm-couv-l {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
-  padding: 6px 9px; border-radius: 8px;
-  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
-}
-.tm-couv-l span {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.tm-couv-l i { font-size: 10px; color: var(--tm-ambre); opacity: 0; transition: opacity .12s; }
-.tm-couv-l:hover { border-color: var(--tm-ambre-b); color: var(--tm-ambre-f); }
-.tm-couv-l:hover i { opacity: 1; }
-.tm-couv-plus { font-size: 11.5px; color: var(--muted); padding-left: 9px; }
 .btn-couv { gap: 7px; }
 
 /* Le rail des quatre analyses, en tete de « Vos analyses ». */
@@ -877,14 +979,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-r-faiblesse:hover { border-color: var(--tm-faiblesse); }
 
 /* L'attente : lisible, mais jamais confondue avec le travail refait. */
-.tm-attente {
-  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
-  font-size: 12.5px; color: var(--muted);
-}
-.tm-attente:empty { display: none; }
-.tm-attente b { font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.tm-attente i { font-style: normal; font-size: 11.5px; color: var(--faint, var(--muted)); }
 
 /* ───────────────────────────── Responsive ───────────────────────────── */
 /* ⚠️ Pixels REELS : une requete de media ignore le `zoom` du corps. A

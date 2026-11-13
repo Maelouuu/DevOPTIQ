@@ -7566,6 +7566,115 @@ brute, 0 unité française sur 518 options.
 Suite : **3 884 passés**, 1 sauté ; `repet_image` **3 813 passés** +
 72 sautés.
 
+#### LES CINQ CARTES du haut, arbitrées sur maquette (2026-11-13)
+
+Les cartes de l'accueil disaient leurs chiffres sans dire ce qu'ils veulent
+dire. Trois propositions écrites directement dans le code avaient été
+refusées ; la quatrième est passée par un **prototype cliquable à l'échelle
+réelle**, carte par carte, repris en trois versions — et le premier essai
+visait encore à côté : il proposait des agencements de cartes quand ce qu'on
+demandait était **leur contenu**. C'est la huitième fois que la méthode évite
+une journée écrite pour rien. L'écran assemblé du dernier onglet est ce qui a
+été implanté, sans retouche.
+
+Les largeurs du prototype étaient JUSTES, mesurées à l'écran après coup :
+**633,45 / 487,28 / 487,29 px** pour la rangée du haut, exactement ce que la
+maquette annonçait.
+
+- **1 · Deux étages** — le total, les trois rythmes dans un panneau creusé,
+  puis ce que ce total couvre. ⚠️ **« Par jour travaillé » est NEUF** : c'est
+  le rythme qu'on se représente le mieux et il manquait ; le serveur l'envoie
+  désormais (`charge.quotidien_min`). La couverture se **COMPTE en carrés** :
+  une jauge à moitié pleine se lit « à moitié fait ». ⚠️ Au-delà de
+  `PLAFOND_PILE` (24) on n'ose plus compter : la pile cède la place à sa seule
+  phrase — et le plafond doit être APPLIQUÉ, pas seulement déclaré (le
+  cliquet est tombé là-dessus).
+- **2 · La part, et sur quoi** — deux barres, **chacune nommant SON tout**
+  (« 5 % de la charge (1 250 h) ») ; sans ça, deux barres de tailles
+  différentes laissent croire à une seule échelle. L'attente reste
+  **hachurée** : c'est du temps d'horloge, jamais additionné au travail. Le
+  bloc gris dit ce qu'on **gagnerait** à lever les faiblesses, en JOURS —
+  « 61,2 h » est abstrait, « 8,7 jours » se compare à une semaine de travail.
+  ⚠️ Quatre tournures : avec ou sans attente, au singulier ou au pluriel — et
+  l'accord du mot « jour » ne se devine pas d'une langue à l'autre (le
+  français met au singulier sous 2, l'anglais au pluriel dès qu'on quitte 1).
+- **3 · L'ordre de grandeur** — la question qu'on se pose vraiment en lisant la
+  carte 1 : « et en vrai, ça fait combien ? » Étiquetée **ESTIMATION**,
+  hachurée, et surtout **le calcul est ÉCRIT** : « Moyenne des activités
+  chiffrées : 208 h. Appliquée à chacune des 6 activités sans durée :
+  + 1 250 h, soit ~ 2 500 h en tout. » La première rédaction disait « ce n'est
+  pas une mesure », ce qui demandait de croire sur parole ; celle-ci se
+  vérifie.
+  - ⚠️ **Elle n'entre dans AUCUN total** : `charge.annuel_min` reste celle des
+    activités réellement mesurées, et l'écran le dit.
+  - ⚠️ **La moyenne porte sur les ACTIVITÉS mesurées, jamais sur le nombre
+    d'ANALYSES** : une même activité peut en porter plusieurs, et la moyenne
+    tomberait sous la charge réelle d'une activité.
+  - ⚠️ **NUL, pas zéro, sans rien de mesuré** : sans moyenne il n'y a rien à
+    extrapoler, et un zéro se lirait comme un résultat. La carte retombe alors
+    sur le COMPTE de ce qui manque.
+  - ⚠️ **Un ordre de grandeur ne se donne pas à l'heure près.** Relevé à
+    l'écran : « ~ 2 499 h ? » se contredit lui-même — le tilde annonce une
+    approximation, le chiffre prétend le contraire. Deux chiffres
+    significatifs (`ordreDeGrandeur`), **écrits une fois** : le grand chiffre
+    et le calcul qui l'explique doivent annoncer le même nombre.
+  - ⚠️ **La liste des trois noms a quitté cette carte** avec la maquette :
+    c'est le BOUTON qui porte l'action, et il nomme ce qu'il ouvre
+    (« Chiffrer « Archiver le dossier » »). Le plafond de la liste, lui, reste
+    — côté serveur (`[:60]`), où il protège la réponse et non l'affichage.
+- **4 · La phrase** — le fait d'abord, **écrit en toutes lettres**, puis les
+  rôles pour le vérifier. ⚠️ Elle ne s'écrit **jamais d'avance** : un rôle peut
+  dépasser le temps plein, et il peut n'y en avoir qu'un — « le plus chargé »
+  n'aurait alors aucun sens. Trois tournures, choisies sur les chiffres. Le
+  pied qui expliquait le trait du temps plein est parti : la phrase le dit
+  déjà.
+- **5 · Le cumul** — une seule barre de 100 %, segmentée par activité. Les
+  barres d'avant, mises à l'échelle du MAXIMUM, faisaient paraître les trois
+  premières presque égales ; on lit maintenant qu'elles font **89 %**.
+  ⚠️ On ne réunit une queue que si elle contient PLUS d'une activité : avec
+  six activités pour six teintes, la sixième devenait « + 1 autres » au lieu
+  d'être nommée. Et « les trois premières font n % » ne se dit qu'à partir de
+  quatre activités.
+
+⚠️ **La charge s'écrit PAREIL partout où elle est citée en bloc.** Relevé au
+banc : la carte 1 annonçait « 1 250 » et ses voisines « 1249.5h », à deux
+centimètres — deux chiffres pour la même grandeur. `fmtHr` (heures entières,
+localisées) sert partout où l'on parle de la charge globale ; `fmtH` garde sa
+décimale pour les mesures fines.
+ℹ️ **Reste** : `fmtH` écrit « 922.5h » avec un POINT décimal, même en français
+(`toFixed(1)`). Défaut antérieur, visible sur toute la page ; un cliquet exige
+cette forme, le corriger est un chantier à part.
+
+⚠️ **L'espace avant le % est une règle FRANÇAISE.** Vu sur l'écran anglais du
+banc : « 5% of the load » (qui passe par le catalogue, donc juste) à deux
+centimètres d'un « 4 % » écrit en dur dans le JS. `pourCent()` suit la langue.
+
+**Les deux cliquets qui ne gardaient RIEN**, et c'est le banc qui l'a dit :
+- deux cas montaient leur décor **sans le cas qu'ils éprouvent** — la moyenne
+  ne diverge que si une activité porte DEUX analyses, et l'estimation n'existe
+  que s'il y a à la fois une activité chiffrée et une activité sans durée. Ils
+  sèment donc les leurs ;
+- ⚠️ l'analyse des clefs lues ratait celles choisies par un **ternaire
+  imbriqué** (`p >= 100 ? 'a' : (n === 1 ? 'b' : 'c')`) : retirer l'injection de
+  `tm_role_ph_sur` laissait le contrôle vert, et l'écran aurait affiché la
+  **clef brute**, sans la moindre erreur. On cherche désormais toute chaîne du
+  JS qui porte le nom d'une clef `time.tm_*` ou `time.fw_*`.
+  ℹ️ Restreint à ces deux familles : `loading` et `role` coïncident avec
+  `time.loading` et `time.role` sans être des lectures, et un contrôle qui crie
+  à tort n'est plus lu.
+
+Tests : `tests/test_105_temps_refonte.py` passe de 101 à **128 cas** ;
+**18 défauts remis un par un, 18 cliquets tombent**. Deux cas existants ont été
+**réécrits** plutôt que supprimés : le plafond de la liste vise désormais le
+serveur, et « aucune phrase ne désigne une carte par sa POSITION » vaut pour
+TOUT le catalogue `time.*` au lieu de deux clefs.
+Suite : **4 105 passés**, 1 sauté ; `repet_image` **3 671 passés** + 72 sautés.
+Éprouvé au banc (`tools/devrun_temps.py`) dans les deux langues, de 790 à
+1600 px : **zéro fuite française sur l'écran anglais** (182 textes relevés,
+attributs compris — tout ce qui reste en français est une DONNÉE du banc),
+zéro erreur console, aucun débordement horizontal.
+Maquette : artefact « Les cartes, une par une ».
+
 ### Quatre retours du pilote corrigés — et trois étaient PETITS (2026-11-10)
 
 Sur les douze points laissés ouverts le 09/11, l'utilisateur en a tranché

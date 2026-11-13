@@ -1091,12 +1091,22 @@ def api_tableau_de_bord():
         })
 
     mesurees = {a["activity_id"] for a in par_activite}
+    chiffrees = len(mesurees)
+    reste_a_chiffrer = max(0, len(ids) - chiffrees)
+    # Ce qu'une activite chiffree pese EN MOYENNE, puis ce que peseraient les
+    # autres si elles lui ressemblaient. C'est une hypothese, pas une mesure :
+    # elle n'entre dans aucun total, et l'ecran le dit.
+    #
+    # On divise par le nombre d'ACTIVITES mesurees, jamais par le nombre
+    # d'ANALYSES : une meme activite peut en porter plusieurs, et la moyenne
+    # tomberait alors sous la charge reelle d'une activite.
+    moyenne_min = (charge_annuelle / chiffrees) if chiffrees else None
+    estime_min = (moyenne_min * reste_a_chiffrer) if moyenne_min else None
     # ⚠️ Les NOMS, pas seulement le compte : « 12 sur 12 » ne dit pas quoi
     # faire. Plafonné — une carto de six cents activités n'a pas a les
     # envoyer toutes pour remplir une carte qui en montre trois.
     a_chiffrer = [{"id": a.id, "nom": a.name}
                   for a in activites if a.id not in mesurees][:60]
-    chiffrees = len(mesurees)
 
     return jsonify({
         "ok": True,
@@ -1107,6 +1117,9 @@ def api_tableau_de_bord():
             "mensuel_min": charge_annuelle / 12.0,
             "hebdo_min": (charge_annuelle / float(params['weeks_per_year'])
                           if params['weeks_per_year'] else 0.0),
+            "quotidien_min": (charge_annuelle
+                              / (float(params['weeks_per_year']) * float(params['days_per_week']))
+                              if params['weeks_per_year'] and params['days_per_week'] else 0.0),
             # ⚠️ NUL (et non zero) quand rien n'est mesure : « 0 equivalent
             # temps plein » se lit comme un resultat, « — » comme une absence.
             "etp": (charge_annuelle / plein_temps_min) if (plein_temps_min and charge_annuelle) else None,
@@ -1122,7 +1135,14 @@ def api_tableau_de_bord():
             "items": faiblesses,
         },
         "couverture": {"chiffrees": chiffrees, "total": len(ids),
-                       "a_chiffrer": a_chiffrer},
+                       "a_chiffrer": a_chiffrer,
+                       # L'ordre de grandeur de la charge reelle. NUL tant que
+                       # rien n'est mesure : sans moyenne il n'y a rien a
+                       # extrapoler, et un zero se lirait comme un resultat.
+                       "moyenne_min": moyenne_min,
+                       "estime_min": estime_min,
+                       "ordre_min": ((charge_annuelle + estime_min)
+                                     if estime_min is not None else None)},
         "par_role": par_role,
         "par_activite": par_activite,
         "projets": projets,
