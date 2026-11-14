@@ -29,6 +29,8 @@ PAGE_LABELS = {
     "test_138_couverture_residuelle": "Couverture résiduelle (rendu tâches, outils, réglages)",
     "test_141_modules_residuels": "Modules transverses — Bienvenue, propositions d'activité, noms de rôles",
     "test_142_modules_socle": "Modules socle — Prompts IA, client IA, console serveur, paliers, mot de passe, porte d'écriture",
+    "test_143_carto_sharing_residuel": "Partage de cartos — Comparaison avant/après, arbitrage et corps invalides",
+    "test_144_import_hub_gaps": "Import de données — Lecture de fichiers, IA, vérification et routes (compléments)",
     "test_13_competences":      "Compétences & Évaluations",
     "test_118_competences_gaps": "Compétences — Évaluations d'activité & synthèses",
     "test_125_competences_items_gaps": "Compétences — Notes d'items & structure de rôle",
