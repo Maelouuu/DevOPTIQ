@@ -15,6 +15,10 @@
    L'ÉLÉMENT (jamais sur le prototype : ça vaudrait pour toute l'application)
    pour que les écritures existantes continuent de marcher telles quelles.
 
+   ⚠️ L'accent du contrôle suit le TYPE du formulaire (rouge pour une
+   faiblesse, violet pour une activité), jamais l'ambre de la page : c'est
+   `--tms-a`, dérivé du `--tm-c` que pose `#tm-travail[data-analyse]`.
+
    ⚠️ Le panneau est posé sur le BODY en `position: fixed` : dans une cellule
    de tableau, `.table-wrap` est en `overflow-x: auto` et le découperait. Donc
    la conversion de zoom — `body.pg` porte `zoom: .8`, un enfant du body en
@@ -107,6 +111,15 @@
           return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
         }) + '</span></div>';
     }).join('');
+
+    /* ⚠️ Le panneau est posé sur le BODY : il vit HORS de `#tm-travail` et
+       n'hérite donc pas de `--tm-c`, la couleur du type de formulaire. On
+       lui recopie la valeur CALCULÉE sur le bouton, qui est dedans. */
+    var accent = (getComputedStyle(bouton)
+                  .getPropertyValue('--tms-a') || '').trim();
+    if (accent && accent.indexOf('var(') < 0)
+      panneau.style.setProperty('--tms-a', accent);
+
     document.body.appendChild(panneau);
 
     var o = { sel: sel, bouton: bouton, panneau: panneau, actif: sel.selectedIndex };
@@ -273,7 +286,22 @@
     // Tout ce qui déplace ce qu'il y a dessous referme : le panneau est posé
     // sur le body, il ne suivrait pas son bouton.
     window.addEventListener('resize', fermer);
-    window.addEventListener('scroll', fermer, true);
+    /* ⚠️ `scroll` en CAPTURE voyait TOUS les défilements — y compris celui
+       du PANNEAU, qui se refermait donc dès qu'on y défilait. Et même tout
+       seul à l'ouverture d'une longue liste : `viser()` appelle
+       `scrollIntoView`, qui fait défiler le panneau quand l'option choisie
+       est sous le pli, et le défilement arrive une image plus tard.
+       Un défilement qui naît DANS le panneau ne le referme donc pas ; tout
+       autre si, car le panneau est posé sur le body et ne suivrait pas son
+       bouton. ⚠️ Un événement `scroll` ne REMONTE pas : seule la phase de
+       capture le voit, d'où le `true` qu'on garde. */
+    window.addEventListener('scroll', function (e) {
+      if (!ouvert) return;
+      var c = e.target;
+      if (c === ouvert.panneau) return;
+      if (c && c.nodeType === 1 && c.closest && c.closest('.tms-p')) return;
+      fermer();
+    }, true);
   }
 
   if (document.readyState === 'loading')

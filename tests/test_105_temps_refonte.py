@@ -843,8 +843,8 @@ class TestLaListeTientALEcran:
     def test_les_deux_boutons_de_l_entete_ne_sont_plus_des_btn_nus(self):
         g = _lire("Code/routes/templates/time_dashboard.html")
         # ⚠️ Jusqu'à la FIN du bloc, pas 600 signes : une porte de plus dans
-        # l'en-tête (le calendrier partagé) poussait le bouton primaire hors
-        # de la tranche, et le cas tombait sans qu'il y ait de défaut.
+        # l'en-tête poussait le bouton primaire hors de la tranche, et le cas
+        # tombait sans qu'il y ait le moindre défaut.
         i = g.index('class="tm-entete-actions"')
         entete = g[i:g.index("</div>", g.index("tm-btn-nouvelle", i))]
         assert 'class="tm-b tm-b--doux"' in entete
@@ -2205,8 +2205,9 @@ class TestLesRetoursDuTreizeNovembre:
         bloc = js[i:i + 700]
         assert "r.left / z" in bloc, bloc
         assert "r.bottom + 6) / z" in bloc, bloc
-        # Et il se referme sur tout ce qui deplace ce qu'il y a dessous.
-        assert "window.addEventListener('scroll', fermer, true)" in js
+        # Et il se referme sur tout ce qui deplace ce qu'il y a dessous —
+        # sauf son propre defilement : voir le cliquet dedie plus bas.
+        assert "window.addEventListener('scroll', function (e) {" in js
         assert "window.addEventListener('resize', fermer)" in js
 
     def test_les_lignes_creees_APRES_le_chargement_sont_habillees(self):
@@ -2248,3 +2249,65 @@ class TestLesRetoursDuTreizeNovembre:
         assert "est-pointe" in rh
         assert "est-pointe" in _lire("static/gestion_rh.css")
 
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Le déroulant dessiné : on ne pouvait pas y défiler, et son accent était
+#  l'ambre de la page pour les quatre types de formulaire.
+#
+#  « C'est top, seulement on ne peut pas scroller dedans cela le ferme
+#  direct. » · « Si à la place de la touche orange tu peux adapter la couleur
+#  à celle des quatre types, genre pour les faiblesses le déroulant sera
+#  rouge. »
+# ══════════════════════════════════════════════════════════════════════════
+class TestLeDeroulantSeDefileEtSuitLeType:
+
+    def test_defiler_DANS_le_panneau_ne_le_referme_PAS(self):
+        """⚠️ `scroll` en CAPTURE voyait TOUS les defilements, y compris celui
+        du panneau : il se refermait des qu'on y defilait. Et meme tout seul a
+        l'ouverture d'une longue liste — `viser()` appelle `scrollIntoView`,
+        qui fait defiler le panneau quand l'option choisie est sous le pli, et
+        le defilement arrive une image plus tard.
+        ⚠️ Le `true` reste : un evenement `scroll` ne REMONTE pas, seule la
+        phase de capture le voit."""
+        js = _lire("static/js/tm_select.js")
+        assert "window.addEventListener('scroll', fermer, true)" not in js
+        i = js.index("window.addEventListener('scroll'")
+        bloc = js[i:js.index("}, true);", i)]
+        assert "ouvert.panneau" in bloc, bloc
+        assert "closest('.tms-p')" in bloc, bloc
+        assert "fermer();" in bloc, bloc
+
+    def test_le_panneau_garde_le_geste_au_BOUT_de_son_defilement(self):
+        """Arrive en bas de SON defilement, il passait la main a la page — qui
+        defile, et le referme."""
+        # ⚠️ Ancre sur le SAUT DE LIGNE : la declaration du jeton
+        # (`.tms, .tms-p { --tms-a: ... }`) contient elle aussi « .tms-p { »,
+        # et `_regle` lisait cette regle-la — vert sur le defaut meme.
+        regle = _regle(_css_propre(), ".tms-p {" + chr(10))
+        assert "overscroll-behavior: contain" in regle, regle
+        assert "overflow-y: auto" in regle, regle
+
+    def test_l_accent_du_deroulant_suit_le_TYPE_du_formulaire(self):
+        """Les quatre formulaires ont leur couleur (`--tm-c`, posee par
+        `#tm-travail[data-analyse]`) ; le deroulant, lui, prenait l'accent de
+        la PAGE — l'ambre du role — meme dans le formulaire d'une faiblesse."""
+        css = _css_propre()
+        assert ".tms, .tms-p { --tms-a: var(--tm-c, var(--pg-accent)); }" in css
+        # ⚠️ Zone BORNEE au bloc du deroulant : `var(--pg-accent)` est partout
+        # ailleurs dans cette feuille, et un cliquet qui cherche une chaine
+        # sans borner sa zone trouve presque toujours un homonyme.
+        bloc = css[css.index(".tms, .tms-p { --tms-a"):css.index("td > .tms,")]
+        reste = bloc.replace("var(--tm-c, var(--pg-accent))", "")
+        assert "var(--pg-accent" not in reste, reste
+        for etat in (".tms-b:hover", ".tms-o.est-vise"):
+            assert "var(--tms-a)" in _regle(bloc, etat), etat
+
+    def test_le_panneau_recoit_l_accent_CALCULE(self):
+        """⚠️ Il est pose sur le BODY : il vit hors de `#tm-travail` et
+        n'herite donc pas de `--tm-c`. Sans recopie, un panneau de faiblesse
+        s'ouvrait en ambre sous un bouton rouge."""
+        js = _lire("static/js/tm_select.js")
+        i = js.index("function ouvrir(sel, bouton) {")
+        bloc = js[i:js.index("document.body.appendChild(panneau);", i)]
+        assert "getPropertyValue('--tms-a')" in bloc, bloc
+        assert "panneau.style.setProperty('--tms-a'" in bloc, bloc

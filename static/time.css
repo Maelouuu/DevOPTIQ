@@ -1684,6 +1684,15 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
    et écrivent sa valeur) : il est masqué à l'œil, pas retiré. Pas
    `display: none` non plus — un élément retiré de la mise en page ne peut
    plus rien mesurer, et la largeur du bouton se règle sur l'enveloppe.   */
+/* ⚠️ L'ACCENT SUIT LE TYPE du formulaire — rouge pour une faiblesse,
+   violet pour une activité, ambre pour un rôle, ardoise pour un projet — et
+   non l'accent de la page, qui est l'ambre du rôle pour les quatre.
+   `#tm-travail[data-analyse]` pose déjà `--tm-c` ; on en dérive `--tms-a`,
+   qui retombe sur l'accent de la page partout ailleurs.
+   ⚠️ Le PANNEAU est posé sur le body, donc hors de `#tm-travail` : il
+   n'hérite de rien, et le JS lui recopie la valeur calculée à l'ouverture.
+   Sa déclaration ici n'est que le repli. */
+.tms, .tms-p { --tms-a: var(--tm-c, var(--pg-accent)); }
 .tms { position: relative; display: block; width: 100%; }
 /* ⚠️ Dans une rangée `.inline` (un nombre et son unité), le `<select>` se
    dimensionnait sur son contenu : une enveloppe en `width: 100%` y devient
@@ -1707,12 +1716,12 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
   transition: border-color .14s ease, box-shadow .14s ease;
 }
-.tms-b:hover { border-color: color-mix(in srgb, var(--pg-accent) 44%, var(--border)); }
+.tms-b:hover { border-color: color-mix(in srgb, var(--tms-a) 44%, var(--border)); }
 .tms-b:focus-visible,
 .tms-b.est-ouvert {
   outline: none;
-  border-color: var(--pg-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 18%, transparent);
+  border-color: var(--tms-a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tms-a) 18%, transparent);
 }
 .tms-v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Le chevron est dessiné : une glyphe d'icône dépendrait d'une police que
@@ -1730,6 +1739,9 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
    conversion de zoom (`body.pg` porte `zoom: .8`). */
 .tms-p {
   position: fixed; z-index: 1200; max-height: 272px; overflow-y: auto;
+  /* ⚠️ Arrivé au bout de SON défilement, le panneau passait la main à la
+     page — qui défile, et le referme. Il garde donc le geste. */
+  overscroll-behavior: contain;
   padding: 5px; border-radius: 12px;
   background: var(--card); border: 1px solid var(--border);
   box-shadow: 0 2px 6px rgba(15, 23, 42, .07),
@@ -1744,8 +1756,12 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   padding: 8px 11px; border-radius: 8px; cursor: pointer;
   font-size: 13.5px; color: var(--ink); white-space: nowrap;
 }
-.tms-o.est-vise { background: color-mix(in srgb, var(--pg-accent) 11%, transparent); }
-.tms-o.est-choisi { font-weight: 700; color: var(--pg-accent-deep, var(--pg-accent)); }
+.tms-o.est-vise { background: color-mix(in srgb, var(--tms-a) 11%, transparent); }
+/* ⚠️ Assombri SUR PLACE : les quatre couleurs de type n'ont pas de variante
+   profonde déclarée, et `--pg-accent-deep` ramènerait l'ambre de la page. */
+.tms-o.est-choisi {
+  font-weight: 700; color: color-mix(in srgb, var(--tms-a) 85%, #0b1020);
+}
 /* La coche marque le choix EN COURS ; le survol, lui, se lit au fond. */
 .tms-o.est-choisi::after {
   content: ''; margin-left: auto; flex: none;

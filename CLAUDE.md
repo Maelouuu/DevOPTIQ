@@ -7788,6 +7788,51 @@ visuellement tout blanc et noir. » On ne peut pas styler le panneau d'un
   champ. Vu à l'écran : la mise en page d'un composant se vérifie LÀ OÙ il est
   posé, pas dans l'abstrait.
 
+###### ⚠️⚠️ On ne pouvait pas DÉFILER dedans — et l'accent était celui de la page (2026-11-14)
+
+« C'est top, seulement on ne peut pas scroller dedans, cela le ferme direct. »
+
+- **Le défilement.** `window.addEventListener('scroll', fermer, true)` — en
+  CAPTURE, donc il voyait TOUS les défilements, **y compris celui du panneau
+  lui-même**. Et pas seulement au geste de l'utilisateur : à l'ouverture d'une
+  longue liste, `viser()` appelle `scrollIntoView`, qui fait défiler le panneau
+  quand l'option choisie est sous le pli — le panneau se refermait donc tout
+  seul, une image après s'être ouvert. Un défilement qui naît DANS le panneau
+  ne le referme plus ; tout autre si, car le panneau est posé sur le body et ne
+  suivrait pas son bouton.
+  ⚠️ **Le `true` reste** : un événement `scroll` ne REMONTE pas, seule la phase
+  de capture le voit. Le retirer débrancherait la fermeture.
+  ⚠️ Et `overscroll-behavior: contain` sur le panneau : arrivé au bout de SON
+  défilement, il passait la main à la page — qui défile, et le referme.
+- **L'accent suit le TYPE du formulaire** (`--tms-a`, dérivé du `--tm-c` que
+  pose `#tm-travail[data-analyse]`) : rouge pour une faiblesse, violet pour une
+  activité, ambre pour un rôle, ardoise pour un projet. Il prenait l'accent de
+  la PAGE, qui est l'ambre du rôle — donc l'un des quatre, posé sur les quatre.
+  ⚠️ **Le PANNEAU est posé sur le body** : il vit hors de `#tm-travail` et
+  n'hérite de rien. Le JS lui recopie la valeur CALCULÉE sur le bouton, qui est
+  dedans. Mesuré : bouton et panneau à `#dc2626` dans une faiblesse, `#7c3aed`
+  dans une activité, `#d97706` dans un rôle, `#64748b` dans un projet.
+  ⚠️ `.tms-o.est-choisi` assombrit SUR PLACE (`color-mix`) : les quatre
+  couleurs de type n'ont pas de variante profonde déclarée, et
+  `--pg-accent-deep` ramènerait l'ambre de la page.
+
+⚠️ **Un cliquet est resté vert sur le défaut même, et c'est ma déclaration qui
+l'avait masqué** : `_regle(css, ".tms-p {")` tombait sur
+`.tms, .tms-p { --tms-a: … }`, écrite dans le même changement et plus haut dans
+la feuille. Il faut ancrer sur `".tms-p {" + saut de ligne`. *(Troisième fois
+en une semaine : un cliquet qui cherche une chaîne doit borner sa zone — et
+l'homonyme peut être une ligne qu'on vient d'ajouter soi-même.)*
+
+⚠️⚠️ **Et le volet de mise au point ne tire AUCUN événement `scroll`** :
+mesuré, `window.scrollY` passe bien de 0 à 150 pendant que le compteur
+d'événements reste à **zéro**. Faire défiler pour éprouver la garde ne prouve
+donc rien — ni dans un sens ni dans l'autre. On DÉPÊCHE l'événement à la main
+(`panneau.dispatchEvent(new Event('scroll'))`), ce qui traverse la phase de
+capture et éprouve exactement la garde : panneau et option → il reste ;
+`document` et conteneur quelconque → il se referme. *(Même famille que les
+transitions CSS figées en cours de route et que les observateurs muets, déjà
+écrits plus bas.)*
+
 ##### La carte 1 : la pile revient, et la carte prend du relief
 
 ⚠️ **RÉVISION du plafond.** Il valait 24 (« au-delà, on n'ose plus compter »)
