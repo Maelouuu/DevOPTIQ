@@ -647,3 +647,17 @@ body:has(.pg-root) #welcome-popup-card {
 @media (max-width: 900px) {
   .wp-props-portee { margin-left: 0; }
 }
+
+/* La porte du CALENDRIER PARTAGÉ, dans le pied : c'est la seule entrée de
+   cette fenêtre qui MÈNE quelque part — les autres décrivent ce que le
+   compte ouvre. Elle reste discrète à côté du bouton qui ferme.
+   ⚠️ `margin-left: auto` pour qu'elle colle au bouton : le pied est en
+   `space-between`, et une troisième boîte y flotterait au milieu. */
+.wp-cal {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-left: auto; padding: 7px 14px;
+  border-radius: 999px; text-decoration: none;
+  font-size: 13px; font-weight: 600; color: #4c1d95;
+  background: #fff; border: 1px solid #ddd6fe;
+}
+.wp-cal:hover { border-color: #7c3aed; color: #5b21b6; }

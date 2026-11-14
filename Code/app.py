@@ -274,7 +274,26 @@ def create_app(test_config=None):
         lang = _sess.get('lang', DEFAULT_LANG) if _sess else DEFAULT_LANG
         return {'t': _t, 'lang': lang, 'hsc_level_label': _hsc_label,
                 'propose_activites': _propose_activites(),
+                'calendrier_ouvert': _calendrier_ouvert(),
                 'bienvenue': _etat_bienvenue(lang)}
+
+    def _calendrier_ouvert():
+        """Ce compte peut-il ouvrir le CALENDRIER PARTAGÉ ?
+
+        ⚠️ Le MÊME verdict pour les trois portes (page Temps, page
+        Compétences, fenêtre de bienvenue) et pour la route elle-même : un
+        bouton ne doit jamais mener à un écran qui refuse. Administrateur
+        seulement pour ce premier jet.
+        """
+        try:
+            from flask import session as _s
+            from Code.extensions import db as _db
+            from Code.models.models import User as _U
+            from Code.permissions import is_admin
+            uid = _s.get('user_id') if _s else None
+            return bool(uid and is_admin(_db.session.get(_U, uid)))
+        except Exception:
+            return False
 
     def _etat_bienvenue(lang):
         """L'état de la fenêtre de bienvenue, tranché par le SERVEUR.
@@ -430,6 +449,11 @@ def create_app(test_config=None):
 
     from Code.routes.activite_propositions import acp_bp
     app.register_blueprint(acp_bp)
+
+    # Le calendrier partagé : les séances d'évaluation ET les créneaux des
+    # activités sur une même grille. Administrateur seulement (premier jet).
+    from Code.routes.calendrier import calendrier_bp
+    app.register_blueprint(calendrier_bp)
 
     from Code.routes.settings import settings_bp
     app.register_blueprint(settings_bp)

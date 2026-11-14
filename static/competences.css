@@ -3577,3 +3577,15 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   .gomme { height: 62px; width: 46px; }
   .crb-ong { padding: 11px 14px 0; }
   .crb-t em { display: none; }}
+/* Le CALENDRIER PARTAGÉ : une porte discrète, au-dessus de la mise en page.
+   ⚠️ Elle ne se rend que pour qui peut l'ouvrir (`calendrier_ouvert`) : un
+   bouton qui mène à un écran qui refuse est pire que pas de bouton. */
+.cv2-vers-cal { display: flex; justify-content: flex-end; padding: 0 0 10px; }
+.cv2-vers-cal a {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 999px; text-decoration: none;
+  font-size: 13.5px; font-weight: 600; color: var(--ink);
+  background: var(--card); border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+.cv2-vers-cal a:hover { border-color: #0f766e; color: #0f766e; }

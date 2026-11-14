@@ -79,7 +79,8 @@ FAIBLESSES = [
 with app.app_context():
     from Code.models.models import (Activities, Entity, EntrepriseSettings, Role,
                                     TimeAnalysis, TimeProject, TimeProjectLine,
-                                    TimeRoleAnalysis, TimeRoleLine, TimeWeakness,
+                                    SessionEvaluation, TimeRoleAnalysis,
+                                    TimeRoleLine, TimeWeakness,
                                     User, UserRole, activity_roles)
     from Code.roles_permanents import role_dev_competences
     from Code.security import hash_password
@@ -174,10 +175,30 @@ with app.app_context():
                 delay_minutes=float(actes[i].delay_minutes), nb_people=2))
     db.session.commit()
 
+    # Des SEANCES d'evaluation, pour que le calendrier partage ait ses DEUX
+    # sources. Une en retard, deux a venir, une tenue : les quatre teintes.
+    collab = User(first_name="Noe", last_name="Vasseur", email="noe@test.local",
+                  password=hash_password("Test1234!"), status="user", lang="fr",
+                  manager_id=dev.id)
+    db.session.add(collab)
+    db.session.commit()
+    db.session.add(UserRole(user_id=collab.id, role_id=acheteur.id))
+    db.session.commit()
+    auj = datetime.utcnow().date()
+    for ecart, statut in ((-9, "prevue"), (3, "prevue"), (12, "prevue"),
+                          (-24, "tenue")):
+        db.session.add(SessionEvaluation(
+            user_id=collab.id, role_id=acheteur.id, developpeur_user_id=dev.id,
+            date_prevue=auj + timedelta(days=ecart), statut=statut,
+            objet="Revue des resultats" if ecart > 0 else "",
+            tenue_le=(datetime.utcnow() if statut == "tenue" else None)))
+    db.session.commit()
+
     print("[devrun] base  : %s" % db_path)
     print("[devrun] compte: dev@test.local / Test1234!")
     print("[devrun] %d activites, %d chiffrees, %d faiblesses, 2 roles, 2 projets"
           % (len(ACTIVITES), len(CHIFFREES), len(FAIBLESSES)))
+    print("[devrun] 4 seances d'evaluation (calendrier partage : /calendrier/)")
     print("[devrun] http://127.0.0.1:%d/temps/   (/devrun/en pour l'anglais)" % PORT)
 
 

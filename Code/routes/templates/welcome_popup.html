@@ -177,6 +177,14 @@
 
     <div id="welcome-popup-footer">
       <span class="wp-rappel">{{ t('welcome.reopen_hint') }}</span>
+      {# Le CALENDRIER PARTAGÉ : une porte qui MÈNE quelque part, à côté de
+         celles qui décrivent. ⚠️ `calendrier_ouvert` est le même verdict que
+         la route — un lien ne doit pas mener à un écran qui refuse. #}
+      {% if calendrier_ouvert %}
+      <a class="wp-cal" href="/calendrier/" title="{{ t('cal.ouvrir_aide') }}">
+        <i class="fa-regular fa-calendar-days" aria-hidden="true"></i>{{ t('cal.ouvrir') }}
+      </a>
+      {% endif %}
       <button type="button" id="welcome-popup-cta">{{ t('welcome.cta') }}</button>
     </div>
 

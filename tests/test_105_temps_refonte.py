@@ -48,11 +48,14 @@ class _CartoJetable:
 
     def __exit__(self, *_):
         from Code.models.models import Activities, Entity
+        # ⚠️ On REPOSE une entite, on ne se contente pas de retirer la clef :
+        # `auth_client` la met avec `setdefault`, donc il ne la corrigerait
+        # pas, et `Entity.get_active` retomberait sur « sa premiere entite » —
+        # qui n'est pas forcement celle du decor commun. Un fichier joue plus
+        # loin lirait alors la mauvaise carto, et l'echec se lirait chez lui.
         with self.client.session_transaction() as sess:
-            if self.avant is None:
-                sess.pop("active_entity_id", None)
-            else:
-                sess["active_entity_id"] = self.avant
+            sess["active_entity_id"] = (self.avant if self.avant is not None
+                                        else self.ids["entity_id"])
         for a in self.actes:
             db.session.delete(db.session.get(Activities, a.id))
         db.session.delete(db.session.get(Entity, self.ent.id))
@@ -839,7 +842,11 @@ class TestLaListeTientALEcran:
 
     def test_les_deux_boutons_de_l_entete_ne_sont_plus_des_btn_nus(self):
         g = _lire("Code/routes/templates/time_dashboard.html")
-        entete = g[g.index('class="tm-entete-actions"'):][:600]
+        # ⚠️ Jusqu'à la FIN du bloc, pas 600 signes : une porte de plus dans
+        # l'en-tête (le calendrier partagé) poussait le bouton primaire hors
+        # de la tranche, et le cas tombait sans qu'il y ait de défaut.
+        i = g.index('class="tm-entete-actions"')
+        entete = g[i:g.index("</div>", g.index("tm-btn-nouvelle", i))]
         assert 'class="tm-b tm-b--doux"' in entete
         assert 'class="tm-b tm-b--prim"' in entete
         assert 'class="btn' not in entete, entete
