@@ -33,10 +33,14 @@
       ax_col_tenu: 'Le niveau tenu',
       ax_attendu: 'attendu',
       ax_detail: 'Ouvrir le détail',
-      ax_se_dit: 'il se dit',
-      ax_je_me_dis: 'je me dis',
       ax_pas_notee: 'Pas encore notée',
       ax_effacer: 'Effacer la note',
+      nt_foi: 'Ce qui fait foi',
+      nt_mienne: 'la vôtre',
+      nt_mesure: 'la mesure',
+      nt_auto: 'Ce que [[x]] se donne',
+      nt_auto_moi: 'Ce que vous vous donnez',
+      nt_rien: 'non posée',
       cl_tenu: 'Niveau tenu',
       cl_reste_1: '1 reste à noter',
       cl_reste_n: '[[n]] restent à noter',
@@ -427,10 +431,14 @@
       ax_col_tenu: 'Level held',
       ax_attendu: 'expected',
       ax_detail: 'Open the detail',
-      ax_se_dit: 'self-rates',
-      ax_je_me_dis: 'I rate myself',
       ax_pas_notee: 'Not rated yet',
       ax_effacer: 'Clear the rating',
+      nt_foi: 'What counts',
+      nt_mienne: 'yours',
+      nt_mesure: 'the measurement',
+      nt_auto: 'What [[x]] gives themselves',
+      nt_auto_moi: 'What you give yourself',
+      nt_rien: 'not set',
       cl_tenu: 'Level held',
       cl_reste_1: '1 still to rate',
       cl_reste_n: '[[n]] still to rate',
@@ -1697,7 +1705,12 @@
   // ⚠️ Pas d'attribut `title` sur un cran : l'info-bulle du système sortirait
   // par-dessus la nôtre, une seconde plus tard et sans sa couleur (le piège
   // déjà rencontré sur la matrice RH). `data-nom` + `aria-label`.
-  function piste(pose, attendu, soi, lue) {
+  // ⚠️ Le repère d'auto-évaluation a QUITTÉ la piste. Il y a TOUJOURS deux
+  // notes — celle qui fait foi et ce que le collaborateur se donne — et
+  // compressée en un point sous les crans, la seconde ne se lisait plus
+  // comme une note. Elle est redevenue une note à part entière : voir
+  // `graduation()` et `notaSortie()` juste en dessous.
+  function piste(pose, attendu, lue) {
     let h = `<div class="piste${lue ? ' lue' : ''}"><div class="crans">`;
     if (attendu !== null) h += `<span class="zone" style="--x:${attendu * 20}%"></span>`;
     const vert = attendu !== null && !estNul(pose) && pose >= attendu;
@@ -1716,12 +1729,57 @@
       h += `<button type="button" class="${c}" data-lv="${i}"${lue ? ' tabindex="-1"' : ''}
         data-nom="${esc(levelName(i))}" aria-label="${esc(i + ' · ' + levelName(i))}">${i}${pic}</button>`;
     }
-    h += `<span class="soi${estNul(soi) ? ' est-off' : ''}"
-      style="--x:${estNul(soi) ? 0 : soi * 20 + 10}%"
-      data-nom="${esc(jeSuisLeDev() ? T('ax_se_dit') : T('ax_je_me_dis'))}"></span>`;
-    h += `</div><button type="button" class="gomme" data-lv=""
+    // ⚠️ La gomme est RENDUE même sur une piste en lecture, et seulement
+    // masquée à l'œil : elle tient la largeur. Retirée du flux, la piste
+    // devenait plus large que la graduation d'en dessous, et les deux notes
+    // ne s'alignaient plus — or c'est leur alignement qui dit l'accord.
+    h += `</div><button type="button" class="gomme" data-lv=""${lue ? ' tabindex="-1"' : ''}
       aria-label="${esc(T('ax_effacer'))}"><i class="fa-solid fa-eraser"></i></button>`;
     return h + '</div>';
+  }
+
+  // ── LA GRADUATION : la note POSÉE, celle qui n'est pas la vôtre ───────
+  // La MÊME échelle que la piste, et la MÊME géométrie — cinq colonnes, le
+  // même espacement, la largeur de la gomme en bout — pour que les deux
+  // notes s'alignent au pixel. Des <span>, jamais des <button> : rien ne s'y
+  // clique, et rien ne doit en avoir l'air.
+  function graduation(niveau) {
+    let h = '<div class="grad"><div class="gcs">';
+    for (let i = 0; i <= 4; i++) {
+      const on = !estNul(niveau) && i === niveau;
+      h += `<span class="gc${on ? ' on' : ''}">${on ? i : '<i></i>'}</span>`;
+    }
+    // ⚠️ Le BOUT de la piste — la gomme et le « i » de l'échelle — est rendu
+    // ici aussi, en JUMEAUX masqués à l'œil. Sans lui les cinq colonnes ne
+    // tombent pas au même pixel que celles de la piste (mesuré : 4,5 px
+    // d'écart au deuxième cran, 18 au cinquième), et c'est justement leur
+    // alignement qui se lit comme un accord. Des jumeaux plutôt qu'une
+    // largeur recopiée : celle-ci dériverait le jour où l'un des deux change
+    // de taille.
+    // ⚠️ Les MÊMES classes que les vrais, `ev-i` comprise : elle retire la
+    // bordure du « i », donc un jumeau sans elle était 1 px plus large — et
+    // le cinquième cran se décalait de 0,8 px. Mesuré, puis corrigé.
+    return h + '</div><span class="gomme" aria-hidden="true"></span>'
+      + '<span class="cv2-i ev-i" aria-hidden="true"></span></div>';
+  }
+
+  // Ce qu'une note vaut, en toutes lettres, au bout de son en-tête.
+  function valeurNote(niveau) {
+    return estNul(niveau)
+      ? `<em>${esc(T('nt_rien'))}</em>`
+      : `<b>${niveau}</b>${esc(levelName(niveau))}`;
+  }
+
+  // L'en-tête d'une note : ce qu'elle est, à qui elle appartient, ce qu'elle
+  // vaut. `genre` vaut 'foi' (bleu, écusson), 'mes' (la mesure, ardoise) ou
+  // 'auto' (violet, silhouette) — une identité tenue partout.
+  function enteteNote(genre, titre, pastille, niveau) {
+    const ic = { foi: 'fa-shield-halved', mes: 'fa-gauge-high', auto: 'fa-user' }[genre];
+    return `<div class="nt-h">
+      <span class="nt-k ${genre}"><i class="fa-solid ${ic}"></i>${esc(titre)}</span>
+      ${pastille ? `<span class="p">${esc(pastille)}</span>` : ''}
+      <span class="v" data-v>${valeurNote(niveau)}</span>
+    </div>`;
   }
 
   // Le niveau qui FAIT FOI sur cette sortie, du point de vue du lecteur.
@@ -1818,31 +1876,77 @@
     return a;
   }
 
-  // ── LA NOTATION ───────────────────────────────────────────────────────
+  // ══ LA NOTATION — DEUX notes, toujours ════════════════════════════════
+  //
+  // Il y en a toujours deux : celle qui FAIT FOI, et ce que le collaborateur
+  // se donne. Elles portent la MÊME échelle, et c'est leur ALIGNEMENT qui
+  // dit l'accord — c'est pour cela que la seconde n'est pas une phrase, ni
+  // un point posé sous les crans de la première.
+  //
+  //     ce qui fait foi      bleu · écusson   (la mesure : ardoise · jauge)
+  //     ce qu'on se donne    violet · silhouette
+  //
+  // ⚠️ L'ordre ne bouge JAMAIS : celle qui fait foi d'abord, quel que soit
+  // le regard — on sait toujours laquelle on lit.
+  // ⚠️ Celle qui vous appartient se CLIQUE (une piste de cinq crans),
+  // l'autre est POSÉE (la même échelle, en graduation). Le développeur pose
+  // celle qui fait foi, le collaborateur la sienne — et sur une sortie
+  // MESURÉE personne ne pose la première : elle vient du chiffre relevé en
+  // séance, donc c'est le rail des marches qui en tient lieu.
   function notaSortie(r, st) {
     const dev = jeSuisLeDev();
     const req = estNul(st.required_level) ? null : st.required_level;
-    const mien = jePosePour(r);
     const off = niveauOfficiel(r);
     const soi = dev ? r.self_level : maNote(r);
+    const mesuree = !!(r.mesurable && r.performance && r.performance.norme);
+    const maFoi = dev && !mesuree;
+    const monAuto = !dev;
 
     const z = document.createElement('div');
-    z.className = 'nota' + (mien ? '' : ' est-lue');
-    // ⚠️ DEUX blocs sont partis d'ici. `nota-k` annonçait le régime et
-    // redisait l'attendu, que la zone verte de la piste DESSINE. `nota-d`
-    // écrivait le niveau en 52 px — une TROISIÈME fois : il est déjà sur la
-    // languette, et en 50 px sur la bande. Ne reste que ce qui n'est écrit
-    // nulle part ailleurs : la piste, et le verdict d'accord entre les deux
-    // notes — qui parle de l'ÉCART, donc des deux.
-    z.innerHTML = piste(off, req, soi, !mien) + '<p class="nota-vd" data-vd></p>';
-    // L'échelle 0 → 4 se range où elle sert : au bout de SA piste.
-    z.querySelector('.piste').appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
-    z.querySelectorAll('.cran, .gomme').forEach(b => {
-      if (!mien) return;
-      b.onclick = () => poserNote(r, b.dataset.lv === '' ? null : +b.dataset.lv, st);
-    });
+    z.className = 'nota' + (maFoi || monAuto ? '' : ' est-lue');
+
+    const f = document.createElement('div');
+    f.className = 'nt nt--foi';
+    f.innerHTML = enteteNote(mesuree ? 'mes' : 'foi', T('nt_foi'),
+                             mesuree ? T('nt_mesure') : (maFoi ? T('nt_mienne') : ''), off)
+      + (mesuree ? railHtml(r.performance) : (maFoi ? piste(off, req, false) : graduation(off)));
+    if (maFoi) {
+      // L'échelle 0 → 4 se range où elle sert : au bout de SA piste.
+      f.querySelector('.piste').appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
+      brancherCrans(f, r, st);
+    }
+
+    const a = document.createElement('div');
+    a.className = 'nt nt--auto';
+    a.innerHTML = enteteNote('auto',
+                             dev ? Tv('nt_auto', { x: prenomCible() }) : T('nt_auto_moi'),
+                             monAuto ? T('nt_mienne') : '', soi)
+      + (monAuto ? piste(soi, req, false) : graduation(soi));
+    if (monAuto) {
+      a.querySelector('.piste').appendChild(boutonInfo(T('pal_echelle_t'), texteEchelle()));
+      brancherCrans(a, r, st);
+    }
+
+    z.appendChild(f);
+    z.appendChild(a);
+    // ⚠️ Le verdict d'accord est HORS des deux blocs : posé dans celui du
+    // bas, il se lisait comme un commentaire de l'auto-évaluation — or il
+    // parle de l'ÉCART, donc des deux.
+    const v = document.createElement('p');
+    v.className = 'nota-vd'; v.dataset.vd = '';
+    z.appendChild(v);
     majNota(z, r, st);
     return z;
+  }
+
+  function brancherCrans(bloc, r, st) {
+    bloc.querySelectorAll('.cran, .gomme').forEach(b => {
+      b.onclick = () => poserNote(r, b.dataset.lv === '' ? null : +b.dataset.lv, st);
+    });
+  }
+
+  function prenomCible() {
+    return String(state.cibleNom || '').trim().split(/\s+/)[0] || '';
   }
 
   // ⚠️ Sur place, et non en réécrivant la piste : la réécrire ferait perdre
@@ -1855,28 +1959,9 @@
     const soi = dev ? r.self_level : maNote(r);
     const perf = r.performance || {};
 
-    const vert = req !== null && !estNul(off) && off >= req;
-    z.querySelectorAll('.cran').forEach(b => {
-      const i = +b.dataset.lv;
-      b.classList.remove('f', 'v');
-      if (!estNul(off) && i <= off) {
-        b.classList.add('f');
-        if (vert) b.classList.add('v');
-      }
-      // ⚠️ La pastille se DÉPLACE, elle ne se redessine pas ailleurs : deux
-      // pastilles sur la même piste diraient deux niveaux.
-      const p = b.querySelector('.pic');
-      if (p && i !== off) p.remove();
-      if (!p && !estNul(off) && i === off) {
-        const n = document.createElement('span');
-        n.className = 'pic'; n.textContent = levelName(i);
-        b.appendChild(n);
-      }
-    });
-    const s = z.querySelector('.soi');
-    s.classList.toggle('est-off', estNul(soi));
-    s.style.setProperty('--x', (estNul(soi) ? 0 : soi * 20 + 10) + '%');
-    s.dataset.nom = (dev ? T('ax_se_dit') : T('ax_je_me_dis')) + ' ' + (estNul(soi) ? '' : soi);
+    const foi = z.querySelector('.nt--foi'), au = z.querySelector('.nt--auto');
+    if (foi) { majPiste(foi, off, req); majValeur(foi, off); }
+    if (au) { majPiste(au, soi, req); majGrad(au, soi); majValeur(au, soi); }
 
     // Le verdict : l'écart entre les deux notes quand les deux existent,
     // sinon ce que la situation appelle.
@@ -1893,6 +1978,43 @@
       vd = esc(T('nota_mes_ko'));
     }
     z.querySelector('[data-vd]').innerHTML = vd;
+  }
+
+  // ⚠️ Sur place, et non en réécrivant la piste : la réécrire ferait perdre
+  // le focus du cran qu'on vient de cliquer, et couperait la transition de la
+  // marche qui se remplit — c'est elle qui fait comprendre le geste.
+  function majPiste(bloc, niveau, attendu) {
+    const vert = attendu !== null && !estNul(niveau) && niveau >= attendu;
+    bloc.querySelectorAll('.cran').forEach(b => {
+      const i = +b.dataset.lv;
+      b.classList.remove('f', 'v');
+      if (!estNul(niveau) && i <= niveau) {
+        b.classList.add('f');
+        if (vert) b.classList.add('v');
+      }
+      // ⚠️ La pastille se DÉPLACE, elle ne se redessine pas ailleurs : deux
+      // pastilles sur la même piste diraient deux niveaux.
+      const p = b.querySelector('.pic');
+      if (p && i !== niveau) p.remove();
+      if (!p && !estNul(niveau) && i === niveau) {
+        const n = document.createElement('span');
+        n.className = 'pic'; n.textContent = levelName(i);
+        b.appendChild(n);
+      }
+    });
+  }
+
+  function majGrad(bloc, niveau) {
+    bloc.querySelectorAll('.grad .gc').forEach((c, i) => {
+      const on = !estNul(niveau) && i === niveau;
+      c.classList.toggle('on', on);
+      c.innerHTML = on ? String(i) : '<i></i>';
+    });
+  }
+
+  function majValeur(bloc, niveau) {
+    const v = bloc.querySelector('[data-v]');
+    if (v) v.innerHTML = valeurNote(niveau);
   }
 
   // ── LA PREUVE ─────────────────────────────────────────────────────────

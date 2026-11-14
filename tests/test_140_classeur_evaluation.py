@@ -11,8 +11,10 @@ Ce fichier garde ce que la structure promet :
     c'étaient trois contours pour un seul sujet ;
   • la comparaison entre sorties se lit SUR LES LANGUETTES (jauge en quatre
     pas, trait de l'attendu), et la feuille ne porte qu'UNE sortie ;
-  • UNE piste de cinq crans, pas deux échelles de cinq : le niveau qui fait
-    foi EST la piste, et l'auto-évaluation est un repère dessus ;
+  • DEUX notes, toujours : celle qui fait foi et ce que le collaborateur se
+    donne, sur la MÊME échelle et alignées au pixel — compressée en un repère
+    posé sous les crans de la première, la seconde ne se lisait plus comme une
+    note ;
   • le 0 ne se remplit JAMAIS — « non démontré », c'est une jauge vide ;
   • une sortie MESURÉE se lit, elle ne se clique pas : son niveau vient du
     chiffre relevé en séance ;
@@ -145,14 +147,138 @@ class TestLesLanguettesPortentLaComparaison:
         assert "|| liste[0] || null" in s
 
 
-class TestUneSeulePiste:
+class TestLesDeuxNotes:
+    """⚠️ Il y en a TOUJOURS deux : celle qui FAIT FOI, et ce que le
+    collaborateur se donne.
 
-    def test_cinq_crans_et_pas_deux_echelles(self):
+    Le classeur (11/11) avait compressé la seconde en un REPÈRE posé sous les
+    crans de la première : un point et un libellé, sur la piste de l'autre.
+    On ne la lisait plus comme une note — et c'est le reproche qui a rouvert
+    ce bloc. Elle redevient une note à part entière : la MÊME échelle, alignée
+    AU PIXEL sur la première, parce que c'est cet alignement qui se lit comme
+    un accord ou un écart.
+    """
+
+    def test_DEUX_blocs_de_note_et_pas_un_repere(self):
+        js = _lire(JS)
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert "nt nt--foi" in n and "nt nt--auto" in n
+        # le repère d'autrefois n'a laissé AUCUNE trace
+        assert 'class="soi' not in js
+        assert ".crans .soi" not in _lire(CSS)
+
+    def test_l_ordre_ne_bouge_JAMAIS_celle_qui_fait_foi_d_abord(self):
+        """Quel que soit le regard : on sait toujours laquelle on lit."""
+        js = _lire(JS)
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert n.index("z.appendChild(f)") < n.index("z.appendChild(a)")
+
+    def test_celle_qui_est_la_votre_se_CLIQUE_l_autre_est_POSEE(self):
+        """Le développeur pose celle qui fait foi, le collaborateur la sienne.
+        Celle qui n'est pas la vôtre est une graduation de <span> : rien ne
+        s'y clique, et rien ne doit en avoir l'air."""
+        js = _lire(JS)
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert "const maFoi = dev && !mesuree;" in n
+        assert "const monAuto = !dev;" in n
+        assert "brancherCrans(f, r, st);" in n
+        assert "brancherCrans(a, r, st);" in n
+        # ⚠️ Le régime décide de la FORME, des deux côtés : la mienne est une
+        # piste, l'autre une graduation. Deux pistes empilées, c'est ce que le
+        # classeur avait précisément retiré — et c'est ce que le collaborateur
+        # voyait tant que la note qui fait foi restait une piste verrouillée.
+        assert "maFoi ? piste(off, req, false) : graduation(off)" in n
+        assert "monAuto ? piste(soi, req, false) : graduation(soi)" in n
+        g = _corps(js, "  function graduation(niveau) {")
+        assert '<button' not in g and 'class="gc' in g
+
+    def test_les_deux_notes_s_alignent_AU_PIXEL(self):
+        """Même nombre de colonnes, même espacement — et surtout le MÊME BOUT.
+
+        ⚠️ La piste porte une gomme et le « i » de l'échelle ; la graduation
+        n'avait rien. Mesuré au banc : 4,5 px d'écart au deuxième cran, 18 au
+        cinquième, pour deux notes dont c'est justement l'alignement qu'on
+        vient lire. Elle rend donc des JUMEAUX masqués plutôt qu'une largeur
+        recopiée à la main, qui dériverait le jour où l'un des deux change —
+        et avec les MÊMES classes : `ev-i` retire la bordure du « i », donc
+        un jumeau sans elle restait 1 px trop large.
+        """
+        js = _lire(JS)
+        g = _corps(js, "  function graduation(niveau) {")
+        assert '<span class="gomme" aria-hidden="true">' in g
+        assert '<span class="cv2-i ev-i" aria-hidden="true">' in g
+        css = _sans_commentaires_css(_lire(CSS))
+        crans, gcs = _regle(css, "\n.crans {"), _regle(css, "\n.gcs {")
+        assert "gap: 11px" in crans and "gap: 11px" in gcs
+        j = _regle(css, "\n.grad > .gomme, .grad > .cv2-i {")
+        assert "visibility: hidden" in j and "pointer-events: none" in j
+        assert ".grad > .cv2-i" in _regle(css, "\n.piste > .cv2-i, .grad > .cv2-i {") \
+            or "margin-left: 11px" in _regle(css, "\n.piste > .cv2-i, .grad > .cv2-i {")
+
+    def test_une_graduation_porte_la_couleur_de_SA_note(self):
+        """Le collaborateur lit la note qui fait foi en graduation : elle doit
+        rester BLEUE. L'identité se tient partout, ou elle ne tient nulle
+        part."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "--cv-auto-deep" in _regle(css, "\n.gc.on {")
+        assert "var(--b8)" in _regle(css, "\n.nt--foi .gc.on {")
+
+    def test_la_gomme_d_une_piste_LUE_tient_la_largeur(self):
+        """⚠️ Retirée du flux, la piste devenait plus large que la graduation
+        d'en dessous — et c'est justement leur alignement qu'on vient lire."""
+        css = _sans_commentaires_css(_lire(CSS))
+        g = _regle(css, "\n.piste.lue .gomme {")
+        assert "visibility: hidden" in g and "display: none" not in g
+
+    def test_l_identite_se_tient_PARTOUT(self):
+        """Celle qui fait foi en bleu, celle qu'on se donne en violet — y
+        compris quand c'est le collaborateur qui pose la sienne sur une piste.
+        Sinon la même note changerait de couleur selon qui la regarde."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "color: var(--b8)" in _regle(css, "\n.nt-k.foi {")
+        assert "color: var(--cv-auto-deep)" in _regle(css, "\n.nt-k.auto {")
+        assert "--cv-auto-deep" in _regle(css, "\n.nt--auto .cran.f {")
+        assert "--cv-auto-deep" in _regle(css, "\n.nt--auto .cran .pic {")
+
+    def test_une_sortie_MESUREE_porte_le_rail_a_la_place_de_la_piste(self):
+        """Son niveau vient du chiffre relevé en séance : il ne se pose pas,
+        donc il n'y a rien à cliquer. Mais elle a bien ses DEUX notes —
+        l'auto-évaluation reste permise, c'est un repère que le collaborateur
+        se donne, et l'écart avec la mesure se parle en séance."""
+        js = _lire(JS)
+        assert "const jePosePour = r => (jeSuisLeDev() ? !r.mesurable : true);" in js
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert "mesuree ? railHtml(r.performance)" in n
+        assert "nt nt--auto" in n
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "pointer-events: none" in _regle(css, "\n.piste.lue .cran {")
+
+    def test_le_verdict_d_accord_est_HORS_des_deux_blocs(self):
+        """Posé dans celui du bas, il se lisait comme un commentaire de
+        l'auto-évaluation — or il parle de l'ÉCART, donc des deux."""
+        js = _lire(JS)
+        n = _corps(js, "  function notaSortie(r, st) {")
+        assert n.index("z.appendChild(a)") < n.index("v.className = 'nota-vd'")
+
+    def test_chaque_note_dit_ce_qu_elle_VAUT(self):
+        js = _lire(JS)
+        v = _corps(js, "  function valeurNote(niveau) {")
+        assert "T('nt_rien')" in v and "levelName(niveau)" in v
+        m = _corps(js, "  function majNota(z, r, st) {")
+        assert "majValeur(foi, off)" in m and "majValeur(au, soi)" in m
+
+    def test_les_cles_des_deux_notes_existent_dans_les_DEUX_langues(self):
+        js = _lire(JS)
+        for c in ("nt_foi", "nt_mienne", "nt_mesure", "nt_auto",
+                  "nt_auto_moi", "nt_rien"):
+            assert js.count("      " + c + ":") == 2, c
+
+    # ── Ce qui ne change pas : la piste elle-même ────────────────────────
+
+    def test_cinq_crans_et_une_seule_piste_par_note(self):
         js = _lire(JS)
         assert "function blocNote(" not in js, "les deux blocs sont remplacés"
-        n = _corps(js, "  function notaSortie(r, st) {")
-        assert n.count("piste(") == 1
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
+        p = _corps(js, "  function piste(pose, attendu, lue) {")
         assert "for (let i = 0; i <= 4; i++)" in p
 
     def test_le_zero_se_remplit_COMME_LES_AUTRES(self):
@@ -167,49 +293,39 @@ class TestUneSeulePiste:
         anneau se cherche.
         """
         js = _lire(JS)
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
+        p = _corps(js, "  function piste(pose, attendu, lue) {")
         assert "if (!estNul(pose) && i <= pose) c += ' f'" in p
         assert "i >= 1" not in p, "le 0 est un cran comme les autres"
         assert "' zero'" not in p
         css = _sans_commentaires_css(_lire(CSS))
         assert ".cran.zero" not in css, "l'anneau n'a plus d'objet"
         # …et la mise à jour sur place tient la même règle
-        m = _corps(js, "  function majNota(z, r, st) {")
-        assert "if (!estNul(off) && i <= off) {" in m
+        m = _corps(js, "  function majPiste(bloc, niveau, attendu) {")
+        assert "if (!estNul(niveau) && i <= niveau) {" in m
 
     def test_la_pastille_dit_QUEL_niveau_on_vient_de_poser(self):
         """Un cran rempli ne dit pas lequel on a choisi : la pastille le pose
         sur SON cran, avec son bec, au lieu d'obliger à lire le mot à l'autre
         bout de la ligne."""
         js = _lire(JS)
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
+        p = _corps(js, "  function piste(pose, attendu, lue) {")
         assert "const pic = (!estNul(pose) && i === pose)" in p
         assert 'class="pic">${esc(levelName(i))}' in p
         # ⚠️ Elle SE DÉPLACE : deux pastilles diraient deux niveaux.
-        m = _corps(js, "  function majNota(z, r, st) {")
-        assert "if (p && i !== off) p.remove();" in m
+        m = _corps(js, "  function majPiste(bloc, niveau, attendu) {")
+        assert "if (p && i !== niveau) p.remove();" in m
         css = _sans_commentaires_css(_lire(CSS))
         pic = _regle(css, "\n.cran .pic {")
         assert "pointer-events: none" in pic, \
             "ce qui explique ne vole jamais le clic de ce qu'il explique"
         assert "border-top-color" in _regle(css, "\n.cran .pic::after {"), "le bec"
 
-    def test_l_auto_evaluation_passe_SOUS_la_piste(self):
-        """Le dessus est pris par la pastille du niveau choisi, et les deux
-        tombent sur le même cran dès qu'on se situe là où l'on est noté."""
-        css = _sans_commentaires_css(_lire(CSS))
-        av = _regle(css, "\n.crans .soi::after {")
-        bf = _regle(css, "\n.crans .soi::before {")
-        assert "bottom: -5px" in av and "top: -5px" not in av
-        assert "top: calc(100% +" in bf
-        # de la place des DEUX côtés, sinon la pastille mord sur l'en-tête
-        assert "margin: 42px 0 26px" in _regle(css, "\n.piste {")
     def test_la_zone_attendue_est_une_SURFACE_et_n_existe_pas_sans_requis(self):
         """« La barre doit entrer dans le vert » se regarde ; un filet de 2 px
         se cherche. Et NULL ≠ 0 : sans requis, pas de zone."""
         js = _lire(JS)
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        assert "if (attendu !== null) h += `<span class=\"zone\"" in p
+        p = _corps(js, "  function piste(pose, attendu, lue) {")
+        assert 'if (attendu !== null) h += `<span class="zone"' in p
         css = _sans_commentaires_css(_lire(CSS))
         z = _regle(css, "\n.crans .zone {")
         assert "background: var(--v1)" in z and "border: 1px solid var(--v3)" in z
@@ -218,47 +334,20 @@ class TestUneSeulePiste:
         """Effacer n'est pas un niveau de plus, et la zone attendue ne doit
         pas l'englober — elle aurait l'air d'un sixième cran."""
         js = _lire(JS)
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        i = p.index("</div><button type=\"button\" class=\"gomme\"")
-        assert p.index("class=\"zone\"") < i, "la zone vit dans .crans, la gomme non"
-
-    def test_l_auto_evaluation_est_un_repere_sur_la_MEME_piste(self):
-        """Un contour posé par-dessus la barre disparaissait dès qu'elle le
-        dépassait — et c'est justement ce cas qu'on vient lire."""
-        js = _lire(JS)
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        assert 'class="soi${estNul(soi) ? \' est-off\' : \'\'}"' in p
-        css = _sans_commentaires_css(_lire(CSS))
-        s = _regle(css, "\n.crans .soi {")
-        assert "repeating-linear-gradient" in s and "z-index: 2" in s
-
-    def test_le_repere_ne_VOLE_PAS_le_clic_du_cran_qu_il_designe(self):
-        """⚠️ Relevé au banc : posé par-dessus les crans, il tombe pile au
-        milieu de l'un d'eux et INTERCEPTE son clic — le cran sous le repère ne
-        se posait plus. Même règle que la bulle de la matrice RH : ce qui
-        explique ne vole jamais le clic de ce qu'il explique."""
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "pointer-events: none" in _regle(css, "\n.crans .soi {")
+        p = _corps(js, "  function piste(pose, attendu, lue) {")
+        i = p.index('</div><button type="button" class="gomme"')
+        assert p.index('class="zone"') < i, "la zone vit dans .crans, la gomme non"
 
     def test_un_cran_ne_porte_que_son_chiffre_et_son_nom_au_survol(self):
         """⚠️ Pas d'attribut `title` : l'info-bulle du système sortirait
         par-dessus la nôtre, une seconde plus tard et sans sa couleur."""
         js = _lire(JS)
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        assert "data-nom=\"${esc(levelName(i))}\"" in p
+        p = _corps(js, "  function piste(pose, attendu, lue) {")
+        assert 'data-nom="${esc(levelName(i))}"' in p
         assert "title=" not in p
         css = _sans_commentaires_css(_lire(CSS))
         assert "content: attr(data-nom)" in _regle(css, "\n.cran::after {")
         assert "transition-delay: .5s" in _regle(css, "\n.cran:hover::after {")
-
-    def test_une_sortie_mesuree_se_lit_et_ne_se_clique_pas(self):
-        js = _lire(JS)
-        assert "const jePosePour = r => (jeSuisLeDev() ? !r.mesurable : true);" in js
-        n = _corps(js, "  function notaSortie(r, st) {")
-        assert "piste(off, req, soi, !mien)" in n
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "pointer-events: none" in _regle(css, "\n.piste.lue .cran {")
-        assert "display: none" in _regle(css, "\n.piste.lue .gomme {")
 
     def test_la_note_a_UNE_source_et_la_piste_se_met_a_jour_sur_place(self):
         """⚠️ Réécrire la piste ferait perdre le focus du cran qu'on vient de
@@ -679,7 +768,7 @@ class TestLaNotationNeGardeQueLaPisteEtLeVerdict:
         part ailleurs, et il se lit à côté de la piste qui les porte."""
         js = _lire(JS)
         n = _corps(js, "  function notaSortie(r, st) {")
-        assert 'class="nota-vd" data-vd' in n
+        assert "v.className = 'nota-vd'" in n and "v.dataset.vd = ''" in n
         m = _corps(js, "  function majNota(z, r, st) {")
         assert "z.querySelector('[data-vd]').innerHTML = vd;" in m
         assert "accordBadge(" in m
@@ -689,7 +778,7 @@ class TestLaNotationNeGardeQueLaPisteEtLeVerdict:
         se range où elle sert."""
         js = _lire(JS)
         n = _corps(js, "  function notaSortie(r, st) {")
-        assert "z.querySelector('.piste').appendChild(boutonInfo(T('pal_echelle_t')" in n
+        assert "f.querySelector('.piste').appendChild(boutonInfo(T('pal_echelle_t')" in n
 
     def test_la_bulle_de_l_echelle_ne_se_pose_pas_SUR_son_bouton(self):
         """⚠️ `getBoundingClientRect()` rend DÉJÀ des pixels d'écran : seules

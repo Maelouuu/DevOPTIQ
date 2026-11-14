@@ -396,8 +396,13 @@ class TestLesDeuxRegimesCohabitent:
         js = _lire(JS)
         assert "const jePosePour = r => (jeSuisLeDev() ? !r.mesurable : true);" in js
         n = _corps(js, "  function notaSortie(r, st) {")
-        assert "piste(off, req, soi, !mien)" in n, "lue, pas cliquable"
-        assert "if (!mien) return;" in n, "aucun écouteur sur une piste lue"
+        # ⚠️ Sur une sortie mesurée, la note qui fait foi n'est même pas une
+        # piste : c'est le RAIL des marches. Il n'y a donc aucun cran à
+        # cliquer, et rien à verrouiller — l'auto-évaluation, elle, garde la
+        # sienne.
+        assert "mesuree ? railHtml(r.performance)" in n
+        assert "const maFoi = dev && !mesuree;" in n
+        assert "if (maFoi) {" in n, "les écouteurs ne se posent que sur la mienne"
         pied = _corps(js, "  function majPied(st) {")
         assert "every(r => r.mesurable)" in pied and "pal_pas_de_note" in pied
     def test_une_sortie_SANS_norme_garde_son_echelle(self, app, auth_client, bob, comme_dev):
@@ -1295,18 +1300,27 @@ class TestLesDeuxNotesSeTiennent:
     empilés, chacun avec son petit en-tête : on ne voyait pas que c'est UNE
     décision regardée de deux côtés."""
 
-    def test_elles_partagent_UNE_piste(self):
-        """⚠️ Deux échelles de cinq crans l'une sous l'autre, c'étaient dix
-        crans pour une seule décision. Le niveau qui fait foi EST la piste, et
-        ce qu'il dit de lui-même est un repère SUR cette piste."""
+    def test_elles_portent_la_MEME_echelle_chacune_la_sienne(self):
+        """⚠️ RENVERSEMENT de la règle du 11/11 (« elles partagent UNE piste,
+        et l'auto-évaluation est un repère dessus »). Compressée en un point
+        posé sous les crans de l'autre, la seconde note ne se lisait plus
+        comme une note — et il y en a TOUJOURS deux.
+
+        Elles portent donc chacune la même échelle 0 → 4 : celle qui vous
+        appartient en piste (cinq crans qu'on clique), l'autre en graduation,
+        alignée au pixel. Ce ne sont pas dix crans pour une décision : ce sont
+        deux lectures d'une même échelle, et c'est leur alignement qu'on vient
+        lire.
+        """
         js = _lire(JS)
         assert "function blocNote(" not in js, "les deux blocs sont remplacés"
         n = _corps(js, "  function notaSortie(r, st) {")
-        assert n.count("piste(") == 1, "UNE piste, pas deux échelles"
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        assert 'class="soi' in p, "l'auto-évaluation est un repère sur la piste"
+        assert "nt nt--foi" in n and "nt nt--auto" in n
+        assert "maFoi ? piste(off, req, false) : graduation(off)" in n
+        assert "monAuto ? piste(soi, req, false) : graduation(soi)" in n
+        assert 'class="soi' not in js, "le repère n'a laissé aucune trace"
         css = _sans_commentaires_css(_lire(CSS))
-        assert ".crans .soi {" in css and "repeating-linear-gradient" in css
+        assert ".crans .soi {" not in css
     def test_la_preuve_est_un_bouton_pas_un_lien_souligne(self):
         js = _lire(JS)
         p = _corps(js, "  function preuveSortie(r, st) {")

@@ -3322,11 +3322,72 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .gb.prim { box-shadow: 0 6px 16px -7px rgba(29, 78, 216, .75); }
 .gb.prim:hover { box-shadow: 0 9px 20px -7px rgba(29, 78, 216, .85); }
 
-/* ═══════ LA NOTATION — une seule piste, cinq marches ════════════════════
-   Avant : deux échelles de cinq crans l'une sous l'autre, et la distinction
-   portée par la seule couleur. Ici le niveau qui fait foi EST la piste, et ce
-   qu'il dit de lui-même est un repère SUR cette piste. */
-.nota { display: flex; align-items: center; gap: 30px; flex-wrap: wrap; }
+/* ═══════ LA NOTATION — DEUX notes, toujours ═════════════════════════════
+   Il y en a toujours deux : celle qui FAIT FOI, et ce que le collaborateur
+   se donne. Compressée en un repère posé sous les crans de la première, la
+   seconde ne se lisait plus comme une note — c'est le reproche qui a rouvert
+   ce bloc. Elles portent donc la MÊME échelle, l'une sous l'autre, alignées
+   au pixel : c'est cet alignement qui se lit comme un accord ou un écart.
+   ⚠️ L'ordre ne bouge JAMAIS : celle qui fait foi d'abord, quel que soit le
+   regard. Celle qui vous appartient se clique, l'autre est POSÉE. */
+.nota { display: flex; flex-direction: column; gap: 16px; }
+.nt { display: flex; flex-direction: column; gap: 6px; }
+.nt-h { display: flex; align-items: center; gap: 9px; padding: 0 3px; }
+.nt-k {
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+  font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+}
+.nt-k.foi { color: var(--b8); }
+.nt-k.mes { color: var(--ink); }
+.nt-k.auto { color: var(--cv-auto-deep); }
+.nt-h .p {
+  flex: none; border-radius: 999px; padding: 2px 8px; background: var(--card-2);
+  color: var(--muted); font-size: 9.5px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.nt-h .v {
+  margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 12.5px; font-weight: 600; color: var(--muted);
+}
+.nt-h .v b {
+  margin-right: 4px; color: var(--ink); font-family: var(--pg-font-display);
+  font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.nt-h .v em { font-style: normal; color: #94a3b8; }
+
+/* ⚠️ LA MÊME géométrie que la piste — cinq colonnes, le même espacement, la
+   largeur de la gomme en bout — pour que les deux notes s'alignent au pixel.
+   Des <span>, jamais des <button> : elle est POSÉE, rien ne s'y clique et
+   rien ne doit en avoir l'air. */
+.grad { display: flex; align-items: stretch; max-width: 780px; margin: 2px 0 0; }
+.gcs { display: flex; gap: 11px; flex: 1; min-width: 0; }
+.gc {
+  flex: 1; min-width: 0; height: 34px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card-2); border: 1px solid var(--cl-f2);
+  font-family: var(--pg-font-display); font-size: 19px; font-weight: 700; line-height: 1;
+  color: #fff; transition: background .18s, border-color .18s;
+}
+.gc i { width: 5px; height: 5px; border-radius: 50%; background: #cbd5e1; }
+.gc.on {
+  border-color: var(--cv-auto-deep);
+  background: linear-gradient(180deg, #a78bfa, var(--cv-auto-deep));
+  box-shadow: 0 7px 16px -8px rgba(109, 40, 217, .95);
+}
+/* ⚠️ Une graduation porte la couleur de SA note, pas celle de la seconde :
+   le collaborateur lit la note qui fait foi en graduation, et elle doit
+   rester bleue. L'identité se tient partout, ou elle ne tient nulle part. */
+.nt--foi .gc.on {
+  border-color: var(--b8);
+  background: linear-gradient(180deg, var(--b5), var(--b8));
+  box-shadow: 0 7px 16px -8px rgba(29, 78, 216, .95);
+}
+/* ⚠️ LE BOUT : la gomme et le « i » de l'échelle. La graduation en rend des
+   JUMEAUX masqués à l'œil — pas une largeur recopiée à la main, qui
+   dériverait le jour où l'un des deux change de taille. C'est ce qui fait
+   tomber les cinq colonnes des deux notes au MÊME pixel. */
+.grad > .gomme, .grad > .cv2-i { visibility: hidden; pointer-events: none; }
+.grad > .gomme { height: 34px; }
 
 /* ⚠️ La gomme vit HORS des crans : effacer n'est pas un niveau de plus, et la
    zone attendue ne doit pas l'englober — elle aurait l'air d'un sixième
@@ -3335,11 +3396,22 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    en dessous le repère de l'auto-évaluation. Ce qui fait foi est au-dessus,
    ce qu'on se dit en dessous — on sait toujours lequel on lit. */
 .piste {
-  display: flex; align-items: stretch; margin: 42px 0 26px;
-  flex: 1 1 520px; max-width: 780px;
+  display: flex; align-items: stretch; margin: 38px 0 2px;
+  flex: none; max-width: 780px;
+}
+/* ⚠️ L'identité se tient PARTOUT : quand c'est le collaborateur qui pose sa
+   propre note, sa piste est violette comme sa graduation — sinon la même
+   note changerait de couleur selon qui la regarde. */
+.nt--auto .cran.f {
+  background: linear-gradient(160deg, #a78bfa, var(--cv-auto-deep));
+  box-shadow: 0 9px 20px -11px rgba(109, 40, 217, .95);
+}
+.nt--auto .cran .pic {
+  background: linear-gradient(160deg, var(--cv-auto), var(--cv-auto-deep));
+  box-shadow: 0 7px 16px -9px rgba(109, 40, 217, .85);
 }
 /* l'échelle 0 → 4 se range où elle sert : au bout de SA piste */
-.piste > .cv2-i { align-self: center; flex: none; margin-left: 11px; }
+.piste > .cv2-i, .grad > .cv2-i { align-self: center; flex: none; margin-left: 11px; }
 .crans { position: relative; display: flex; gap: 11px; flex: 1; min-width: 0; }
 /* la zone attendue : une SURFACE, pas un trait — « la barre doit entrer dans
    le vert » se regarde, un filet de 2 px se cherche. */
@@ -3412,42 +3484,17 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 /* ⚠️ Une sortie MESURÉE : son niveau vient du chiffre relevé en séance. La
    piste se lit, elle ne se clique pas — et il n'y a rien à effacer. */
 .piste.lue .cran { pointer-events: none; }
-.piste.lue .gomme { display: none; }
-/* ce qu'il dit de lui-même : un repère sur LA MÊME piste. Un contour posé
-   par-dessus la barre disparaissait dès qu'elle le dépassait — et c'est
-   justement ce cas qu'on vient lire. */
-/* ⚠️ `pointer-events: none` : le repère est posé PAR-DESSUS les crans, et il
-   tombe pile au milieu de l'un d'eux. Sans cette ligne il INTERCEPTE le clic
-   du cran qu'il désigne — relevé au banc, le cran sous le repère ne se posait
-   plus. C'est la même règle que la bulle de la matrice RH : ce qui explique
-   ne vole jamais le clic de ce qu'il explique. */
-.crans .soi {
-  position: absolute; left: var(--x); top: -18px; bottom: -18px; width: 2px; z-index: 2;
-  transform: translateX(-1px); border-radius: 2px; pointer-events: none;
-  background: repeating-linear-gradient(var(--muted) 0 4px, transparent 4px 8px);
-  transition: left .18s;
-}
-.crans .soi.est-off { display: none; }
-/* ⚠️ Son point ET son libellé passent SOUS la piste : la pastille du niveau
-   choisi occupe le dessus, et les deux tombent sur le même cran dès qu'on se
-   situe là où l'on est noté — c'est-à-dire le cas courant. */
-.crans .soi::after {
-  content: ""; position: absolute; left: 50%; bottom: -5px; width: 11px; height: 11px;
-  margin-left: -5.5px; border-radius: 50%; background: var(--card);
-  box-shadow: inset 0 0 0 2.5px var(--muted);
-}
-.crans .soi::before {
-  content: attr(data-nom); position: absolute; left: 50%; top: calc(100% + 4px);
-  transform: translateX(-50%); white-space: nowrap; pointer-events: none;
-  font-size: 12px; font-weight: 600; color: var(--muted);
-}
+/* ⚠️ La gomme d'une piste en lecture est MASQUÉE À L'ŒIL, pas retirée du
+   flux : elle tient la largeur. Sortie du flux, la piste devenait plus large
+   que la graduation d'en dessous — et c'est leur alignement qui dit
+   l'accord. */
+.piste.lue .gomme { visibility: hidden; pointer-events: none; }
 
-/* ⚠️ Le verdict d'accord est TOUT ce qui restait de la colonne de droite.
-   Elle écrivait aussi le niveau en 52 px — une TROISIÈME fois, après la
-   languette et la bande. Lui parle de l'ÉCART entre les deux notes : il n'est
-   écrit nulle part ailleurs, et il se lit à côté de la piste qui les porte. */
+/* ⚠️ Le verdict d'accord est HORS des deux blocs : posé dans celui du bas, il
+   se lisait comme un commentaire de l'auto-évaluation — or il parle de
+   l'ÉCART, donc des deux. Il n'est écrit nulle part ailleurs. */
 .nota-vd {
-  flex: 1 1 210px; min-width: 0; margin: 0;
+  min-width: 0; margin: 0;
   font-size: 13.5px; line-height: 1.45; color: var(--muted);
 }
 .nota-vd:empty { display: none; }
