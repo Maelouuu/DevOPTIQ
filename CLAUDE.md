@@ -8640,6 +8640,122 @@ derrière elle.
 
 ---
 
+### « OÙ VOUS ÊTES » : le bassin, et les DEUX notes (2026-11-14)
+
+Tranché sur maquettes à l'échelle réelle — trois organisations dessinées, une
+retenue — avant d'écrire une ligne. C'est la neuvième fois que la méthode
+évite une journée écrite pour rien.
+
+#### ⚠️⚠️ Il y a TOUJOURS deux notes, et on n'en voyait plus qu'une
+
+« Il manque quand même quelque chose : il y a toujours deux notes, celle
+d'auto-évaluation par l'user et celle du responsable. » Exact, et c'était un
+défaut de LECTURE, pas de données : le classeur (11/11) avait compressé la
+seconde en un REPÈRE posé sous les crans de la première — un point et un
+libellé, sur la piste de l'autre. Elle existait, elle ne se lisait plus comme
+une note.
+
+Elles portent désormais chacune la même échelle 0 → 4 :
+
+| | celle qui FAIT FOI | ce que le collaborateur SE DONNE |
+|---|---|---|
+| couleur | bleu · écusson | violet · silhouette |
+| le développeur | une PISTE (il la pose) | une graduation, posée |
+| le collaborateur | une graduation, posée | une PISTE (il la pose) |
+| sortie MESURÉE | le RAIL des marches | une piste ou une graduation |
+
+- ⚠️ **L'ordre ne bouge JAMAIS** : celle qui fait foi d'abord, quel que soit
+  le regard — on sait toujours laquelle on lit.
+- ⚠️ **Celle qui vous appartient se CLIQUE, l'autre est POSÉE** : des `<span>`,
+  jamais des `<button>` — rien ne s'y clique et rien ne doit en avoir l'air.
+  Deux pistes empilées, c'est ce que le classeur avait précisément retiré, et
+  c'est ce que le collaborateur voyait tant que la note qui fait foi restait
+  une piste verrouillée.
+- ⚠️⚠️ **Les cinq colonnes tombent au MÊME PIXEL**, et c'est tout le propos :
+  c'est leur alignement qui se lit comme un accord ou un écart. La piste porte
+  un bout que la graduation n'avait pas (la gomme, et le « i » de l'échelle) —
+  mesuré : **4,5 px d'écart au deuxième cran, 18 au cinquième**. La graduation
+  rend donc des **JUMEAUX masqués** de ces deux éléments, pas une largeur
+  recopiée à la main qui dériverait. ⚠️ Et avec les MÊMES classes : `ev-i`
+  retire la bordure du « i », donc un jumeau sans elle restait 1 px trop
+  large. Mesuré après : **0,000 px**.
+- ⚠️ **La gomme d'une piste en lecture est masquée à l'œil, pas retirée du
+  flux** : sortie du flux, la piste redevenait plus large que la graduation.
+- ⚠️ **L'identité se tient PARTOUT** : une graduation porte la couleur de SA
+  note, donc celle qui fait foi reste bleue même lue par le collaborateur.
+  Sinon la même note changerait de couleur selon qui la regarde.
+- Le verdict d'accord reste HORS des deux blocs : il parle de l'ÉCART, donc
+  des deux (décision du 11/11, inchangée).
+
+#### LE BASSIN : la règle du minimum se REGARDE
+
+Le niveau d'une activité est le MINIMUM de ses sorties — et c'était une phrase
+derrière un « i ». Le bloc de nuit porte une jauge verticale : l'eau monte au
+niveau de l'activité, chaque sortie porte son repère, **l'eau s'arrête au
+repère le plus bas**. Éprouvé au banc : on monte une sortie de 1 à 4, l'eau ne
+bouge PAS (l'autre la retient) et c'est l'autre repère qui prend l'anneau ; on
+descend à 0, l'eau tombe.
+
+- ⚠️ **NULL ≠ 0** : une sortie pas encore notée n'a PAS de repère à zéro, elle
+  n'en a pas du tout — et l'eau devient HACHURÉE, parce que l'activité n'a
+  alors aucun niveau. Un trait plein dirait un verdict que personne n'a rendu.
+- ⚠️ **Le niveau affiché est un APERÇU, pas une seconde règle.**
+  `niveauActivite()` recalcule le minimum côté navigateur parce que le serveur
+  ne connaît pas la note qu'on vient de poser — et c'est justement elle qu'on
+  veut voir bouger l'eau. Le serveur reste la source : l'écran se recharge
+  après l'enregistrement.
+- ⚠️ **Sur place, jamais réécrit** : l'eau MONTE, et c'est ce mouvement qui
+  fait comprendre la règle. Réécrit, le bassin sauterait d'un niveau à l'autre.
+- ⚠️ **Deux sorties au même niveau s'empilent** (`--k`) : elles tombent sur la
+  même ligne, et c'est justement là qu'on vient lire laquelle retient l'eau —
+  aucune n'est masquée.
+- ⚠️ **La pastille d'un repère garde son NUMÉRO**, celui de la carte de
+  droite, et ne reçoit que sa couleur. `majBassin` y écrivait le NIVEAU —
+  relevé sur capture : ce que la HAUTEUR du repère dit déjà, et le seul lien
+  entre le bassin et la carte était coupé.
+
+#### Les sorties CÔTE À CÔTE, et un bandeau de moins
+
+Le classeur ne montrait qu'UNE sortie à la fois, derrière des languettes : on
+ne voyait jamais ensemble les deux chiffres dont le plus bas fait le niveau.
+Elles sont désormais toutes visibles, une carte chacune, numérotées comme leur
+repère. Les deux régimes prennent la MÊME forme — un rail de couleur dit
+lequel, un disque dit le niveau : c'est leur ressemblance qui rend la
+différence lisible.
+
+- ⚠️ **Le bandeau d'identité (`ev-tete`) a disparu DANS le bloc de nuit** : il
+  redisait le nom de la personne et le niveau du rôle à dix centimètres de la
+  chaîne qui les porte. La classe reste déclarée — la séance et le calendrier
+  s'en servent toujours.
+- La **chaîne** (le collaborateur → son rôle → l'activité) porte le verdict de
+  chaque maillon : la cascade du minimum se lit d'un bout à l'autre.
+- Le bloc de nuit **suit le défilement** (`sticky`) : c'est le bassin qui porte
+  la comparaison, il doit rester sous les yeux pendant qu'on note à droite.
+  ⚠️ En colonne unique (sous **1100 px RÉELS** — `body.pg` porte `zoom: .8` et
+  les requêtes média ignorent ce zoom) il redevient `static` : collé, il
+  masquerait la carte qu'on vient lire.
+- Partis avec le classeur : `languettes`, `majLanguette`, `montrerSortie`,
+  `sortieOuverte`, `bandeClasseur`, `feuilleSortie`, et **neuf clés** de
+  catalogue (`cl_reste_*`, `cl_mes`, `cl_main`, `cl_rien`, `ev_nb_act*`,
+  `ev_suivi_par`, `ev_niv_role`). Une clé qu'on retire en même temps que son
+  seul lecteur ne laisse rien derrière elle — un cliquet le garde.
+
+#### Mesures
+
+Tests : `test_140` (deux classes réécrites — elles affirmaient la structure du
+classeur), `test_109` (quatre cas), `test_130` (un cas). **29 cliquets
+vérifiés ROUGES**, en trois salves. Suite : **4241 passés**, 1 sauté.
+Éprouvé au banc (`tools/devrun_competences.py`) de 1000 à 1600 px dans les
+deux langues : les deux modes (développeur et collaborateur), l'eau qui ne
+bouge pas quand on monte la sortie qui ne retient rien, l'enregistrement relu
+après rechargement, **zéro fuite française sur l'écran anglais** (95 textes
+relevés, attributs compris), zéro débordement horizontal.
+
+⚠️ **Reste à faire** : la page 1 de la maquette (la vue d'ensemble — le
+classement et les marches dans un même bloc, la bande des notes, le relief au
+format compact, le radar en section dédiée) n'est PAS implantée. Seul l'écran
+où l'on note l'est.
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

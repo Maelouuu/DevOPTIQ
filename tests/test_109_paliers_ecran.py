@@ -574,8 +574,8 @@ class TestEvaluerEstUnePage:
         assert "/mastery/activity/" in bloc
         assert "/paliers/historique/" not in bloc
         assert "Promise.all" not in bloc
-        classeur = _corps(js, "  function remplirClasseur(st) {")
-        assert "historique" not in classeur, "l'historique ne s'ouvre plus avec la page"
+        ecran = _corps(js, "  function renderEval(st) {")
+        assert "historique" not in ecran, "l'historique ne s'ouvre plus avec la page"
         assert js.count("/mastery/historique/") == 1, \
             "une seule lecture, et c'est la fenêtre des courbes qui la fait"
         crb = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
@@ -1052,16 +1052,17 @@ class TestLesDeuxColonnesSeDistinguent:
         assert "function remplirActivites" not in js
         nav = _corps(js, "  function majNav() {")
         assert "(i + 1) + ' / ' + n" in nav
-        bande = _corps(js, "  function bandeClasseur(st) {")
-        assert "state.activity.activity_name" in bande
-        assert "T('cl_tenu')" in bande
+        ou = _corps(js, "  function remplirOu(st) {")
+        assert "a.activity_name" in ou
+        assert "T('cl_tenu')" in ou
     def test_le_gabarit_de_la_page_ne_porte_aucun_libelle(self):
-        """⚠️ `remplirClasseur` VIDE la feuille et les languettes : un libellé
+        """⚠️ `remplirOu` et `remplirSorties` VIDENT leur zone : un libellé
         écrit dans le squelette serait effacé au premier remplissage."""
         js = _lire(JS)
-        sk = js.split('<div class="cl" id="ev-cl">', 1)[1][:420]
-        for creux in ('id="ev-cl-h"></div>', 'id="ev-ong"></div>',
-                      'id="ev-feuille"></div>'):
+        sk = js.split('<div class="ev-deux" id="ev-deux">', 1)[1][:460]
+        for creux in ('class="ev-ou" id="ev-ou"></section>',
+                      'class="ev-sorties" id="ev-sorties"></div>',
+                      'class="ev-pied" id="ev-pied"></div>'):
             assert creux in sk, creux
 class TestLEvolutionSeFermeParLeBas:
     """Une fois l'historique déplié, le bouton qui a OUVERT la section se
@@ -1348,7 +1349,7 @@ class TestLeRelief:
         # …mais il vit toujours à la séance : c'est une AUTRE question.
         assert 'class="sq-rail">${railHtml(' in js
         # et plus une seule courbe dans la feuille
-        f = _corps(js, "  function feuilleSortie(r, st) {")
+        f = _corps(js, "  function carteSortie(r, st, i) {")
         for mort in ("reliefSvg", "friseSvg", "cv2-histo", "pal-relief"):
             assert mort not in f, mort
     def test_l_axe_vertical_est_ordonne_par_MERITE(self):
