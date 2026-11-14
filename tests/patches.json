@@ -696,5 +696,24 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-04T03:22:36"
+  },
+  {
+    "patch_uid": "2026-11-14-carto-proposition-cible-explicite",
+    "title": "Proposition de carto : une cible explicite introuvable donne 404 (plus de repli ni de 500)",
+    "node_ids": [
+      "tests/test_143_carto_sharing_residuel.py::TestCartoSharingDepot::test_entity_id_inconnu_404_sans_repli_sur_la_carto_active",
+      "tests/test_143_carto_sharing_residuel.py::TestCartoSharingDepot::test_entity_id_non_numerique_404_et_non_500"
+    ],
+    "page_slug": "carto_sharing_residuel",
+    "failure_reason": "POST /cartography/api/changes avec entity_id=999999 renvoyait 201 et déposait la proposition sur la carto ACTIVE ; avec entity_id=\"abc\" la route levait une ValueError (500).",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "create_change faisait int(entity_id) sans garde, puis, si l entité n existait pas, retombait sur Entity.get_active() : une cible explicite fausse était silencieusement remplacée par une autre carto.",
+    "fix_description": "Si entity_id est fourni : conversion protégée (TypeError/ValueError) et 404 « Entité introuvable » quand il ne désigne aucune entité. Le repli sur la carto active ne joue plus que lorsque entity_id est absent (comportement de l éditeur inchangé).",
+    "files_changed": [
+      "Code/routes/carto_sharing.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-14T03:23:17"
   }
 ]

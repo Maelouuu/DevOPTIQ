@@ -840,8 +840,17 @@ def create_change():
 
     data = request.get_json(silent=True) or {}
     entity_id = data.get("entity_id")
-    entity = db.session.get(Entity, int(entity_id)) if entity_id else None
-    if entity is None:
+    # ⚠️ Une cible EXPLICITE introuvable est un 404, jamais un repli sur la
+    # carto active : la proposition atterrissait sur une autre carto que celle
+    # que l'auteur visait. Et un identifiant non numérique tombait en 500.
+    if entity_id:
+        try:
+            entity = db.session.get(Entity, int(entity_id))
+        except (TypeError, ValueError):
+            entity = None
+        if entity is None:
+            return jsonify({"error": "Entité introuvable"}), 404
+    else:
         entity = Entity.get_active()
     if entity is None or not can_read(entity, user):
         return jsonify({"error": "Entité introuvable"}), 404
