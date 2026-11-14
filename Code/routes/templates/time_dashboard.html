@@ -150,16 +150,6 @@
         </div>
       </div>
       <div class="tm-entete-actions">
-        {# ⚠️ Le MÊME verdict que la route (`calendrier_ouvert`, processeur de
-           contexte) : un bouton ne doit jamais mener à un écran qui refuse.
-           `?de=temps` : on arrive avec les seules données de temps allumées. #}
-        {% if calendrier_ouvert %}
-        <a class="tm-b tm-b--doux" href="/calendrier/?de=temps"
-           title="{{ t('cal.ouvrir_aide') }}">
-          <span class="tm-b-ic"><i class="fa-regular fa-calendar-days"></i></span>
-          {{ t('cal.ouvrir') }}
-        </a>
-        {% endif %}
         <!-- Ce bouton ne montre pas un calendrier : il OUVRE les réglages du
              temps de travail, qui vivent dans le bandeau de la page RH. -->
         <a class="tm-b tm-b--doux" href="/gestion_rh/#calendrier"

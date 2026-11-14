@@ -7675,163 +7675,6 @@ attributs compris — tout ce qui reste en français est une DONNÉE du banc),
 zéro erreur console, aucun débordement horizontal.
 Maquette : artefact « Les cartes, une par une ».
 
-### LE CALENDRIER PARTAGÉ — deux sources sur une même grille (2026-11-14)
-
-`Code/routes/calendrier.py` · `Code/routes/templates/calendrier.html` ·
-`static/js/calendrier.js` · `static/calendrier.css` · tests
-`tests/test_141_calendrier_partage.py` (22 cas, **18 cliquets vérifiés
-rouges**). Suite : **4 247 passés**, 1 sauté ; `repet_image` **4 176 passés**
-+ 72 sautés.
-
-Demandé par l'utilisateur : « rajouter l'accès au calendrier dans la popup
-d'accueil, pour le consulter ; une fois dessus on peut voir tout ce qui
-concerne le calendrier (les données de temps et les compétences) ».
-
-#### ⚠️⚠️ LA décision de l'écran : une activité N'A PAS DE DATE
-
-Une séance d'évaluation a un jour — c'est un rendez-vous, elle se pose
-dessus. Une activité n'en a pas : elle a un **créneau**, c'est-à-dire une
-récurrence et une fréquence. Lui inventer un jour fabriquerait un
-rendez-vous auquel personne ne s'est engagé — un calendrier qui annonce
-« Chiffrer l'offre, mardi 17 » alors que rien, nulle part, ne dit mardi est
-pire que pas de calendrier.
-
-Chaque rythme se pose donc sur l'étendue qu'il occupe VRAIMENT :
-
-| donnée | a-t-elle un jour ? | où elle se pose |
-|---|---|---|
-| séance d'évaluation | oui (`date_prevue`) | sur SON jour |
-| activité journalière | non | la **charge** de chaque jour ouvré |
-| activité hebdomadaire | non | la BANDE « chaque semaine » |
-| mensuel / trimestriel / annuel | non | la BANDE « ce mois-ci » |
-
-- ⚠️ **Le serveur ne rend AUCUNE date pour une activité** : il n'en a pas à
-  rendre. `test_aucun_creneau_ne_recoit_de_DATE` le tient, et
-  `test_le_JS_ne_pose_un_creneau_que_sur_une_BANDE` tient l'autre bout — la
-  case d'un jour ne porte jamais de pastille d'activité.
-- ⚠️ **Une récurrence INCONNUE tombe dans la bande du mois, pas dans les
-  jours** : la poser sur chaque jour ouvré multiplierait par vingt une charge
-  dont on ne sait rien. (`REGISTRES` compare des PRÉFIXES : `recurrence` est
-  du texte libre écrit par plusieurs écrans.)
-- ⚠️ **La charge d'un jour ne se met que sur un jour OUVRÉ** : les activités
-  journalières se comptent en jours travaillés, c'est la règle de toute la
-  page Temps.
-- ⚠️ **Les minutes d'un créneau sont la MÊME expression que le tableau de
-  bord** (`durée × fréquence × personnes`, pour UNE occurrence de la
-  période) : deux expressions finiraient par donner deux chiffres de la même
-  chose, et le cliquet les compare l'une à l'autre. On n'annualise PAS ici —
-  on montre ce qui revient, pas ce que ça pèse sur l'année.
-
-#### Les deux sources, et les trois niveaux
-
-- **Deux interrupteurs** : Temps (ambre, la couleur de sa page) et
-  Compétences (bleu, la couleur de la sienne). ⚠️ L'interrupteur porte sa
-  couleur dans les DEUX états : gris au repos il ne se verrait jamais,
-  puisqu'on ouvre l'écran avec une source éteinte.
-- **La source par défaut dépend de la PORTE** : `?de=temps` n'allume que le
-  temps, `?de=comp` que les séances, sans paramètre les deux. C'est ce que
-  l'utilisateur a demandé.
-- **Trois niveaux** : tout le monde, par rôle, par personne. ⚠️ Choisir
-  « par rôle » sélectionne d'office le premier de la liste — sans rôle choisi
-  l'écran n'afficherait RIEN et paraîtrait cassé.
-- Un créneau suit les RÔLES qui tiennent son activité, et les comptes qui
-  tiennent ces rôles. ⚠️ En TROIS requêtes pour toute la carto, jamais une
-  par activité : cet écran s'ouvre d'un clic et une carto en porte des
-  centaines (`test_le_cout_ne_grandit_pas_avec_le_nombre_d_activites` compte
-  les requêtes avant et après six activités de plus : égalité).
-
-#### Les trois portes, et le verdict unique
-
-Page Temps, page Compétences, et le pied de la fenêtre de bienvenue — la
-seule entrée de cette fenêtre qui MÈNE quelque part, les autres décrivant ce
-que le compte ouvre.
-
-⚠️ **Un seul verdict pour les trois portes ET pour la route** :
-`calendrier_ouvert`, posé par le processeur de contexte de `Code/app.py`. Un
-bouton ne doit jamais mener à un écran qui refuse — et un cas le vérifie sur
-le RENDU des deux pages, pas sur le texte des gabarits.
-
-⚠️ **Administrateur seulement pour ce premier jet**, comme demandé (« pour
-éviter trop de dev d'un coup »). Le masquage n'est pas une sécurité : la page
-redirige et l'API rend 403.
-
-#### Ce qui reste à faire, et qui se décide
-
-- **Ouvrir au-delà de l'administrateur** : une ligne du tableau des droits
-  réglable (`Code/permissions.py`) serait le chemin naturel, mais cela n'a pas
-  été demandé — et ouvrir cet écran, c'est montrer les séances et la charge de
-  tout le monde.
-- **Poser une séance depuis ce calendrier** : il LIT, il n'écrit pas. La
-  planification vit dans la page Compétences, qui connaît le collaborateur, le
-  rôle et le palier visé.
-- **Les analyses de RÔLE** ne sont pas sur la grille : seules les analyses
-  d'ACTIVITÉ y figurent. Une analyse de rôle est une somme, pas un créneau ;
-  l'y poser compterait deux fois les mêmes activités.
-
-#### Le banc
-
-`tools/devrun_temps.py` sème désormais **quatre séances d'évaluation** (une
-en retard, deux à venir, une tenue) en plus de ses activités : sans elles le
-calendrier partagé ne montre qu'une de ses deux sources, et on ne voit jamais
-ce que les deux donnent ENSEMBLE — c'est pourtant tout le propos de l'écran.
-Éprouvé à 1600 px dans les deux langues : les deux interrupteurs, les trois
-niveaux (Acheteur 3 créneaux et 3 séances, Approvisionneur 1 et 0, « par
-personne » 3 et 0), les deux portes et leur défaut, et **zéro fuite française
-sur l'écran anglais** (186 textes relevés, attributs compris).
-
-#### ⚠️ Deux cliquets qui ne gardaient rien
-
-- Retirer « trimestriel » et « annuel » des préfixes du registre « mois » ne
-  changeait RIEN : le registre par DÉFAUT est déjà « mois ». L'injection les
-  envoie donc dans « jour ».
-- Le contrôle des clefs reconnaissait les clefs LUES en les croisant avec les
-  clefs INJECTÉES : retirer une injection la faisait sortir des deux ensembles
-  d'un coup, et le cas restait vert sur le défaut même qu'il garde. Les clefs
-  lues se reconnaissent au CATALOGUE. *(Même famille que le ternaire imbriqué
-  du 13/11 — une analyse de clefs doit avoir une source INDÉPENDANTE de ce
-  qu'elle vérifie.)*
-
-#### ⚠️⚠️ Et l'échec se lisait TROIS FICHIERS PLUS LOIN
-
-Le fichier neuf passait seul ; la suite complète rendait **six rouges dans
-`test_14_cartography_editor`**, qui ne parle ni de calendrier ni de temps.
-Mesuré plutôt que supposé : la suite SANS `test_141` était propre, et
-`test_141` + `test_14` seuls l'étaient aussi — c'est donc l'état ACCUMULÉ
-plus ce fichier.
-
-La cause : `test_141` écrivait ses activités dans l'entité du DÉCOR COMMUN
-— et `test_14` comme `test_15` lisent la carto de l'entité ACTIVE
-(`/cartography/api/load` rendait 200 là où il attendait 404). Les créations
-et les suppressions s'équilibraient pourtant ; c'est le va-et-vient de
-l'entité active, que `auth_client` repose avec `setdefault` — donc sans
-CORRIGER une valeur laissée derrière — qui faisait le reste.
-
-**La garde n'est pas un rattrapage, c'est une ISOLATION** : `test_141`
-travaille sur SA PROPRE carto (fixture `carto`, détruite en fin de module),
-avec un `owner_id` — une entité de test sans propriétaire est lisible par
-tout le monde et devient le repli des fichiers suivants. Une fixture
-`autouse` l'active pendant le cas, repose celle du décor et la langue après,
-et **PROUVE** qu'il ne reste rien (carto, SVG et cinq compteurs comparés
-avant/après : un reliquat devient un échec DANS ce fichier, pas trois
-fichiers plus loin). `_CartoJetable` (test_105) repose de même une entité au
-lieu de retirer la clef.
-
-⚠️ Et l'isolation a trouvé un défaut DANS le cliquet : mesuré depuis une
-carto VIDE, le compteur de requêtes voyait apparaître le coût FIXE
-(`_qui_tient_quoi` sort tout de suite sans activité) et accusait un coût par
-activité qui n'existe pas. Le repère se prend sur une carto qui porte déjà
-une activité.
-
-Après : **4 247 passés / 0 rouge**, `repet_image` **4 176 passés + 72 sautés
-/ 0 rouge**. `test_139`, qui rougissait par intermittence depuis le matin,
-passe lui aussi.
-
-ℹ️ Règle qui en découle : **un fichier de tests neuf se donne sa propre
-carto.** Écrire dans celle du décor commun s'équilibre peut-être à la ligne
-près, mais l'entité ACTIVE, elle, ne revient pas toute seule — et le défaut
-se lit chez un fichier qui ne parle pas du même sujet. C'est la même règle
-que `test_82` et `test_83` appliquent déjà à la LANGUE.
-
 #### Sept retours sur la page Temps — dont deux défauts de FOND (2026-11-14)
 
 Relevés à l'écran par l'utilisateur, sur ses propres données. Deux d'entre eux
@@ -8821,6 +8664,62 @@ fichiers près, et le jour où l'écran part le saut s'éteint de lui-même :
 **rien à défaire au prochain report**.
 
 ---
+
+### Le calendrier partagé, RETIRÉ le jour même (2026-11-14)
+
+Écrit, livré, puis **repris** quelques heures plus tard : « l'idée est trop
+complexe et je veux pas faire un truc à la va-vite, donc on revient à notre
+calendrier exclusivement dans les compétences ». Le calendrier de la page
+Compétences (`#cv2-ecran-cal`, 2026-10-15) est donc le seul, avec son style
+d'avant.
+
+Partis : `Code/routes/calendrier.py`, son gabarit, `static/js/calendrier.js`,
+`static/calendrier.css`, `tests/test_141_calendrier_partage.py`, le verdict
+`calendrier_ouvert` du processeur de contexte, les trois portes (page Temps,
+page Compétences, pied de la fenêtre de bienvenue) et les 43 clés `cal.*` × 2
+langues.
+
+⚠️ **Le bouton de la page Temps GARDE son nouveau nom** — « Temps de
+travail » / « Working hours ». Il avait été renommé parce qu'un vrai
+calendrier arrivait à côté ; la raison a disparu, mais le nom reste le juste :
+il ouvre les **réglages du temps de travail** (semaines / jours / heures,
+bandeau de la page RH, ancre `#calendrier`), pas un calendrier. C'est la
+question qu'avait posée l'utilisateur.
+
+ℹ️ Ce qui n'a PAS été rendu, parce que c'étaient des correctifs à part entière :
+les deux retouches de `tests/test_105_temps_refonte.py` — `_CartoJetable`
+repose TOUJOURS une entité active au lieu de retirer la clef, et le cas des
+deux boutons de l'en-tête découpe sur une borne au lieu de 600 signes.
+
+#### ⚠️⚠️ La leçon qui survit au retrait : l'échec se lisait TROIS FICHIERS PLUS LOIN
+
+`test_141` passait seul ; la suite complète rendait **six rouges dans
+`test_14_cartography_editor`**, qui ne parle ni de calendrier ni de temps.
+Mesuré plutôt que supposé : la suite SANS `test_141` était propre, et
+`test_141` + `test_14` seuls l'étaient aussi — c'est donc l'état ACCUMULÉ
+plus ce fichier.
+
+La cause : `test_141` écrivait ses activités dans l'entité du DÉCOR COMMUN —
+et `test_14` comme `test_15` lisent la carto de l'entité ACTIVE
+(`/cartography/api/load` rendait 200 là où il attendait 404). Les créations et
+les suppressions s'équilibraient pourtant ; c'est le va-et-vient de l'entité
+active, que `auth_client` repose avec `setdefault` — donc sans CORRIGER une
+valeur laissée derrière — qui faisait le reste.
+
+**La garde n'était pas un rattrapage mais une ISOLATION** : le fichier
+travaillait sur SA PROPRE carto (détruite en fin de module) avec un
+`owner_id` — une entité de test sans propriétaire est lisible par TOUT LE
+MONDE et devient le repli des fichiers suivants — et une fixture `autouse`
+PROUVAIT après chaque cas qu'il ne restait rien (carto, SVG et cinq compteurs
+comparés avant/après : un reliquat devient un échec DANS ce fichier, pas trois
+fichiers plus loin).
+
+ℹ️ Règle qui en découle, et elle vaut pour tout fichier à venir : **un fichier
+de tests neuf se donne sa propre carto.** Écrire dans celle du décor commun
+s'équilibre peut-être à la ligne près, mais l'entité ACTIVE, elle, ne revient
+pas toute seule — et le défaut se lit chez un fichier qui ne parle pas du même
+sujet. C'est la même règle que `test_82` et `test_83` appliquent déjà à la
+LANGUE.
 
 ## Notes importantes (suite)
 

@@ -30,19 +30,6 @@
       })();
     </script>
 
-    {# Le CALENDRIER PARTAGÉ — les séances d'évaluation et les créneaux des
-       activités sur une même grille. ⚠️ `?de=comp` : on y arrive avec les
-       seules données de compétences allumées, puisqu'on vient d'ici.
-       ⚠️ `calendrier_ouvert` est le MÊME verdict que la route : un bouton ne
-       doit jamais mener à un écran qui refuse. #}
-    {% if calendrier_ouvert %}
-    <div class="cv2-vers-cal">
-      <a href="/calendrier/?de=comp" title="{{ t('cal.ouvrir_aide') }}">
-        <i class="fa-regular fa-calendar-days"></i>{{ t('cal.ouvrir') }}
-      </a>
-    </div>
-    {% endif %}
-
     <div class="cv2-layout">
       <aside class="cv2-sidebar">
         <div class="cv2-mgr">
