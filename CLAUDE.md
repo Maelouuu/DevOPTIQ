@@ -8892,6 +8892,60 @@ tombaient dans deux colonnes, et la courbe globale démarrait une colonne trop
 loin. Même famille que `test_61_pulse` entre 00:00 et 00:08. Les deux aides
 datent désormais sur la même horloge.
 
+#### Les trois défauts du CAS CHARGÉ (2026-11-15, même jour)
+
+« Petit souci de disposition… pas mal de trucs s'affichent mal, les niveaux
+sur la pile se marchent dessus. » Mon banc n'avait que des activités à UNE ou
+DEUX sorties, dont au plus trois marches : les vraies données en portent
+quatre, toutes mesurées, **toutes au même niveau**. Sans ce cas on ne regarde
+que l'heureux — `tools/devrun_competences.py` sème désormais « Négocier
+l'offre » : quatre sorties, quatre marches chacune, toutes qualifiées.
+
+Les trois défauts ont été **mesurés** avant d'être corrigés :
+
+- ⚠️ **Les repères du bassin se chevauchaient de 2 px, et deux sortaient du
+  bassin par le haut.** Ils étaient EMPILÉS (`--k` × 30 px) alors que la
+  pastille en fait 26 px de haut — à deux sorties ça passait, à quatre non.
+  Ils se posent désormais **côte à côte** (`--k` × 34 px en abscisse), et à
+  plusieurs ils ne gardent que leur NUMÉRO, celui de la carte de droite. Seule
+  à son niveau, une sortie garde son nom : c'est le cas courant, et c'est ce
+  que la maquette montrait. ⚠️ Le nom survit dans l'info-bulle et dans
+  l'`aria-label` — une pastille réduite n'efface pas l'information.
+- ⚠️ **Le panneau des marches faisait 847 px**, quatre fois le classement
+  d'à côté, et les rails se marchaient dessus. Il ne porte plus qu'**UNE
+  sortie à la fois**, avec le pager de l'écran d'évaluation (`‹ 2 / 4 ›`) —
+  **244 px** après. Même règle que la navigation entre activités : pas de
+  bouclage, une flèche qui ne mène nulle part n'est pas un bouton. Et une
+  hauteur PLANCHER, sinon passer de quatre marches à une fait sauter le bloc.
+- ⚠️⚠️ **La mesure était écrite en BLANC sur VERT PÂLE** : `.pal-m` est une
+  PASTILLE, pas une ligne de texte, et la variante sombre ne lui donnait
+  qu'une encre. Quatre rectangles clairs et vides à l'écran. Elle reçoit son
+  propre fond, verdict par verdict. Le drapeau « au-delà » sortait aussi du
+  panneau de 8 px : resserré.
+- La pastille de norme ne redit plus « NORME DE L'ENTREPRISE » — le drapeau
+  du rail le dit deux lignes plus bas. Elle ne garde que ce qu'elle seule
+  porte : « ≤ 10 j ».
+
+**La barre des collaborateurs passe EN HAUT** sur la vue d'ensemble : en
+colonne elle prenait 268 px à la page qui en a le plus besoin. Le bloc de nuit
+passe de 1 100 à **1 373 px**. Les autres écrans n'ont pas de barre du tout
+(`pleineLargeur`) — c'est donc le seul qui s'en sert, et la rendre horizontale
+ici ne touche à rien d'autre.
+
+⚠️ **Et un cliquet d'un autre fichier est tombé en chemin** :
+`test_109::test_la_mesure_se_lit_autant_que_la_cible` lisait `.pal-pas .pal-m`
+par un `rsplit` — « c'est la DERNIÈRE qui gagne ». La variante sombre du
+panneau des marches est devenue la dernière du fichier, et le cliquet lisait
+une règle qui ne le concernait pas. Il ne retient plus que les règles qui
+visent la carte. *Un cliquet qui cherche une chaîne doit borner sa zone* — et
+c'est la troisième fois en deux jours.
+
+Tests : `test_140` (+2 cas), `test_145` (+5), `test_109` (1 réécrit).
+**9 cliquets vérifiés ROUGES.** Suite : **4359 passés**, 1 sauté. Éprouvé au
+banc sur le cas chargé, de 1000 à 1600 px, dans les deux langues : zéro
+chevauchement, zéro repère hors du bassin, zéro fuite française sur l'écran
+anglais (167 textes, attributs compris).
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

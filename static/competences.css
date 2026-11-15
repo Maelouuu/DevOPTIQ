@@ -3281,11 +3281,18 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .bassin .mk.est-off { display: none; }
 .bassin .mk .bar { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .9); }
 .bassin .mk .et {
-  position: absolute; left: 16px; top: calc(-27px - var(--k, 0) * 30px);
+  position: absolute; left: calc(16px + var(--k, 0) * 34px); top: -33px;
   display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 34px);
   padding: 4px 13px 4px 5px; border-radius: 999px; background: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .4), 0 0 0 1px rgba(15, 23, 42, .06);
 }
+/* ⚠️ À PLUSIEURS sur la même ligne, la pastille ne garde que son numéro :
+   empilées vers le haut, elles se chevauchaient de 2 px et deux d'entre
+   elles sortaient du bassin (mesuré à quatre sorties). Le nom reste dans
+   l'info-bulle, dans l'`aria-label`, et sur la carte qui porte le même
+   numéro. */
+.bassin .mk:not(.est-seul) .et { padding: 4px; gap: 0; }
+.bassin .mk:not(.est-seul) .et .z { display: none; }
 .bassin .mk .et b {
   flex: none; width: 25px; height: 25px; border-radius: 999px; color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
@@ -3828,6 +3835,10 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   margin: 0 0 11px; font-size: 11.5px; font-weight: 800; letter-spacing: .08em;
   text-transform: uppercase; color: rgba(255, 255, 255, .78);
 }
+/* le titre et le pager des marches, sur la même ligne */
+.vo-dth { display: flex; align-items: center; gap: 12px; }
+.vo-dth .vo-dt { flex: 1; min-width: 0; }
+.vo-dth .cl-nav { margin: 0 0 11px; }
 
 /* ── LE CLASSEMENT ──────────────────────────────────────────────────
    ⚠️ La HAUTEUR dit le niveau, et le socle de 10 px fait que le niveau 0 se
@@ -3875,8 +3886,11 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    ⚠️ Le rail est celui de l'écran d'évaluation (`railHtml`) : une sortie
    mesurée se lit de la même façon partout, ou elle se lit deux fois. Seules
    ses encres changent — il est posé sur un panneau sombre. */
+/* ⚠️ Une hauteur PLANCHER : le panneau ne porte plus qu'UNE sortie à la
+   fois, et sans elle passer d'un rail de quatre marches à un rail d'une
+   seule fait sauter tout le bloc de nuit. */
 .mpan {
-  min-height: 252px; padding: 15px 16px 16px; border-radius: 14px;
+  min-height: 262px; padding: 15px 16px 16px; border-radius: 14px;
   background: rgba(0, 0, 0, .2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09);
 }
 .mpan .mh { display: flex; align-items: baseline; gap: 9px; justify-content: space-between; }
@@ -3892,8 +3906,29 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .mpan .pal-rail { margin-top: 10px; }
 .mpan .pal-pas .pal-v { color: #fff; }
 .mpan .pal-pas .pal-s { color: rgba(255, 255, 255, .7); }
-.mpan .pal-pas .pal-m, .mpan .pal-pas .pal-q { color: rgba(255, 255, 255, .72); }
+/* ⚠️ La MESURE est une PASTILLE, pas une ligne de texte : lui donner une
+   encre blanche sans toucher à son fond, c'était du blanc sur du vert pâle —
+   quatre rectangles clairs et vides à l'écran. Elle reçoit donc son propre
+   fond sombre, verdict par verdict. */
+.mpan .pal-pas .pal-q { color: rgba(255, 255, 255, .72); }
+.mpan .pal-pas .pal-m {
+  background: rgba(255, 255, 255, .1); border-color: rgba(255, 255, 255, .2);
+  color: rgba(255, 255, 255, .78);
+}
+.mpan .pal-pas--atteint .pal-m {
+  background: rgba(110, 231, 183, .16); border-color: rgba(110, 231, 183, .38);
+  color: #a7f3d0;
+}
+.mpan .pal-pas--manque .pal-m {
+  background: rgba(252, 165, 165, .16); border-color: rgba(252, 165, 165, .4);
+  color: #fecaca;
+}
 .mpan .pal-pas .pal-m b { color: #fff; }
+.mpan .pal-pas .pal-m .k { color: rgba(255, 255, 255, .6); }
+/* ⚠️ Le drapeau « au-delà » sortait du panneau de 8 px : il est plus large
+   que la marche qui le porte. Resserré, et le rail garde un peu d'air. */
+.mpan .pal-rail { padding: 0 6px; }
+.mpan .pal-drapeau { font-size: 9px; padding: 2px 7px; }
 .mpan .pal-pas--atteint .pal-v, .mpan .pal-pas--atteint .pal-s { color: #6ee7b7; }
 .mpan .pal-pas--manque .pal-v, .mpan .pal-pas--manque .pal-s { color: #fca5a5; }
 .mpan .pal-pas--en_cours .pal-v, .mpan .pal-pas--en_cours .pal-s,
@@ -3984,3 +4019,26 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   .vo-duo, .vo-gr { grid-template-columns: minmax(0, 1fr); }
   .vo-hbas { text-align: left; }
 }
+
+/* ── LA BARRE DES COLLABORATEURS, EN HAUT sur la vue d'ensemble ──────────
+   ⚠️ En colonne elle prenait 268 px de large à la page qui en a le plus
+   besoin : le bloc de nuit y porte DEUX colonnes (le classement et les
+   marches), et le panneau des marches débordait. Les autres écrans n'ont
+   pas de barre du tout (`pleineLargeur`) — c'est donc le seul qui s'en sert,
+   et la rendre horizontale ici ne touche à rien d'autre. */
+.cv2-layout.est-large { flex-direction: column; gap: 14px; }
+.cv2-layout.est-large .cv2-sidebar {
+  width: auto; align-self: stretch; position: static;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 11px 14px;
+}
+.cv2-layout.est-large .cv2-mgr { margin-bottom: 0; flex: none; padding: 9px 13px; }
+.cv2-layout.est-large .cv2-sec-title { margin: 0; flex: none; }
+.cv2-layout.est-large .cv2-collab {
+  flex-direction: row; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0;
+}
+.cv2-layout.est-large .cv2-collab li { padding: 6px 12px 6px 7px; }
+/* ⚠️ Le chevron « › » d'une ligne verticale ne veut plus rien dire sur une
+   pastille : il montrait qu'on entre dans une colonne, pas qu'on choisit. */
+.cv2-layout.est-large .cv2-collab li .go { display: none; }
+.cv2-layout.est-large .cv2-main { width: 100%; min-width: 0; }

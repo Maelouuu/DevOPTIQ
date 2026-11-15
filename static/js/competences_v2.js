@@ -62,6 +62,7 @@
       vo_tout_en_bas: 'Ce qui tient tout en bas',
       vo_classement: 'Le classement — cliquez une activité',
       vo_marches: 'Ses marches de performance',
+      vo_sortie_suiv: 'Sortie suivante', vo_sortie_prec: 'Sortie précédente',
       vo_ouvrir: 'Ouvrir cette activité',
       vo_sans_marche: 'Aucune sortie mesurée sur cette activité : rien à relever en séance.',
       vo_sans_sortie: "Cette activité n'a pas encore de sortie à évaluer.",
@@ -483,6 +484,7 @@
       vo_tout_en_bas: 'What sits lowest',
       vo_classement: 'The ranking — click an activity',
       vo_marches: 'Its performance steps',
+      vo_sortie_suiv: 'Next output', vo_sortie_prec: 'Previous output',
       vo_ouvrir: 'Open this activity',
       vo_sans_marche: 'No measured output on this activity: nothing to record in a session.',
       vo_sans_sortie: 'This activity has no output to assess yet.',
@@ -1015,6 +1017,13 @@
     $('#cv2-ecran-seance').classList.toggle('hidden', nom !== 'seance');
     $('#cv2-ecran-cal').classList.toggle('hidden', nom !== 'cal');
     pleineLargeur(nom !== 'synthese');
+    // ⚠️ Sur la VUE D'ENSEMBLE, la barre des collaborateurs passe EN HAUT :
+    // en colonne elle prenait 268 px de large à une page qui en a besoin —
+    // le bloc de nuit y porte deux colonnes, et le panneau des marches
+    // débordait. Les autres écrans n'ont pas de barre du tout
+    // (`pleineLargeur`), c'est donc le seul qui s'en sert.
+    const l = document.querySelector('.cv2-layout');
+    if (l) l.classList.toggle('est-large', nom === 'synthese');
   }
 
   // ⚠️ Une PAGE d'évaluation ne partage pas la largeur avec la barre des
@@ -1181,7 +1190,10 @@
           <div class="escn" id="vo-escn"></div>
         </div>
         <div class="vo-mp">
-          <p class="vo-dt">${esc(T('vo_marches'))}</p>
+          <div class="vo-dth">
+            <p class="vo-dt">${esc(T('vo_marches'))}</p>
+            <div class="cl-nav hidden" id="vo-mnav"></div>
+          </div>
           <div class="mpan" id="vo-mpan"></div>
         </div>
       </div>`;
@@ -1221,7 +1233,10 @@
         <span class="bar ${teinte}" style="height:${estNul(niv) ? (vide ? 8 : clH(2)) : clH(niv)}px"></span>
         ${estNul(a.required_level) ? ''
           : `<span class="req" style="bottom:${clH(a.required_level)}px"></span>`}`;
-      b.onclick = () => { state.voAct = a.activity_id; classement(ap); marches(ap); };
+      b.onclick = () => {
+        state.voAct = a.activity_id; state.voMarche = 0;
+        classement(ap); marches(ap);
+      };
       esc_.appendChild(b);
 
       const n = document.createElement('span');
@@ -1235,24 +1250,53 @@
   // ── LES MARCHES de l'activité choisie ────────────────────────────────
   // Le rail des marches est celui de l'écran d'évaluation : une sortie
   // mesurée se lit de la même façon partout, ou elle se lit deux fois.
+  // ⚠️ UNE sortie à la fois, et des flèches pour passer à la suivante. Elles
+  // étaient toutes empilées : mesuré à quatre sorties de quatre marches, le
+  // panneau faisait 847 px — le bloc de nuit devenait quatre fois plus haut
+  // que le classement d'à côté, et les rails se marchaient dessus.
+  // ⚠️ La pastille de norme ne redit plus « NORME DE L'ENTREPRISE » : le
+  // drapeau du rail le dit déjà, deux lignes plus bas. Elle ne garde que ce
+  // que lui seul porte — la valeur et son sens (« ≤ 10 j »).
   function marches(ap) {
-    const z = $('#vo-mpan'); if (!z) return;
+    const z = $('#vo-mpan'), nav = $('#vo-mnav');
+    if (!z) return;
     const a = ap.activites.find(x => x.activity_id === state.voAct);
     z.innerHTML = '';
+    if (nav) { nav.innerHTML = ''; nav.classList.add('hidden'); }
     if (!a) return;
     const mes = a.sorties.filter(s => s.mesurable && s.norme);
     if (!mes.length) {
       z.innerHTML = `<p class="vo-rien">${esc(T(a.sorties.length ? 'vo_sans_marche' : 'vo_sans_sortie'))}</p>`;
-    }
-    mes.forEach((s, i) => {
-      if (i) z.insertAdjacentHTML('beforeend', '<div class="msep"></div>');
+    } else {
+      if (!(state.voMarche >= 0) || state.voMarche >= mes.length) state.voMarche = 0;
+      const s = mes[state.voMarche];
       const u = s.norme.unite ? ' ' + s.norme.unite : '';
-      const sens = T(s.norme.sens === SENS_MOINS ? 'vo_au_plus' : 'vo_au_moins');
-      z.insertAdjacentHTML('beforeend',
-        `<div class="mh"><b>${esc(s.nom)}</b>
-           <span class="nm2">${esc(T('pal_norme_tag'))}${DP}${esc(nombre(s.norme.valeur) + u)} ${esc(sens)}</span>
-         </div>${railHtml(s)}`);
-    });
+      const signe = s.norme.sens === SENS_MOINS ? '≤ ' : '≥ ';
+      z.innerHTML = `<div class="mh"><b>${esc(s.nom)}</b>
+          <span class="nm2">${esc(signe + nombre(s.norme.valeur) + u)}</span>
+        </div>${railHtml(s)}`;
+      // ⚠️ Même règle que la navigation entre activités : une flèche qui ne
+      // mène nulle part n'est pas un bouton. Pas de bouclage.
+      if (nav && mes.length > 1) {
+        nav.classList.remove('hidden');
+        const fleche = sens => {
+          const cible = mes[state.voMarche + sens];
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'cl-nav-b'; b.dataset.sens = String(sens);
+          const lbl = T(sens > 0 ? 'vo_sortie_suiv' : 'vo_sortie_prec') + ' · ' + cible.nom;
+          b.title = lbl; b.setAttribute('aria-label', lbl);
+          b.innerHTML = `<i class="fa-solid fa-chevron-${sens > 0 ? 'right' : 'left'}"></i>`;
+          b.onclick = () => { state.voMarche += sens; marches(ap); };
+          return b;
+        };
+        if (state.voMarche > 0) nav.appendChild(fleche(-1));
+        const p = document.createElement('span');
+        p.className = 'cl-nav-p';
+        p.textContent = (state.voMarche + 1) + ' / ' + mes.length;
+        nav.appendChild(p);
+        if (state.voMarche < mes.length - 1) nav.appendChild(fleche(1));
+      }
+    }
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'pal-b pal-b--verre vo-ouvrir';
     b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-arrow-right"></i></span>`
@@ -4692,9 +4736,14 @@
         <span>${esc(Tv('ou_attendu', { n: req }))}</span></span>`;
     }
     (st.results || []).forEach((r, i) => {
+      // ⚠️ Le nom est dans la pastille ET en `aria-label` : à plusieurs sur
+      // la même ligne, les pastilles perdent le nom et ne gardent que leur
+      // numéro — celui de la carte de droite. Il ne doit pas disparaître
+      // pour autant d'un lecteur d'écran.
       h += `<span class="mk" data-mk="${esc(String(r.data_id))}">
         <span class="bar"></span>
-        <span class="et"><b>${i + 1}</b><span class="z">${esc(r.name)}</span></span></span>`;
+        <span class="et" title="${esc(r.name)}" aria-label="${esc(r.name)}"
+          ><b>${i + 1}</b><span class="z">${esc(r.name)}</span></span></span>`;
     });
     h += '</div><p class="bas-note" data-bnote></p>';
     return h;
@@ -4720,9 +4769,19 @@
     surf.style.opacity = estNul(niv) ? 0 : 1;
     surf.style.bottom = (basY(estNul(niv) ? bas : niv) - 2) + 'px';
 
-    // Les repères. ⚠️ Deux sorties au même niveau tombent sur la MÊME ligne :
-    // leurs pastilles se posent alors côte à côte, et aucune n'est masquée —
-    // c'est précisément là qu'on vient lire laquelle retient l'eau.
+    // ⚠️ Les repères d'un MÊME niveau tombent sur la même ligne, et c'est
+    // justement là qu'on vient lire laquelle retient l'eau. Ils étaient
+    // EMPILÉS vers le haut : mesuré à quatre sorties, des pastilles de 26 px
+    // posées tous les 24 px se chevauchaient de 2 px, et deux d'entre elles
+    // sortaient du bassin par le haut. Elles se posent donc CÔTE À CÔTE — et
+    // à plusieurs elles ne gardent que leur numéro, celui de la carte de
+    // droite. Seule à son niveau, une sortie garde son nom : c'est le cas
+    // courant, et c'est ce que la maquette montrait.
+    const combien = {};
+    (st.results || []).forEach(r => {
+      const v = niveauOfficiel(r);
+      if (!estNul(v)) combien[v] = (combien[v] || 0) + 1;
+    });
     const parNiveau = {};
     (st.results || []).forEach(r => {
       const v = niveauOfficiel(r);
@@ -4733,6 +4792,7 @@
       m.style.bottom = basY(v) + 'px';
       parNiveau[v] = (parNiveau[v] || 0) + 1;
       m.style.setProperty('--k', String(parNiveau[v] - 1));
+      m.classList.toggle('est-seul', combien[v] === 1);
       // ⚠️ La pastille garde son NUMÉRO — celui de la carte — et ne reçoit
       // que sa couleur. Y écrire le niveau redirait ce que la HAUTEUR du
       // repère dit déjà, et couperait le seul lien entre le bassin et la

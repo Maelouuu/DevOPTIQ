@@ -415,7 +415,59 @@ class TestLEcran:
     def test_cliquer_une_activite_change_les_marches(self):
         js = _lire(JS)
         c = _corps(js, "  function classement(ap) {")
-        assert "state.voAct = a.activity_id; classement(ap); marches(ap);" in c
+        assert "state.voAct = a.activity_id; state.voMarche = 0;" in c
+        assert "classement(ap); marches(ap);" in c
+
+    def test_le_panneau_des_marches_ne_porte_qu_UNE_sortie(self):
+        """⚠️ Elles étaient toutes empilées. Mesuré sur une activité à quatre
+        sorties de quatre marches : le panneau faisait **847 px**, le bloc de
+        nuit devenait quatre fois plus haut que le classement d'à côté, et les
+        rails se marchaient dessus. Une à la fois, et des flèches pour passer
+        à la suivante — 244 px après.
+        """
+        js = _lire(JS)
+        m = _corps(js, "  function marches(ap) {")
+        assert "const s = mes[state.voMarche];" in m
+        assert "mes.forEach(" not in m, "une seule, pas toutes"
+        assert "state.voMarche += sens" in m
+        # ⚠️ Même règle que la navigation entre activités : une flèche qui ne
+        # mène nulle part n'est pas un bouton. Pas de bouclage.
+        assert "if (state.voMarche > 0) nav.appendChild(fleche(-1));" in m
+        assert "if (state.voMarche < mes.length - 1) nav.appendChild(fleche(1));" in m
+        assert "(state.voMarche + 1) + ' / ' + mes.length" in m
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "min-height" in _regle(css, "\n.mpan {"), \
+            "sans plancher, passer de quatre marches à une fait sauter le bloc"
+
+    def test_la_pastille_de_norme_ne_REDIT_pas_le_drapeau_du_rail(self):
+        """« NORME DE L'ENTREPRISE » s'affichait deux fois, à deux lignes
+        d'écart. Elle ne garde que ce qu'elle seule porte : la valeur et son
+        sens."""
+        js = _lire(JS)
+        m = _corps(js, "  function marches(ap) {")
+        assert "T('pal_norme_tag')" not in m
+        assert "const signe = s.norme.sens === SENS_MOINS ? '≤ ' : '≥ ';" in m
+
+    def test_la_MESURE_a_son_propre_fond_sur_le_panneau_sombre(self):
+        """⚠️ C'est une PASTILLE, pas une ligne de texte : lui donner une
+        encre blanche sans toucher à son fond, c'était du blanc sur du vert
+        pâle — quatre rectangles clairs et vides à l'écran, mesuré."""
+        css = _sans_commentaires_css(_lire(CSS))
+        for sel in ("\n.mpan .pal-pas .pal-m {",
+                    "\n.mpan .pal-pas--atteint .pal-m {",
+                    "\n.mpan .pal-pas--manque .pal-m {"):
+            assert "background:" in _regle(css, sel), sel
+
+    def test_la_barre_des_collaborateurs_passe_EN_HAUT(self):
+        """⚠️ En colonne elle prenait 268 px à la page qui en a le plus
+        besoin : le bloc de nuit y porte DEUX colonnes, et le panneau des
+        marches débordait. Les autres écrans n'ont pas de barre du tout."""
+        js = _lire(JS)
+        e = _corps(js, "  function montrerEcran(nom) {")
+        assert "l.classList.toggle('est-large', nom === 'synthese');" in e
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "flex-direction: column" in _regle(css, "\n.cv2-layout.est-large {")
+        assert "flex-direction: row" in _regle(css, "\n.cv2-layout.est-large .cv2-collab {")
 
     def test_le_relief_est_le_MEME_que_celui_de_la_fenetre_des_courbes(self):
         """Deux tracés d'une même progression finiraient par ne plus dire la

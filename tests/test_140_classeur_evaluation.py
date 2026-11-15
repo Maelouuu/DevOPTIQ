@@ -199,15 +199,35 @@ class TestLeBassinPorteLaComparaison:
         css = _sans_commentaires_css(_lire(CSS))
         assert "box-shadow" in _regle(css, "\n.bassin .mk.est-bas .et {")
 
-    def test_deux_sorties_au_MEME_niveau_s_empilent(self):
-        """Elles tombent sur la même ligne, et c'est justement là qu'on vient
-        lire laquelle retient l'eau : aucune n'est masquée."""
+    def test_les_reperes_d_un_MEME_niveau_se_posent_COTE_A_COTE(self):
+        """⚠️ Ils étaient EMPILÉS vers le haut. Mesuré sur une activité à
+        quatre sorties toutes au même niveau : des pastilles de 26 px posées
+        tous les 24 px se chevauchaient de 2 px, et deux d'entre elles
+        sortaient du bassin par le haut.
+
+        Elles se posent donc côte à côte — et à plusieurs elles ne gardent que
+        leur NUMÉRO, celui de la carte de droite. Seule à son niveau, une
+        sortie garde son nom : c'est le cas courant, et c'est ce que la
+        maquette montrait.
+        """
         js = _lire(JS)
         m = _corps(js, "  function majBassin(st) {")
         assert "parNiveau[v] = (parNiveau[v] || 0) + 1;" in m
         assert "m.style.setProperty('--k', String(parNiveau[v] - 1));" in m
+        assert "m.classList.toggle('est-seul', combien[v] === 1);" in m
         css = _sans_commentaires_css(_lire(CSS))
-        assert "var(--k, 0)" in _regle(css, "\n.bassin .mk .et {")
+        et = _regle(css, "\n.bassin .mk .et {")
+        assert "left: calc(16px + var(--k, 0) * 34px)" in et, "côte à côte"
+        assert "top: -33px" in et, "une seule rangée, jamais une pile"
+        assert "display: none" in _regle(css, "\n.bassin .mk:not(.est-seul) .et .z {")
+
+    def test_le_nom_d_un_repere_SURVIT_a_la_perte_de_sa_pastille(self):
+        """Il reste dans l'info-bulle et dans l'`aria-label` : une pastille
+        réduite à son numéro ne doit pas effacer l'information pour qui lit
+        l'écran autrement."""
+        js = _lire(JS)
+        b = _corps(js, "  function bassinHtml(st) {")
+        assert 'title="${esc(r.name)}" aria-label="${esc(r.name)}"' in b
 
     def test_le_niveau_affiche_est_un_APERCU_pas_une_seconde_regle(self):
         """⚠️ Le serveur reste la source — l'écran se recharge après

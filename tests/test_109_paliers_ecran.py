@@ -1231,10 +1231,14 @@ class TestLeRailEstUneLIGNE:
         js = _lire(JS)
         assert "pal_mesure_k" in js
         css = _lire(CSS)
-        # ⚠️ `.pal-pas .pal-m` est déclarée deux fois : c'est la DERNIÈRE
-        # qui gagne, et c'est donc elle qu'il faut lire.
-        bloc = css.rsplit(".pal-pas .pal-m {", 1)[1].split("}", 1)[0]
-        assert "border-radius: 999px" in bloc, "une pastille, pas une ligne grise"
+        # ⚠️ `.pal-pas .pal-m` est déclarée plusieurs fois, et c'est la
+        # DERNIÈRE qui gagne — mais seulement parmi celles qui visent la
+        # carte. Un `rsplit` prenait le dernier venu, et la variante sombre
+        # du panneau des marches (`.mpan …`) l'a montré : un cliquet qui
+        # cherche une chaîne doit borner sa zone.
+        blocs = [b.split("}", 1)[0] for b in css.split("\n.pal-pas .pal-m {")[1:]]
+        assert blocs, "la règle de base a disparu"
+        assert "border-radius: 999px" in blocs[-1], "une pastille, pas une ligne grise"
         assert ".pal-pas .pal-m b { font-size: 15px" in css
 
 
