@@ -8996,6 +8996,117 @@ Tests : `test_140` (+4 cas, 2 réécrits), `test_145` (+1). **7 cliquets
 vérifiés ROUGES.** Suite : **4362 passés**, 1 sauté. Éprouvé au banc sur le
 cas chargé dans les deux langues.
 
+#### ⚠️⚠️ TROIS traits pleine largeur sur le même pixel (2026-11-15, même jour)
+
+« Cet élément là n'est pas bien géré : lorsque l'on a plusieurs sorties au
+même niveau, elles se marchent dessus. » La pastille unique par niveau (la
+veille) avait réglé les pastilles entre elles ; ce qui restait tenait à la
+géométrie du bassin, et il y avait **trois défauts** :
+
+1. **Le badge de l'attendu était à cheval sur sa ligne** (`top: -10px`). Or le
+   niveau d'une activité égale souvent l'attendu — c'est le cas qu'on vient
+   vérifier — et la ligne de l'attendu, la surface de l'eau et la ligne du
+   repère tombent alors **au même pixel**. La surface passait en travers du
+   texte du badge. Il se pose désormais **SOUS** sa ligne et la pastille
+   **AU-DESSUS** de la sienne : c'est ce qui les empêche de se croiser, quelle
+   que soit la langue et quelle que soit la largeur.
+   ⚠️ Au niveau 0 il n'y a que 16 px sous la ligne : `.att.hors` le repasse
+   au-dessus.
+2. **La pastille TOUCHAIT sa propre ligne.** `top: -33px` pour une pastille de
+   33 px de haut : son bord bas tombait exactement sur la ligne, donc dans la
+   surface de l'eau, qui déborde d'un pixel au-dessus. Mesuré au banc : la
+   pastille du repère le plus bas croisait la surface sur **quatre activités
+   sur neuf** — et seulement celles-là, parce que la pastille de GROUPE (sans
+   disque) ne fait que 24 px et dégageait. Les deux formes partagent donc une
+   `min-height`, et `top` la dépasse (`-37px`).
+3. **La pastille du niveau 4 était rognée par le haut.** `basY(4)` vaut
+   `h - fond` **quelle que soit la hauteur du bassin** : avec un fond et un
+   ciel égaux (20 px), elle débordait TOUJOURS de 13 px. Le bassin a donc un
+   fond (16) et un **ciel** (46) distincts — il faut au ciel la hauteur d'une
+   pastille. Mesuré après : 10,4 px de marge au-dessus.
+
+Et **l'eau porte son niveau toute seule** : la ligne du repère le plus bas
+redoublait la surface au pixel près. `.bassin.a-eau .mk.est-bas .bar` ne se
+dessine plus — sans niveau (NULL) il n'y a pas de surface, et le repère garde
+sa ligne. ⚠️ Un repère **muet** (pas le premier de son niveau) ne laisse plus
+RIEN non plus, pas même sa ligne : quatre traits identiques au même pixel,
+c'est exactement ce qui « se marchait dessus ».
+
+Mesuré au banc sur les **neuf** activités du collaborateur, animations
+coupées : **0 collision, 0 pastille hors cadre**.
+
+#### Le même écart entre toutes les cartes — DEUX COLONNES, pas deux rangées
+
+« J'aimerais que l'on ait le même espacement entre chaque carte, que ça fasse
+propre. » En grille, la hauteur d'une rangée est celle de sa carte la plus
+haute : le profil fait deux fois la carte des notes, et « Prochaines séances »
+attendait donc **190 px** sous la carte qu'elle suit — un trou qui ne se lit
+comme rien. Trois écarts différents cohabitaient par-dessus (le `gap` de la
+grille, la marge basse du profil, la marge haute des séances).
+
+Chaque colonne est désormais une **pile** (`.vo-col`, flex en colonne), et un
+jeton unique — `--vo-gap` — sépare toutes les cartes dans les deux sens.
+⚠️ Une grille ne sait pas faire ce tassement : c'est « masonry », que personne
+n'implémente encore.
+⚠️ **Conséquence assumée** : en colonne unique (sous 1100 px RÉELS) l'ordre
+suit les COLONNES — profil, relief, notes, séances — et non les rangées.
+Mesuré : **12,8 px partout**, à 1600 px comme à 1000, et aucun débordement
+horizontal.
+⚠️ Les écarts ne se mesurent qu'**animations coupées** : l'entrée des cartes
+part d'un décalage, et dans ce volet une animation reste figée en cours de
+route — relevé 8 px ici et 18 px là pour un écart qui vaut 12,8.
+
+#### Le drapeau dit « Norme », et son voisin « Au-delà »
+
+Les deux drapeaux du rail marquent des marches **VOISINES**, et chacun est
+centré sur la sienne : leur largeur cumulée ne peut pas dépasser deux fois le
+pas du rail. Mesuré sur le panneau des marches de la vue d'ensemble (pas de
+75 px) : « NORME DE L'ENTREPRISE » + « AU-DELÀ DE LA NORME » faisaient 236 px
+et se chevauchaient de 60 — c'est la capture du pilote.
+
+⚠️ **Et raccourcir le premier ne suffisait pas.** En français « Norme » +
+« Au-delà de la norme » tombe à 146 px et dégage de 2 px ; **en anglais**
+« Standard » + « Beyond the standard » fait 162 px et **se chevauchait encore
+de 6** — relevé en repassant l'écran en anglais, pas déduit. Les deux sont
+donc courts : mesuré après, 31 px d'écart en français, 26 en anglais.
+Le cliquet porte sur la **LONGUEUR** des deux libellés dans les deux langues :
+c'est elle qui décide, et une traduction plus bavarde rouvrirait le défaut.
+`pal_norme_tag` disparaît — c'était une seconde clé pour le même mot que
+`pal_norme`.
+
+#### Deux retraits, et une porte
+
+- **« Une sortie mesurée n'a pas de note à saisir… »** est partie, avec sa
+  clé : elle expliquait, sous un pied vide, une règle que le rail des marches
+  montre déjà juste au-dessus.
+- **Le maillon du RÔLE est une PORTE** : il ramène à la vue d'ensemble,
+  ouverte sur le détail de CE rôle — une ligne par activité, avec sa cible. On
+  n'y venait que par un point du radar, et il n'existait **aucun** chemin
+  depuis l'écran où l'on note.
+  ⚠️ `state.voRole` ne vaut que pour cette arrivée : gardé, il rouvrirait les
+  barres à chaque changement de collaborateur et le radar ne se verrait plus
+  jamais. Et il se lit **APRÈS** `animerProfil`, qui remet la zone sur le
+  radar.
+  ⚠️ C'est un `<button>` au milieu d'une chaîne de trois maillons : sans
+  `font: inherit` et `color: inherit`, il aurait été le seul dans la police du
+  système.
+
+⚠️ **Deux pièges de banc, tous deux déjà connus** : `String.split(sep, n)` en
+JavaScript prend une **LIMITE**, pas un nombre de coupes — `split(a, 1)` rend
+un tableau d'un seul élément, et mon détecteur de fuites a d'abord lu **zéro
+clé** dans les deux catalogues, donc zéro fuite, donc un contrôle vert qui ne
+regardait rien. Et un heredoc de shell **avale les antislashs** : un `\\d` écrit
+dans un script Python embarqué arrive `d`. Passer par un fichier.
+
+Tests : `test_140` (+5 cas, 2 réécrits), `test_145` (+2), `test_109` (+2,
+1 réécrit). **19 cliquets vérifiés ROUGES.** Suite : **4373 passés**, 1 sauté.
+Éprouvé au banc
+(`tools/devrun_competences.py`) à 1600 et 1000 px dans les deux langues :
+neuf bassins sans une collision, les écarts à 12,8 px, la porte du rôle qui
+ouvre les barres et ne survit pas au collaborateur suivant, et **zéro fuite
+française sur l'écran anglais** (1 082 textes relevés, attributs compris —
+tout ce qui reste en français est une DONNÉE du banc).
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

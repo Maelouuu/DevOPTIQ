@@ -56,26 +56,32 @@
              expliquent le grand chiffre, elles se lisent à côté de lui. #}
           <div class="vo-nuit hidden" id="vo-nuit"></div>
 
-          <div class="vo-gr">
-            {# Le profil : ce que la vue d'ensemble apporte de plus que la somme
-               des cartes — la forme de ce que la personne tient, face à ce que
-               ses rôles exigent. #}
-            <div class="cv2-profil hidden" id="cv2-profil"></div>
-            {# Toutes les notes d'un coup : une ligne par activité, une cellule
-               par sortie. Le seul endroit où l'on voit D'OÙ vient le minimum
-               sans ouvrir une activité. #}
-            <div class="vo-carte hidden" id="vo-notes"></div>
-          </div>
-
-          <div class="vo-gr">
-            {# « Est-ce que ça progresse ? » — la question qu'on se pose avant
-               d'ouvrir quoi que ce soit. Le MÊME relief que l'écran
-               d'évaluation : deux tracés d'une même progression finiraient par
-               ne plus dire la même chose. #}
-            <div class="vo-carte hidden" id="vo-relief"></div>
-            {# Ce qui ATTEND la personne — la vue d'ensemble disait où elle en
-               est, jamais ce qui vient. #}
-            <div class="cv2-seances hidden" id="cv2-seances"></div>
+          {# ⚠️⚠️ DEUX COLONNES, pas deux rangées : en grille, la hauteur d'une
+             rangée est celle de sa carte la plus haute, et « Prochaines
+             séances » attendait 190 px sous la carte qu'elle suit. Chaque
+             colonne est une pile, et le MÊME écart sépare toutes les
+             cartes, dans les deux sens. #}
+          <div class="vo-cols">
+            <div class="vo-col">
+              {# Le profil : ce que la vue d'ensemble apporte de plus que la
+                 somme des cartes — la forme de ce que la personne tient,
+                 face à ce que ses rôles exigent. #}
+              <div class="cv2-profil hidden" id="cv2-profil"></div>
+              {# « Est-ce que ça progresse ? » — la question qu'on se pose
+                 avant d'ouvrir quoi que ce soit. Le MÊME relief que l'écran
+                 d'évaluation : deux tracés d'une même progression
+                 finiraient par ne plus dire la même chose. #}
+              <div class="vo-carte hidden" id="vo-relief"></div>
+            </div>
+            <div class="vo-col">
+              {# Toutes les notes d'un coup : une ligne par activité, une
+                 cellule par sortie. Le seul endroit où l'on voit D'OÙ vient
+                 le minimum sans ouvrir une activité. #}
+              <div class="vo-carte hidden" id="vo-notes"></div>
+              {# Ce qui ATTEND la personne — la vue d'ensemble disait où elle
+                 en est, jamais ce qui vient. #}
+              <div class="cv2-seances hidden" id="cv2-seances"></div>
+            </div>
           </div>
           {# ⚠️ Les cartes de rôle du bas REDISAIENT la liste « par rôle »
              posée à côté du radar : même liste, même ordre, même geste (un

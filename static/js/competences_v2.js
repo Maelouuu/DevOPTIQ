@@ -48,6 +48,7 @@
       ou_role: 'le rôle',
       ou_act: "l'activité",
       ou_attendu: 'attendu [[n]]',
+      ou_voir_role: 'Voir ce rôle activité par activité',
       ou_manque_1: '1 sortie pas encore notée',
       ou_manque_n: '[[n]] sorties pas encore notées',
       ou_n_sorties_1: '1 sortie à ce niveau',
@@ -209,7 +210,7 @@
       pal_manque: 'Manqué',
       pal_encours: 'En cours',
       pal_audela: 'Au-delà',
-      pal_audela_tag: 'Au-delà de la norme',
+      pal_audela_tag: 'Au-delà',
       pal_mesure_k: 'mesuré',
       pal_sans_norme: 'Jugée à la main',
       fi_sujet: "Ce qu'on juge",
@@ -225,7 +226,6 @@
       pal_norme_vient: "Reprise de l'indicateur noté dans la liste des activités (« [[x]] ») — corrigez-la si besoin.",
       ses_verdicts_t: 'Comment le verdict tombe',
       pal_audela_d: "un palier de mieux que l'attendu",
-      pal_norme_tag: "Norme de l'entreprise",
       pal_mesure_de: 'mesuré [[v]]',
       pal_echeance: 'échéance [[d]]',
       pal_retard: 'en retard',
@@ -256,7 +256,6 @@
       pal_comment_2: 'la norme atteinte — qualifié',
       pal_comment_3: 'un palier au-delà — avancé',
       pal_comment_4: "Expertise — aucun chiffre ne la définit : elle se pose à la main.",
-      pal_pas_de_note: "Une sortie mesurée n'a pas de note à saisir : le niveau vient du chiffre relevé en session.",
       pal_apres_echec: 'Ce palier est manqué. Analysez les savoirs plutôt que de reposer la même cible.',
       pal_vers_diag: 'Analyser les savoirs',
       ses_titre: "Sessions d'évaluation",
@@ -472,6 +471,7 @@
       ou_role: 'the role',
       ou_act: 'the activity',
       ou_attendu: 'target [[n]]',
+      ou_voir_role: 'See this role activity by activity',
       ou_manque_1: '1 output not rated yet',
       ou_manque_n: '[[n]] outputs not rated yet',
       ou_n_sorties_1: '1 output at this level',
@@ -633,7 +633,7 @@
       pal_manque: 'Missed',
       pal_encours: 'Under way',
       pal_audela: 'Beyond',
-      pal_audela_tag: 'Beyond the standard',
+      pal_audela_tag: 'Beyond',
       pal_mesure_k: 'measured',
       pal_sans_norme: 'Judged by hand',
       fi_sujet: 'What is being judged',
@@ -649,7 +649,6 @@
       pal_norme_vient: 'Taken from the indicator recorded in the activity list (\u201c[[x]]\u201d) — correct it if needed.',
       ses_verdicts_t: 'How the verdict is reached',
       pal_audela_d: 'one step better than expected',
-      pal_norme_tag: 'Company standard',
       pal_mesure_de: 'measured [[v]]',
       pal_echeance: 'due [[d]]',
       pal_retard: 'overdue',
@@ -680,7 +679,6 @@
       pal_comment_2: 'the standard met — qualified',
       pal_comment_3: 'one step beyond — advanced',
       pal_comment_4: 'Expert — no figure defines it: it is set by hand.',
-      pal_pas_de_note: 'A measured output has no level to type: it comes from the figure recorded in the session.',
       pal_apres_echec: 'This step was missed. Analyse the underlying knowledge rather than setting the same target again.',
       pal_vers_diag: 'Analyse knowledge',
       ses_titre: 'Evaluation sessions',
@@ -1523,6 +1521,16 @@
       });
     });
     animerProfil(box, vus, d);
+    // ⚠️ On revient de l'écran d'évaluation PAR le maillon du rôle : la vue
+    // d'ensemble s'ouvre alors sur le détail de ce rôle, pas sur le radar.
+    // `state.voRole` ne vaut que pour cette arrivée — gardé, il rouvrirait
+    // les barres à chaque changement de collaborateur. Et il se pose APRÈS
+    // `animerProfil`, qui remet la zone sur le radar.
+    if (state.voRole) {
+      const vr = (d.roles || []).find(x => x.role_id === state.voRole);
+      state.voRole = null;
+      if (vr) ouvrirBarres(box, vr);
+    }
   }
 
   // ── Le profil, vivant ────────────────────────────────────────────────
@@ -2144,7 +2152,7 @@
     let gauche;
     if (r.mesurable && perf.norme && !estNul(n.valeur)) {
       const u = n.unite ? ' ' + n.unite : '';
-      gauche = `<div class="bl"><p class="k">${esc(T('pal_norme_tag'))}</p>
+      gauche = `<div class="bl"><p class="k">${esc(T('pal_norme'))}</p>
         <p class="v"><span class="sg">${n.sens === SENS_MOINS ? '≤' : '≥'}</span>${esc(nombre(n.valeur) + u)}
         ${estNul(perf.mesure) ? ''
           : `<span class="fl"><i class="fa-solid fa-arrow-right"></i></span>
@@ -3350,7 +3358,7 @@
       // posé en `inline-block` avec sa marge, il descendait sa marche de 5 px
       // et le rail n'était plus une ligne — il « cassait » à chaque drapeau.
       const marque = s.estNorme
-        ? `<span class="pal-drapeau">${esc(T('pal_norme_tag'))}</span>`
+        ? `<span class="pal-drapeau">${esc(T('pal_norme'))}</span>`
         : (s.estAuDela ? `<span class="pal-drapeau pal-drapeau--au">${esc(T('pal_audela_tag'))}</span>` : '');
       html += `<div class="pal-pas pal-pas--${s.statut}${s.estAuDela ? ' est-audela' : ''}">
           <div class="pal-marque">${marque}</div>
@@ -4653,6 +4661,8 @@
       <div class="ou-reg" id="ev-cl-reg"></div>`;
 
     z.querySelector('[data-retour]').onclick = () => chargerSynthese();
+    const pr = z.querySelector('[data-aller-role]');
+    if (pr) pr.onclick = () => { state.voRole = state.roleId; chargerSynthese(); };
     z.querySelector('[data-min]').appendChild(boutonInfo(T('ev_min_t'), texteMinimum()));
     majEcart(z, niv, req);
     reglagesOu(st);
@@ -4670,11 +4680,22 @@
     const bd = v => estNul(v)
       ? `<span class="bd na">${esc(T('not_assessed'))}</span>`
       : `<span class="bd">${v}</span>`;
+    const dedans = (cle, nom, badge) => `<span class="d">
+         <span class="k">${esc(T(cle))}</span><span class="z">${esc(nom)}</span></span>${badge}`;
     const mail = (cle, nom, badge, ici) =>
-      `<span class="mail${ici ? ' ici' : ''}"><span class="d">
-         <span class="k">${esc(T(cle))}</span><span class="z">${esc(nom)}</span></span>${badge}</span>`;
+      `<span class="mail${ici ? ' ici' : ''}">${dedans(cle, nom, badge)}</span>`;
+    // ⚠️ Le maillon du RÔLE est une PORTE : il ramène à la vue d'ensemble,
+    // ouverte sur le détail de CE rôle — une ligne par activité, avec sa
+    // cible. On n'y venait que par un point du radar, et il n'existait aucun
+    // chemin depuis l'écran où l'on note.
+    const porte = (cle, nom, badge) =>
+      `<button type="button" class="mail est-porte" data-aller-role
+         title="${esc(T('ou_voir_role'))}">${dedans(cle, nom, badge)}
+         <i class="fa-solid fa-arrow-up-right-from-square"></i></button>`;
+    const nomRole = state.roleName || '—';
     return mail('ou_collab', state.cibleNom, '', false) + ch
-      + mail('ou_role', state.roleName || '—', bd(niveauRoleNum()), false) + ch
+      + (state.roleId ? porte('ou_role', nomRole, bd(niveauRoleNum()))
+                      : mail('ou_role', nomRole, bd(niveauRoleNum()), false)) + ch
       + mail('ou_act', state.activity.activity_name, bd(nivAct), true);
   }
 
@@ -4724,9 +4745,14 @@
   // n'en a pas du tout — et l'eau devient HACHURÉE, parce que l'activité n'a
   // alors aucun niveau. Un trait plein à la hauteur des sorties connues
   // dirait un verdict que personne n'a rendu.
-  const BAS = { h: 300, fond: 20 };
-  const basPas = () => (BAS.h - 2 * BAS.fond) / 4;
-  const basY = n => BAS.fond + basPas() * n;
+  // ⚠️ Le fond et le CIEL ne sont pas symétriques, et ils ne peuvent pas
+  // l'être : la pastille d'un repère se pose 37 px AU-DESSUS de sa ligne, et
+  // `basY(4)` vaut `h - fond` quelle que soit la hauteur du bassin — celle
+  // du niveau 4 débordait donc toujours de 13 px par le haut, rognée par
+  // l'`overflow: hidden`. Il faut au ciel la hauteur d'une pastille.
+  const BAS = { h: 300, bas: 16, haut: 46 };
+  const basPas = () => (BAS.h - BAS.bas - BAS.haut) / 4;
+  const basY = n => BAS.bas + basPas() * n;
 
   function bassinHtml(st) {
     const req = estNul(st.required_level) ? null : st.required_level;
@@ -4736,7 +4762,12 @@
     }
     h += '<span class="eau" data-eau></span><span class="surf" data-surf></span>';
     if (req !== null) {
-      h += `<span class="att" style="bottom:${basY(req)}px">
+      // ⚠️ Le badge se pose SOUS sa ligne, jamais à cheval dessus. Quand le
+      // niveau de l'activité égale l'attendu — le cas le plus courant, et
+      // celui qu'on vient vérifier — les deux lignes se confondent, et la
+      // surface de l'eau lui passait au travers. Au niveau 0 il n'y a pas
+      // la place dessous : il repasse au-dessus.
+      h += `<span class="att${req === 0 ? ' hors' : ''}" style="bottom:${basY(req)}px">
         <span>${esc(Tv('ou_attendu', { n: req }))}</span></span>`;
     }
     // La pastille est REMPLIE par `majBassin` : son contenu dépend de ce que
@@ -4762,6 +4793,12 @@
     const manque = notes.length - connus.length;
     const bas = connus.length ? Math.min.apply(null, connus) : 0;
     const vert = !estNul(niv) && req !== null && niv >= req;
+    // ⚠️ La ligne d'un repère posé au niveau de l'eau REDOUBLE la surface :
+    // trois traits pleine largeur sur le même pixel (la surface, la ligne du
+    // repère, l'attendu), plus le badge à cheval dessus — « ça se marche
+    // dessus ». Quand l'eau est dessinée, c'est ELLE qui porte ce niveau ; le
+    // repère n'ajoute que sa pastille.
+    b.classList.toggle('a-eau', !estNul(niv));
 
     const eau = b.querySelector('[data-eau]'), surf = b.querySelector('[data-surf]');
     eau.className = 'eau ' + (estNul(niv) ? 'hach' : (vert ? 'vert' : 'bleu'));
@@ -5403,9 +5440,7 @@
   function majPied(st) {
     const pied = $('#ev-pied'); if (!pied) return;
     const n = Object.keys(state.saisie || {}).length;
-    const rienASaisir = jeSuisLeDev() && (st.results || []).every(r => r.mesurable);
-    pied.innerHTML = `<p>${esc(n ? nf('ax_en_attente', n)
-                                : (rienASaisir ? T('pal_pas_de_note') : ''))}</p>`;
+    pied.innerHTML = `<p>${esc(n ? nf('ax_en_attente', n) : '')}</p>`;
     if (jeSuisLeDev() && aUnEcart(st)) {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'pal-b pal-b--doux';

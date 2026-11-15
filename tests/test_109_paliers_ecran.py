@@ -403,8 +403,12 @@ class TestLesDeuxRegimesCohabitent:
         assert "mesuree ? railHtml(r.performance)" in n
         assert "const maFoi = dev && !mesuree;" in n
         assert "if (maFoi) {" in n, "les écouteurs ne se posent que sur la mienne"
+        # ⚠️ Et le pied ne le DIT plus : « Une sortie mesurée n'a pas de note
+        # à saisir… » expliquait, sous un pied vide, une règle que le rail des
+        # marches montre déjà juste au-dessus. Retirée avec sa clé.
         pied = _corps(js, "  function majPied(st) {")
-        assert "every(r => r.mesurable)" in pied and "pal_pas_de_note" in pied
+        assert "pal_pas_de_note" not in js, "la clé part avec son seul lecteur"
+        assert "rienASaisir" not in pied
     def test_une_sortie_SANS_norme_garde_son_echelle(self, app, auth_client, bob, comme_dev):
         from Code.models.models import Data
         with app.app_context():
@@ -1215,6 +1219,45 @@ class TestLeRailEstUneLIGNE:
         assert "let norme_vue = false;" in corps
         assert "estNorme = atteintNorme && !norme_vue" in corps
         assert "pal_audela_tag" in js, "la marche au-delà porte sa propre marque"
+
+    def test_le_drapeau_dit_juste_NORME(self):
+        """« NORME DE L'ENTREPRISE » et « AU-DELÀ DE LA NORME » se posent à
+        deux marches d'écart : sur le panneau des marches de la vue
+        d'ensemble, les deux badges se chevauchaient. Le premier n'avait pas
+        besoin de dire à qui la norme appartient — c'est le seul sens
+        qu'elle ait."""
+        js = _lire(JS)
+        assert "pal_norme_tag" not in js, "une clé de plus pour le même mot"
+        for langue in ("    fr: {", "    en: {"):
+            d = js.split(langue, 1)[1].split("\n    },", 1)[0]
+            ligne = [l for l in d.splitlines() if l.strip().startswith("pal_norme:")]
+            assert ligne, langue
+            assert "entreprise" not in ligne[0] and "Company" not in ligne[0], ligne[0]
+        rail = js.split("  function railHtml(", 1)[1].split("\n  }", 1)[0]
+        assert "T('pal_norme')" in rail
+
+    def test_les_deux_drapeaux_TIENNENT_cote_a_cote(self):
+        """⚠⚠ Ils marquent deux marches VOISINES, et chacun est centré sur
+        la sienne : leur largeur cumulée ne peut pas dépasser deux fois le pas
+        du rail. Mesuré sur le panneau des marches de la vue d'ensemble, pas
+        de 75 px : « Norme de l'entreprise » + « Au-delà de la norme »
+        faisaient 236 px et se chevauchaient de 60 — c'est la capture du
+        pilote. Raccourcis, ils en font 90.
+
+        Le contrôle porte sur la LONGUEUR des deux libellés, dans les deux
+        langues : c'est elle qui décide, et une traduction plus bavarde
+        rouvrirait le défaut sans qu'on s'en aperçoive ici."""
+        js = _lire(JS)
+        for langue in ("    fr: {", "    en: {"):
+            d = js.split(langue, 1)[1].split("\n    },", 1)[0]
+            tot = 0
+            for cle in ("pal_norme", "pal_audela_tag"):
+                ligne = [l for l in d.splitlines() if l.strip().startswith(cle + ":")]
+                assert ligne, langue + cle
+                val = ligne[0].split(":", 1)[1].strip().strip(",").strip("'\"")
+                assert len(val) <= 12, "%s %s = %r" % (langue, cle, val)
+                tot += len(val)
+            assert tot <= 20, "%s : %d signes à deux marches d'écart" % (langue, tot)
 
     def test_le_seuil_dessine_vient_du_SERVEUR(self):
         """Le rail traçait l'au-delà depuis `marge` ; il aurait montré 109 %

@@ -1241,7 +1241,7 @@ header { position: sticky; top: 0; z-index: 30; }
    personne tient, superposée à ce que ses rôles exigent.
    ══════════════════════════════════════════════════════════════════════════ */
 .cv2-profil {
-  margin-bottom: 16px; padding: 17px 19px 15px;
+  padding: 17px 19px 15px;
   background: linear-gradient(180deg, var(--card), var(--pg-accent-softer));
   border: 1px solid var(--border); border-radius: var(--r-card); box-shadow: var(--sh-card);
   animation: cv2-entre .28s ease-out;
@@ -2439,7 +2439,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 /* ───────────── L'accueil : les prochaines séances ───────────── */
 .cv2-seances {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--r-card, 14px); padding: 15px 18px; margin: 14px 0 0;
+  border-radius: var(--r-card, 14px); padding: 15px 18px; margin: 0;
   box-shadow: 0 1px 3px rgba(15, 23, 42, .05);
 }
 .cv2-sea-h { display: flex; align-items: center; gap: 11px; margin-bottom: 11px; }
@@ -3151,6 +3151,15 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   background: rgba(255, 255, 255, .96); border-color: transparent; color: #0f1631;
   box-shadow: 0 6px 18px -6px rgba(0, 0, 0, .5);
 }
+/* ⚠️ Le maillon du RÔLE est un <button> : il faut lui rendre la police et
+   l'encre de son voisin, sinon il s'affiche dans celles du système. */
+button.mail {
+  font: inherit; color: inherit; cursor: pointer; text-align: left;
+  transition: background .14s, border-color .14s, transform .14s;
+}
+button.mail:hover { background: rgba(255, 255, 255, .22); border-color: rgba(255, 255, 255, .42); }
+button.mail:active { transform: translateY(1px); }
+.mail.est-porte > .fa-arrow-up-right-from-square { flex: none; font-size: 10px; opacity: .7; }
 .mail .d { min-width: 0; }
 .mail .k {
   display: block; font-size: 9px; font-weight: 800; letter-spacing: .08em;
@@ -3253,6 +3262,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   background: #bdf5dc;
   box-shadow: 0 0 22px 3px rgba(110, 231, 183, .75), 0 1px 0 rgba(255, 255, 255, .6);
 }
+.bassin .att.hors span { top: auto; bottom: 4px; }
 .bassin .gd {
   position: absolute; left: 0; right: 0; height: 0;
   border-top: 1px solid rgba(255, 255, 255, .17);
@@ -3265,8 +3275,13 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   position: absolute; left: 0; right: 0; height: 0;
   border-top: 2px dashed rgba(255, 255, 255, .7);
 }
+/* ⚠️⚠️ Le badge se pose SOUS sa ligne, et la pastille d'un repère AU-DESSUS
+   de la sienne : c'est ce qui les empêche de se croiser quand le niveau de
+   l'activité égale l'attendu — le cas courant. À cheval sur sa ligne
+   (`top: -10px`), le badge recevait la surface de l'eau en travers du texte.
+   Au niveau 0 il n'y a que 16 px sous la ligne : il repasse au-dessus. */
 .bassin .att span {
-  position: absolute; right: 10px; top: -10px; padding: 2px 8px; border-radius: 5px;
+  position: absolute; right: 10px; top: 5px; padding: 2px 8px; border-radius: 5px;
   background: #fff; color: var(--ink); font-size: 9.5px; font-weight: 800;
   letter-spacing: .06em; text-transform: uppercase;
 }
@@ -3280,9 +3295,17 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 }
 .bassin .mk.est-off { display: none; }
 .bassin .mk .bar { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .9); }
+/* ⚠️⚠️ `top` doit être PLUS GRAND que la hauteur de la pastille, sinon elle
+   TOUCHE sa propre ligne — et donc la surface de l'eau, qui déborde d'un
+   pixel au-dessus. Mesuré : à `-33px` pour 33 px de haut, la pastille du
+   repère le plus bas croisait la surface sur quatre activités du banc. Et
+   les deux formes de pastille — avec disque, ou le compte sans disque —
+   partagent la même hauteur, sans quoi l'écart à la ligne dépendrait du
+   nombre de sorties. */
 .bassin .mk .et {
-  position: absolute; left: 16px; top: -33px;
-  display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 34px);
+  position: absolute; left: 26px; top: -37px;
+  display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 44px);
+  min-height: 33px; box-sizing: border-box;
   padding: 4px 13px 4px 5px; border-radius: 999px; background: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .4), 0 0 0 1px rgba(15, 23, 42, .06);
 }
@@ -3292,7 +3315,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    pas les 4 bulles vertes ». À plusieurs sur une ligne, la pastille porte
    donc le COMPTE, sans disque : un disque y dirait un numéro de carte, et
    c'est justement ce qu'on ne peut plus désigner. */
-.bassin .mk.est-muet .et { display: none; }
+.bassin .mk.est-muet { display: none; }
 .bassin .mk:not(.est-seul) .et { padding: 5px 13px; }
 .bassin .mk:not(.est-seul) .et b { display: none; }
 .bassin .mk .et b {
@@ -3309,6 +3332,10 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 /* ⚠️ Celle qui RETIENT l'eau porte un anneau : c'est la réponse à la seule
    question que le bassin pose. */
 .bassin .mk.est-bas .bar { height: 4px; background: #fff; box-shadow: 0 0 16px rgba(255, 255, 255, .65); }
+/* ⚠️ … mais quand l'eau est dessinée, c'est la SURFACE qui porte ce niveau :
+   la ligne du repère la redoublait, au pixel près. Sans niveau (NULL), il n'y
+   a pas de surface et le repère garde sa ligne. */
+.bassin.a-eau .mk.est-bas .bar { display: none; }
 .bassin .mk.est-bas .et { box-shadow: 0 8px 24px rgba(0, 0, 0, .45), 0 0 0 2px var(--b4); }
 .bas-note { margin: 10px 2px 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
 .bas-note:empty { display: none; }
@@ -3798,6 +3825,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
    ⚠️ Le bloc de nuit reprend le relief du vocabulaire maison — quatre ombres
    portées empilées, deux arêtes internes. C'est le même objet que sur l'écran
    où l'on note : une page, une grammaire. */
+:root { --vo-gap: 16px; }
 .vo-nuit {
   padding: 20px 22px 22px; border-radius: 18px; color: #fff;
   background:
@@ -3981,11 +4009,25 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .vo-rien { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, .72); }
 .vo-ouvrir { margin-top: 16px; }
 
-/* ── Les deux rangées de cartes ─────────────────────────────────────
+/* ── Les deux COLONNES de cartes ─────────────────────────────────────
    ⚠️ Le point de bascule s'écrit en pixels RÉELS : `body.pg` porte
    `zoom: .8`, et les requêtes média ignorent ce zoom. */
-.vo-gr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.vo-gr > * { min-width: 0; }
+/* ⚠️⚠️ DEUX COLONNES, pas deux rangées. En grille, la hauteur d'une rangée
+   est celle de sa carte la plus haute : le profil fait deux fois la carte des
+   notes, et « Prochaines séances » attendait donc 190 px plus bas que la
+   carte qu'elle suit — un trou qui ne se lit comme rien. Chaque colonne est
+   une pile, et le MÊME écart (`--vo-gap`) sépare toutes les cartes, dans les
+   deux sens. Une grille ne sait pas faire ce tassement (c'est « masonry »,
+   que personne n'implémente encore).
+   ⚠️ Conséquence assumée : en colonne unique l'ordre suit les COLONNES
+   (profil, relief, notes, séances) et non les rangées. */
+#cv2-ecran-synthese { display: flex; flex-direction: column; gap: var(--vo-gap); }
+.vo-cols {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--vo-gap); align-items: start;
+}
+.vo-col { display: flex; flex-direction: column; gap: var(--vo-gap); min-width: 0; }
+.vo-cols > *, .vo-col > * { min-width: 0; }
 .vo-carte {
   padding: 18px 20px 20px; border-radius: 16px; background: var(--card);
   border: 1px solid var(--border);
@@ -4053,7 +4095,7 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .vo-relief { margin-top: 10px; }
 
 @media (max-width: 1100px) {
-  .vo-duo, .vo-gr { grid-template-columns: minmax(0, 1fr); }
+  .vo-duo, .vo-cols { grid-template-columns: minmax(0, 1fr); }
   .vo-hbas { text-align: left; }
 }
 

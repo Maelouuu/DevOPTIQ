@@ -536,3 +536,32 @@ class TestLEcran:
         assert "T('cl_tech_0')" not in m
         css = _sans_commentaires_css(_lire(CSS))
         assert "display: none" in _regle(css, "\n.cl-rb b:empty {")
+
+
+class TestLEspacementDesCartes:
+    """⚠⚠ DEUX COLONNES, pas deux rangées. En grille, la hauteur d'une
+    rangée est celle de sa carte la plus haute : le profil fait deux fois la
+    carte des notes, et « Prochaines séances » attendait donc 190 px sous la
+    carte qu'elle suit — un trou qui ne se lit comme rien. Une grille ne sait
+    pas faire ce tassement : chaque colonne est une PILE."""
+
+    def test_les_cartes_sont_en_colonnes_pas_en_rangees(self):
+        g = _lire(GABARIT)
+        assert 'class="vo-cols"' in g
+        assert g.count('class="vo-col"') == 2
+        assert "vo-gr" not in g, "les rangées ne reviennent pas"
+        for carte, col in (("cv2-profil", 0), ("vo-relief", 0),
+                           ("vo-notes", 1), ("cv2-seances", 1)):
+            avant = g.split('id="%s"' % carte, 1)[0]
+            assert avant.count('class="vo-col"') == col + 1, carte
+
+    def test_un_SEUL_ecart_separe_toutes_les_cartes(self):
+        """Il en vivait trois : le `gap` de la grille, la marge basse du
+        profil, la marge haute des séances. « Que ça fasse propre », c'est
+        le même dans les deux sens."""
+        css = _sans_commentaires_css(_lire(CSS))
+        for sel in ("\n#cv2-ecran-synthese {", "\n.vo-cols {", "\n.vo-col {"):
+            assert "gap: var(--vo-gap)" in _regle(css, sel), sel
+        assert "flex-direction: column" in _regle(css, "\n.vo-col {")
+        assert "margin-bottom" not in _regle(css, "\n.cv2-profil {")
+        assert "margin: 0;" in _regle(css, "\n.cv2-seances {")

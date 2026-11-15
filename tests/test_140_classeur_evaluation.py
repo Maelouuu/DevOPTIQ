@@ -256,11 +256,66 @@ class TestLeBassinPorteLaComparaison:
         assert "z.textContent = combien[v] === 1 ? r.name : nf('ou_n_sorties', combien[v]);" in m
         css = _sans_commentaires_css(_lire(CSS))
         et = _regle(css, "\n.bassin .mk .et {")
-        assert "left: 16px" in et and "top: -33px" in et, "une seule rangée"
-        assert "display: none" in _regle(css, "\n.bassin .mk.est-muet .et {")
+        assert re.search(r"top: -\d+px", et), \
+            "une seule rangée, toutes AU-DESSUS de leur ligne"
+        # ⚠️ Le repère muet ne laisse RIEN — pas même sa ligne : quatre traits
+        # identiques au même pixel, c'est ce qui « se marchait dessus ».
+        assert "display: none" in _regle(css, "\n.bassin .mk.est-muet {")
         # ⚠️ Et pas de DISQUE sur la pastille de groupe : il y dirait un
         # numéro de carte, et c'est justement ce qu'on ne peut plus désigner.
         assert "display: none" in _regle(css, "\n.bassin .mk:not(.est-seul) .et b {")
+
+    def test_le_badge_de_l_ATTENDU_ne_croise_pas_la_surface(self):
+        """⚠⚠ Posé à cheval sur sa ligne (`top: -10px`), le badge recevait la
+        surface de l'eau en travers du texte dès que le niveau de l'activité
+        égalait l'attendu — le cas le plus courant, et celui qu'on vient
+        vérifier. Le badge se pose SOUS sa ligne, la pastille d'un repère
+        au-dessus de la sienne : c'est ce qui les empêche de se croiser,
+        quelle que soit la langue et quelle que soit la largeur."""
+        css = _sans_commentaires_css(_lire(CSS))
+        a = _regle(css, "\n.bassin .att span {")
+        assert "top: 5px" in a and "top: -10px" not in a
+        # Au niveau 0 il n'y a que 16 px sous la ligne : il repasse au-dessus.
+        assert "bottom: 4px" in _regle(css, "\n.bassin .att.hors span {")
+        js = _lire(JS)
+        b = _corps(js, "  function bassinHtml(st) {")
+        assert "req === 0 ? ' hors' : ''" in b
+
+    def test_la_pastille_du_niveau_4_TIENT_dans_le_bassin(self):
+        """⚠⚠ `basY(4)` vaut `h - haut` quelle que soit la hauteur du
+        bassin : avec un fond et un ciel égaux à 20 px, la pastille du niveau
+        4 — posée 33 px au-dessus de sa ligne — débordait TOUJOURS de 13 px,
+        rognée par l'`overflow: hidden`. Le ciel doit valoir la hauteur d'une
+        pastille."""
+        js = _sans_commentaires_js(_lire(JS))
+        m = re.search(r"const BAS = \{ h: (\d+), bas: (\d+), haut: (\d+) \};", js)
+        assert m, "les trois mesures du bassin"
+        h, bas, haut = (int(x) for x in m.groups())
+        assert "const basY = n => BAS.bas + basPas() * n;" in js
+        assert "(BAS.h - BAS.bas - BAS.haut) / 4" in js
+        css = _sans_commentaires_css(_lire(CSS))
+        et = _regle(css, "\n.bassin .mk .et {")
+        dessus = int(re.search(r"top: -(\d+)px", et).group(1))
+        assert haut >= dessus, "la pastille du niveau 4 déborde de %d px" % (dessus - haut)
+        assert bas > 0, "le niveau 0 n'est pas le fond : l'eau s'y voit encore"
+        # ⚠⚠ Et elle ne doit pas TOUCHER sa propre ligne : la surface de l'eau
+        # déborde d'un pixel au-dessus, et la pastille du repère le plus bas la
+        # croisait — mesuré sur quatre activités du banc. Les deux formes de
+        # pastille partagent donc une hauteur, et `top` la dépasse.
+        pastille = int(re.search(r"min-height: (\d+)px", et).group(1))
+        assert dessus > pastille, "la pastille touche sa ligne"
+
+    def test_l_eau_porte_son_niveau_le_repere_n_y_remet_pas_sa_ligne(self):
+        """⚠⚠ Trois traits pleine largeur tombaient sur le même pixel — la
+        surface de l'eau, la ligne du repère le plus bas, l'attendu. Quand
+        l'eau est dessinée, c'est ELLE qui porte ce niveau ; sans niveau
+        (NULL) il n'y a pas de surface, et le repère garde sa ligne."""
+        js = _lire(JS)
+        m = _corps(js, "  function majBassin(st) {")
+        assert "b.classList.toggle('a-eau', !estNul(niv));" in m
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "display: none" in _regle(css, "\n.bassin.a-eau .mk.est-bas .bar {")
+        assert "background: #fff" in _regle(css, "\n.bassin .mk.est-bas .bar {")
 
     def test_les_noms_SURVIVENT_a_la_pastille_de_groupe(self):
         """Une pastille qui ne dit plus que « 4 sorties » ne doit pas effacer
@@ -772,7 +827,7 @@ class TestLArdoise:
         ACTIVITÉS : cet écran la MONTRE."""
         js = _lire(JS)
         a = _corps(js, "  function ardoiseSortie(r, st, form) {")
-        assert "T('pal_norme_tag')" in a
+        assert "T('pal_norme')" in a
         assert "T('ax_reussi')" in a and "T('pal_indic')" in a
         assert "T('pal_norme_off')" in a
         assert "T('fi_requis')" in a, "le requis du rôle est donné, lui aussi"
@@ -1014,3 +1069,41 @@ class TestUnSeulVocabulaireDeBoutons:
         c = _regle(css, "\n.cran {")
         assert "border-radius: 14px" in c
         assert "999px" not in c
+
+
+class TestLaPorteDuRole:
+    """⚠️ Le maillon du RÔLE est une PORTE : il ramène à la vue d'ensemble,
+    ouverte sur le détail de CE rôle — une ligne par activité, avec sa cible.
+    On n'y venait que par un point du radar, et il n'existait aucun chemin
+    depuis l'écran où l'on note."""
+
+    def test_le_maillon_du_role_ouvre_la_vue_d_ensemble_SUR_CE_ROLE(self):
+        js = _lire(JS)
+        ch = _corps(js, "  function chaineHtml(st, nivAct) {")
+        assert "data-aller-role" in ch
+        assert "state.roleId ? porte(" in ch, "sans rôle, pas de porte"
+        ou = _corps(js, "  function remplirOu(st) {")
+        assert "state.voRole = state.roleId; chargerSynthese();" in ou
+
+    def test_la_demande_ne_SURVIT_pas_a_son_arrivee(self):
+        """Gardée, elle rouvrirait les barres à chaque changement de
+        collaborateur — et le radar ne se verrait plus jamais."""
+        js = _lire(JS)
+        p = _corps(js, "  function renderProfil(d) {")
+        assert "state.voRole = null;" in p
+        assert p.index("state.voRole = null;") < p.index("if (vr) ouvrirBarres(box, vr);")
+        # ⚠️ APRÈS `animerProfil`, qui remet la zone sur le radar.
+        assert p.index("animerProfil(box, vus, d);") < p.index("if (state.voRole) {")
+
+    def test_le_maillon_est_un_BOUTON_donc_il_reprend_sa_police(self):
+        """Un <button> s'affiche dans la police et l'encre du SYSTÈME : au
+        milieu d'une chaîne de trois maillons, il aurait été le seul."""
+        css = _sans_commentaires_css(_lire(CSS))
+        b = _regle(css, "\nbutton.mail {")
+        assert "font: inherit" in b and "color: inherit" in b and "cursor: pointer" in b
+
+    def test_le_libelle_de_la_porte_existe_dans_les_DEUX_langues(self):
+        js = _lire(JS)
+        for langue in ("    fr: {", "    en: {"):
+            d = js.split(langue, 1)[1].split("\n    },", 1)[0]
+            assert "ou_voir_role:" in d, langue
