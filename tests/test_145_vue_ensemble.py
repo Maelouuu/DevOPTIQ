@@ -513,6 +513,7 @@ class TestLEcran:
         fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
         en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
         cles = ["vo_couv", "vo_tout_en_bas", "vo_classement", "vo_marches",
+                "vo_sortie_suiv", "vo_sortie_prec", "ou_n_sorties_1", "ou_n_sorties_n",
                 "vo_ouvrir", "vo_sans_marche", "vo_sans_sortie", "vo_au_plus",
                 "vo_au_moins", "vo_notes", "vo_notees", "vo_aucune_sortie",
                 "vo_leg_sous", "vo_leg_atteint", "vo_leg_mesure", "vo_leg_rien",
@@ -523,5 +524,15 @@ class TestLEcran:
 
     def test_le_pluriel_ne_se_devine_pas(self):
         js = _lire(JS)
-        for c in ("vo_roles", "vo_acts", "vo_sorties"):
+        for c in ("vo_roles", "vo_acts", "vo_sorties", "ou_n_sorties"):
             assert ("%s_1:" % c) in js and ("%s_n:" % c) in js, c
+
+    def test_une_valeur_ABSENTE_ne_s_annonce_pas(self):
+        """« Technicité **aucun domaine** » se lisait comme un verdict — et
+        ces 75 px de plus faisaient passer la rangée de pastilles sur deux
+        lignes. Une valeur absente dit déjà qu'il n'y a rien."""
+        js = _lire(JS)
+        m = _corps(js, "  function majChipTech() {")
+        assert "T('cl_tech_0')" not in m
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "display: none" in _regle(css, "\n.cl-rb b:empty {")

@@ -50,6 +50,8 @@
       ou_attendu: 'attendu [[n]]',
       ou_manque_1: '1 sortie pas encore notée',
       ou_manque_n: '[[n]] sorties pas encore notées',
+      ou_n_sorties_1: '1 sortie à ce niveau',
+      ou_n_sorties_n: '[[n]] sorties à ce niveau',
       ou_ecart: 'en écart · −[[n]]',
       ou_au_niveau: 'au niveau',
       ou_au_dessus: 'au niveau · +[[n]]',
@@ -472,6 +474,8 @@
       ou_attendu: 'target [[n]]',
       ou_manque_1: '1 output not rated yet',
       ou_manque_n: '[[n]] outputs not rated yet',
+      ou_n_sorties_1: '1 output at this level',
+      ou_n_sorties_n: '[[n]] outputs at this level',
       ou_ecart: 'below target · −[[n]]',
       ou_au_niveau: 'on target',
       ou_au_dessus: 'on target · +[[n]]',
@@ -4735,15 +4739,12 @@
       h += `<span class="att" style="bottom:${basY(req)}px">
         <span>${esc(Tv('ou_attendu', { n: req }))}</span></span>`;
     }
-    (st.results || []).forEach((r, i) => {
-      // ⚠️ Le nom est dans la pastille ET en `aria-label` : à plusieurs sur
-      // la même ligne, les pastilles perdent le nom et ne gardent que leur
-      // numéro — celui de la carte de droite. Il ne doit pas disparaître
-      // pour autant d'un lecteur d'écran.
+    // La pastille est REMPLIE par `majBassin` : son contenu dépend de ce que
+    // les autres sorties font, pas d'elle seule.
+    (st.results || []).forEach(r => {
       h += `<span class="mk" data-mk="${esc(String(r.data_id))}">
         <span class="bar"></span>
-        <span class="et" title="${esc(r.name)}" aria-label="${esc(r.name)}"
-          ><b>${i + 1}</b><span class="z">${esc(r.name)}</span></span></span>`;
+        <span class="et"><b></b><span class="z"></span></span></span>`;
     });
     h += '</div><p class="bas-note" data-bnote></p>';
     return h;
@@ -4769,37 +4770,51 @@
     surf.style.opacity = estNul(niv) ? 0 : 1;
     surf.style.bottom = (basY(estNul(niv) ? bas : niv) - 2) + 'px';
 
-    // ⚠️ Les repères d'un MÊME niveau tombent sur la même ligne, et c'est
-    // justement là qu'on vient lire laquelle retient l'eau. Ils étaient
-    // EMPILÉS vers le haut : mesuré à quatre sorties, des pastilles de 26 px
-    // posées tous les 24 px se chevauchaient de 2 px, et deux d'entre elles
-    // sortaient du bassin par le haut. Elles se posent donc CÔTE À CÔTE — et
-    // à plusieurs elles ne gardent que leur numéro, celui de la carte de
-    // droite. Seule à son niveau, une sortie garde son nom : c'est le cas
-    // courant, et c'est ce que la maquette montrait.
-    const combien = {};
-    (st.results || []).forEach(r => {
+    // ⚠️⚠️ UNE pastille par NIVEAU, pas par sortie.
+    //
+    // Deux tentatives ont échoué avant celle-ci, et les deux pour la même
+    // raison — on ne regarde pas un bassin pour y lire une liste :
+    //   · EMPILÉES vers le haut, les pastilles se chevauchaient de 2 px et
+    //     deux d'entre elles sortaient du bassin (mesuré à quatre sorties) ;
+    //   · CÔTE À CÔTE et réduites à leur numéro, elles ne disaient plus rien
+    //     du tout — « je ne comprends pas les 4 bulles vertes ».
+    //
+    // Seule à son niveau, une sortie porte son NOM, avec son numéro : c'est
+    // le cas courant, et c'est ce que la maquette montrait. À plusieurs, la
+    // ligne porte le COMPTE — « 4 sorties à ce niveau » — et c'est tout ce
+    // qu'on a besoin d'y lire : le détail est sur les cartes de droite.
+    const combien = {}, premier = {};
+    (st.results || []).forEach((r, i) => {
       const v = niveauOfficiel(r);
-      if (!estNul(v)) combien[v] = (combien[v] || 0) + 1;
+      if (estNul(v)) return;
+      combien[v] = (combien[v] || 0) + 1;
+      if (!(v in premier)) premier[v] = { r: r, i: i };
     });
-    const parNiveau = {};
-    (st.results || []).forEach(r => {
+    (st.results || []).forEach((r, i) => {
       const v = niveauOfficiel(r);
       const m = b.querySelector(`[data-mk="${r.data_id}"]`);
       if (!m) return;
       m.classList.toggle('est-off', estNul(v));
       if (estNul(v)) return;
       m.style.bottom = basY(v) + 'px';
-      parNiveau[v] = (parNiveau[v] || 0) + 1;
-      m.style.setProperty('--k', String(parNiveau[v] - 1));
+      // Seule la PREMIÈRE sortie d'un niveau porte la pastille : les autres
+      // n'apportent que leur trait, confondu avec le sien.
+      const porte = premier[v].r.data_id === r.data_id;
+      m.classList.toggle('est-muet', !porte);
       m.classList.toggle('est-seul', combien[v] === 1);
-      // ⚠️ La pastille garde son NUMÉRO — celui de la carte — et ne reçoit
-      // que sa couleur. Y écrire le niveau redirait ce que la HAUTEUR du
-      // repère dit déjà, et couperait le seul lien entre le bassin et la
-      // carte de droite. Relevé sur capture : `majBassin` l'écrasait.
-      const d = m.querySelector('b');
-      d.className = (req === null ? v >= SEUIL_TENU : v >= req) ? 'v' : '';
       m.classList.toggle('est-bas', !estNul(niv) ? v === niv : v === bas);
+      if (!porte) return;
+      // ⚠️ Le disque garde le NUMÉRO de la carte — y écrire le niveau
+      // redirait ce que la HAUTEUR du repère dit déjà, et couperait le seul
+      // lien entre le bassin et la carte de droite.
+      const d = m.querySelector('b'), z = m.querySelector('.z');
+      d.className = (req === null ? v >= SEUIL_TENU : v >= req) ? 'v' : '';
+      d.textContent = combien[v] === 1 ? String(i + 1) : '';
+      z.textContent = combien[v] === 1 ? r.name : nf('ou_n_sorties', combien[v]);
+      const noms = (st.results || []).filter(x => niveauOfficiel(x) === v)
+        .map(x => x.name).join(', ');
+      m.querySelector('.et').setAttribute('aria-label', noms);
+      m.querySelector('.et').title = noms;
     });
     const note = b.parentNode.querySelector('[data-bnote]');
     if (note) {
@@ -4815,8 +4830,11 @@
     const chip = (cls, icone, lbl, val) => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'cl-rb' + (cls ? ' ' + cls : '');
-      b.innerHTML = `<i class="fa-solid ${icone}"></i>${esc(lbl)}`
-        + (val ? `<b>${esc(val)}</b>` : '');
+      // ⚠️ Le libellé est dans un <span> : le `gap` d'une boîte flex ne
+      // s'applique qu'entre ÉLÉMENTS, et un nœud de texte nu n'en est pas un
+      // — relevé à l'écran, « Technicitéaucun domaine » collé.
+      b.innerHTML = `<i class="fa-solid ${icone}"></i><span>${esc(lbl)}</span>`
+        + (val ? `<b>${esc(val)}</b>` : '<b></b>');
       reg.appendChild(b);
       return b;
     };
@@ -5216,11 +5234,16 @@
     const c = $('#ev-chip-tech'); if (!c) return;
     const t = state.tech;
     const b = c.querySelector('b'); if (!b) return;
-    if (!t) { b.textContent = '…'; return; }
+    if (!t) { b.textContent = '…'; b.className = 'rien'; return; }
     const ecart = t.domains.filter(d => !estNul(d.gap) && d.gap < 0).length;
+    // ⚠️ Rien à annoncer ne s'annonce pas. « Technicité **aucun domaine** »
+    // se lisait comme un verdict, et ces 75 px de plus faisaient passer la
+    // rangée de pastilles sur deux lignes — mesuré : 536 px pour 520. Une
+    // valeur absente dit déjà qu'il n'y a rien ; le dialogue le détaille.
     b.textContent = t.domains.length
       ? (ecart ? nf('cl_tech_ecart', ecart) : nf('cl_tech', t.domains.length))
-      : T('cl_tech_0');
+      : '';
+    b.className = '';
     c.classList.toggle('ko', !!ecart);
   }
 

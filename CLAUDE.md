@@ -8946,6 +8946,56 @@ banc sur le cas chargé, de 1000 à 1600 px, dans les deux langues : zéro
 chevauchement, zéro repère hors du bassin, zéro fuite française sur l'écran
 anglais (167 textes, attributs compris).
 
+#### ⚠️⚠️ Supprimer une section de feuille emporte ce qui s'y trouvait pour d'autres
+
+« Les boutons de la card bleue sont toujours dégueux. » Ils l'étaient, et ce
+n'était pas une affaire de goût : **`.cl-rb` avait disparu AVEC le bloc du
+classeur**, que la refonte de l'écran de notation a remplacé en bloc. Seule la
+règle de son ICÔNE avait survécu, dans la section « LES BOUTONS : UN SEUL
+VOCABULAIRE », plus bas dans la feuille.
+
+Les pastilles sont donc retombées sur le **bouton blanc par défaut** — et leur
+pastille d'icône, taillée pour un fond sombre (`rgba(255,255,255,.17)` sur
+`#fff`), est devenue **blanche sur blanc** : quatre pâtés blancs à glyphe
+invisible sur la carte de nuit. Le verre est restauré, à côté de `.ou-reg` qui
+s'en sert.
+
+Trois retouches au passage, toutes mesurées :
+- ⚠️ **« Technicitéaucun domaine »** — le `gap` d'une boîte flex ne s'applique
+  qu'entre ÉLÉMENTS, et le libellé était un nœud de texte nu. Il est dans un
+  `<span>`. (Troisième fois ce jour-là, après les pastilles de la vue
+  d'ensemble.)
+- ⚠️ **Et la valeur ABSENTE ne s'annonce plus** : « aucun domaine » en blanc
+  gras se lisait comme un verdict, et ces 75 px faisaient passer la rangée sur
+  deux lignes.
+- ⚠️ **La rangée est une GRILLE à deux colonnes**, pas un `flex-wrap` : à
+  quatre pastilles pour 520 px (mesuré : 544 px de contenu), trois restaient
+  sur une ligne et une tombait seule en dessous — ça se lit comme un
+  débordement, pas comme une disposition.
+
+#### ⚠️⚠️ Le bassin : DEUX repentirs avant de trouver
+
+« Je ne comprends pas les 4 bulles vertes, il y a un problème je pense. » Il y
+en avait un, et c'était le MIEN : deux tentatives avaient échoué pour la même
+raison — **on ne regarde pas un bassin pour y lire une liste.**
+
+1. **EMPILÉES** vers le haut : des pastilles de 26 px posées tous les 24 px se
+   chevauchaient de 2 px, et deux d'entre elles sortaient du bassin.
+2. **CÔTE À CÔTE et réduites à leur numéro** : quatre disques verts qui ne
+   disaient plus rien du tout.
+
+C'est **UNE pastille par NIVEAU**, pas par sortie. Seule à son niveau, une
+sortie porte son NOM avec son numéro — le cas courant, et ce que la maquette
+montrait. À plusieurs, la ligne porte le COMPTE (« 4 sorties à ce niveau ») et
+c'est tout ce qu'on a besoin d'y lire : le détail est sur les cartes de
+droite, et les noms restent dans l'info-bulle et l'`aria-label`.
+⚠️ Et **pas de disque** sur la pastille de groupe : il y dirait un numéro de
+carte, et c'est justement ce qu'on ne peut plus désigner.
+
+Tests : `test_140` (+4 cas, 2 réécrits), `test_145` (+1). **7 cliquets
+vérifiés ROUGES.** Suite : **4362 passés**, 1 sauté. Éprouvé au banc sur le
+cas chargé dans les deux langues.
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

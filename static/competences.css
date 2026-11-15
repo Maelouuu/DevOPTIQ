@@ -3281,18 +3281,20 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .bassin .mk.est-off { display: none; }
 .bassin .mk .bar { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .9); }
 .bassin .mk .et {
-  position: absolute; left: calc(16px + var(--k, 0) * 34px); top: -33px;
+  position: absolute; left: 16px; top: -33px;
   display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 34px);
   padding: 4px 13px 4px 5px; border-radius: 999px; background: #fff;
   box-shadow: 0 6px 18px rgba(0, 0, 0, .4), 0 0 0 1px rgba(15, 23, 42, .06);
 }
-/* ⚠️ À PLUSIEURS sur la même ligne, la pastille ne garde que son numéro :
-   empilées vers le haut, elles se chevauchaient de 2 px et deux d'entre
-   elles sortaient du bassin (mesuré à quatre sorties). Le nom reste dans
-   l'info-bulle, dans l'`aria-label`, et sur la carte qui porte le même
-   numéro. */
-.bassin .mk:not(.est-seul) .et { padding: 4px; gap: 0; }
-.bassin .mk:not(.est-seul) .et .z { display: none; }
+/* ⚠️⚠️ UNE pastille par NIVEAU, pas par sortie. Empilées, elles se
+   chevauchaient de 2 px et deux sortaient du bassin ; côte à côte et
+   réduites à leur numéro, elles ne disaient plus rien — « je ne comprends
+   pas les 4 bulles vertes ». À plusieurs sur une ligne, la pastille porte
+   donc le COMPTE, sans disque : un disque y dirait un numéro de carte, et
+   c'est justement ce qu'on ne peut plus désigner. */
+.bassin .mk.est-muet .et { display: none; }
+.bassin .mk:not(.est-seul) .et { padding: 5px 13px; }
+.bassin .mk:not(.est-seul) .et b { display: none; }
 .bassin .mk .et b {
   flex: none; width: 25px; height: 25px; border-radius: 999px; color: #fff;
   display: inline-flex; align-items: center; justify-content: center;
@@ -3311,8 +3313,43 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
 .bas-note { margin: 10px 2px 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
 .bas-note:empty { display: none; }
 
-/* ── Les réglages, en pastilles de verre ─────────────────────────── */
-.ou-reg { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+/* ── LES RÉGLAGES, en pastilles de VERRE ───────────────────────────────
+   ⚠️⚠️ `.cl-rb` avait disparu AVEC le bloc du classeur : seule la règle de
+   son icône avait survécu, dans la section des boutons. Les pastilles sont
+   donc retombées sur le bouton blanc par défaut — et leur pastille d'icône,
+   taillée pour un fond sombre (`rgba(255,255,255,.17)` sur `#fff`), est
+   devenue blanche sur blanc : quatre pâtés blancs à glyphe invisible sur la
+   carte de nuit. Supprimer une section de feuille, c'est emporter ce qui s'y
+   trouvait pour d'autres. */
+/* ⚠️ Une GRILLE, pas un retour à la ligne : à quatre pastilles pour 520 px
+   de colonne (mesuré : 544 px de contenu), le flex en laissait trois sur une
+   ligne et une toute seule en dessous — ça se lit comme un débordement, pas
+   comme une disposition. Deux par deux, c'est une décision. */
+.ou-reg {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-top: 16px;
+}
+.ou-reg .cl-rb { min-width: 0; }
+.ou-reg .cl-rb > span { overflow: hidden; text-overflow: ellipsis; }
+.cl-rb {
+  display: flex; align-items: center; gap: 9px; white-space: nowrap;
+  padding: 8px 13px 8px 8px; border-radius: 11px; cursor: pointer;
+  font: inherit; font-size: 13px; color: #e3ecfd;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .2);
+  transition: background .14s, border-color .14s;
+}
+.cl-rb:hover { background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .34); }
+.cl-rb b { font-weight: 700; color: #fff; }
+/* ⚠️ Et quand il n'y a RIEN à annoncer, la valeur s'efface au lieu de
+   crier : « Technicité **aucun domaine** » se lisait comme un verdict. */
+.cl-rb b:empty { display: none; }
+.cl-rb b.rien { font-weight: 600; color: rgba(227, 236, 253, .55); }
+.cl-rb.amb {
+  background: rgba(253, 230, 138, .16); border-color: rgba(253, 230, 138, .42);
+  color: var(--a3);
+}
+.cl-rb.amb b { color: #fff; }
+.cl-rb.ko b { color: var(--a3); }
 
 /* ═══════════ LA CARTE D'UNE SORTIE ══════════════════════════════════════
    ⚠️ Les deux régimes prennent la MÊME forme : un rail de couleur dit

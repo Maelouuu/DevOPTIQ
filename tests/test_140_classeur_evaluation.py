@@ -111,6 +111,36 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         assert ou.count("rgba(15, 22, 49") >= 4, "les quatre ombres portées"
         assert "inset 0 1px 0" in ou and "inset 0 -2px 0" in ou
 
+    def test_les_pastilles_de_reglage_sont_de_VERRE(self):
+        """⚠️⚠️ `.cl-rb` a disparu AVEC le bloc du classeur : seule la règle
+        de son ICÔNE avait survécu, dans la section des boutons. Les pastilles
+        sont donc retombées sur le bouton blanc par défaut — et leur pastille
+        d'icône, taillée pour un fond sombre (`rgba(255,255,255,.17)` sur
+        `#fff`), est devenue blanche sur blanc : quatre pâtés blancs à glyphe
+        invisible sur la carte de nuit.
+
+        Supprimer une section de feuille, c'est emporter ce qui s'y trouvait
+        pour d'autres.
+        """
+        css = _sans_commentaires_css(_lire(CSS))
+        rb = _regle(css, "\n.cl-rb {")
+        assert "rgba(255, 255, 255, .12)" in rb, "du verre, pas un bouton blanc"
+        assert "border: 1px solid rgba(255, 255, 255, .2)" in rb
+        assert "color: #e3ecfd" in rb
+        assert "background" in _regle(css, "\n.cl-rb:hover {")
+        # l'icône garde sa pastille, et elle n'a de sens que sur du sombre
+        assert "rgba(255, 255, 255, .17)" in _regle(css, "\n.ev-retour > i, .cl-rb > i, .gb > i {")
+
+    def test_la_rangee_de_reglages_est_une_GRILLE(self):
+        """⚠️ À quatre pastilles pour 520 px de colonne (mesuré : 544 px de
+        contenu), le flex en laissait trois sur une ligne et une toute seule
+        en dessous — ça se lit comme un débordement, pas comme une
+        disposition."""
+        css = _sans_commentaires_css(_lire(CSS))
+        r = _regle(css, "\n.ou-reg {")
+        assert "display: grid" in r
+        assert "repeat(2, minmax(0, 1fr))" in r
+
     def test_le_bloc_de_nuit_SUIT_le_defilement(self):
         """C'est le bassin qui porte la comparaison entre les sorties : il doit
         rester sous les yeux pendant qu'on note dans la colonne de droite."""
@@ -139,17 +169,19 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         """Sans lui, rien ne dirait quelle pastille du bassin appartient à
         quelle sortie.
 
-        ⚠️ Et la pastille garde ce numéro : `majBassin` y écrivait le NIVEAU,
-        relevé sur capture — ce que la HAUTEUR du repère dit déjà, et le seul
-        lien entre le bassin et la carte de droite était coupé.
+        ⚠️ Et c'est bien le NUMÉRO qu'elle porte, jamais le niveau : celui-ci
+        redirait ce que la HAUTEUR du repère dit déjà, et couperait le seul
+        lien entre le bassin et la carte de droite. Relevé sur capture.
+        ⚠️ Le numéro s'écrit dans `majBassin` et non dans le gabarit : il ne
+        s'affiche que si la sortie est SEULE à son niveau, et cela dépend des
+        autres sorties.
         """
         js = _lire(JS)
         c = _corps(js, "  function carteSortie(r, st, i) {")
         assert 'class="so-n">${i + 1}' in c
-        b = _corps(js, "  function bassinHtml(st) {")
-        assert "<b>${i + 1}</b>" in b
         m = _corps(js, "  function majBassin(st) {")
-        assert "d.textContent" not in m, "elle ne reçoit que sa couleur"
+        assert "d.textContent = combien[v] === 1 ? String(i + 1) : '';" in m
+        assert "d.textContent = String(v)" not in m, "le numéro, jamais le niveau"
 
     def test_les_deux_regimes_prennent_la_MEME_forme(self):
         """Un rail de couleur dit lequel, un disque dit le niveau : c'est leur
@@ -172,8 +204,12 @@ class TestLeBassinPorteLaComparaison:
     def test_un_repere_par_sortie_a_la_hauteur_de_son_niveau(self):
         js = _lire(JS)
         b = _corps(js, "  function bassinHtml(st) {")
-        assert '(st.results || []).forEach((r, i) => {' in b
+        assert '(st.results || []).forEach(r => {' in b
         assert 'data-mk=' in b
+        # ⚠️ Le gabarit ne porte AUCUN libellé : la pastille est remplie par
+        # `majBassin`, parce que son contenu dépend de ce que les AUTRES
+        # sorties font, pas d'elle seule.
+        assert '<span class="z"></span>' in b
         m = _corps(js, "  function majBassin(st) {")
         assert "m.style.bottom = basY(v) + 'px';" in m
 
@@ -199,35 +235,41 @@ class TestLeBassinPorteLaComparaison:
         css = _sans_commentaires_css(_lire(CSS))
         assert "box-shadow" in _regle(css, "\n.bassin .mk.est-bas .et {")
 
-    def test_les_reperes_d_un_MEME_niveau_se_posent_COTE_A_COTE(self):
-        """⚠️ Ils étaient EMPILÉS vers le haut. Mesuré sur une activité à
-        quatre sorties toutes au même niveau : des pastilles de 26 px posées
-        tous les 24 px se chevauchaient de 2 px, et deux d'entre elles
-        sortaient du bassin par le haut.
+    def test_UNE_pastille_par_NIVEAU_et_pas_par_sortie(self):
+        """⚠️⚠️ Deux tentatives ont échoué avant celle-ci, et les deux pour la
+        même raison — on ne regarde pas un bassin pour y lire une liste.
 
-        Elles se posent donc côte à côte — et à plusieurs elles ne gardent que
-        leur NUMÉRO, celui de la carte de droite. Seule à son niveau, une
-        sortie garde son nom : c'est le cas courant, et c'est ce que la
-        maquette montrait.
+        EMPILÉES vers le haut, les pastilles se chevauchaient de 2 px et deux
+        d'entre elles sortaient du bassin (mesuré à quatre sorties au même
+        niveau). CÔTE À CÔTE et réduites à leur numéro, elles ne disaient plus
+        rien du tout — « je ne comprends pas les 4 bulles vertes ».
+
+        Seule à son niveau, une sortie porte son NOM avec son numéro : c'est
+        le cas courant, et c'est ce que la maquette montrait. À plusieurs, la
+        ligne porte le COMPTE, et le détail est sur les cartes de droite.
         """
         js = _lire(JS)
         m = _corps(js, "  function majBassin(st) {")
-        assert "parNiveau[v] = (parNiveau[v] || 0) + 1;" in m
-        assert "m.style.setProperty('--k', String(parNiveau[v] - 1));" in m
+        assert "const porte = premier[v].r.data_id === r.data_id;" in m
+        assert "m.classList.toggle('est-muet', !porte);" in m
         assert "m.classList.toggle('est-seul', combien[v] === 1);" in m
+        assert "z.textContent = combien[v] === 1 ? r.name : nf('ou_n_sorties', combien[v]);" in m
         css = _sans_commentaires_css(_lire(CSS))
         et = _regle(css, "\n.bassin .mk .et {")
-        assert "left: calc(16px + var(--k, 0) * 34px)" in et, "côte à côte"
-        assert "top: -33px" in et, "une seule rangée, jamais une pile"
-        assert "display: none" in _regle(css, "\n.bassin .mk:not(.est-seul) .et .z {")
+        assert "left: 16px" in et and "top: -33px" in et, "une seule rangée"
+        assert "display: none" in _regle(css, "\n.bassin .mk.est-muet .et {")
+        # ⚠️ Et pas de DISQUE sur la pastille de groupe : il y dirait un
+        # numéro de carte, et c'est justement ce qu'on ne peut plus désigner.
+        assert "display: none" in _regle(css, "\n.bassin .mk:not(.est-seul) .et b {")
 
-    def test_le_nom_d_un_repere_SURVIT_a_la_perte_de_sa_pastille(self):
-        """Il reste dans l'info-bulle et dans l'`aria-label` : une pastille
-        réduite à son numéro ne doit pas effacer l'information pour qui lit
-        l'écran autrement."""
+    def test_les_noms_SURVIVENT_a_la_pastille_de_groupe(self):
+        """Une pastille qui ne dit plus que « 4 sorties » ne doit pas effacer
+        l'information pour qui lit l'écran autrement."""
         js = _lire(JS)
-        b = _corps(js, "  function bassinHtml(st) {")
-        assert 'title="${esc(r.name)}" aria-label="${esc(r.name)}"' in b
+        m = _corps(js, "  function majBassin(st) {")
+        assert ".map(x => x.name).join(', ');" in m
+        assert "setAttribute('aria-label', noms)" in m
+        assert ".title = noms;" in m
 
     def test_le_niveau_affiche_est_un_APERCU_pas_une_seconde_regle(self):
         """⚠️ Le serveur reste la source — l'écran se recharge après
