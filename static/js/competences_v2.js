@@ -55,6 +55,24 @@
       ou_au_dessus: 'au niveau · +[[n]]',
       so_main: 'jugée à la main',
       so_mesuree: 'mesurée',
+      vo_couv: 'couverture',
+      vo_roles_1: 'rôle', vo_roles_n: 'rôles',
+      vo_acts_1: 'activité', vo_acts_n: 'activités',
+      vo_sorties_1: 'sortie', vo_sorties_n: 'sorties',
+      vo_tout_en_bas: 'Ce qui tient tout en bas',
+      vo_classement: 'Le classement — cliquez une activité',
+      vo_marches: 'Ses marches de performance',
+      vo_ouvrir: 'Ouvrir cette activité',
+      vo_sans_marche: 'Aucune sortie mesurée sur cette activité : rien à relever en séance.',
+      vo_sans_sortie: "Cette activité n'a pas encore de sortie à évaluer.",
+      vo_au_plus: 'au plus', vo_au_moins: 'au moins',
+      vo_notes: "Toutes les notes, d'un coup",
+      vo_notees: '[[n]] / [[t]] notées',
+      vo_aucune_sortie: 'aucune sortie',
+      vo_leg_sous: "sous l'attendu", vo_leg_atteint: 'attendu atteint',
+      vo_leg_mesure: 'relevé en séance', vo_leg_rien: 'pas de note',
+      vo_bouge: 'Comment « [[x]] » a bougé',
+      vo_pas_qualifie: 'la norme reste à franchir',
       cl_tenu: 'Niveau tenu',
       cl_courbes: 'Les courbes',
       cl_prec: 'Activité précédente',
@@ -458,6 +476,24 @@
       ou_au_dessus: 'on target · +[[n]]',
       so_main: 'rated by hand',
       so_mesuree: 'measured',
+      vo_couv: 'coverage',
+      vo_roles_1: 'role', vo_roles_n: 'roles',
+      vo_acts_1: 'activity', vo_acts_n: 'activities',
+      vo_sorties_1: 'output', vo_sorties_n: 'outputs',
+      vo_tout_en_bas: 'What sits lowest',
+      vo_classement: 'The ranking — click an activity',
+      vo_marches: 'Its performance steps',
+      vo_ouvrir: 'Open this activity',
+      vo_sans_marche: 'No measured output on this activity: nothing to record in a session.',
+      vo_sans_sortie: 'This activity has no output to assess yet.',
+      vo_au_plus: 'at most', vo_au_moins: 'at least',
+      vo_notes: 'Every rating at once',
+      vo_notees: '[[n]] / [[t]] rated',
+      vo_aucune_sortie: 'no output',
+      vo_leg_sous: 'below target', vo_leg_atteint: 'target met',
+      vo_leg_mesure: 'recorded in a session', vo_leg_rien: 'not rated',
+      vo_bouge: 'How “[[x]]” moved',
+      vo_pas_qualifie: 'the standard is not met yet',
       cl_tenu: 'Level held',
       cl_courbes: 'The curves',
       cl_prec: 'Previous activity',
@@ -1001,13 +1037,28 @@
     await chargerSynthese();
   }
 
+  // ⚠️ DEUX lectures, en PARALLÈLE. La synthèse porte les rôles et le profil
+  // (le radar) ; l'aperçu porte les sorties, leurs notes et leurs paliers —
+  // le classement, les marches, la bande et le relief. En série, c'est deux
+  // allers vers la base pour une page qui se rouvre à chaque changement de
+  // collaborateur.
   async function chargerSynthese() {
-    const d = await api(`/mastery/synthese/${state.cible}`);
+    const [d, ap] = await Promise.all([
+      api(`/mastery/synthese/${state.cible}`),
+      api(`/mastery/apercu/${state.cible}`),
+    ]);
     if (d.__error) { montrerVide(T('req_failed')); return; }
     state.synthese = d;
+    // ⚠️ Un échec sur l'aperçu n'emporte pas la page : le radar et les rôles
+    // s'affichent, et les cartes qui en dépendent se retirent. C'est la leçon
+    // de `/panel`, qui retenait son HTML le temps d'un appel et annonçait
+    // ensuite une panne.
+    state.apercu = ap.__error ? null : ap;
     montrerEcran('synthese');
-    renderBilan($('#cv2-bilan'), d.totals, null);
+    renderOeil(state.apercu);
     renderProfil(d);
+    renderNotes(state.apercu);
+    renderRelief(state.apercu);
     rendreSeances();
     const vide = $('#cv2-sans-role');
     if (vide) {
@@ -1065,29 +1116,247 @@
     return 'held';
   }
 
-  // ══ Le bandeau de situation ════════════════════════════════════════
-  function renderBilan(box, compte, onFiltre) {
-    box.innerHTML = '';
-    const tuiles = [
-      ['held', T('b_held'), 'green'], ['gap', T('b_gap'), 'orange'],
-      ['todo', T('b_todo'), 'blue'], ['setup', T('b_setup'), 'grey'],
-    ];
-    tuiles.forEach(([cle, libelle, teinte]) => {
-      // ⚠️ Sur la vue d'ensemble on les montre TOUS, même à zéro : trois
-      // compteurs absents sur quatre laissaient la page nue, et « 0 en
-      // écart » est une information, pas un vide.
-      if (onFiltre && !compte[cle] && state.filtre !== cle) return;
+  // ══════════════════════════════════════════════════════════════════════
+  // LA VUE D'ENSEMBLE — le classement, les marches, toutes les notes
+  //
+  // Tranchée sur maquette, à l'échelle. Elle ne portait que le radar et la
+  // liste des rôles : on y lisait la FORME d'un profil, jamais ce qui le
+  // retient. Elle porte maintenant, dans l'ordre où l'on se les pose :
+  //   · ce qui tient tout en bas, et combien d'activités sont dans chaque état ;
+  //   · le CLASSEMENT des activités, de la plus basse à la plus haute, et les
+  //     MARCHES de celle qu'on choisit — deux choses qui ne se voyaient qu'en
+  //     ouvrant l'écran d'évaluation, une activité à la fois ;
+  //   · toutes les notes d'un coup, une ligne par activité, une cellule par
+  //     sortie ;
+  //   · le relief d'une sortie mesurée, et la prochaine séance.
+  //
+  // ⚠️ UNE seule lecture pour tout cela (`/mastery/apercu`), en un nombre FIXE
+  // de requêtes : servir chaque activité séparément, c'est le défaut qui
+  // mettait le tableau global de la page RH à deux minutes et demie.
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Le classement : la hauteur d'une barre dit le niveau. Un pas de 34 px,
+  // et un socle de 10 px pour que le niveau 0 se VOIE — à hauteur nulle il se
+  // confondrait avec « pas de barre du tout », c'est-à-dire avec NULL.
+  const CL_SOCLE = 10, CL_PAS = 34;
+  const clH = n => CL_SOCLE + CL_PAS * n;
+
+  function renderOeil(ap) {
+    const z = $('#vo-nuit');
+    if (!ap || !ap.activites.length) { z.classList.add('hidden'); return; }
+    z.classList.remove('hidden');
+    const c = ap.compte;
+    z.innerHTML = `
+      <div class="vo-htop">
+        <div class="vo-hid">
+          <p class="ou-lbl">${esc(T('ou_collab'))}</p>
+          <h1>${esc(ap.user_name)}</h1>
+          <div class="vo-chips">
+            ${/* ⚠️ Le libellé est dans un <span> : le `gap` d'une boîte flex ne
+                  s'applique qu'entre ÉLÉMENTS, et un nœud de texte nu n'en est
+                  pas un — relevé à l'écran, « 3rôles » collé. */''}
+            <span class="chip"><b>${ap.n_roles}</b><span>${esc(nf('vo_roles', ap.n_roles))}</span></span>
+            <span class="chip"><b>${ap.n_activities}</b><span>${esc(nf('vo_acts', ap.n_activities))}</span></span>
+            <span class="chip"><b>${ap.n_sorties}</b><span>${esc(nf('vo_sorties', ap.n_sorties))}</span></span>
+            <span class="chip"><span>${esc(T('vo_couv'))}</span><b>${ap.couverture}&nbsp;%</b></span>
+          </div>
+        </div>
+        <div class="vo-hbas">
+          <p class="ou-lbl">${esc(T('vo_tout_en_bas'))}<span data-min></span></p>
+          <p class="vo-grand">${estNul(ap.plus_bas) ? '—' : ap.plus_bas}<i>/4</i></p>
+          <div class="vo-pann">
+            ${[['held', 'b_held', 'g'], ['gap', 'b_gap', 'r'],
+               ['todo', 'b_todo', 'a'], ['setup', 'b_setup', 'n']]
+              .map(([k, lbl, t]) =>
+                `<div><span class="e">${esc(T(lbl))}</span><span class="v ${t}">${c[k]}</span></div>`)
+              .join('')}
+          </div>
+        </div>
+      </div>
+
+      <div class="vo-duo">
+        <div class="vo-cl">
+          <p class="vo-dt">${esc(T('vo_classement'))}</p>
+          <div class="esc" id="vo-esc"></div>
+          <div class="escn" id="vo-escn"></div>
+        </div>
+        <div class="vo-mp">
+          <p class="vo-dt">${esc(T('vo_marches'))}</p>
+          <div class="mpan" id="vo-mpan"></div>
+        </div>
+      </div>`;
+    z.querySelector('[data-min]').appendChild(boutonInfo(T('ev_min_t'), texteMinimum()));
+    classement(ap);
+  }
+
+  // ── LE CLASSEMENT : de la plus basse à la plus haute ─────────────────
+  // ⚠️ Une activité NON ÉVALUÉE n'a pas une barre à zéro : zéro veut dire
+  // « non démontré », et tout le module distingue les deux. Elle porte une
+  // barre hachurée et un « ? » — et celle qui n'a rien à évaluer, un « — »
+  // et un simple socle : les deux absences ne se corrigent pas de la même
+  // façon (l'une se note, l'autre se configure).
+  function classement(ap) {
+    const esc_ = $('#vo-esc'), noms = $('#vo-escn');
+    esc_.innerHTML = ''; noms.innerHTML = '';
+    if (!ap.activites.some(a => a.activity_id === state.voAct)) {
+      state.voAct = ap.activites[0].activity_id;
+    }
+    ap.activites.forEach(a => {
+      const vide = a.etat === 'setup';
+      const niv = a.demonstrated_level;
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = `cv2-tuile cv2-tuile--${teinte}` + (onFiltre && state.filtre === cle ? ' is-on' : '');
-      b.innerHTML = `<div class="n"><span class="pt"></span>${compte[cle]}</div><div class="k">${esc(libelle)}</div>`;
-      if (onFiltre) {
-        b.title = state.filtre === cle ? T('filter_off') : libelle;
-        b.onclick = () => onFiltre(cle);
-      } else { b.disabled = true; b.style.cursor = 'default'; }
-      box.appendChild(b);
+      b.className = 'st' + (a.activity_id === state.voAct ? ' on' : '');
+      b.setAttribute('aria-label', a.activity_name + DP
+        + (estNul(niv) ? T(vide ? 'b_setup' : 'b_todo') : niv + ' · ' + levelName(niv)));
+      // ⚠️ La barre porte la couleur SÉMANTIQUE de l'activité, celle que le
+      // serveur calcule (CDC 3.5) et qu'elle a partout ailleurs : rouge tant
+      // que l'autonomie n'est pas démontrée, ambre pour un écart au requis,
+      // vert quand il est tenu. La bande des notes, elle, a son propre
+      // dégradé — elle montre des SORTIES, pas des activités, et elle porte
+      // sa légende.
+      const teinte = estNul(niv) ? 'q'
+        : ({ green: 'g', orange: 'a', red: 'r' }[a.color] || 'b');
+      b.innerHTML = `<span class="n${estNul(niv) ? ' q' : ''}">${estNul(niv) ? (vide ? '—' : '?') : niv}</span>
+        <span class="bar ${teinte}" style="height:${estNul(niv) ? (vide ? 8 : clH(2)) : clH(niv)}px"></span>
+        ${estNul(a.required_level) ? ''
+          : `<span class="req" style="bottom:${clH(a.required_level)}px"></span>`}`;
+      b.onclick = () => { state.voAct = a.activity_id; classement(ap); marches(ap); };
+      esc_.appendChild(b);
+
+      const n = document.createElement('span');
+      n.className = (a.activity_id === state.voAct ? 'on' : '');
+      n.textContent = a.activity_name;
+      noms.appendChild(n);
     });
-    box.classList.toggle('hidden', !box.children.length);
+    marches(ap);
+  }
+
+  // ── LES MARCHES de l'activité choisie ────────────────────────────────
+  // Le rail des marches est celui de l'écran d'évaluation : une sortie
+  // mesurée se lit de la même façon partout, ou elle se lit deux fois.
+  function marches(ap) {
+    const z = $('#vo-mpan'); if (!z) return;
+    const a = ap.activites.find(x => x.activity_id === state.voAct);
+    z.innerHTML = '';
+    if (!a) return;
+    const mes = a.sorties.filter(s => s.mesurable && s.norme);
+    if (!mes.length) {
+      z.innerHTML = `<p class="vo-rien">${esc(T(a.sorties.length ? 'vo_sans_marche' : 'vo_sans_sortie'))}</p>`;
+    }
+    mes.forEach((s, i) => {
+      if (i) z.insertAdjacentHTML('beforeend', '<div class="msep"></div>');
+      const u = s.norme.unite ? ' ' + s.norme.unite : '';
+      const sens = T(s.norme.sens === SENS_MOINS ? 'vo_au_plus' : 'vo_au_moins');
+      z.insertAdjacentHTML('beforeend',
+        `<div class="mh"><b>${esc(s.nom)}</b>
+           <span class="nm2">${esc(T('pal_norme_tag'))}${DP}${esc(nombre(s.norme.valeur) + u)} ${esc(sens)}</span>
+         </div>${railHtml(s)}`);
+    });
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pal-b pal-b--verre vo-ouvrir';
+    b.innerHTML = `<span class="pal-b-ic"><i class="fa-solid fa-arrow-right"></i></span>`
+      + esc(T('vo_ouvrir'));
+    b.onclick = () => ouvrirDepuisApercu(a);
+    z.appendChild(b);
+  }
+
+  // ⚠️ L'écran d'évaluation se cadre TOUJOURS sur un rôle : le niveau attendu
+  // vient du rôle, pas de l'activité. On prend le premier qui la porte — et
+  // on passe par le dashboard, qui remplit `state.rows` dont vivent les
+  // flèches de navigation.
+  async function ouvrirDepuisApercu(a) {
+    const rid = (a.role_ids || [])[0];
+    const r = (state.synthese && state.synthese.roles || []).find(x => x.role_id === rid);
+    if (!r) return;
+    state.roleId = r.role_id; state.roleName = r.role_name; state.filtre = null;
+    const d = await api(`/mastery/dashboard/${state.cible}/${state.roleId}`);
+    if (d.__error) return;
+    state.rows = (d && d.activities) || [];
+    const row = state.rows.find(x => x.activity_id === a.activity_id) || state.rows[0];
+    if (row) await ouvrirEvaluation(row);
+  }
+
+  // ── TOUTES LES NOTES, D'UN COUP ──────────────────────────────────────
+  // ⚠️ Une ligne par activité, une cellule par SORTIE : c'est le seul endroit
+  // de l'application où l'on voit d'où vient le minimum sans ouvrir une
+  // activité. La cellule d'une sortie MESURÉE porte un liseré — son niveau ne
+  // vient pas d'une note mais d'un chiffre relevé en séance, et les deux ne
+  // se corrigent pas de la même façon.
+  function renderNotes(ap) {
+    const z = $('#vo-notes');
+    if (!ap || !ap.activites.length) { z.classList.add('hidden'); return; }
+    z.classList.remove('hidden');
+    const notees = ap.activites.reduce(
+      (n, a) => n + a.sorties.filter(s => !estNul(s.niveau)).length, 0);
+    let h = `<div class="vo-ct"><p class="vo-ctitre">${esc(T('vo_notes'))}</p>
+      <span class="vo-cn">${esc(Tv('vo_notees', { n: notees, t: ap.n_sorties }))}</span></div>
+      <div class="heat">`;
+    ap.activites.forEach(a => {
+      const cells = a.sorties.length
+        ? a.sorties.map(s => {
+            const n = s.niveau;
+            const vert = !estNul(n) && (estNul(a.required_level) ? n >= SEUIL_TENU : n >= a.required_level);
+            const cls = estNul(n) ? 'q' : ((vert ? 'g' : 'n') + n);
+            return `<i class="hc ${cls}${s.mesurable && s.norme ? ' mes' : ''}"
+              title="${esc(s.nom + DP + (estNul(n) ? state.notAssessed : n + ' · ' + levelName(n)))}"
+              >${estNul(n) ? '?' : n}</i>`;
+          }).join('')
+        : `<i class="hc vide">${esc(T('vo_aucune_sortie'))}</i>`;
+      h += `<div class="hr"><span class="nm">${esc(a.activity_name)}</span>
+        <span class="cells">${cells}</span>
+        <span class="req2">${estNul(a.required_level) ? '' : esc(Tv('ou_attendu', { n: a.required_level }))}</span></div>`;
+    });
+    h += `</div><div class="hleg">
+      <span><i class="l-b"></i>${esc(T('vo_leg_sous'))}</span>
+      <span><i class="l-g"></i>${esc(T('vo_leg_atteint'))}</span>
+      <span><i class="l-m"></i>${esc(T('vo_leg_mesure'))}</span>
+      <span><i class="l-q"></i>${esc(T('vo_leg_rien'))}</span></div>`;
+    z.innerHTML = h;
+  }
+
+  // ── COMMENT UNE SORTIE A BOUGÉ ───────────────────────────────────────
+  // Le relief de l'écran d'évaluation, posé sur la vue d'ensemble : il répond
+  // à « est-ce que ça progresse ? », la question qu'on se pose avant d'ouvrir
+  // quoi que ce soit. ⚠️ Le MÊME `reliefSvg` — deux tracés d'une même
+  // progression finiraient par ne plus dire la même chose.
+  function renderRelief(ap) {
+    const z = $('#vo-relief');
+    const mes = [];
+    (ap ? ap.activites : []).forEach(a => a.sorties.forEach(s => {
+      if (s.mesurable && s.norme && (s.paliers || []).length) mes.push(s);
+    }));
+    if (!mes.length) { z.classList.add('hidden'); return; }
+    z.classList.remove('hidden');
+    let s = mes.find(x => String(x.data_id) === String(state.voSortie)) || mes[0];
+    state.voSortie = s.data_id;
+    z.innerHTML = `<div class="vo-ct">
+        <p class="vo-ctitre">${esc(Tv('vo_bouge', { x: s.nom }))}</p>
+        <span class="vo-cn ${s.qualifie ? 'ok' : ''}">${esc(
+          s.qualifie ? T('pal_qualifie') : T('vo_pas_qualifie'))}</span>
+      </div>`;
+    // ⚠️ Le sélecteur n'existe que s'il y a de quoi choisir : une rangée d'un
+    // seul bouton est un titre déguisé.
+    if (mes.length > 1) {
+      const pick = document.createElement('div');
+      pick.className = 'crb-pick';
+      mes.forEach(x => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'crb-p' + (String(x.data_id) === String(s.data_id) ? ' on' : '');
+        b.textContent = x.nom;
+        b.onclick = () => { state.voSortie = x.data_id; renderRelief(ap); };
+        pick.appendChild(b);
+      });
+      z.appendChild(pick);
+    }
+    const box = document.createElement('div');
+    box.className = 'vo-relief';
+    box.innerHTML = reliefSvg({ name: s.nom, performance: s });
+    z.appendChild(box);
+    const bil = document.createElement('div');
+    bil.innerHTML = bilanRelief(s);
+    z.appendChild(bil);
   }
 
   // ══ ÉCRAN 2 — le détail d'un rôle ══════════════════════════════════

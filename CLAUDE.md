@@ -8756,6 +8756,142 @@ classement et les marches dans un même bloc, la bande des notes, le relief au
 format compact, le radar en section dédiée) n'est PAS implantée. Seul l'écran
 où l'on note l'est.
 
+### LA VUE D'ENSEMBLE : le classement, les marches, toutes les notes (2026-11-15)
+
+Elle ne portait que le radar et la liste des rôles : on y lisait la FORME d'un
+profil, jamais ce qui le retient. Tranchée sur la même maquette que l'écran de
+notation, à l'échelle réelle. Elle porte maintenant, dans l'ordre où l'on se
+les pose : **ce qui tient tout en bas** · **le classement** des activités et
+les **marches** de celle qu'on choisit · **toutes les notes d'un coup** · le
+**relief** d'une sortie mesurée · la **prochaine séance**.
+
+#### ⚠️ Ce qui bloquait : l'API ne servait pas ces données
+
+Le classement, les marches, la bande et le relief demandent les MÊMES
+données — les sorties de chaque activité, la note qui fait foi sur chacune, et
+leurs paliers — et `/mastery/synthese` n'en porte aucune. Les servir activité
+par activité, c'est ~6 requêtes par activité (`dashboard_rows`) **plus une par
+sortie** (`paliers_de`) : le défaut déjà payé sur le tableau global de la page
+RH, qui mettait deux minutes et demie à s'ouvrir.
+
+`Code/apercu_competences.py` + `GET /mastery/apercu/<user_id>` les servent en
+un nombre **FIXE** de requêtes. Mesuré au banc : **9 requêtes** pour 8
+activités, 12 sorties et 9 paliers — et `test_145` ajoute six activités
+mesurées puis recompte : **pas une requête de plus**.
+
+- ⚠️ **Les mêmes fonctions pour trancher**, jamais une copie : `etat_sortie`
+  (paliers), `categorie_activite`, `color_for`, `couverture`,
+  `output_ids_en_bloc`. Deux écrans qui comptent avec deux codes finissent par
+  afficher deux chiffres — c'est écrit dans ce dépôt, et ça a déjà coûté une
+  enquête.
+- ⚠️ `paliers.etat_sortie` accepte désormais une progression **déjà chargée**
+  (`paliers=…`). On passe la liste plutôt que de recopier la règle ailleurs.
+- ⚠️ **Le périmètre est celui de `roles_suivis`**, comme sur la synthèse :
+  `encadre()` répond par PERSONNE, et un développeur de 2 rôles sur 4 verrait
+  les 4. Deux périmètres dans le même écran, c'est la panne « j'ai perdu mes
+  données de notation ».
+- ⚠️ Le requis d'une activité portée par **deux rôles** est le **plus
+  exigeant** : prendre le premier venu ferait dépendre le verdict de l'ordre
+  des lignes, et une activité paraîtrait tenue parce qu'un rôle n'exige rien
+  d'elle.
+
+#### ⚠️⚠️ DEUX chiffres, et ils ne disent pas la même chose
+
+`niveau` **tranche** : le minimum, et NULL tant qu'une activité évaluable
+n'est pas notée — la règle de tout le module, celle qui refuse de déclarer
+tenu quelqu'un à moitié noté. `plus_bas` **décrit** : le plus bas de ce qui est
+posé, quoi qu'il manque.
+
+C'est `plus_bas` que la vue d'ensemble montre, sous « ce qui tient tout en
+bas », et le compteur « à évaluer » dit juste à côté combien d'activités n'ont
+pas été regardées. Sans cette distinction, l'écran afficherait « — » chez
+quelqu'un qui a huit activités dont six notées, et ne dirait plus rien.
+
+#### Le CLASSEMENT, et les marches de l'activité choisie
+
+Une barre par activité, de la plus basse à la plus haute, **les sans-verdict à
+la fin** : une activité non évaluée n'a pas de rang dans la progression, elle
+n'est pas « en bas ». Cliquer une barre change les marches à droite.
+
+- ⚠️ **Un socle de 10 px** : à hauteur nulle, le niveau 0 se confondrait avec
+  « pas de barre du tout », c'est-à-dire avec NULL. Et les deux absences ne se
+  corrigent pas de la même façon — « ? » et une barre hachurée pour ce qui
+  reste à noter, « — » et un simple socle pour ce qui n'a aucune sortie :
+  l'une se note, l'autre se configure.
+- ⚠️ **La barre porte la couleur SÉMANTIQUE** de l'activité, celle que le
+  serveur calcule (CDC 3.5) et qu'elle a partout ailleurs. La bande des notes,
+  elle, a son propre dégradé bleu→vert : elle montre des SORTIES, et elle
+  porte sa légende. Deux devices, deux échelles, et chacune dit laquelle.
+- ⚠️ **Les marches réutilisent `railHtml`**, le rail de l'écran d'évaluation :
+  une sortie mesurée se lit de la même façon partout, ou elle se lit deux
+  fois. Seules ses ENCRES changent — il est posé sur un panneau sombre.
+
+#### Toutes les notes d'un coup, et le relief
+
+La bande est **le seul endroit de l'application où l'on voit D'OÙ vient le
+minimum** sans ouvrir une activité : une ligne par activité, une cellule par
+sortie, l'attendu au bout.
+⚠️ La cellule d'une sortie **mesurée** porte un liseré : son niveau ne vient
+pas d'une note mais d'un chiffre relevé en séance, et les deux ne se corrigent
+pas de la même façon.
+
+Le relief est **le MÊME `reliefSvg`** que la fenêtre des courbes : deux tracés
+d'une même progression finiraient par ne plus dire la même chose. Son
+sélecteur n'existe que s'il y a plus d'une sortie mesurée — une rangée d'un
+seul bouton est un titre déguisé.
+
+#### Deux pièges, et une leçon de méthode
+
+- ⚠️ **DEUX lectures, en PARALLÈLE** (`Promise.all`) : la synthèse porte les
+  rôles et le profil, l'aperçu porte les sorties et leurs paliers. En série,
+  c'est deux allers vers la base pour une page qui se rouvre à chaque
+  changement de collaborateur. Et un échec de l'aperçu **n'emporte pas la
+  page** : le radar et les rôles s'affichent, les cartes qui en dépendent se
+  retirent — c'est la leçon de `/panel`, qui retenait son HTML le temps d'un
+  appel et annonçait ensuite une panne.
+- ⚠️ **`renderBilan` est parti avec son seul appelant.** Ses quatre tuiles
+  sont devenues le PANNEAU du grand chiffre, à côté de ce qu'elles expliquent
+  — et elles s'affichent toujours toutes les quatre, même à zéro.
+- ⚠️ **La typographie se mesure en pixels RÉELS.** `body.pg` porte
+  `zoom: .8` : les noms du classement et les libellés du panneau, écrits à
+  9,5 px, étaient rendus à **7,6 px** — sous le plancher de l'échelle
+  (badges/méta 12, minimum 11). Remontés après mesure à l'écran.
+
+#### ⚠️ Deux injections de cliquet qui visaient À CÔTÉ
+
+Les deux sont des leçons à relire avant d'en écrire d'autres :
+
+1. **Un HOMONYME.** `.ev-ou` (l'écran de notation) et `.vo-nuit` portent la
+   MÊME ombre à quatre couches : `src.replace(present, fautif, 1)` frappait la
+   première, et le cliquet de `.vo-nuit` restait vert sur le défaut. Une
+   injection doit borner sa zone, exactement comme un cliquet qui cherche une
+   chaîne.
+2. **Un décor qui ne peut pas démentir la règle.** Le cliquet du minimum
+   partiel restait vert parce que l'activité du décor n'avait qu'UNE sortie :
+   avec une seule note, un minimum partiel et un minimum complet donnent le
+   même chiffre. Le décor porte désormais une activité à deux sorties dont une
+   seule est notée.
+
+#### Mesures
+
+Tests : `tests/test_145_vue_ensemble.py` (25 cas), plus trois cas réécrits
+dans `test_109` et `test_140` — ils affirmaient `renderBilan`. **17 cliquets
+vérifiés ROUGES.** Suite : **4354 passés**, 1 sauté.
+Éprouvé au banc (`tools/devrun_competences.py`) de 1000 à 1600 px dans les
+deux langues : les cinq états d'activité présents en même temps, le clic d'une
+barre qui change les marches, **zéro fuite française sur l'écran anglais**
+(163 textes relevés, attributs compris), zéro clé brute, zéro débordement
+horizontal.
+
+⚠️ **Trouvé en chemin, et corrigé** :
+`test_139::test_une_note_EFFACEE_arrete_le_report` rougissait **entre minuit
+et une heure à Paris**, sur HEAD comme ici. Son décor datait le palier au
+calendrier LOCAL (`date.today()`) et la note en UTC (`utcnow()`) : passé
+minuit les deux ne sont plus le même jour, le palier et la note du même geste
+tombaient dans deux colonnes, et la courbe globale démarrait une colonne trop
+loin. Même famille que `test_61_pulse` entre 00:00 et 00:08. Les deux aides
+datent désormais sur la même horloge.
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

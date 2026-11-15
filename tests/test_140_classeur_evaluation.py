@@ -118,7 +118,11 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         assert "position: sticky" in _regle(css, "\n.ev-ou {")
         # ⚠️ En colonne unique il n'a plus rien à suivre, et collé il
         # masquerait la carte qu'on vient lire.
-        etroit = css.rsplit("@media (max-width: 1100px) {", 1)[1]
+        # ⚠️ On vise le bloc étroit QUI PARLE DE LUI : la feuille en porte
+        # plusieurs au même point de bascule, et un `rsplit` prenait le
+        # dernier venu — l'ajout de la vue d'ensemble l'a montré.
+        etroit = next(b for b in css.split("@media (max-width: 1100px) {")[1:]
+                      if ".ev-ou" in b.split("\n}")[0])
         assert "position: static" in etroit
 
     def test_toutes_les_sorties_sont_VISIBLES(self):
@@ -483,15 +487,16 @@ class TestCeQuiEtaitDIT_DEUX_FOIS:
         assert "nota_mes_ko" in m
 
     def test_le_filtre_part_avec_le_rail_qu_il_filtrait(self):
-        """Un filtre qui n'a plus de liste à filtrer ne filtre rien. ⚠️ Celui
-        de la VUE D'ENSEMBLE (`renderBilan`) est un AUTRE écran : il garde ses
-        quatre tuiles, et elles s'y affichent même à zéro."""
+        """Un filtre qui n'a plus de liste à filtrer ne filtre rien. ⚠️ Les
+        quatre compteurs de la VUE D'ENSEMBLE, eux, restent : ils sont
+        devenus le PANNEAU du grand chiffre, à côté de ce qu'ils expliquent,
+        et ils s'y affichent toujours même à zéro."""
         js = _lire(JS)
         assert "function rendreFiltres" not in js
         assert "ev-f--" not in js, "les tuiles du rail sont parties avec lui"
-        b = _corps(js, "  function renderBilan(box, compte, onFiltre) {")
+        o = _corps(js, "  function renderOeil(ap) {")
         for c in ("'held'", "'gap'", "'todo'", "'setup'"):
-            assert c in b, c
+            assert c in o, c
 
 
 class TestLesCourbesQuittentLaPage:

@@ -49,14 +49,34 @@
            On entrait directement dans le détail d'un rôle. Où en est la
            personne, tous rôles confondus, ne se voyait nulle part. #}
         <section class="cv2-ecran hidden" id="cv2-ecran-synthese">
-          <div class="cv2-bilan" id="cv2-bilan"></div>
-          {# Le profil : ce que la vue d'ensemble apporte de plus que la somme
-             des cartes — la forme de ce que la personne tient, face à ce que
-             ses rôles exigent. #}
-          <div class="cv2-profil hidden" id="cv2-profil"></div>
-          {# Ce qui ATTEND la personne — la vue d'ensemble disait où elle en
-             est, jamais ce qui vient. #}
-          <div class="cv2-seances hidden" id="cv2-seances"></div>
+          {# ── Le bloc de nuit ─────────────────────────────────────────────
+             Ce qui tient tout en bas, le CLASSEMENT des activités, et les
+             MARCHES de celle qu'on choisit. ⚠️ Les quatre tuiles du bandeau
+             de situation sont devenues son panneau de compteurs : elles
+             expliquent le grand chiffre, elles se lisent à côté de lui. #}
+          <div class="vo-nuit hidden" id="vo-nuit"></div>
+
+          <div class="vo-gr">
+            {# Le profil : ce que la vue d'ensemble apporte de plus que la somme
+               des cartes — la forme de ce que la personne tient, face à ce que
+               ses rôles exigent. #}
+            <div class="cv2-profil hidden" id="cv2-profil"></div>
+            {# Toutes les notes d'un coup : une ligne par activité, une cellule
+               par sortie. Le seul endroit où l'on voit D'OÙ vient le minimum
+               sans ouvrir une activité. #}
+            <div class="vo-carte hidden" id="vo-notes"></div>
+          </div>
+
+          <div class="vo-gr">
+            {# « Est-ce que ça progresse ? » — la question qu'on se pose avant
+               d'ouvrir quoi que ce soit. Le MÊME relief que l'écran
+               d'évaluation : deux tracés d'une même progression finiraient par
+               ne plus dire la même chose. #}
+            <div class="vo-carte hidden" id="vo-relief"></div>
+            {# Ce qui ATTEND la personne — la vue d'ensemble disait où elle en
+               est, jamais ce qui vient. #}
+            <div class="cv2-seances hidden" id="cv2-seances"></div>
+          </div>
           {# ⚠️ Les cartes de rôle du bas REDISAIENT la liste « par rôle »
              posée à côté du radar : même liste, même ordre, même geste (un
              clic ouvre le rôle). Elles portaient en plus les compteurs et le

@@ -871,9 +871,18 @@ class TestLAccueilNEstPlusNu:
 
     def test_les_quatre_compteurs_s_affichent_meme_a_zero(self):
         """Trois compteurs absents sur quatre laissaient la page nue, et
-        « 0 en écart » est une information, pas un vide."""
+        « 0 en écart » est une information, pas un vide.
+
+        ⚠️ Ils ne sont plus un bandeau de tuiles : ils sont le PANNEAU du
+        grand chiffre, à côté de ce qu'ils expliquent. Mais ils sont toujours
+        quatre, et toujours tous affichés.
+        """
         js = _lire(JS)
-        assert "if (onFiltre && !compte[cle] && state.filtre !== cle) return;" in js
+        o = _corps(js, "  function renderOeil(ap) {")
+        for c in ("'held'", "'gap'", "'todo'", "'setup'"):
+            assert c in o, c
+        assert ".map(([k, lbl, t]) =>" in o, "les quatre, sans condition"
+        assert "if (!c[k])" not in o and "c[k] ?" not in o
 
     def test_la_vue_d_ensemble_porte_les_prochaines_seances(self):
         js = _lire(JS)

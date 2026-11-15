@@ -225,11 +225,18 @@ def derniere_mesure(paliers):
     return dernier.mesure_valeur, dernier.evalue_le
 
 
-def etat_sortie(d, user_id, role_id=None):
+def etat_sortie(d, user_id, role_id=None, paliers=None):
     """Tout ce qu'un écran doit savoir d'une sortie MESURABLE, pour un
     collaborateur : sa norme, sa progression, sa dernière mesure, son niveau.
+
+    ⚠️ `paliers` permet de passer une progression DÉJÀ CHARGÉE. La vue
+    d'ensemble lit des dizaines de sorties d'un coup : les relire une par une
+    ferait une requête par sortie, le défaut déjà payé sur le tableau global de
+    la page RH. On passe la liste plutôt que de recopier la règle ailleurs —
+    deux implémentations d'un même verdict finissent par diverger.
     """
-    paliers = paliers_de(user_id, d.id, role_id)
+    if paliers is None:
+        paliers = paliers_de(user_id, d.id, role_id)
     mesure, quand = derniere_mesure(paliers)
     premiere = paliers[0].cible_valeur if paliers else None
     cibles = [p.cible_valeur for p in paliers]

@@ -3748,3 +3748,239 @@ body.pg.page--competences .pg-container { max-width: 1760px; }
   .gomme { height: 62px; width: 46px; }
   .crb-ong { padding: 11px 14px 0; }
   .crb-t em { display: none; }}
+/* ═══════════ LA VUE D'ENSEMBLE : le classement et les marches ═══════════
+   Elle ne portait que le radar et la liste des rôles : on y lisait la FORME
+   d'un profil, jamais ce qui le retient. Tranchée sur maquette, à l'échelle.
+   ⚠️ Le bloc de nuit reprend le relief du vocabulaire maison — quatre ombres
+   portées empilées, deux arêtes internes. C'est le même objet que sur l'écran
+   où l'on note : une page, une grammaire. */
+.vo-nuit {
+  padding: 20px 22px 22px; border-radius: 18px; color: #fff;
+  background:
+    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, .17), transparent 54%),
+    linear-gradient(145deg, #0f1631, #1e3a8a);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .26), inset 0 -2px 0 rgba(0, 0, 0, .32),
+    0 1px 1px rgba(15, 22, 49, .22), 0 4px 9px rgba(15, 22, 49, .2),
+    0 14px 26px rgba(15, 22, 49, .26), 0 34px 60px rgba(15, 22, 49, .22);
+}
+.vo-nuit .ou-lbl {
+  margin: 0 0 6px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: rgba(255, 255, 255, .78);
+}
+.vo-nuit .cv2-i {
+  border-color: rgba(255, 255, 255, .4); color: #c5d6f7;
+  background: rgba(255, 255, 255, .12);
+}
+.vo-htop { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
+.vo-hid { flex: 1; min-width: 260px; }
+.vo-hid h1 {
+  margin: 0; font-family: var(--pg-font-display); font-size: 31px; font-weight: 700;
+  letter-spacing: -.02em; line-height: 1.05;
+}
+.vo-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 11px; }
+.vo-chips .chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px;
+  border-radius: 999px; font-size: 12.5px; color: rgba(255, 255, 255, .84);
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .22);
+}
+.vo-chips .chip b {
+  font-family: var(--pg-font-display); font-size: 15px; font-weight: 700; color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.vo-hbas { flex: none; text-align: right; }
+.vo-grand {
+  margin: 0; font-family: var(--pg-font-display); font-size: 52px; font-weight: 700;
+  line-height: .9; font-variant-numeric: tabular-nums;
+}
+.vo-grand i { margin-left: 2px; font-size: 18px; font-weight: 600; font-style: normal; opacity: .6; }
+/* ⚠️ Les quatre compteurs du bandeau de situation, devenus le PANNEAU du
+   grand chiffre : ils l'expliquent, ils se lisent à côté de lui. Le panneau
+   est creusé, comme celui de la page Temps — le même geste pour la même
+   chose. */
+.vo-pann {
+  display: flex; gap: 2px; margin-top: 12px; padding: 9px 4px; border-radius: 12px;
+  background: rgba(0, 0, 0, .2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09);
+}
+.vo-pann > div {
+  flex: 1; min-width: 72px; padding: 0 8px; text-align: center;
+  border-right: 1px solid rgba(255, 255, 255, .11);
+}
+.vo-pann > div:last-child { border-right: 0; }
+.vo-pann .e {
+  display: block; font-size: 11px; font-weight: 800; letter-spacing: .05em;
+  text-transform: uppercase; color: rgba(255, 255, 255, .6);
+}
+.vo-pann .v {
+  display: block; margin-top: 2px; font-family: var(--pg-font-display);
+  font-size: 21px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums;
+}
+.vo-pann .v.g { color: #6ee7b7; }
+.vo-pann .v.r { color: #fca5a5; }
+.vo-pann .v.a { color: #fcd34d; }
+.vo-pann .v.n { color: rgba(255, 255, 255, .62); }
+
+.vo-duo {
+  display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px;
+  align-items: start; margin-top: 22px;
+}
+.vo-dt {
+  margin: 0 0 11px; font-size: 11.5px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: rgba(255, 255, 255, .78);
+}
+
+/* ── LE CLASSEMENT ──────────────────────────────────────────────────
+   ⚠️ La HAUTEUR dit le niveau, et le socle de 10 px fait que le niveau 0 se
+   VOIE : à hauteur nulle il se confondrait avec « pas de barre du tout »,
+   c'est-à-dire avec NULL — et tout le module distingue les deux. */
+.esc { display: flex; align-items: flex-end; gap: 5px; height: 166px; }
+.esc .st {
+  position: relative; flex: 1; min-width: 0; height: 100%; padding: 0 2px;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  border: 0; background: transparent; cursor: pointer; font: inherit;
+  border-radius: 8px 8px 0 0; transition: background .14s;
+}
+.esc .st:hover { background: rgba(255, 255, 255, .07); }
+.esc .st.on {
+  background: rgba(255, 255, 255, .13);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3);
+}
+.esc .st .n {
+  margin-bottom: 5px; font-family: var(--pg-font-display); font-size: 16px;
+  font-weight: 700; color: #fff; font-variant-numeric: tabular-nums;
+}
+.esc .st .n.q { color: rgba(255, 255, 255, .45); }
+.esc .st .bar { border-radius: 5px 5px 0 0; }
+.esc .st .bar.b { background: linear-gradient(180deg, #7cb3fb, #1d4ed8); }
+.esc .st .bar.g { background: linear-gradient(180deg, #4fd6a3, #047857); }
+.esc .st .bar.r { background: linear-gradient(180deg, #f87171, #b91c1c); }
+.esc .st .bar.a { background: linear-gradient(180deg, #fbbf24, #b45309); }
+/* non évalué : hachuré, et SANS niveau — ce n'est pas un zéro */
+.esc .st .bar.q {
+  background: repeating-linear-gradient(135deg,
+    rgba(255, 255, 255, .2) 0 4px, rgba(255, 255, 255, .04) 4px 9px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18);
+}
+.esc .st .req {
+  position: absolute; left: 1px; right: 1px; border-top: 2px dashed rgba(255, 255, 255, .52);
+}
+.escn { display: flex; gap: 5px; margin-top: 9px; }
+.escn span {
+  flex: 1; min-width: 0; text-align: center; overflow-wrap: anywhere;
+  font-size: 11.5px; line-height: 1.3; color: rgba(255, 255, 255, .72);
+}
+.escn span.on { color: #fff; font-weight: 700; }
+
+/* ── LES MARCHES de l'activité choisie ──────────────────────────────
+   ⚠️ Le rail est celui de l'écran d'évaluation (`railHtml`) : une sortie
+   mesurée se lit de la même façon partout, ou elle se lit deux fois. Seules
+   ses encres changent — il est posé sur un panneau sombre. */
+.mpan {
+  min-height: 252px; padding: 15px 16px 16px; border-radius: 14px;
+  background: rgba(0, 0, 0, .2); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .09);
+}
+.mpan .mh { display: flex; align-items: baseline; gap: 9px; justify-content: space-between; }
+.mpan .mh b {
+  font-family: var(--pg-font-display); font-size: 18px; font-weight: 600; line-height: 1.2;
+}
+.mpan .mh .nm2 {
+  flex: none; white-space: nowrap; padding: 2px 7px; border-radius: 5px;
+  background: #fff; color: var(--ink); font-size: 10px; font-weight: 800;
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.mpan .msep { height: 1px; margin: 16px 0; background: rgba(255, 255, 255, .13); }
+.mpan .pal-rail { margin-top: 10px; }
+.mpan .pal-pas .pal-v { color: #fff; }
+.mpan .pal-pas .pal-s { color: rgba(255, 255, 255, .7); }
+.mpan .pal-pas .pal-m, .mpan .pal-pas .pal-q { color: rgba(255, 255, 255, .72); }
+.mpan .pal-pas .pal-m b { color: #fff; }
+.mpan .pal-pas--atteint .pal-v, .mpan .pal-pas--atteint .pal-s { color: #6ee7b7; }
+.mpan .pal-pas--manque .pal-v, .mpan .pal-pas--manque .pal-s { color: #fca5a5; }
+.mpan .pal-pas--en_cours .pal-v, .mpan .pal-pas--en_cours .pal-s,
+.mpan .pal-pas--cible .pal-v, .mpan .pal-pas--cible .pal-s { color: #bfdbfe; }
+.mpan .pal-fil--tirets { border-top-color: rgba(255, 255, 255, .3); }
+.mpan .pal-pas--cible .pal-dot { border-color: #93c5fd; }
+.mpan .pal-dot { background: rgba(255, 255, 255, .14); }
+.mpan .pal-pas--atteint .pal-dot { background: var(--pal-vert); }
+.mpan .pal-pas--manque .pal-dot { background: var(--pal-rouge); }
+.mpan .pal-drapeau { background: #fff; color: var(--ink); }
+.mpan .pal-ech { background: rgba(252, 211, 77, .18); color: #fde68a; border-color: transparent; }
+.mpan .pal-ech.est-tard { background: rgba(252, 165, 165, .2); color: #fecaca; }
+.vo-rien { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, .72); }
+.vo-ouvrir { margin-top: 16px; }
+
+/* ── Les deux rangées de cartes ─────────────────────────────────────
+   ⚠️ Le point de bascule s'écrit en pixels RÉELS : `body.pg` porte
+   `zoom: .8`, et les requêtes média ignorent ce zoom. */
+.vo-gr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.vo-gr > * { min-width: 0; }
+.vo-carte {
+  padding: 18px 20px 20px; border-radius: 16px; background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 3px 10px rgba(15, 23, 42, .04);
+}
+.vo-ct { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; }
+.vo-ctitre {
+  margin: 0; font-family: var(--pg-font-display); font-size: 17px; font-weight: 600;
+  line-height: 1.2; min-width: 0;
+}
+.vo-cn { flex: none; font-size: 11.5px; font-weight: 700; color: var(--muted); }
+.vo-cn.ok { color: var(--pal-vert); }
+
+/* ── TOUTES LES NOTES, D'UN COUP ────────────────────────────────────
+   Une ligne par activité, une cellule par SORTIE : le seul endroit où l'on
+   voit D'OÙ vient le minimum sans ouvrir une activité. */
+.heat { display: flex; flex-direction: column; gap: 5px; margin-top: 13px; }
+.heat .hr { display: flex; align-items: center; gap: 9px; }
+.heat .hr .nm {
+  flex: none; width: 166px; font-size: 12.5px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.heat .hr .cells { display: flex; gap: 4px; flex: 1; min-width: 0; }
+.heat .hc {
+  flex: 1; min-width: 0; height: 25px; border-radius: 5px; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--pg-font-display); font-size: 12.5px; font-weight: 700;
+}
+.heat .hc.n0 { background: #1e3a8a; }
+.heat .hc.n1 { background: #2563eb; }
+.heat .hc.n2 { background: #3b82f6; }
+.heat .hc.n3 { background: #60a5fa; }
+.heat .hc.n4 { background: #93c5fd; color: #1e3a8a; }
+.heat .hc.g0, .heat .hc.g1, .heat .hc.g2 { background: #059669; }
+.heat .hc.g3 { background: #10b981; }
+.heat .hc.g4 { background: #34d399; color: #064e3b; }
+/* ⚠️ Une sortie MESURÉE porte un liseré : son niveau ne vient pas d'une note
+   mais d'un chiffre relevé en séance, et les deux ne se corrigent pas de la
+   même façon. */
+.heat .hc.mes { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .85); }
+.heat .hc.q {
+  background: repeating-linear-gradient(135deg, #cbd5e1 0 4px, #eef2f7 4px 9px);
+  color: var(--muted);
+}
+.heat .hc.vide {
+  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border); color: #94a3b8;
+  font-family: var(--pg-font); font-size: 10.5px; font-weight: 600;
+}
+.heat .hr .req2 {
+  flex: none; width: 62px; text-align: right; font-size: 10.5px; color: var(--muted);
+}
+.hleg {
+  display: flex; align-items: center; gap: 13px; flex-wrap: wrap; margin-top: 12px;
+  font-size: 12px; color: var(--muted);
+}
+.hleg i {
+  display: inline-block; width: 15px; height: 10px; border-radius: 3px;
+  vertical-align: middle; margin-right: 5px;
+}
+.hleg i.l-b { background: #2563eb; }
+.hleg i.l-g { background: #10b981; }
+.hleg i.l-m { background: #2563eb; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px #94a3b8; }
+.hleg i.l-q { background: repeating-linear-gradient(135deg, #cbd5e1 0 4px, #eef2f7 4px 9px); }
+
+.vo-relief { margin-top: 10px; }
+
+@media (max-width: 1100px) {
+  .vo-duo, .vo-gr { grid-template-columns: minmax(0, 1fr); }
+  .vo-hbas { text-align: left; }
+}

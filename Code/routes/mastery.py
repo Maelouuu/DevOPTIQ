@@ -443,6 +443,26 @@ def synthese(user_id):
     }), 200
 
 
+@mastery_bp.route("/apercu/<int:user_id>", methods=["GET"])
+def apercu_route(user_id):
+    """La VUE D'ENSEMBLE : le classement des activités, les marches de chacune,
+    toutes les notes d'un coup, et de quoi tracer un relief.
+
+    ⚠️ Un seul aller-retour, et un nombre FIXE de requêtes quelle que soit la
+    taille du périmètre : voir `Code/apercu_competences.py`. Servir chaque
+    activité séparément, c'était le défaut qui mettait le tableau global de la
+    page RH à deux minutes et demie.
+    """
+    from Code.apercu_competences import apercu
+    from Code.competences_acces import peut_lire
+    if not peut_lire(current_user(), user_id):
+        return jsonify({"error": "forbidden"}), 403
+    d = apercu(current_user(), user_id)
+    if d is None:
+        return jsonify({"error": "user_not_found"}), 404
+    return jsonify(d), 200
+
+
 @mastery_bp.route("/scale", methods=["GET"])
 def scale():
     lang = _lang()
