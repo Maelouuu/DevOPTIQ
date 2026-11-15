@@ -1093,15 +1093,21 @@ class TestLEvolutionSeFermeParLeBas:
         corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
         assert "pal-evo-fin" in corps
         assert "fa-chevron-up" in corps
-        # ⚠️ En DERNIER enfant : `.pal-form` vient après l'historique, et une
-        # marche posée pendant la lecture glisserait un formulaire SOUS lui.
-        assert "card.appendChild(bas);" in corps
+        # ⚠️ DANS le panneau qu'il ferme, pas en dernier enfant de la carte :
+        # depuis que le détail s'ouvre À CÔTÉ, un « dernier enfant » tomberait
+        # sous le relief, à l'autre bout de l'écran.
+        assert "bloc.appendChild(bas);" in corps
+        assert "card.appendChild(bas);" not in corps
 
     def test_il_part_quand_la_section_se_referme(self):
+        """Il vit DANS le panneau : retirer le panneau l'emporte, et rien ne
+        peut rester orphelin au milieu de la carte."""
         js = _lire(JS)
         corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
         avant = corps.split("card.dataset.evo = '';", 1)[0]
-        assert ".pal-evo-fin" in avant, "le repli doit le retirer"
+        assert "ouvert.remove();" in avant, "le repli doit retirer le panneau"
+        pose = corps.split("const bloc = blocHistorique(r);", 1)[1]
+        assert "bloc.appendChild(bas);" in pose
 
     def test_il_a_son_style(self):
         css = _lire(CSS)

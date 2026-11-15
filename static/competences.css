@@ -2401,6 +2401,24 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
    ouvrait une activité — deux pages d'un même écran. */
 body.pg.page--competences .pg-container { max-width: 1760px; }
 
+/* ⚠️ Et le BANDEAU suit, sinon il flotte. Mesuré à 1800 px : le conteneur
+   de la page fait 1 408 px réels, et `.page-banner` plafonne à 1200 px CSS
+   — 960 réels. Un bandeau 448 px plus étroit que tout ce qui le suit, centré
+   au-dessus : c'est ce décalage qu'on lit comme un défaut de mise en page,
+   bien avant le détail des cartes. */
+body.pg.page--competences .page-banner { max-width: none; }
+
+/* ⚠️ L'ACCUEIL se cadre plus étroit, et c'est ce qui aligne tout : à 1 760 px,
+   trois cartes plafonnées à 460 px se centraient en laissant 123 px de
+   gouttière de chaque côté pendant que le bandeau et les compteurs allaient
+   d'un bord à l'autre.
+   ⚠️⚠️ Et la largeur ne se devine pas : avec `repeat(auto-fit, minmax(A, B))`
+   où B est une LONGUEUR, le nombre de pistes se calcule sur B, jamais sur A.
+   Mesuré — à 1 440 px, le contenu fait 1 396 et `floor((1396+14) / 474)` rend
+   DEUX pistes : resserrer avait empiré les choses. Il en faut 1 452 pour
+   trois ; 1 500 les pose avec 24 px de marge de chaque côté. */
+body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
+
 /* Le petit « i » : la même pastille partout. */
 .ev-i {
   width: 17px; height: 17px; flex: none; border-radius: 50%;
@@ -4145,19 +4163,32 @@ button.mail:active { transform: translateY(1px); }
   margin-bottom: 14px;
 }
 .gal-tuiles { display: flex; gap: 10px; flex: 1 1 520px; flex-wrap: wrap; }
+/* La tuile porte le MÊME liseré que la carte qu'elle résume : c'est ce qui
+   les fait lire comme une famille. */
 .gal-t {
+  position: relative; overflow: hidden;
   flex: 1 1 0; min-width: 142px;
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-  padding: 10px 13px; display: flex; align-items: center; gap: 10px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  padding: 13px 16px 12px; display: block;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, .03), 0 3px 8px -4px rgba(15, 23, 42, .09);
 }
-.gal-t .pt { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.gal-t .n { display: block; font-family: var(--pg-font-display); font-size: 23px; font-weight: 600; line-height: 1; }
-.gal-t .k { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
-.gal-t--g .pt { background: var(--cv-green); } .gal-t--g .n { color: var(--cv-green-deep); }
-.gal-t--r .pt { background: var(--cv-red); }   .gal-t--r .n { color: var(--cv-red-deep); }
-.gal-t--a .pt { background: var(--cv-orange); }.gal-t--a .n { color: var(--cv-orange-deep); }
-.gal-t--n .pt { background: var(--cv-grey); }  .gal-t--n .n { color: var(--muted); }
+.gal-t::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; }
+.gal-t--g::before { background: var(--cv-green); }
+.gal-t--r::before { background: var(--cv-red); }
+.gal-t--a::before { background: var(--cv-orange); }
+.gal-t--n::before { background: var(--cv-grey); }
+.gal-t .n {
+  display: block; font-family: var(--pg-font-display); font-size: 26px;
+  font-weight: 600; line-height: 1; letter-spacing: -.01em;
+}
+.gal-t .k {
+  display: block; font-size: 11px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted); margin-top: 4px;
+}
+.gal-t--g .n { color: var(--cv-green-deep); }
+.gal-t--r .n { color: var(--cv-red-deep); }
+.gal-t--a .n { color: var(--cv-orange-deep); }
+.gal-t--n .n { color: var(--muted); }
 
 .gal-rech { position: relative; flex: 0 1 262px; display: flex; align-items: center; }
 .gal-rech i {
@@ -4165,8 +4196,9 @@ button.mail:active { transform: translateY(1px); }
 }
 .gal-rech input[type="search"] {
   width: 100%; font: inherit; font-size: 13.5px; font-weight: 600;
-  padding: 10px 12px 10px 32px; border-radius: 10px;
+  padding: 12px 13px 12px 34px; border-radius: 12px;
   border: 1px solid var(--border); background: var(--card); color: var(--ink);
+  box-shadow: 0 1px 1px rgba(15, 23, 42, .03), 0 3px 8px -4px rgba(15, 23, 42, .09);
 }
 .gal-rech input[type="search"]:focus {
   outline: none; border-color: var(--pg-accent);
@@ -4195,8 +4227,15 @@ button.mail:active { transform: translateY(1px); }
   position: relative; display: block; width: 100%; text-align: left;
   font: inherit; color: inherit; cursor: pointer;
   background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 16px 16px 13px; overflow: hidden;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  padding: 17px 18px 14px; overflow: hidden;
+  /* La lumière ne fait pas UNE ombre nette : quatre couches, de la plus
+     serrée à la plus diffuse. C'est ce qui pose la carte sur la page au lieu
+     de l'y coller. */
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, .03),
+    0 2px 4px -1px rgba(15, 23, 42, .04),
+    0 8px 16px -8px rgba(15, 23, 42, .09),
+    0 20px 32px -20px rgba(15, 23, 42, .10);
   transition: transform .18s, box-shadow .18s, border-color .18s;
 }
 .gal-c::before {
@@ -4207,16 +4246,20 @@ button.mail:active { transform: translateY(1px); }
 .gal-c--a::before { background: var(--cv-orange); }
 .gal-c:hover, .gal-c:focus-visible {
   border-color: var(--pg-accent); transform: translateY(-2px);
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--pg-accent) 14%, transparent);
+  box-shadow:
+    0 1px 1px rgba(15, 23, 42, .04),
+    0 10px 20px -10px color-mix(in srgb, var(--pg-accent) 38%, transparent),
+    0 26px 44px -26px color-mix(in srgb, var(--pg-accent) 34%, transparent);
 }
 .gal-c:focus-visible { outline: none; }
 
 .gal-c-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .gal-av {
-  width: 38px; height: 38px; border-radius: 11px; flex: none;
+  width: 40px; height: 40px; border-radius: 12px; flex: none;
   display: grid; place-items: center; color: #fff;
   background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
-  font-size: 13px; font-weight: 800;
+  font-size: 13.5px; font-weight: 800; letter-spacing: .02em;
+  box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--pg-accent) 55%, transparent);
 }
 .gal-ident { display: block; min-width: 0; }
 .gal-nom {
@@ -4234,9 +4277,14 @@ button.mail:active { transform: translateY(1px); }
 .gal-radar {
   flex: 0 0 158px; aspect-ratio: 1; display: grid; place-items: center;
 }
+/* ⚠️ Une phrase grise seule au milieu de la place du radar se lit comme
+   un échec de chargement. Le disque en pointillé dit que le graphe EXISTE,
+   qu'il n'y a simplement pas encore de quoi le tracer. */
 .gal-sans {
+  display: grid; place-items: center; width: 100%; height: 100%;
+  border-radius: 50%; border: 1px dashed var(--border-strong);
   font-size: 11.5px; font-weight: 700; color: var(--faint); text-align: center;
-  padding: 0 10px; line-height: 1.35;
+  padding: 0 16px; line-height: 1.35;
 }
 .gal-chif { flex: 1 1 0; min-width: 0; }
 .gal-cov { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
@@ -4269,9 +4317,11 @@ button.mail:active { transform: translateY(1px); }
 .gal-p--a { background: var(--cv-orange); }
 .gal-p--n { background: var(--cv-grey); }
 
+/* Un filet PLEIN, pas pointillé : le pointillé dit « provisoire », et ce
+   pied porte le compte de ce qui est noté et la porte du dossier. */
 .gal-c-p {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border);
+  margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--border);
   font-size: 12px; font-weight: 700; color: var(--muted);
 }
 .gal-c-p .go { color: var(--pg-accent-deep); white-space: nowrap; }
@@ -4304,4 +4354,47 @@ button.mail:active { transform: translateY(1px); }
    large. La règle de base sait déjà passer à deux colonnes, puis à une. */
 @media (max-width: 1000px) {
   .gal-rech { flex: 1 1 100%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LE DÉTAIL DES SÉANCES S'OUVRE À CÔTÉ (2026-11-15)
+   ───────────────────────────────────────────────────────────────────────────
+   Il ne faisait RIEN sur la vue d'ensemble : `renderRelief` rendait le bouton
+   et ne le câblait nulle part. Et il s'ouvrait en dessous, alors que la page
+   a de la place à droite — mesuré, la colonne de droite était 358 px plus
+   courte que celle du relief.
+
+   ⚠️ Partager la carte EN L'ÉTAT était impossible : le relief a un viewBox de
+   828 unités et `width: 100%`. Dans les 680 px réels d'une colonne il se
+   rendait déjà à 0,78 — libellés entre 6,6 et 10,2 px RÉELS, sous le plancher
+   de 11 — et à 490 px il serait tombé à 4 px. C'est pour ça que le relief est
+   devenu une BANDE pleine largeur : à 1 373 px réels il se rend à 1,66, et il
+   reste lisible même une fois le panneau ouvert.
+   ─────────────────────────────────────────────────────────────────────────── */
+/* La bande respire plus large que les cartes de colonne : elle porte un
+   graphe, pas une liste. */
+.vo-bande { padding: 20px 26px 22px; }
+
+.pal-evo-duo { display: grid; grid-template-columns: minmax(0, 1fr); }
+.pal-evo-g { min-width: 0; }
+
+.pal-evo-cote[data-evo="1"] .pal-evo-duo {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+  column-gap: 24px;
+  align-items: start;
+}
+.pal-evo-cote[data-evo="1"] .pal-histo {
+  padding: 0 2px 10px 24px;
+  border-left: 1px solid var(--border);
+}
+/* ⚠️ Sous cette largeur, les deux colonnes ramèneraient le relief à moins de
+   500 px et ses libellés sous 5 px : on repasse en pile, comme la fenêtre des
+   courbes le fait de toute façon. La borne est en px RÉELS — `body.pg` porte
+   `zoom: .8` et les requêtes média l'ignorent. */
+@media (max-width: 1150px) {
+  .pal-evo-cote[data-evo="1"] .pal-evo-duo { grid-template-columns: minmax(0, 1fr); }
+  .pal-evo-cote[data-evo="1"] .pal-histo {
+    border-left: 0; border-top: 1px solid var(--border);
+    padding: 10px 22px 10px; margin-top: 12px;
+  }
 }

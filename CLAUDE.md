@@ -9231,6 +9231,102 @@ résultat), un collaborateur qui entre droit dans son dossier sans voir de
 galerie, zéro erreur console, et **zéro fuite française sur l'écran anglais**
 (516 clés, 492 pièges, 158 textes relevés, attributs compris).
 
+#### Le détail des séances ne faisait RIEN, et le bandeau flottait (2026-11-15)
+
+« Structurellement c'est top ; on peut améliorer le visuel, pas ce que
+contiennent les sections — les graphiques — mais le reste. Et dans la section
+"comment machin a bougé", une fois un user sélectionné, le bouton détail des
+séances ne marche plus. Mets en sorte qu'il se développe sur le côté, comme on
+a de la place, plutôt que de rallonger en bas. »
+
+#### ⚠️⚠️ Le bouton était rendu et câblé NULLE PART
+
+`bilanRelief` écrit « Le détail des séances → » ; `rendreValeurs` (la fenêtre
+des courbes) branche `[data-evol]` sur `basculerHisto`. **`renderRelief`, lui,
+ne branchait rien** : sur la vue d'ensemble, le bouton existait depuis le jour
+de son arrivée et ne faisait rien. Mesuré au banc avant correction :
+`b.onclick === null`.
+
+#### ⚠️⚠️ Et le partager EN L'ÉTAT était impossible — c'est la mesure qui a tranché
+
+Le relief a un `viewBox` de **828 unités** et `width: 100 %`. Dans les 680 px
+réels d'une colonne de la vue d'ensemble il se rendait déjà à **0,78**, et ses
+libellés tombaient entre **6,6 et 10,2 px RÉELS** — sous le plancher de 11 de
+l'échelle typographique. Ouvrir un panneau à côté l'aurait ramené à 490 px,
+soit **4 px**. Illisible.
+
+Le relief quitte donc les deux colonnes et devient une **BANDE pleine largeur**
+(`vo-bande`, posée après `.vo-cols`). Trois conséquences, toutes mesurées :
+
+| | avant | après |
+|---|---|---|
+| le SVG du relief | 647 px réels (×0,78) | **1 316** (×1,59) |
+| ses libellés | 6,6 à 10,2 px réels | **13 à 21** |
+| panneau ouvert | — | relief 961 px (×1,16), panneau 336 |
+| hauteur de la bande | 619 px | **491** une fois ouverte |
+
+Elle rééquilibre aussi les colonnes : la gauche faisait 801 px contre 443 à
+droite — **358 px de vide**, exactement la place que l'utilisateur voyait.
+
+- ⚠️ `.pal-evo-duo` porte les deux colonnes et `.pal-evo-g` tient le relief et
+  son bilan. Sans ce couple, le panneau se place sous le bilan.
+- ⚠️ **Un seul bouton de fermeture à côté.** Le bouton du bas existe parce que,
+  empilé, celui qui a OUVERT se retrouve en plein milieu. À côté il ne bouge
+  pas d'un pixel : un second bouton ne ferait que doubler celui qu'on a sous
+  les yeux. La fenêtre des courbes, elle, reste empilée (1 060 px : le partage
+  y ramènerait les libellés sous 6 px) et garde le sien.
+- ⚠️ Sous **1150 px réels**, la bande repasse en pile. La borne est en px
+  RÉELS — `body.pg` porte `zoom: .8` et les requêtes média l'ignorent.
+- ⚠️ **`innerHTML` vide les enfants, PAS l'attribut.** Changer de sortie
+  pendant que le détail est ouvert laissait `data-evo="1"` sur une bande sans
+  panneau : deux colonnes dont la seconde est vide, et un relief rétréci pour
+  rien. Trouvé en relisant le code, pas à l'écran.
+
+#### Le bandeau de page flottait — sur TOUS les écrans de la page
+
+`.page-banner` plafonne à **1200 px CSS** quand
+`body.pg.page--competences .pg-container` va à **1760**. Mesuré à 1800 px :
+960 px réels de bandeau au-dessus de 1 408 px de contenu — **448 px plus
+étroit**, centré. C'est ce décalage qu'on lit comme un défaut de mise en page,
+bien avant le détail des cartes. Le bandeau suit désormais le conteneur.
+
+#### ⚠️⚠️ `repeat(auto-fit, minmax(A, B))` compte les pistes sur B, pas sur A
+
+Et resserrer peut donc EMPIRER les choses. La galerie plafonne ses cartes à
+460 px ; à 1 760 px, trois cartes se centraient en laissant 123 px de gouttière
+de chaque côté pendant que le bandeau et les compteurs allaient d'un bord à
+l'autre. Premier essai : conteneur à 1 440 px. Mesuré —
+`floor((1396 + 14) / 474)` rend **DEUX** pistes, et la galerie est passée à
+deux cartes par rangée. Il en faut **1 452** pour trois ; l'accueil se cadre à
+**1 500** (classe `a-cv2-galerie`), ce qui pose les trois cartes avec 24 px de
+marge. Bandeau, compteurs et cartes s'alignent enfin.
+
+#### La passe de style — tout sauf les graphiques
+
+- la **tuile** porte le MÊME liseré coloré que la carte qu'elle résume (c'est
+  ce qui les fait lire comme une famille), son chiffre passe à 26 px, et la
+  pastille ronde part : elle redisait le liseré ;
+- les **cartes** prennent une ombre à **quatre couches** — la lumière ne fait
+  pas une ombre nette, et c'est ce qui les pose sur la page au lieu de les y
+  coller. Même traitement au survol, en accent ;
+- le **pied de carte** passe du pointillé au filet plein : le pointillé dit
+  « provisoire », et ce pied porte le compte des notes et la porte du dossier ;
+- ⚠️ **« Aucune activité à évaluer » était faux et se lisait comme une panne.**
+  Le radar manque quand il y a moins de trois axes à tracer, pas quand il n'y a
+  rien à évaluer. Le libellé devient « Pas encore de quoi tracer un profil », et
+  il s'inscrit dans un **disque en pointillé** : une phrase grise seule au
+  milieu de la place du radar se lit comme un échec de chargement.
+
+#### Mesures
+
+Tests : `test_145` (+5), `test_147` (+3), et trois cas de `test_109` et
+`test_145` réécrits sur ce qui reste vrai. **9 gardes retirées une par une,
+9 cliquets tombés.** Suite : **4 431 passés**, 1 sauté ; repet_image
+4 359 passés + 72 sautés. Éprouvé au banc à 1400 et 1800 px dans les deux langues : le bouton
+ouvre et referme, le panneau est à droite du relief, la bande RACCOURCIT en
+s'ouvrant, et **zéro fuite française sur l'écran anglais** (363 textes relevés,
+attributs compris — les quatre relevés sont des DONNÉES du banc).
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

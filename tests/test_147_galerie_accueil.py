@@ -496,6 +496,38 @@ class TestLEcran:
             assert (cle + ":") in fr, "FR : " + cle
             assert (cle + ":") in en, "EN : " + cle
 
+    def test_le_bandeau_de_page_SUIT_le_conteneur(self):
+        """⚠️ Mesuré à 1800 px : le conteneur fait 1 408 px réels et
+        `.page-banner` plafonne à 1200 px CSS — 960 réels. Un bandeau 448 px
+        plus étroit que tout ce qui le suit, centré au-dessus : c'est ce
+        décalage qu'on lit comme un défaut de mise en page."""
+        css = _sans_commentaires_css(_lire(CSS))
+        regle = _regle(css, "body.pg.page--competences .page-banner {")
+        assert "max-width: none" in regle
+
+    def test_l_accueil_a_sa_propre_largeur(self):
+        """⚠⚠ Avec `repeat(auto-fit, minmax(A, B))` où B est une LONGUEUR, le
+        nombre de pistes se calcule sur B. À 1 440 px le contenu fait 1 396 et
+        `floor((1396+14) / 474)` rend DEUX pistes : resserrer avait empiré les
+        choses. Il en faut 1 452 pour trois."""
+        css = _sans_commentaires_css(_lire(CSS))
+        regle = _regle(css, "body.pg.page--competences.a-cv2-galerie .pg-container {")
+        larg = int(regle.split("max-width:", 1)[1].split("px", 1)[0].strip())
+        assert larg >= 1452, "trois cartes de 460 px n'y tiendraient pas"
+        js = _sans_commentaires_js(_lire(JS))
+        assert "classList.toggle('a-cv2-galerie'" in js
+
+    def test_la_tuile_porte_le_MEME_lisere_que_la_carte(self):
+        """C'est ce qui les fait lire comme une famille — et la pastille ronde
+        qui faisait double emploi avec lui est partie."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert ".gal-t::before" in css
+        for ton in ("g", "r", "a", "n"):
+            assert ".gal-t--%s::before" % ton in css, ton
+        js = _sans_commentaires_js(_lire(JS))
+        bloc = js.split("const tuile = (k, lbl, ton) =>", 1)[1][:320]
+        assert 'class="pt"' not in bloc, "la pastille redit le liseré"
+
     def test_la_galerie_ne_retient_PAS_le_rendu_le_temps_d_une_lecture(self):
         """C'est la leçon de `/panel`, qui attendait 25 s puis annonçait une
         panne : le squelette part d'abord, les chiffres arrivent ensuite."""

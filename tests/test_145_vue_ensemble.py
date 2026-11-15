@@ -550,10 +550,60 @@ class TestLEspacementDesCartes:
         assert 'class="vo-cols"' in g
         assert g.count('class="vo-col"') == 2
         assert "vo-gr" not in g, "les rangées ne reviennent pas"
-        for carte, col in (("cv2-profil", 0), ("vo-relief", 0),
-                           ("vo-notes", 1), ("cv2-seances", 1)):
+        for carte, col in (("cv2-profil", 0), ("vo-notes", 1), ("cv2-seances", 1)):
             avant = g.split('id="%s"' % carte, 1)[0]
             assert avant.count('class="vo-col"') == col + 1, carte
+
+    def test_le_relief_est_une_BANDE_hors_des_colonnes(self):
+        """⚠️ Mesuré : dans les 680 px réels d'une colonne, le SVG (828 unités
+        de viewBox) se rendait à 0,78 et ses libellés tombaient entre 6,6 et
+        10,2 px RÉELS — sous le plancher de 11. Et c'est ce qui permet au
+        détail des séances de s'ouvrir à côté : le partager dans une colonne
+        aurait ramené les libellés à 4 px."""
+        g = _lire(GABARIT)
+        apres = g.split('id="vo-relief"', 1)[0]
+        assert apres.count('class="vo-col"') == 2, "la bande vient APRÈS les deux colonnes"
+        assert "vo-bande" in g.split('id="vo-relief"', 1)[0][-220:]
+
+    def test_le_bouton_du_detail_des_seances_est_CABLE(self):
+        """⚠⚠ Il était rendu par `bilanRelief` et branché NULLE PART : sur la
+        vue d'ensemble, « Le détail des séances » ne faisait rien. Seule
+        `rendreValeurs`, dans la fenêtre des courbes, le câblait."""
+        corps = _corps(_lire(JS), "  function renderRelief(ap) {")
+        assert "[data-evol]" in corps, "le bouton doit être retrouvé"
+        assert "basculerHisto(" in corps, "et branché"
+
+    def test_le_detail_s_ouvre_A_COTE_et_pas_en_dessous(self):
+        """La page a de la place à droite — mesuré, la colonne des notes
+        était 358 px plus courte que celle du relief."""
+        corps = _corps(_lire(JS), "  function renderRelief(ap) {")
+        assert "pal-evo-duo" in corps and "pal-evo-g" in corps
+        assert "pal-evo-cote" in corps
+        css = _sans_commentaires_css(_lire(CSS))
+        regle = _regle(css, '.pal-evo-cote[data-evo="1"] .pal-evo-duo {')
+        assert "grid-template-columns" in regle
+        assert regle.count("minmax(") == 2, "deux colonnes, pas une"
+
+    def test_changer_de_sortie_REFERME_le_panneau(self):
+        """⚠️ `innerHTML` vide les enfants, PAS l'attribut : changer de sortie
+        pendant que le détail est ouvert laissait `data-evo="1"` sur une bande
+        sans panneau — deux colonnes dont la seconde est vide, et un relief
+        rétréci pour rien."""
+        corps = _corps(_lire(JS), "  function renderRelief(ap) {")
+        assert "z.dataset.evo = ''" in corps
+
+    def test_la_fenetre_des_courbes_reste_EMPILEE(self):
+        """⚠️ Elle fait 1 060 px : partager le relief y ramènerait ses libellés
+        sous 6 px. Une seule fonction, deux présentations — et c'est la
+        PRÉSENCE du couple qui tranche, pas une largeur devinée dans le JS."""
+        corps = _corps(_lire(JS), "  function rendreValeurs(st, box) {")
+        assert "pal-evo-duo" not in corps
+        assert "pal-evo-cote" not in corps
+        # Et le bouton du bas ne sert QUE là : à côté, celui qui a ouvert ne
+        # bouge pas d'un pixel.
+        bascule = _corps(_lire(JS), "  function basculerHisto(card, r) {")
+        avant = bascule.split("} else {", 1)[0]
+        assert "pal-evo-fin" not in avant, "pas de second bouton à côté"
 
     def test_un_SEUL_ecart_separe_toutes_les_cartes(self):
         """Il en vivait trois : le `gap` de la grille, la marge basse du

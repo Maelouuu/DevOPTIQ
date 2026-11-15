@@ -397,7 +397,7 @@
       g_profil: 'Profil de [[n]]',
       g_noted_1: '[[n]] activité notée sur [[t]]',
       g_noted_n: '[[n]] activités notées sur [[t]]',
-      g_no_act: 'Aucune activité à évaluer',
+      g_no_act: 'Pas encore de quoi tracer un profil',
       p_by_role: 'Par rôle',
       p_detail: 'Détail du rôle', p_back_radar: 'Revenir au profil',
       p_bars_hint: 'Cliquez un point du graphe pour ouvrir le détail d\u2019un rôle.',
@@ -825,7 +825,7 @@
       g_profil: 'Profile of [[n]]',
       g_noted_1: '[[n]] activity assessed out of [[t]]',
       g_noted_n: '[[n]] activities assessed out of [[t]]',
-      g_no_act: 'No activity to assess',
+      g_no_act: 'Not enough yet to plot a profile',
       p_by_role: 'By role',
       p_detail: 'Role detail', p_back_radar: 'Back to the profile',
       p_bars_hint: 'Click a point on the chart to open a role\u2019s detail.',
@@ -1014,9 +1014,12 @@
   function renderGalerie(g) {
     const zone = $('#cv2-ecran-galerie');
     const t = g.totaux || {};
+    // La pastille ronde faisait double emploi avec le liseré de la tuile,
+    // qui porte déjà la couleur de l'état — et c'est le même liseré que la
+    // carte qu'elle résume.
     const tuile = (k, lbl, ton) =>
-      `<div class="gal-t gal-t--${ton}"><span class="pt"></span>
-         <span><span class="n">${t[k] || 0}</span><span class="k">${esc(T(lbl))}</span></span></div>`;
+      `<div class="gal-t gal-t--${ton}">
+         <span class="n">${t[k] || 0}</span><span class="k">${esc(T(lbl))}</span></div>`;
     zone.innerHTML = `
       <div class="gal-haut">
         <div class="gal-tuiles">
@@ -1166,6 +1169,12 @@
     pleineLargeur(nom !== 'synthese' && nom !== 'galerie');
     const lay = document.querySelector('.cv2-layout');
     if (lay && nom === 'galerie') lay.classList.add('hidden');
+    // ⚠️ L'accueil se cadre plus étroit que le reste de la page, et c'est
+    // ce qui l'aligne : à 1 760 px, trois cartes plafonnées à 460 px se
+    // centraient en laissant 123 px de gouttière de chaque côté, pendant que
+    // le bandeau et la rangée de compteurs allaient d'un bord à l'autre. À
+    // 1 440 px, les trois cartes remplissent la largeur au pixel près.
+    document.body.classList.toggle('a-cv2-galerie', nom === 'galerie');
     $('#cv2-sub').textContent = nom === 'galerie'
       ? T('g_team') : (state.cibleNom || T('pick_collab'));
     // ⚠️ Sur la VUE D'ENSEMBLE, la barre des collaborateurs passe EN HAUT :
@@ -1548,13 +1557,34 @@
       });
       z.appendChild(pick);
     }
+    // ⚠️ Le détail des séances s'ouvre À CÔTÉ : `.pal-evo-duo` porte les
+    // deux colonnes, et `.pal-evo-g` tient le relief et son bilan. Sans ce
+    // couple, le panneau se placerait sous le bilan et rallongerait la carte
+    // — alors que la bande a toute la largeur de la page.
+    const duo = document.createElement('div');
+    duo.className = 'pal-evo-duo';
+    const g = document.createElement('div');
+    g.className = 'pal-evo-g';
     const box = document.createElement('div');
     box.className = 'vo-relief';
     box.innerHTML = reliefSvg({ name: s.nom, performance: s });
-    z.appendChild(box);
+    g.appendChild(box);
     const bil = document.createElement('div');
     bil.innerHTML = bilanRelief(s);
-    z.appendChild(bil);
+    g.appendChild(bil);
+    duo.appendChild(g);
+    z.appendChild(duo);
+    z.classList.add('pal-evo-cote');
+    // ⚠️ `innerHTML` vide les enfants, PAS l'attribut : changer de sortie
+    // pendant que le détail est ouvert laissait `data-evo="1"` sur une bande
+    // sans panneau — deux colonnes dont la seconde est vide, et un relief
+    // rétréci pour rien.
+    z.dataset.evo = '';
+    // ⚠️⚠️ Le bouton « Le détail des séances » était rendu ici et CÂBLÉ
+    // NULLE PART : il ne faisait rien, depuis le jour où le relief est
+    // arrivé sur la vue d'ensemble. `rendreValeurs` le branchait, pas celle-ci.
+    const b = z.querySelector('[data-evol]');
+    if (b) b.onclick = () => basculerHisto(z, { name: s.nom, performance: s });
   }
 
   // ══ ÉCRAN 2 — le détail d'un rôle ══════════════════════════════════
@@ -5642,36 +5672,45 @@
     return quand ? { quand: quand, n: n } : null;
   }
 
-  // ── Le détail des séances se déplie DANS la carte, sous le relief ──
+  // ── Le détail des séances ──
   // ⚠️ Il n'y a plus de second graphe à ouvrir : le relief EST le graphe, et
   // il est là dès l'ouverture de la carte. Ce qui se déplie, c'est ce qu'il
   // ne peut pas montrer — séance par séance, qui a relevé quoi, et la preuve.
+  // ⚠️ OÙ il se déplie dépend de la PLACE, et c'est mesuré : sur la bande
+  // pleine largeur de la vue d'ensemble il s'ouvre À CÔTÉ (`.pal-evo-duo`) ;
+  // dans la fenêtre des courbes, qui fait 1 060 px, le partage ramènerait les
+  // libellés du relief sous 6 px et il s'empile comme avant.
   function basculerHisto(card, r) {
     const ouvert = card.querySelector('.pal-histo');
     if (ouvert) {
       ouvert.remove();
-      const f = card.querySelector('.pal-evo-fin');
-      if (f) f.remove();
       card.dataset.evo = '';
       majLibelleEvo(card, false);
       return;
     }
-    // ⚠️ Le BILAN, pas un pied de carte : depuis que le relief vit dans la
-    // fenêtre des courbes, `.pal-pied` n'existe plus — un `querySelector` qui
-    // rend `null` aurait coupé toute la suite sans rien dire.
-    const anc = card.querySelector('.pal-bilan') || card.lastElementChild;
-    anc.insertAdjacentElement('afterend', blocHistorique(r));
-    // ⚠️ Le bouton qui a OUVERT la section se retrouve en plein milieu une
-    // fois l'historique déplié : il faut le chercher pour refermer. On
-    // referme donc par le BAS, là où la lecture s'arrête.
-    const bas = document.createElement('button');
-    bas.type = 'button'; bas.className = 'pal-evo-fin';
-    bas.innerHTML = `<i class="fa-solid fa-chevron-up"></i>${esc(T('rel_detail_off'))}`;
-    bas.onclick = () => { basculerHisto(card, r); card.scrollIntoView({ block: 'nearest' }); };
-    // ⚠️ En DERNIER enfant de la carte, pas après l'historique : `.pal-form`
-    // vient après lui, et une marche posée pendant qu'on lit l'évolution
-    // glisserait un formulaire SOUS le bouton qui sert à la refermer.
-    card.appendChild(bas);
+    const bloc = blocHistorique(r);
+    const duo = card.querySelector('.pal-evo-duo');
+    if (duo) {
+      // À CÔTÉ : le bouton qui a OUVERT la section ne bouge pas d'un pixel —
+      // il reste au pied du relief, et son libellé devient « masquer ». Un
+      // second bouton de fermeture dans le panneau ne ferait que doubler
+      // celui qu'on a sous les yeux.
+      duo.appendChild(bloc);
+    } else {
+      // EMPILÉ : là, le bouton d'ouverture se retrouve en plein milieu une
+      // fois l'historique déplié, et il faut le chercher pour refermer. On
+      // referme donc par le BAS de ce qu'on ferme.
+      const bas = document.createElement('button');
+      bas.type = 'button'; bas.className = 'pal-evo-fin';
+      bas.innerHTML = `<i class="fa-solid fa-chevron-up"></i>${esc(T('rel_detail_off'))}`;
+      bas.onclick = () => { basculerHisto(card, r); card.scrollIntoView({ block: 'nearest' }); };
+      bloc.appendChild(bas);
+      // ⚠️ Le BILAN, pas un pied de carte : depuis que le relief vit dans
+      // la fenêtre des courbes, `.pal-pied` n'existe plus — un
+      // `querySelector` qui rend `null` aurait coupé la suite sans rien dire.
+      const anc = card.querySelector('.pal-bilan') || card.lastElementChild;
+      anc.insertAdjacentElement('afterend', bloc);
+    }
     card.dataset.evo = '1';
     majLibelleEvo(card, true);
   }

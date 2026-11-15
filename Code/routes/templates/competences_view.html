@@ -82,11 +82,6 @@
                  somme des cartes — la forme de ce que la personne tient,
                  face à ce que ses rôles exigent. #}
               <div class="cv2-profil hidden" id="cv2-profil"></div>
-              {# « Est-ce que ça progresse ? » — la question qu'on se pose
-                 avant d'ouvrir quoi que ce soit. Le MÊME relief que l'écran
-                 d'évaluation : deux tracés d'une même progression
-                 finiraient par ne plus dire la même chose. #}
-              <div class="vo-carte hidden" id="vo-relief"></div>
             </div>
             <div class="vo-col">
               {# Toutes les notes d'un coup : une ligne par activité, une
@@ -98,6 +93,18 @@
               <div class="cv2-seances hidden" id="cv2-seances"></div>
             </div>
           </div>
+          {# « Est-ce que ça progresse ? » — la question qu'on se pose avant
+             d'ouvrir quoi que ce soit. Le MÊME relief que l'écran
+             d'évaluation : deux tracés d'une même progression finiraient par
+             ne plus dire la même chose.
+             ⚠️⚠️ Une BANDE pleine largeur, et pas une carte de colonne.
+             Mesuré : dans 680 px réels, le SVG (828 unités de viewBox) se
+             rendait à 0,78 et ses libellés tombaient entre 6,6 et 10,2 px
+             RÉELS — sous le plancher de 11 de l'échelle typographique. En
+             bande il se rend à 1,66. Et c'est ce qui permet au détail des
+             séances de s'ouvrir À CÔTÉ plutôt qu'en dessous : le partager
+             dans une colonne aurait ramené les libellés à 4 px. #}
+          <div class="vo-carte vo-bande hidden" id="vo-relief"></div>
           {# ⚠️ Les cartes de rôle du bas REDISAIENT la liste « par rôle »
              posée à côté du radar : même liste, même ordre, même geste (un
              clic ouvre le rôle). Elles portaient en plus les compteurs et le
