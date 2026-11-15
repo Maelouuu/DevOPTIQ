@@ -29,29 +29,17 @@ def contexte():
     Un seul appel décide donc du mode. Le masquage n'est pas une sécurité : les
     routes d'écriture refusent de leur côté (`Code/competences_acces.py`).
     """
-    from Code.competences_acces import _statut_eleve
+    from Code.competences_acces import collaborateurs_de
     from Code.permissions import current_user
 
     moi = current_user()
     if moi is None:
         return jsonify({'error': 'not_logged_in'}), 401
 
-    encadres = {u.id: u for u in User.query.filter_by(manager_id=moi.id).all()}
-    for ur in UserRole.query.filter_by(manager_id=moi.id).all():
-        if ur.user_id not in encadres:
-            u = db.session.get(User, ur.user_id)
-            if u is not None:
-                encadres[u.id] = u
-    est_dev = bool(encadres)
-
-    # Un coordinateur ou un administrateur arbitre partout : il voit tout le monde,
-    # même sans rattachement — sinon il ne pourrait pas reprendre un dossier.
-    if not est_dev and _statut_eleve(moi):
-        encadres = {u.id: u for u in User.query.all() if u.id != moi.id}
-        est_dev = bool(encadres)
-
-    gens = sorted(encadres.values(),
-                  key=lambda u: ((u.last_name or ''), (u.first_name or '')))
+    # ⚠️ La liste vient de `collaborateurs_de`, et de nulle part ailleurs : la
+    # galerie d'accueil sert une carte pour CHACUN de ces gens. Deux listes
+    # finiraient par ne plus se recouvrir.
+    gens, est_dev = collaborateurs_de(moi)
     dev = User.query.get(moi.manager_id) if moi.manager_id else None
     # Annoncer l'IA AVANT de la lancer : promettre une analyse puis servir un
     # repli, c'est exactement ce qu'on reprochait à cet écran.

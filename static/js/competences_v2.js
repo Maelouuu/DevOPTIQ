@@ -389,6 +389,15 @@
       r_open: 'Ouvrir', r_activity_one: 'activité', r_activity_many: 'activités', r_level: 'Niveau du rôle',
       p_title: 'Profil de compétences', p_role_one: 'rôle', p_role_many: 'rôles',
       p_coverage: 'du requis tenu', p_required: 'Requis', p_demonstrated: 'Démontré',
+      // La GALERIE d'accueil. `p_coverage`, `b_held`/`b_gap`/`b_todo`/`b_setup`
+      // et `r_activity_*` sont ceux de la vue d'ensemble : un seul vocabulaire.
+      g_team: "Où en est votre équipe ?", g_back: "L'équipe",
+      g_open: 'Ouvrir son dossier', g_search: 'Rechercher un collaborateur',
+      g_nores: 'Aucun collaborateur ne porte ce nom.',
+      g_profil: 'Profil de [[n]]',
+      g_noted_1: '[[n]] activité notée sur [[t]]',
+      g_noted_n: '[[n]] activités notées sur [[t]]',
+      g_no_act: 'Aucune activité à évaluer',
       p_by_role: 'Par rôle',
       p_detail: 'Détail du rôle', p_back_radar: 'Revenir au profil',
       p_bars_hint: 'Cliquez un point du graphe pour ouvrir le détail d\u2019un rôle.',
@@ -810,6 +819,13 @@
       r_open: 'Open', r_activity_one: 'activity', r_activity_many: 'activities', r_level: 'Role level',
       p_title: 'Competency profile', p_role_one: 'role', p_role_many: 'roles',
       p_coverage: 'of the requirement met', p_required: 'Required', p_demonstrated: 'Demonstrated',
+      g_team: 'Where does your team stand?', g_back: 'The team',
+      g_open: 'Open their file', g_search: 'Search for a team member',
+      g_nores: 'No team member by that name.',
+      g_profil: 'Profile of [[n]]',
+      g_noted_1: '[[n]] activity assessed out of [[t]]',
+      g_noted_n: '[[n]] activities assessed out of [[t]]',
+      g_no_act: 'No activity to assess',
       p_by_role: 'By role',
       p_detail: 'Role detail', p_back_radar: 'Back to the profile',
       p_bars_hint: 'Click a point on the chart to open a role\u2019s detail.',
@@ -885,6 +901,9 @@
 
   const state = {
     moi: null, estDev: false,
+    // La GALERIE d'accueil : les gens listés, leurs cartes, et le texte du
+    // champ de recherche — il survit au re-rendu que fait le retour.
+    gens: [], galerie: null, galQ: '',
     cible: null, cibleNom: '',
     ecran: null, roleId: null, roleName: null,
     scale: {}, notAssessed: '', domScale: {},
@@ -960,11 +979,131 @@
     const gens = state.estDev ? ctx.collaborateurs
       : [{ id: ctx.moi.id, first_name: ctx.moi.first_name, last_name: ctx.moi.last_name, moi: true }];
     $('#cv2-collab-title').textContent = state.estDev ? T('collaborators') : T('me');
+    state.gens = gens;
     renderCollabs(gens);
     if (await ouvrirDemande(gens)) return;
     // Un seul dossier à regarder : on l'ouvre, personne n'a envie de cliquer
     // sur son propre nom pour entrer chez soi.
-    if (gens.length === 1) choisirCollab(gens[0], $('#cv2-collab').firstElementChild);
+    if (gens.length === 1) { choisirCollab(gens[0], $('#cv2-collab').firstElementChild); return; }
+    await ouvrirGalerie();
+  }
+
+  // ══ ÉCRAN 0 — la GALERIE ═══════════════════════════════════════════════
+  // La page s'ouvrait sur une phrase dans un cadre pointillé : mesuré à
+  // 1600 × 1000, 726 px de vide et 38 % de la largeur utilisée. Et la barre
+  // des collaborateurs passait de 214 × 253 à gauche à 1373 × 67 en haut dès
+  // qu'on choisissait quelqu'un — ce n'était plus le même objet.
+  async function ouvrirGalerie() {
+    montrerEcran('galerie');
+    // ⚠️ On ne retient JAMAIS le rendu le temps d'une lecture : le squelette
+    // part tout de suite, les chiffres arrivent ensuite. C'est la leçon de
+    // `/panel`, qui attendait 25 s puis annonçait une panne.
+    if (!state.galerie) showBusy(T('loading'), '#cv2-ecran-galerie');
+    const g = await api('/mastery/galerie');
+    if (g.__error) { montrerVide(T('req_failed')); return; }
+    state.galerie = g;
+    renderGalerie(g);
+    const ret = $('#cv2-vers-galerie');
+    if (ret) { ret.classList.remove('hidden'); ret.onclick = () => ouvrirGalerie(); }
+  }
+
+  // Minuscules sans accents : « Théo » se trouve en tapant « theo ».
+  const pliage = s => String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  function renderGalerie(g) {
+    const zone = $('#cv2-ecran-galerie');
+    const t = g.totaux || {};
+    const tuile = (k, lbl, ton) =>
+      `<div class="gal-t gal-t--${ton}"><span class="pt"></span>
+         <span><span class="n">${t[k] || 0}</span><span class="k">${esc(T(lbl))}</span></span></div>`;
+    zone.innerHTML = `
+      <div class="gal-haut">
+        <div class="gal-tuiles">
+          ${tuile('held', 'b_held', 'g')}${tuile('gap', 'b_gap', 'r')}
+          ${tuile('todo', 'b_todo', 'a')}${tuile('setup', 'b_setup', 'n')}
+        </div>
+        <label class="gal-rech">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input type="search" id="gal-q" value="${esc(state.galQ || '')}"
+                 placeholder="${esc(T('g_search'))}" aria-label="${esc(T('g_search'))}">
+        </label>
+      </div>
+      <div class="gal-grille">${(g.gens || []).map(carteGal).join('')}</div>
+      <p class="gal-rien hidden" id="gal-rien">${esc(T('g_nores'))}</p>`;
+
+    zone.querySelectorAll('.gal-c').forEach(b => {
+      b.onclick = () => {
+        const u = (state.gens || []).find(x => String(x.id) === b.dataset.uid);
+        if (u) choisirCollab(u);
+      };
+    });
+    // ⚠️ `input`, pas `change` : `change` n'arrive qu'à la perte du focus, donc
+    // le champ ne filtrerait rien pendant la frappe, sans la moindre erreur
+    // pour le dire.
+    const q = $('#gal-q');
+    if (q) q.addEventListener('input', () => { state.galQ = q.value; filtrerGalerie(); });
+    filtrerGalerie();
+  }
+
+  function carteGal(c) {
+    const nom = `${c.first_name} ${c.last_name}`.trim();
+    const cpt = c.compte || {};
+    // La couleur du liseré dit ce qui ARRIVE en premier : un écart appelle une
+    // action, une activité non évaluée un regard, le reste est tenu.
+    const ton = cpt.gap ? 'r' : (cpt.todo ? 'a' : 'g');
+    // La MÊME règle que le radar du dossier : un axe existe dès qu'il y a
+    // QUELQUE CHOSE à y porter — un requis OU un démontré — et on garde les
+    // plus parlantes, le serveur les ayant triées par écart croissant.
+    const axes = (c.axes || []).filter(a =>
+      (!estNul(a.required_level) && a.required_level > 0) || !estNul(a.demonstrated_level));
+    const vus = axes.slice(0, RADAR_MAX_AXES);
+    const ligne = (k, lbl, ton2) =>
+      `<span class="gal-e"><i class="gal-p--${ton2}"></i><b>${cpt[k] || 0}</b>${esc(T(lbl))}</span>`;
+    return `
+      <button type="button" class="gal-c gal-c--${ton}" data-uid="${esc(c.user_id)}"
+              data-nom="${esc(pliage(nom))}">
+        <span class="gal-c-h">
+          <span class="gal-av">${esc(initials(c.first_name, c.last_name))}</span>
+          <span class="gal-ident">
+            <span class="gal-nom">${esc(nom)}</span>
+            <span class="gal-roles">${(c.roles || []).map(r => `<i>${esc(r)}</i>`).join('')}</span>
+          </span>
+        </span>
+        <span class="gal-c-b">
+          <span class="gal-radar">${vus.length >= 3
+            ? radarSVG(vus, { mini: true, R: 56, CX: 75, CY: 75,
+                              titre: Tv('g_profil', { n: nom }) })
+            : `<span class="gal-sans">${esc(T('g_no_act'))}</span>`}</span>
+          <span class="gal-chif">
+            <span class="gal-cov"><b>${estNul(c.couverture) ? '—'
+              : c.couverture + '<small>%</small>'}</b><span>${esc(T('p_coverage'))}</span></span>
+            <span class="gal-jauge"><i style="width:${estNul(c.couverture) ? 0 : c.couverture}%"></i></span>
+            <span class="gal-etats">
+              ${ligne('held', 'b_held', 'g')}${ligne('gap', 'b_gap', 'r')}
+              ${ligne('todo', 'b_todo', 'a')}${ligne('setup', 'b_setup', 'n')}
+            </span>
+          </span>
+        </span>
+        <span class="gal-c-p">
+          <span>${esc(nf('g_noted', c.n_evaluated || 0, c.n_activities || 0))}</span>
+          <span class="go">${esc(T('g_open'))} →</span>
+        </span>
+      </button>`;
+  }
+
+  // ⚠️ On MASQUE, on ne re-rend pas : réécrire la grille à chaque frappe ferait
+  // perdre le curseur du champ qu'on tape.
+  function filtrerGalerie() {
+    const q = pliage(state.galQ || '').trim();
+    let n = 0;
+    document.querySelectorAll('#cv2-ecran-galerie .gal-c').forEach(c => {
+      const ok = !q || (c.dataset.nom || '').indexOf(q) >= 0;
+      c.hidden = !ok;
+      if (ok) n++;
+    });
+    const rien = $('#gal-rien');
+    if (rien) rien.classList.toggle('hidden', n > 0);
   }
 
   // `?personne=<id>&role=<id>` — une case du tableau global de la page RH.
@@ -996,6 +1135,9 @@
     $('#cv2-collab-empty').classList.add('hidden');
     list.forEach(u => {
       const li = document.createElement('li');
+      // La carte d'accueil ouvre un dossier sans passer par cette liste : elle
+      // designe la ligne a allumer par son id.
+      li.dataset.uid = u.id;
       li.innerHTML = `<span class="av">${esc(initials(u.first_name, u.last_name))}</span>` +
         `<span>${esc(u.first_name)} ${esc(u.last_name)}</span><span class="chev">›</span>`;
       li.onclick = () => choisirCollab(u, li);
@@ -1003,7 +1145,7 @@
     });
   }
 
-  const ECRANS = ['#cv2-ecran-synthese', '#cv2-ecran-eval',
+  const ECRANS = ['#cv2-ecran-galerie', '#cv2-ecran-synthese', '#cv2-ecran-eval',
                   '#cv2-ecran-seance', '#cv2-ecran-cal'];
 
   function montrerVide(msg) {
@@ -1014,11 +1156,18 @@
   function montrerEcran(nom) {
     state.ecran = nom;
     $('#cv2-placeholder').classList.add('hidden');
+    $('#cv2-ecran-galerie').classList.toggle('hidden', nom !== 'galerie');
     $('#cv2-ecran-synthese').classList.toggle('hidden', nom !== 'synthese');
     $('#cv2-ecran-eval').classList.toggle('hidden', nom !== 'eval');
     $('#cv2-ecran-seance').classList.toggle('hidden', nom !== 'seance');
     $('#cv2-ecran-cal').classList.toggle('hidden', nom !== 'cal');
-    pleineLargeur(nom !== 'synthese');
+    // ⚠️ La GALERIE garde le bandeau de page (elle n'ecrit le nom de personne)
+    // mais pas la barre : les cartes SONT la liste.
+    pleineLargeur(nom !== 'synthese' && nom !== 'galerie');
+    const lay = document.querySelector('.cv2-layout');
+    if (lay && nom === 'galerie') lay.classList.add('hidden');
+    $('#cv2-sub').textContent = nom === 'galerie'
+      ? T('g_team') : (state.cibleNom || T('pick_collab'));
     // ⚠️ Sur la VUE D'ENSEMBLE, la barre des collaborateurs passe EN HAUT :
     // en colonne elle prenait 268 px de large à une page qui en a besoin —
     // le bloc de nuit y porte deux colonnes, et le panneau des marches
@@ -1042,7 +1191,10 @@
   // ══ ÉCRAN 1 — la synthèse ══════════════════════════════════════════
   async function choisirCollab(u, li) {
     document.querySelectorAll('.cv2-collab li').forEach(x => x.classList.remove('active'));
-    if (li) li.classList.add('active');
+    // Une carte d'accueil ouvre un dossier sans passer par la liste : on
+    // retrouve sa ligne par l'id, sinon la barre n'allumerait personne.
+    const ligne = li || document.querySelector(`.cv2-collab li[data-uid="${u.id}"]`);
+    if (ligne) ligne.classList.add('active');
     state.cible = u.id; state.cibleNom = `${u.first_name} ${u.last_name}`.trim();
     $('#cv2-sub').textContent = state.cibleNom;
     await chargerSynthese();
@@ -1745,8 +1897,13 @@
     });
   }
 
-  function radarSVG(axes) {
-    const R = 132, CX = 260, CY = 186, MAX = 4;
+  // `opts.mini` : la vignette d'une carte d'accueil. MEME fonction, donc
+  // meme geometrie et meme regle de couche — deux tracages d'un meme profil
+  // finiraient par ne plus dire la meme chose.
+  function radarSVG(axes, opts) {
+    const o = opts || {};
+    const mini = !!o.mini;
+    const R = o.R || 132, CX = o.CX || 260, CY = o.CY || 186, MAX = 4;
     const n = axes.length;
     const pt = (i, v) => {
       const a = (Math.PI * 2 * i / n) - Math.PI / 2;
@@ -1787,21 +1944,31 @@
       return suites.map(p => `<polyline class="${partielle}"
           points="${p.map(c => c.map(x => x.toFixed(1)).join(',')).join(' ')}"></polyline>`).join('');
     };
-    const coucheReq = couche('required_level', 'cv2-r-req', 'cv2-r-req-part');
+    // ⚠️ En MINIATURE, le requis passe en FANTOME. Il est le meme pour tout le
+    // monde — c'est la carto qui l'impose — donc rempli il devient la forme
+    // dominante et toutes les cartes se ressemblent trait pour trait. Ce qui
+    // distingue les gens, c'est le demontre : c'est lui qu'on remplit.
+    const coucheReq = couche('required_level',
+                             mini ? 'cv2-r-req--g' : 'cv2-r-req',
+                             mini ? 'cv2-r-req--g' : 'cv2-r-req-part');
     const coucheDem = couche('demonstrated_level', 'cv2-r-dem', 'cv2-r-dem-part');
     const points = axes.map((a, i) => {
       if (estNul(a.demonstrated_level)) return '';
       const [x, y] = pt(i, a.demonstrated_level);
       const sous = a.demonstrated_level < a.required_level ? ' cv2-r-pt--sous' : '';
-      return `<circle class="cv2-r-pt${sous}" data-axe="${i}" data-role="${a.role_id}"
-          cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.8"></circle>`;
+      return `<circle class="cv2-r-pt${sous}" data-axe="${i}"${
+        mini ? '' : ` data-role="${a.role_id}"`}
+          cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${mini ? 2.6 : 3.8}"></circle>`;
     }).join('');
 
     // ⚠️ Les noms d'activite sont longs et se chevauchent des qu'on depasse
     // une poignee d'axes. On coupe court (16 signes) et on rend l'axe SURVOLABLE :
     // le nom entier, son role et ses deux niveaux s'affichent dans une bulle.
     // Un libelle complet grave dans le SVG deborderait quoi qu'on fasse.
-    const etiquettes = axes.map((a, i) => {
+    // ⚠️ Une vignette ne porte PAS d'etiquettes : a 150 px, neuf noms
+    // d'activite en 10,5 px ne tiennent pas. C'est la FORME qui se lit d'un
+    // coup d'oeil ; les noms sont a l'interieur, sur le grand radar.
+    const etiquettes = mini ? '' : axes.map((a, i) => {
       const [x, y] = pt(i, MAX + 0.52);
       const ancre = Math.abs(x - CX) < 14 ? 'middle' : (x > CX ? 'start' : 'end');
       const nom = a.activity_name.length > 16 ? a.activity_name.slice(0, 15) + '…' : a.activity_name;
@@ -1812,8 +1979,9 @@
         </g>`;
     }).join('');
 
-    return `<svg class="cv2-radar" viewBox="14 6 492 370" role="img"
-                 aria-label="${esc(T('p_title'))}">
+    return `<svg class="cv2-radar${mini ? ' cv2-radar--mini' : ''}"
+                 viewBox="${mini ? `0 0 ${CX * 2} ${CY * 2}` : '14 6 492 370'}" role="img"
+                 aria-label="${esc(o.titre || T('p_title'))}">
         ${toile}
         ${coucheReq}
         ${coucheDem}

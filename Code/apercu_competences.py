@@ -33,17 +33,32 @@ from Code.routes.mastery import (categorie_activite, color_for, couverture,
 from Code.routes.qualify_outputs import output_ids_en_bloc
 
 
+def _paliers_multi(user_ids, data_ids):
+    """{(user_id, data_id): [palier, …]} — la progression de PLUSIEURS
+    personnes en UNE requête, dans l'ordre où `paliers_de` la rend.
+
+    ⚠️ Une requête par personne, c'est le défaut que tout ce fichier existe
+    pour éviter : la galerie d'accueil les lit toutes d'un coup.
+    """
+    par_sortie = defaultdict(list)
+    if not user_ids or not data_ids:
+        return par_sortie
+    for p in (PalierPerformance.query
+              .filter(PalierPerformance.user_id.in_(list(user_ids)),
+                      PalierPerformance.data_id.in_(list(data_ids)))
+              .order_by(PalierPerformance.rang, PalierPerformance.id).all()):
+        par_sortie[(p.user_id, p.data_id)].append(p)
+    return par_sortie
+
+
 def _paliers_en_bloc(user_id, data_ids):
     """{data_id: [palier, …]} — toute la progression d'une personne en UNE
     requête, dans l'ordre où `paliers_de` la rend."""
+    multi = _paliers_multi([user_id], data_ids)
     par_sortie = defaultdict(list)
-    if not data_ids:
-        return par_sortie
-    for p in (PalierPerformance.query
-              .filter(PalierPerformance.user_id == user_id,
-                      PalierPerformance.data_id.in_(list(data_ids)))
-              .order_by(PalierPerformance.rang, PalierPerformance.id).all()):
-        par_sortie[p.data_id].append(p)
+    for (uid, did), lst in multi.items():
+        if uid == user_id:
+            par_sortie[did] = lst
     return par_sortie
 
 
@@ -61,39 +76,17 @@ def _requis_en_bloc(role_ids):
     return requis
 
 
-def apercu(acteur, user_id):
-    """Ce que la vue d'ensemble affiche, pour un collaborateur.
+def _activites_du(user_id, act_ids, roles, requis, actes, sorties_par_act,
+                  datas, refs, paliers):
+    """Une ligne par activité, pour UNE personne — dans l'ordre d'`act_ids`.
 
-    ⚠️ On ne liste QUE les rôles que l'acteur suit : `encadre()` répond par
-    PERSONNE, et un développeur de 2 rôles sur 4 verrait les 4. C'est la règle
-    de `roles_suivis`, et elle est la même ici que sur `/mastery/synthese` —
-    deux périmètres dans le même écran, c'est la panne « j'ai perdu mes
-    données de notation ».
+    ⚠️ Extrait d'`apercu` pour que la GALERIE d'accueil et la vue d'ensemble
+    comptent avec le MÊME code. Une carte d'accueil est la vignette du dossier
+    qu'elle ouvre : deux calculs d'un même niveau finiraient par afficher deux
+    chiffres, et c'est une enquête qu'on a déjà payée ici.
+
+    `paliers` est indexé par `data_id` : la progression de CETTE personne.
     """
-    from Code.competences_globales import _references
-    from Code.competences_acces import roles_suivis
-
-    cible = User.query.get(user_id)
-    if not cible:
-        return None
-
-    suivis = roles_suivis(acteur, user_id)
-    liens = UserRole.query.filter_by(user_id=user_id).all()
-    role_ids = [ur.role_id for ur in liens
-                if suivis is None or ur.role_id in suivis]
-    roles = {r.id: r for r in Role.query.filter(Role.id.in_(role_ids)).all()} if role_ids else {}
-
-    requis = _requis_en_bloc(roles.keys())
-    act_ids = sorted({a for (a, _r) in requis})
-    actes = {a.id: a for a in Activities.query.filter(Activities.id.in_(act_ids)).all()} \
-        if act_ids else {}
-
-    sorties_par_act = output_ids_en_bloc(act_ids)
-    data_ids = sorted({d for s in sorties_par_act.values() for d in s})
-    datas = {d.id: d for d in Data.query.filter(Data.id.in_(data_ids)).all()} if data_ids else {}
-    refs = _references([user_id], act_ids)
-    paliers = _paliers_en_bloc(user_id, data_ids)
-
     activites = []
     for aid in act_ids:
         act = actes.get(aid)
@@ -147,6 +140,44 @@ def apercu(acteur, user_id):
         ligne["level_label"] = level_label(niveau)
         ligne["sorties"] = sorties
         activites.append(ligne)
+    return activites
+
+
+def apercu(acteur, user_id):
+    """Ce que la vue d'ensemble affiche, pour un collaborateur.
+
+    ⚠️ On ne liste QUE les rôles que l'acteur suit : `encadre()` répond par
+    PERSONNE, et un développeur de 2 rôles sur 4 verrait les 4. C'est la règle
+    de `roles_suivis`, et elle est la même ici que sur `/mastery/synthese` —
+    deux périmètres dans le même écran, c'est la panne « j'ai perdu mes
+    données de notation ».
+    """
+    from Code.competences_globales import _references
+    from Code.competences_acces import roles_suivis
+
+    cible = User.query.get(user_id)
+    if not cible:
+        return None
+
+    suivis = roles_suivis(acteur, user_id)
+    liens = UserRole.query.filter_by(user_id=user_id).all()
+    role_ids = [ur.role_id for ur in liens
+                if suivis is None or ur.role_id in suivis]
+    roles = {r.id: r for r in Role.query.filter(Role.id.in_(role_ids)).all()} if role_ids else {}
+
+    requis = _requis_en_bloc(roles.keys())
+    act_ids = sorted({a for (a, _r) in requis})
+    actes = {a.id: a for a in Activities.query.filter(Activities.id.in_(act_ids)).all()} \
+        if act_ids else {}
+
+    sorties_par_act = output_ids_en_bloc(act_ids)
+    data_ids = sorted({d for s in sorties_par_act.values() for d in s})
+    datas = {d.id: d for d in Data.query.filter(Data.id.in_(data_ids)).all()} if data_ids else {}
+    refs = _references([user_id], act_ids)
+    paliers = _paliers_en_bloc(user_id, data_ids)
+
+    activites = _activites_du(user_id, act_ids, roles, requis, actes,
+                              sorties_par_act, datas, refs, paliers)
 
     # Le classement : du plus bas au plus haut, et ce qui n'a pas de verdict à
     # la fin — une activité non évaluée n'est pas un zéro, elle n'a pas de
@@ -187,3 +218,123 @@ def apercu(acteur, user_id):
                         key=lambda r: r["role_name"].lower()),
         "activites": activites,
     }
+
+
+# ══ La GALERIE d'accueil ════════════════════════════════════════════════
+# Une carte par collaborateur, chacune avec le profil qu'on retrouvera en
+# grand dans son dossier. Tout ce qui suit sert à la servir en un nombre FIXE
+# de requêtes : `apercu` par personne, ce serait une dizaine chacune — dix
+# personnes, cent requêtes, à ~15 ms l'aller vers Neon.
+
+
+def _suivis_en_bloc(acteur, user_ids):
+    """{user_id: None | [role_id, …]} — la règle de `roles_suivis`, en BLOC.
+
+    `None` veut dire « aucune restriction » ; une liste VIDE veut dire « il
+    n'en suit aucun ». Les confondre rouvrirait le défaut que `roles_suivis`
+    ferme — un développeur de 2 rôles sur 4 qui en voit 4.
+
+    ⚠️ L'appeler par personne referait deux requêtes chacune : on lit les
+    comptes et les rattachements par rôle une fois pour toutes.
+    """
+    from Code.competences_acces import _statut_eleve
+    if acteur is None:
+        return {uid: [] for uid in user_ids}
+    if _statut_eleve(acteur):
+        return {uid: None for uid in user_ids}
+    gens = ({u.id: u for u in User.query.filter(User.id.in_(list(user_ids))).all()}
+            if user_ids else {})
+    par_role = defaultdict(list)
+    for ur in UserRole.query.filter_by(manager_id=acteur.id).all():
+        par_role[ur.user_id].append(ur.role_id)
+    out = {}
+    for uid in user_ids:
+        u = gens.get(uid)
+        if uid == acteur.id or (u is not None and u.manager_id == acteur.id):
+            out[uid] = None
+        else:
+            out[uid] = par_role.get(uid, [])
+    return out
+
+
+def galerie(acteur, gens):
+    """Une carte par collaborateur : son profil, sa couverture, ses compteurs.
+
+    `gens` est la liste d'objets `User` à montrer — celle que la page sert
+    déjà (`/competences/contexte`), donc celle que l'acteur a le droit de
+    lire. Le périmètre des RÔLES, lui, reste celui de `roles_suivis`.
+
+    ⚠️ Les axes du mini radar sont ceux de CETTE personne, triés par écart
+    croissant — exactement `synthese.profil`, que le radar du dossier dessine.
+    Une carte est la vignette du dossier qu'elle ouvre : des axes communs à
+    tout le monde donneraient deux graphes différents de la même personne.
+    """
+    from Code.competences_globales import _references
+
+    user_ids = [u.id for u in gens]
+    suivis = _suivis_en_bloc(acteur, user_ids)
+
+    # Les rôles tenus, puis les activités de ces rôles : deux requêtes pour
+    # tout le monde, pas deux par personne.
+    roles_de = defaultdict(list)
+    if user_ids:
+        for ur in UserRole.query.filter(UserRole.user_id.in_(user_ids)).all():
+            s = suivis.get(ur.user_id)
+            if s is None or ur.role_id in s:
+                roles_de[ur.user_id].append(ur.role_id)
+    tous_roles = sorted({rid for lst in roles_de.values() for rid in lst})
+    roles = ({r.id: r for r in Role.query.filter(Role.id.in_(tous_roles)).all()}
+             if tous_roles else {})
+
+    requis = _requis_en_bloc(tous_roles)
+    act_ids = sorted({a for (a, _r) in requis})
+    actes = ({a.id: a for a in Activities.query.filter(Activities.id.in_(act_ids)).all()}
+             if act_ids else {})
+    sorties_par_act = output_ids_en_bloc(act_ids)
+    data_ids = sorted({d for s in sorties_par_act.values() for d in s})
+    datas = ({d.id: d for d in Data.query.filter(Data.id.in_(data_ids)).all()}
+             if data_ids else {})
+    refs = _references(user_ids, act_ids)
+    paliers = _paliers_multi(user_ids, data_ids)
+
+    # Une passe pour ranger les paliers par personne : les reparcourir tous à
+    # chaque collaborateur ferait grandir le coût avec le carré de l'effectif.
+    pal_de = defaultdict(dict)
+    for (uid, did), lst in paliers.items():
+        pal_de[uid][did] = lst
+
+    cartes, totaux = [], {"held": 0, "gap": 0, "todo": 0, "setup": 0}
+    for u in gens:
+        mes_roles = {rid: roles[rid] for rid in roles_de.get(u.id, []) if rid in roles}
+        mes_acts = sorted({a for (a, rid) in requis if rid in mes_roles})
+        lignes = _activites_du(u.id, mes_acts, mes_roles, requis, actes,
+                               sorties_par_act, datas, refs, pal_de.get(u.id, {}))
+        compte = {"held": 0, "gap": 0, "todo": 0, "setup": 0}
+        for a in lignes:
+            compte[a["etat"]] += 1
+            totaux[a["etat"]] += 1
+        # Le MÊME tri que `synthese.profil` : l'écart le plus criant d'abord,
+        # ce qui n'a pas d'écart à la fin. C'est l'ordre des axes du radar du
+        # dossier — la vignette doit avoir la même forme que l'original.
+        axes = [{"activity_id": a["activity_id"],
+                 "activity_name": a["activity_name"],
+                 "required_level": a["required_level"],
+                 "demonstrated_level": a["demonstrated_level"]}
+                for a in sorted(lignes,
+                                key=lambda a: ((a["gap"] if a["gap"] is not None else 99),
+                                               a["activity_name"].lower()))]
+        poses = [a["demonstrated_level"] for a in lignes
+                 if a["demonstrated_level"] is not None]
+        cartes.append({
+            "user_id": u.id,
+            "first_name": u.first_name or "",
+            "last_name": u.last_name or "",
+            "roles": sorted((nom_affiche(r) for r in mes_roles.values()),
+                            key=lambda n: n.lower()),
+            "n_activities": len(lignes),
+            "n_evaluated": len(poses),
+            "couverture": couverture(lignes),
+            "compte": compte,
+            "axes": axes,
+        })
+    return {"gens": cartes, "totaux": totaux}

@@ -798,7 +798,11 @@ class TestLeProfilSeDessineDesQuUneCibleExiste:
         """Un axe dont aucun rôle n'a fixé la cible dirait « rien n'est exigé
         ici » — la même distinction que pour le démontré (NULL ≠ 0)."""
         js = _lire(JS)
-        corps = js.split("  function radarSVG(axes) {", 1)[1].split("\n  }", 1)[0]
+        # ⚠️ L'ancre porte le NOM de la fonction, pas sa signature : elle a
+        # pris un second argument le jour où la vignette des cartes d'accueil
+        # est arrivée, et le cliquet tombait sur un écran qui n'avait pas
+        # changé.
+        corps = js.split("  function radarSVG(axes", 1)[1].split("\n  }", 1)[0]
         assert "const coucheReq = couche('required_level'" in corps
         assert "cv2-r-req-part" in corps
         assert "poly(req)" not in corps, "plus de polygone fermé sur le requis"
@@ -809,7 +813,10 @@ class TestLeProfilSeDessineDesQuUneCibleExiste:
         polygone sur un sommet absent le ferait passer par zéro, c'est-à-dire
         par « non démontré » — ce que tout le module distingue."""
         js = _lire(JS)
-        corps = js.split("const tout = axes.every(", 1)[1][:900]
+        # ⚠️ On borne sur ce qui SUIT, pas sur une longueur : 900 signes
+        # tenaient jusqu'au jour où un commentaire s'est glissé dedans, et le
+        # cliquet a rougi sans qu'une seule règle ait bougé.
+        corps = js.split("const tout = axes.every(", 1)[1].split("const points", 1)[0]
         assert "cv2-r-dem-part" in corps, "les morceaux de polyligne"
         assert "polyline" in corps
         css = _lire(CSS)

@@ -9107,6 +9107,130 @@ ouvre les barres et ne survit pas au collaborateur suivant, et **zéro fuite
 française sur l'écran anglais** (1 082 textes relevés, attributs compris —
 tout ce qui reste en français est une DONNÉE du banc).
 
+### LA GALERIE D'ACCUEIL : la page ne s'ouvre plus sur une phrase (2026-11-15)
+
+« Cette sous-page fait une page très vide et qui de toute façon ne conserve
+pas sa structure, alors autant la reprendre ; il serait sympa d'avoir le
+graphique de l'ancienne page pour visualiser en un coup d'œil les compétences
+du collaborateur. » Mesuré avant de redessiner, à 1600 × 1000 :
+
+| | avant |
+|---|---|
+| vide sous le seul contenu de la page | **726 px** (la page fait 1000) |
+| largeur utilisée | **38 %** — 432 px de cadre pointillé pour 1144 disponibles |
+| la barre des collaborateurs | **214 × 253 à gauche**, puis **1373 × 67 en haut** dès qu'on choisit quelqu'un |
+| information sur l'équipe | **aucune**, alors que tout était déjà calculé |
+
+Le reproche sur la structure était exact et il est chiffrable : ce n'est pas
+une adaptation, c'est un autre objet.
+
+**Tranché sur maquette** — trois organisations cliquables à l'échelle réelle,
+avec les données du banc (artefact « Écran d'accueil Compétences ») : **A** la
+galerie, **B** la barre qui ne bouge pas plus un radar d'équipe, **C** les
+deux. Retenu : **A**. C'est la dixième fois que la méthode évite une journée
+écrite pour rien.
+
+#### Ce que l'écran montre
+
+Une carte par collaborateur : son profil en vignette, sa couverture, ses
+quatre compteurs, et ce qui reste à noter. **Les cartes SONT la liste** — pas
+de barre à l'arrivée ; une barre de noms au-dessus d'une grille des mêmes noms
+serait deux portes pour un seul geste. La barre revient quand on entre dans un
+dossier, et un bouton **« L'équipe »** y ramène.
+
+#### ⚠️ Le serveur : `apercu` par personne, c'était dix requêtes chacune
+
+`Code/apercu_competences.py::galerie(acteur, gens)` + `GET /mastery/galerie`.
+Un nombre **FIXE** de requêtes quel que soit l'effectif — mesuré : trois
+collaborateurs de plus ne coûtent pas une requête de plus. C'est le défaut qui
+mettait le tableau global de la page RH à deux minutes et demie.
+
+- ⚠️ **La carte est la VIGNETTE du dossier, pas un second calcul.** Le corps
+  de la boucle d'`apercu` est extrait dans `_activites_du` et les deux
+  l'appellent : deux calculs d'un même niveau finiraient par afficher deux
+  chiffres, et c'est une enquête qu'on a déjà payée ici. Un cliquet compare
+  les deux, personne par personne et activité par activité.
+- ⚠️ **Les gens viennent de `collaborateurs_de`, et de nulle part ailleurs.**
+  `/competences/contexte` remplissait sa liste à la main ; la fonction vit
+  maintenant dans `Code/competences_acces.py` et les deux la lisent. Une carte
+  que la liste ne porte pas serait une carte qu'aucun clic n'ouvre.
+- ⚠️ **Le périmètre des RÔLES reste celui de `roles_suivis`** : un développeur
+  de 2 rôles sur 4 ne voit pas les 4. `_suivis_en_bloc` applique la règle sans
+  refaire deux requêtes par personne, et `None` (aucune restriction) ne se
+  confond pas avec une liste VIDE (il n'en suit aucun).
+- ⚠️ **La galerie n'ÉCRIT rien.** `get_activity_outputs` matérialise les
+  connexions sortantes en `Data` : on ne l'appelle pas depuis une page de
+  lecture. On relit avec `output_ids_en_bloc`, et un cliquet compte les `Data`
+  avant et après — son décor porte exprès une activité dont les sorties ne
+  sont pas matérialisées, sans quoi il resterait vert même sur une page qui
+  écrit.
+- `_paliers_en_bloc` délègue à `_paliers_multi` : une seule forme de requête
+  pour une personne comme pour dix.
+
+#### La vignette, et les deux décisions qu'elle a coûtées
+
+- ⚠️ **Le requis passe en FANTÔME.** Premier essai avec le requis rempli,
+  comme sur le grand radar : **les trois cartes se ressemblaient trait pour
+  trait**. Normal — le requis est le même pour tout le monde, c'est la carto
+  qui l'impose. Ce qui distingue les gens, c'est le DÉMONTRÉ : c'est lui qu'on
+  remplit.
+- ⚠️ **Pas d'étiquettes** : à 150 px, neuf noms d'activité en 10,5 px ne
+  tiennent pas. C'est la FORME qui se lit d'un coup d'œil ; les noms sont à
+  l'intérieur, sur le grand radar.
+- ⚠️ **Les axes sont ceux de CETTE personne**, triés par écart croissant —
+  exactement `synthese.profil`, que le radar du dossier dessine. Des axes
+  communs à tout le monde donneraient deux graphes différents d'une même
+  personne, et une activité hors de son périmètre se lirait comme une activité
+  non évaluée.
+- ⚠️ **NULL ≠ 0**, ici comme partout : une activité que personne n'a notée n'a
+  pas de point. Lina n'a que 2 activités notées sur 9 — son radar est presque
+  vide, et c'est exactement ce qu'on doit voir.
+- **UNE seule fonction** (`radarSVG(axes, opts)`) pour les deux tailles :
+  même géométrie, même règle de couche.
+
+#### La largeur de la carte, en deux essais
+
+- `auto-fill` à `1fr` : des colonnes vides et des cartes étroites au milieu
+  d'un écran large — le vide qu'on venait de corriger, sous une autre forme.
+- `auto-fit` à `1fr` : l'inverse — mesuré, **trois cartes étirées à 562 px CSS
+  dont le contenu n'occupait que la moitié**.
+- Retenu : la piste est **plafonnée à 460 px** (la largeur éprouvée sur
+  maquette) et ce qui reste est **centré**. Mesuré : 3 cartes par rangée de
+  1280 à 1920, 2 à 980, aucun débordement horizontal nulle part.
+- ⚠️ Le repli étroit ne touche PAS à la grille : `1fr` défaisait le plafond et
+  rendait, à 980 px réels, une carte de **1 161 px CSS** de large.
+
+#### ⚠️ Trois pièges, tous déjà connus
+
+- **`[hidden]` est une règle du NAVIGATEUR** : `.gal-c` pose un `display`, donc
+  la recherche ne masquait rien tant que `.gal-c[hidden]` n'était pas déclaré.
+  **Septième fois** que ce piège se présente dans cette application.
+- **Un cliquet qui découpe sur un repère de SECTION doit couper après le
+  `*/`** : le repère est lui-même un commentaire, et il cite les quatre jetons
+  qu'il interdit. Retirer les commentaires d'abord ne suffit pas — le texte
+  reprend au milieu du commentaire, dont la fin survit au nettoyage. Sixième
+  fois.
+- **Un id RETIRÉ ne se réemploie pas.** Le bouton de retour s'appelait d'abord
+  `#cv2-retour` — or `test_109` exige que cet id soit MORT, parce qu'il avait
+  « survécu une version de trop et cassé le démarrage ». Lui redonner vie
+  désarmait ce cliquet : le retour s'appelle `#cv2-vers-galerie`.
+- ⚠️ **Deux cliquets découpaient sur une LONGUEUR FIXE** (900 signes après une
+  ancre, et la signature `radarSVG(axes)`). Ils ont rougi sans qu'une seule
+  règle ait bougé, parce qu'un commentaire s'est glissé dedans et qu'une
+  fonction a pris un second argument. Ils bornent désormais sur ce qui SUIT.
+
+#### Mesures
+
+Tests : `tests/test_146_galerie_accueil.py` (25 cas), plus trois cas de
+`test_109` réécrits sur ce qui reste vrai. **27 gardes retirées une par une,
+27 cliquets tombés.** Suite : **4 398 passés**, 1 sauté ; `repet_image`
+4 327 passés + 72 sautés. Éprouvé au banc
+(`tools/devrun_competences.py`) de 980 à 1920 px dans les deux langues :
+parcours complet (carte → dossier → retour), recherche (frappe, accents, sans
+résultat), un collaborateur qui entre droit dans son dossier sans voir de
+galerie, zéro erreur console, et **zéro fuite française sur l'écran anglais**
+(516 clés, 492 pièges, 158 textes relevés, attributs compris).
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime

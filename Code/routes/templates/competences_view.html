@@ -30,8 +30,23 @@
       })();
     </script>
 
+    {# ── Écran 0 : la GALERIE ──────────────────────────────────────────
+       La page s'ouvrait sur une phrase dans un cadre pointillé : mesuré à
+       1600 × 1000, 726 px de vide et 38 % de la largeur utilisée, alors que
+       tout ce qu'il fallait pour la remplir était déjà calculé.
+       ⚠️ Elle vit HORS de `.cv2-layout` : les cartes SONT la liste, une
+       barre de noms au-dessus d'une grille des mêmes noms serait deux portes
+       pour un seul geste. La barre revient quand on entre dans un dossier. #}
+    <section class="cv2-galerie hidden" id="cv2-ecran-galerie"></section>
+
     <div class="cv2-layout">
       <aside class="cv2-sidebar">
+        {# Revenir à la galerie. ⚠️ `editor.js` mis à part, ce fichier câble
+           ses ids SANS garde : le bouton existe toujours dans le gabarit, et
+           c'est le JS qui le montre — seulement quand il y a une galerie où
+           revenir (un développeur, plus d'un collaborateur). #}
+        <button type="button" class="cv2-vers-galerie hidden" id="cv2-vers-galerie"><span
+                aria-hidden="true">&#8592;</span><span data-i18n="g_back">L'équipe</span></button>
         <div class="cv2-mgr">
           <span class="mav" id="cv2-mgr-av">—</span>
           <div>
@@ -91,11 +106,12 @@
              sans lui, quelqu'un sans aucun rôle n'aurait rien du tout. #}
           <div class="cv2-vide hidden" id="cv2-sans-role"></div>
         </section>
-
-
-        <div class="cv2-placeholder" id="cv2-placeholder" data-i18n="pick_collab2">Sélectionnez un collaborateur puis un rôle.</div>
       </main>
     </div>
+
+    {# L'état VIDE, et lui seul : aucun développeur rattaché, ou une lecture
+       qui a échoué. Il ne sert plus d'écran d'accueil — la galerie le fait. #}
+    <div class="cv2-placeholder hidden" id="cv2-placeholder"></div>
 
     {# ── Écrans 3 et 4 : des PAGES, pas des tiroirs ───────────────────
        Évaluer demande une échelle de paliers, un graphe et un historique.

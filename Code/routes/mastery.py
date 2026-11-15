@@ -463,6 +463,34 @@ def apercu_route(user_id):
     return jsonify(d), 200
 
 
+@mastery_bp.route("/galerie", methods=["GET"])
+def galerie_route():
+    """L'ÉCRAN D'ACCUEIL : une carte par collaborateur, avec son profil.
+
+    La page s'ouvrait sur une phrase dans un cadre pointillé — mesuré à
+    1600 × 1000 : 726 px de vide et 38 % de la largeur utilisée, alors que
+    tout ce qu'il fallait pour la remplir était déjà calculé ailleurs.
+
+    ⚠️ Un nombre FIXE de requêtes, quel que soit l'effectif. `apercu` par
+    personne, ce serait une dizaine chacune ; c'est le défaut qui mettait le
+    tableau global de la page RH à deux minutes et demie.
+
+    ⚠️ Les gens viennent de `collaborateurs_de`, la MÊME source que
+    `/competences/contexte` : une carte que la liste ne porte pas serait une
+    carte qu'aucun clic n'ouvre.
+    """
+    from Code.apercu_competences import galerie
+    from Code.competences_acces import collaborateurs_de
+
+    moi = current_user()
+    if moi is None:
+        return jsonify({"error": "not_logged_in"}), 401
+    gens, est_dev = collaborateurs_de(moi)
+    d = galerie(moi, gens)
+    d["est_dev"] = est_dev
+    return jsonify(d), 200
+
+
 @mastery_bp.route("/scale", methods=["GET"])
 def scale():
     lang = _lang()

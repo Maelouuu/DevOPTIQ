@@ -649,13 +649,13 @@ header { position: sticky; top: 0; z-index: 30; }
 /* Le fil d'Ariane du détail : on doit savoir d'où l'on vient et comment
    revenir, sinon la vue d'ensemble est un cul-de-sac. */
 .cv2-fil { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 13px; }
-.cv2-retour {
+.cv2-vers-galerie {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
   font-family: inherit; font-size: 13px; font-weight: 700; color: var(--pg-accent-deep);
   background: var(--card); border: 1px solid var(--pg-accent-border);
   border-radius: 999px; cursor: pointer; transition: .14s;
 }
-.cv2-retour:hover { background: var(--pg-accent-soft); transform: translateX(-2px); }
+.cv2-vers-galerie:hover { background: var(--pg-accent-soft); transform: translateX(-2px); }
 .cv2-fil-sep { color: var(--faint); font-weight: 700; }
 .cv2-fil-role { font-family: var(--pg-font-display); font-size: 17px; font-weight: 700; color: var(--ink); }
 .cv2-fil-plan { margin-left: auto; }
@@ -4121,3 +4121,187 @@ button.mail:active { transform: translateY(1px); }
    pastille : il montrait qu'on entre dans une colonne, pas qu'on choisit. */
 .cv2-layout.est-large .cv2-collab li .go { display: none; }
 .cv2-layout.est-large .cv2-main { width: 100%; min-width: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LA GALERIE D'ACCUEIL (2026-11-15)
+   ───────────────────────────────────────────────────────────────────────────
+   La page s'ouvrait sur une phrase dans un cadre pointillé. Mesuré à
+   1600 × 1000 : 726 px de vide, 38 % de la largeur utilisée, et la barre des
+   collaborateurs qui passait de 214 × 253 à gauche à 1373 × 67 en haut dès
+   qu'on choisissait quelqu'un — ce n'était plus le même objet.
+
+   Une carte par collaborateur, avec le profil qu'on retrouvera en grand dans
+   son dossier. Les cartes SONT la liste : pas de barre ici, une barre de noms
+   au-dessus d'une grille des mêmes noms serait deux portes pour un seul geste.
+
+   ⚠️ Aucune règle d'ici ne lit `--pg-accent-soft` ni ses trois frères : ils
+   sont déclarés sur `:root`, où `--pg-accent` vaut encore le gris par défaut,
+   et ils rendent donc du GRIS. Les mélanges s'écrivent SUR PLACE.
+   ─────────────────────────────────────────────────────────────────────────── */
+.cv2-galerie { padding: 0 0 30px; }
+
+.gal-haut {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.gal-tuiles { display: flex; gap: 10px; flex: 1 1 520px; flex-wrap: wrap; }
+.gal-t {
+  flex: 1 1 0; min-width: 142px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 13px; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+.gal-t .pt { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.gal-t .n { display: block; font-family: var(--pg-font-display); font-size: 23px; font-weight: 600; line-height: 1; }
+.gal-t .k { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+.gal-t--g .pt { background: var(--cv-green); } .gal-t--g .n { color: var(--cv-green-deep); }
+.gal-t--r .pt { background: var(--cv-red); }   .gal-t--r .n { color: var(--cv-red-deep); }
+.gal-t--a .pt { background: var(--cv-orange); }.gal-t--a .n { color: var(--cv-orange-deep); }
+.gal-t--n .pt { background: var(--cv-grey); }  .gal-t--n .n { color: var(--muted); }
+
+.gal-rech { position: relative; flex: 0 1 262px; display: flex; align-items: center; }
+.gal-rech i {
+  position: absolute; left: 12px; font-size: 12.5px; color: var(--faint); pointer-events: none;
+}
+.gal-rech input[type="search"] {
+  width: 100%; font: inherit; font-size: 13.5px; font-weight: 600;
+  padding: 10px 12px 10px 32px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--card); color: var(--ink);
+}
+.gal-rech input[type="search"]:focus {
+  outline: none; border-color: var(--pg-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 14%, transparent);
+}
+
+/* ⚠️ La carte a une largeur JUSTE, et deux plafonds la tiennent.
+   `auto-fill` à `1fr` laissait des colonnes vides et des cartes étroites au
+   milieu d'un écran large — le vide qu'on vient de corriger, sous une autre
+   forme. `auto-fit` à `1fr` fait l'inverse : trois cartes étirées à 560 px
+   dont le contenu n'occupe que la moitié. On borne donc la piste à 460 px
+   (la largeur éprouvée sur maquette) et on CENTRE ce qui reste. */
+.gal-grille {
+  display: grid; justify-content: center; gap: 14px;
+  /* ⚠️ `min(340px, 100%)` et pas `340px` : sous cette largeur, une piste
+     plus large que son conteneur ferait déborder la page. */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 460px));
+}
+
+/* ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose un
+   `display` l'emporte, et la recherche ne masquerait rien. Septième fois que
+   ce piège se présente dans cette application. */
+.gal-c[hidden] { display: none; }
+
+.gal-c {
+  position: relative; display: block; width: 100%; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 16px 16px 13px; overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  transition: transform .18s, box-shadow .18s, border-color .18s;
+}
+.gal-c::before {
+  content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--cv-grey);
+}
+.gal-c--g::before { background: var(--cv-green); }
+.gal-c--r::before { background: var(--cv-red); }
+.gal-c--a::before { background: var(--cv-orange); }
+.gal-c:hover, .gal-c:focus-visible {
+  border-color: var(--pg-accent); transform: translateY(-2px);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--pg-accent) 14%, transparent);
+}
+.gal-c:focus-visible { outline: none; }
+
+.gal-c-h { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.gal-av {
+  width: 38px; height: 38px; border-radius: 11px; flex: none;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  font-size: 13px; font-weight: 800;
+}
+.gal-ident { display: block; min-width: 0; }
+.gal-nom {
+  display: block; font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.gal-roles { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 3px; }
+.gal-roles i {
+  font-style: normal; font-size: 10.5px; font-weight: 700; padding: 2px 7px;
+  border-radius: 999px; background: var(--card-2); border: 1px solid var(--border);
+  color: var(--muted); white-space: nowrap;
+}
+
+.gal-c-b { display: flex; align-items: center; gap: 14px; }
+.gal-radar {
+  flex: 0 0 158px; aspect-ratio: 1; display: grid; place-items: center;
+}
+.gal-sans {
+  font-size: 11.5px; font-weight: 700; color: var(--faint); text-align: center;
+  padding: 0 10px; line-height: 1.35;
+}
+.gal-chif { flex: 1 1 0; min-width: 0; }
+.gal-cov { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.gal-cov b {
+  font-family: var(--pg-font-display); font-size: 31px; font-weight: 600;
+  line-height: 1; color: var(--ink);
+}
+.gal-cov b small { font-size: 15px; font-weight: 700; margin-left: 1px; }
+.gal-cov span {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--faint);
+}
+.gal-jauge {
+  display: block; height: 7px; border-radius: 4px; background: var(--card-2);
+  border: 1px solid var(--border); margin: 8px 0 11px; overflow: hidden;
+}
+.gal-jauge i {
+  display: block; height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, var(--pg-accent), var(--pg-accent-deep));
+}
+.gal-etats { display: flex; flex-direction: column; gap: 5px; }
+.gal-e {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+.gal-e i { width: 8px; height: 8px; border-radius: 50%; flex: none; font-style: normal; }
+.gal-e b { font-family: var(--pg-font-display); font-size: 14px; font-weight: 700; }
+.gal-p--g { background: var(--cv-green); }
+.gal-p--r { background: var(--cv-red); }
+.gal-p--a { background: var(--cv-orange); }
+.gal-p--n { background: var(--cv-grey); }
+
+.gal-c-p {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border);
+  font-size: 12px; font-weight: 700; color: var(--muted);
+}
+.gal-c-p .go { color: var(--pg-accent-deep); white-space: nowrap; }
+
+.gal-rien {
+  margin: 18px 0 0; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--muted);
+}
+
+/* ⚠️ Le requis en FANTÔME sur une vignette : il est le même pour tout le monde
+   (c'est la carto qui l'impose), donc rempli il devient la forme dominante et
+   toutes les cartes se ressemblent trait pour trait. Ce qui distingue les
+   gens, c'est le démontré — c'est lui qu'on remplit. */
+.cv2-r-req--g { fill: none; stroke: var(--cv-green); stroke-width: 1.2; opacity: .5; stroke-linejoin: round; }
+.cv2-radar--mini { width: 100%; height: auto; max-height: none; }
+.cv2-radar--mini .cv2-r-dem { animation: none; }
+
+/* Revenir à la galerie, depuis la barre des collaborateurs. */
+.cv2-vers-galerie {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+  padding: 7px 13px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--card); color: var(--ink-2);
+  transition: .14s;
+}
+.cv2-vers-galerie:hover { border-color: var(--pg-accent); color: var(--pg-accent-deep); }
+.cv2-layout:not(.est-large) .cv2-vers-galerie { width: 100%; justify-content: center; margin-bottom: 10px; }
+
+/* ⚠️ Le repli étroit ne touche PAS à la grille : `1fr` déferait le plafond
+   de 460 px et rendait, mesuré à 980 px réels, une carte de 1 161 px CSS de
+   large. La règle de base sait déjà passer à deux colonnes, puis à une. */
+@media (max-width: 1000px) {
+  .gal-rech { flex: 1 1 100%; }
+}
