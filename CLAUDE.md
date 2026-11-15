@@ -9221,9 +9221,9 @@ mettait le tableau global de la page RH à deux minutes et demie.
 
 #### Mesures
 
-Tests : `tests/test_146_galerie_accueil.py` (25 cas), plus trois cas de
+Tests : `tests/test_147_galerie_accueil.py` (25 cas), plus trois cas de
 `test_109` réécrits sur ce qui reste vrai. **27 gardes retirées une par une,
-27 cliquets tombés.** Suite : **4 398 passés**, 1 sauté ; `repet_image`
+27 cliquets tombés.** Suite : **4 423 passés**, 1 sauté ; `repet_image`
 4 327 passés + 72 sautés. Éprouvé au banc
 (`tools/devrun_competences.py`) de 980 à 1920 px dans les deux langues :
 parcours complet (carte → dossier → retour), recherche (frappe, accents, sans
