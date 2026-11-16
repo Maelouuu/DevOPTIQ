@@ -103,15 +103,22 @@ def comme_dev(auth_client, deux_sorties):
 
 
 def _palier(app, d, cible, mesure, jours, rang):
-    """Un palier déjà tranché, daté dans le passé."""
+    """Un palier déjà tranché, daté dans le passé.
+
+    ⚠️ `utcnow()`, comme `_registre` : il datait au calendrier LOCAL, et
+    l'autre en UTC. Entre minuit et une heure à Paris les deux ne sont plus le
+    même jour — un palier et la note du même geste tombaient dans deux
+    colonnes, et `test_une_note_EFFACEE_arrete_le_report` rougissait la nuit
+    seulement. Même famille que `test_61_pulse` entre 00:00 et 00:08.
+    """
     from Code.models.models import PalierPerformance
     with app.app_context():
+        jour = datetime.utcnow().date() - timedelta(days=jours)
         p = PalierPerformance(
             user_id=d["bob_id"], activity_id=d["activity_id"], data_id=d["mes_id"],
             role_id=d["role_id"], rang=rang, cible_valeur=cible,
-            echeance=date.today() - timedelta(days=jours),
-            statut="atteint", mesure_valeur=mesure,
-            evalue_le=date.today() - timedelta(days=jours))
+            echeance=jour, statut="atteint", mesure_valeur=mesure,
+            evalue_le=jour)
         db.session.add(p)
         db.session.commit()
 

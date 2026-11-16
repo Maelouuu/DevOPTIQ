@@ -7566,6 +7566,376 @@ brute, 0 unité française sur 518 options.
 Suite : **3 884 passés**, 1 sauté ; `repet_image` **3 813 passés** +
 72 sautés.
 
+#### LES CINQ CARTES du haut, arbitrées sur maquette (2026-11-13)
+
+Les cartes de l'accueil disaient leurs chiffres sans dire ce qu'ils veulent
+dire. Trois propositions écrites directement dans le code avaient été
+refusées ; la quatrième est passée par un **prototype cliquable à l'échelle
+réelle**, carte par carte, repris en trois versions — et le premier essai
+visait encore à côté : il proposait des agencements de cartes quand ce qu'on
+demandait était **leur contenu**. C'est la huitième fois que la méthode évite
+une journée écrite pour rien. L'écran assemblé du dernier onglet est ce qui a
+été implanté, sans retouche.
+
+Les largeurs du prototype étaient JUSTES, mesurées à l'écran après coup :
+**633,45 / 487,28 / 487,29 px** pour la rangée du haut, exactement ce que la
+maquette annonçait.
+
+- **1 · Deux étages** — le total, les trois rythmes dans un panneau creusé,
+  puis ce que ce total couvre. ⚠️ **« Par jour travaillé » est NEUF** : c'est
+  le rythme qu'on se représente le mieux et il manquait ; le serveur l'envoie
+  désormais (`charge.quotidien_min`). La couverture se **COMPTE en carrés** :
+  une jauge à moitié pleine se lit « à moitié fait ». ⚠️ Au-delà de
+  `PLAFOND_PILE` (24) on n'ose plus compter : la pile cède la place à sa seule
+  phrase — et le plafond doit être APPLIQUÉ, pas seulement déclaré (le
+  cliquet est tombé là-dessus).
+- **2 · La part, et sur quoi** — deux barres, **chacune nommant SON tout**
+  (« 5 % de la charge (1 250 h) ») ; sans ça, deux barres de tailles
+  différentes laissent croire à une seule échelle. L'attente reste
+  **hachurée** : c'est du temps d'horloge, jamais additionné au travail. Le
+  bloc gris dit ce qu'on **gagnerait** à lever les faiblesses, en JOURS —
+  « 61,2 h » est abstrait, « 8,7 jours » se compare à une semaine de travail.
+  ⚠️ Quatre tournures : avec ou sans attente, au singulier ou au pluriel — et
+  l'accord du mot « jour » ne se devine pas d'une langue à l'autre (le
+  français met au singulier sous 2, l'anglais au pluriel dès qu'on quitte 1).
+- **3 · L'ordre de grandeur** — la question qu'on se pose vraiment en lisant la
+  carte 1 : « et en vrai, ça fait combien ? » Étiquetée **ESTIMATION**,
+  hachurée, et surtout **le calcul est ÉCRIT** : « Moyenne des activités
+  chiffrées : 208 h. Appliquée à chacune des 6 activités sans durée :
+  + 1 250 h, soit ~ 2 500 h en tout. » La première rédaction disait « ce n'est
+  pas une mesure », ce qui demandait de croire sur parole ; celle-ci se
+  vérifie.
+  - ⚠️ **Elle n'entre dans AUCUN total** : `charge.annuel_min` reste celle des
+    activités réellement mesurées, et l'écran le dit.
+  - ⚠️ **La moyenne porte sur les ACTIVITÉS mesurées, jamais sur le nombre
+    d'ANALYSES** : une même activité peut en porter plusieurs, et la moyenne
+    tomberait sous la charge réelle d'une activité.
+  - ⚠️ **NUL, pas zéro, sans rien de mesuré** : sans moyenne il n'y a rien à
+    extrapoler, et un zéro se lirait comme un résultat. La carte retombe alors
+    sur le COMPTE de ce qui manque.
+  - ⚠️ **Un ordre de grandeur ne se donne pas à l'heure près.** Relevé à
+    l'écran : « ~ 2 499 h ? » se contredit lui-même — le tilde annonce une
+    approximation, le chiffre prétend le contraire. Deux chiffres
+    significatifs (`ordreDeGrandeur`), **écrits une fois** : le grand chiffre
+    et le calcul qui l'explique doivent annoncer le même nombre.
+  - ⚠️ **La liste des trois noms a quitté cette carte** avec la maquette :
+    c'est le BOUTON qui porte l'action, et il nomme ce qu'il ouvre
+    (« Chiffrer « Archiver le dossier » »). Le plafond de la liste, lui, reste
+    — côté serveur (`[:60]`), où il protège la réponse et non l'affichage.
+- **4 · La phrase** — le fait d'abord, **écrit en toutes lettres**, puis les
+  rôles pour le vérifier. ⚠️ Elle ne s'écrit **jamais d'avance** : un rôle peut
+  dépasser le temps plein, et il peut n'y en avoir qu'un — « le plus chargé »
+  n'aurait alors aucun sens. Trois tournures, choisies sur les chiffres. Le
+  pied qui expliquait le trait du temps plein est parti : la phrase le dit
+  déjà.
+- **5 · Le cumul** — une seule barre de 100 %, segmentée par activité. Les
+  barres d'avant, mises à l'échelle du MAXIMUM, faisaient paraître les trois
+  premières presque égales ; on lit maintenant qu'elles font **89 %**.
+  ⚠️ On ne réunit une queue que si elle contient PLUS d'une activité : avec
+  six activités pour six teintes, la sixième devenait « + 1 autres » au lieu
+  d'être nommée. Et « les trois premières font n % » ne se dit qu'à partir de
+  quatre activités.
+
+⚠️ **La charge s'écrit PAREIL partout où elle est citée en bloc.** Relevé au
+banc : la carte 1 annonçait « 1 250 » et ses voisines « 1249.5h », à deux
+centimètres — deux chiffres pour la même grandeur. `fmtHr` (heures entières,
+localisées) sert partout où l'on parle de la charge globale ; `fmtH` garde sa
+décimale pour les mesures fines.
+ℹ️ **Reste** : `fmtH` écrit « 922.5h » avec un POINT décimal, même en français
+(`toFixed(1)`). Défaut antérieur, visible sur toute la page ; un cliquet exige
+cette forme, le corriger est un chantier à part.
+
+⚠️ **L'espace avant le % est une règle FRANÇAISE.** Vu sur l'écran anglais du
+banc : « 5% of the load » (qui passe par le catalogue, donc juste) à deux
+centimètres d'un « 4 % » écrit en dur dans le JS. `pourCent()` suit la langue.
+
+**Les deux cliquets qui ne gardaient RIEN**, et c'est le banc qui l'a dit :
+- deux cas montaient leur décor **sans le cas qu'ils éprouvent** — la moyenne
+  ne diverge que si une activité porte DEUX analyses, et l'estimation n'existe
+  que s'il y a à la fois une activité chiffrée et une activité sans durée. Ils
+  sèment donc les leurs ;
+- ⚠️ l'analyse des clefs lues ratait celles choisies par un **ternaire
+  imbriqué** (`p >= 100 ? 'a' : (n === 1 ? 'b' : 'c')`) : retirer l'injection de
+  `tm_role_ph_sur` laissait le contrôle vert, et l'écran aurait affiché la
+  **clef brute**, sans la moindre erreur. On cherche désormais toute chaîne du
+  JS qui porte le nom d'une clef `time.tm_*` ou `time.fw_*`.
+  ℹ️ Restreint à ces deux familles : `loading` et `role` coïncident avec
+  `time.loading` et `time.role` sans être des lectures, et un contrôle qui crie
+  à tort n'est plus lu.
+
+Tests : `tests/test_105_temps_refonte.py` passe de 101 à **128 cas** ;
+**18 défauts remis un par un, 18 cliquets tombent**. Deux cas existants ont été
+**réécrits** plutôt que supprimés : le plafond de la liste vise désormais le
+serveur, et « aucune phrase ne désigne une carte par sa POSITION » vaut pour
+TOUT le catalogue `time.*` au lieu de deux clefs.
+Suite : **4 105 passés**, 1 sauté ; `repet_image` **3 671 passés** + 72 sautés.
+Éprouvé au banc (`tools/devrun_temps.py`) dans les deux langues, de 790 à
+1600 px : **zéro fuite française sur l'écran anglais** (182 textes relevés,
+attributs compris — tout ce qui reste en français est une DONNÉE du banc),
+zéro erreur console, aucun débordement horizontal.
+Maquette : artefact « Les cartes, une par une ».
+
+#### Sept retours sur la page Temps — dont deux défauts de FOND (2026-11-14)
+
+Relevés à l'écran par l'utilisateur, sur ses propres données. Deux d'entre eux
+cachaient autre chose qu'un défaut d'affichage.
+
+##### ⚠️⚠️ RENVERSEMENT : le travail refait DÉCALE la livraison
+
+« Avec 10 heures en surcroît de travail, le message du dessous nous dit que le
+travail sort en 4 h comme d'hab ; cela devrait être 14 non ? » Oui. Et c'est
+le modèle qui se contredisait, pas l'affichage.
+
+`Y` valait `C + M` — et la note du 08/11 justifiait le schéma par là même :
+« le travail refait est marqué À PART, pas allongé sur la piste : `Y = C + M`
+ne le compte pas dans la livraison ». Or `T = C + (L+M)·O`, le **délai moyen
+corrigé**, est la moyenne de `C` (cas normal) et de `Y` (cas dégradé) pondérée
+par `O` : il compte `L` depuis toujours. Les deux ne pouvaient pas être vrais
+ensemble, et c'est ce que l'écran montrait — relevé sur la capture, aux
+chiffres exacts : **le panneau de droite annonçait « Délai moyen corrigé :
+14,0 h » pendant que le bilan du temps 2 disait « le résultat sort en 4,0 h au
+lieu de 4,0 h »**, à dix centimètres l'un de l'autre.
+
+`Y = C + L + M`. Refaire du travail retarde la sortie.
+
+- ⚠️ **Le CUMUL ANNUEL ne bouge pas** : `U = L·P` et `V = M·P` comptent chaque
+  minute une fois, et c'est le correctif du 03/11. Deux questions
+  différentes — ce qui coûte sur l'année, et ce que subit l'aval un jour où ça
+  rate — qui ne s'additionnent pas de la même façon.
+- **Le schéma suit** : le travail refait a son segment sur la piste dégradée
+  (`fw-sg-l-seg`), PLEIN et non hachuré — c'est du travail, comme le segment
+  du début ; c'est l'attente qui se hachure, elle que personne ne passe à
+  travailler. La pastille « la livraison ne bouge pas pour autant » est partie
+  avec la règle qu'elle énonçait.
+- ⚠️ **La légende doit décrire EXACTEMENT ce qui est sur la piste.** Le
+  cliquet compare les deux jeux (`fw-seg--*` et `fw-pt--*`) et exige
+  l'égalité : une légende qui promet un remplissage absent envoie chercher ce
+  qui n'existe pas, une légende qui en oublie un laisse une couleur sans nom.
+  Les deux se sont présentés en un mois.
+
+##### ⚠️⚠️ L'analyse de rôle s'enregistrait sans pouvoir jamais s'afficher
+
+« On la saisit, on enregistre, ça dit bien enregistré, mais quechi. » Rien
+n'était perdu : il n'y avait simplement **aucune ligne** dans ce qui partait.
+
+Depuis que les rôles sont COMMUNS à l'entreprise (23/09), un rôle peut ne
+tenir aucune activité de la carto qu'on regarde. Or :
+- `page()` listait `Role.query.all()` — **tous** les rôles de l'entreprise ;
+- `/api/role_activities/<id>` ne filtrait sur aucune entité.
+
+On choisissait donc un rôle qui ne tient rien ici (table vide), ou dont les
+activités sont dans une AUTRE carto. Le tableau de bord, lui, ne retient que
+les analyses portant sur la carto active (`any(ln.activity_id in noms …)`, et
+`any()` sur une liste vide est faux) : l'analyse n'apparaissait nulle part.
+
+Trois correctifs, et c'est le troisième qui ferme le défaut :
+1. `roles_de_la_carto()` — le sélecteur n'offre que les rôles qui tiennent au
+   moins une activité d'ici ;
+2. `/api/role_activities` passe par `Activities.for_active_entity()` — une
+   ligne appartient à la carto qu'on regarde, sinon le total du rôle
+   compterait des activités qui ne sont pas « le temps de l'entité » que cet
+   écran annonce ;
+3. ⚠️ **une analyse SANS LIGNE est refusée** (400 `aucune_ligne`), à la
+   création comme au `PATCH`. Quelle que soit la cause, on ne peut plus
+   enregistrer quelque chose qui n'apparaîtra jamais. **Un enregistrement
+   silencieux qui se félicite est pire qu'une erreur** : il n'y a aucun moment
+   où l'on peut s'apercevoir de la perte.
+   ⚠️ `lines` ABSENT ne touche à rien (le renommage seul reste possible) ;
+   c'est la liste VIDE qui est refusée.
+
+##### Les deux unités d'une même section se suivent — dans UN SEUL sens
+
+Une durée en heures à côté d'un délai en minutes se lit de travers, et
+`borneDelaiStandard` ramène alors l'une sur l'autre sans qu'on comprenne
+pourquoi. La PREMIÈRE règle la seconde (`#fw-dur-unit` → `#fw-del-unit`,
+`#fw-l-unit` → `#fw-m-unit`).
+⚠️ **Jamais l'inverse** : dans les deux sens elles s'annuleraient, et on ne
+pourrait plus jamais en mettre deux différentes.
+⚠️ Poser `.value` en JavaScript ne déclenche AUCUN événement : on émet
+`change`, qui remonte à `#subtab-faiblesse` d'où part le calcul.
+
+##### Les listes déroulantes sont DESSINÉES (`static/js/tm_select.js`)
+
+« Le truc par défaut qui ne s'ouvre pas tout le temps de manière pratique, et
+visuellement tout blanc et noir. » On ne peut pas styler le panneau d'un
+`<select>` : la seule façon de le tenir est de le dessiner.
+
+- ⚠️ **Le `<select>` RESTE, et il reste la source de vérité.** Une quinzaine
+  d'endroits lisent `tr.querySelector('.r-rec select').value`, écrivent
+  `$('#fw-dur-unit').value = 'minutes'`, ou reconstruisent `innerHTML` : les
+  reprendre un par un serait quinze occasions d'en oublier un. Il est masqué à
+  l'œil (jamais `display: none` — la largeur du bouton se règle sur
+  l'enveloppe), sorti de la tabulation, et c'est LUI qu'on écrit.
+- ⚠️ La propriété `value` est interceptée **sur l'élément**, jamais sur le
+  prototype : un `defineProperty` sur `HTMLSelectElement.prototype` vaudrait
+  pour toute l'application.
+- ⚠️ **Les DEUX événements, et ils remontent** : un `<select>` natif émet
+  `input` ET `change`, et la page écoute tantôt l'un (la table des rôles
+  recalcule sur `input` posé sur le `<tr>`) tantôt l'autre. N'en émettre qu'un
+  casse silencieusement l'autre moitié.
+- ⚠️ **Le panneau est posé sur le BODY en `position: fixed`** : dans une
+  cellule de tableau, `.table-wrap` est en `overflow-x: auto` et le
+  découperait. Donc la conversion de zoom — `body.pg` porte `zoom: .8`, un
+  enfant du body en `fixed` voit ses coordonnées MULTIPLIÉES par ce zoom alors
+  que `getBoundingClientRect()` les rend déjà en pixels d'écran. **Sixième
+  fois** que ce piège se présente. Mesuré après : 0,0 px d'écart à gauche, et
+  le panneau bascule au-dessus du bouton quand il n'y a pas la place dessous.
+- ⚠️ Un observateur sur `#page-temps` habille les `<select>` créés APRÈS le
+  chargement (lignes de projet, de rôle, de tâche, sélecteur cloné) : un
+  balayage unique n'en verrait aucun.
+- ⚠️ **Dans une rangée `.inline`** (un nombre et son unité), une enveloppe en
+  `width: 100 %` devient un élément flex de 470 px et passe à la ligne sous son
+  champ. Vu à l'écran : la mise en page d'un composant se vérifie LÀ OÙ il est
+  posé, pas dans l'abstrait.
+
+###### ⚠️⚠️ On ne pouvait pas DÉFILER dedans — et l'accent était celui de la page (2026-11-14)
+
+« C'est top, seulement on ne peut pas scroller dedans, cela le ferme direct. »
+
+- **Le défilement.** `window.addEventListener('scroll', fermer, true)` — en
+  CAPTURE, donc il voyait TOUS les défilements, **y compris celui du panneau
+  lui-même**. Et pas seulement au geste de l'utilisateur : à l'ouverture d'une
+  longue liste, `viser()` appelle `scrollIntoView`, qui fait défiler le panneau
+  quand l'option choisie est sous le pli — le panneau se refermait donc tout
+  seul, une image après s'être ouvert. Un défilement qui naît DANS le panneau
+  ne le referme plus ; tout autre si, car le panneau est posé sur le body et ne
+  suivrait pas son bouton.
+  ⚠️ **Le `true` reste** : un événement `scroll` ne REMONTE pas, seule la phase
+  de capture le voit. Le retirer débrancherait la fermeture.
+  ⚠️ Et `overscroll-behavior: contain` sur le panneau : arrivé au bout de SON
+  défilement, il passait la main à la page — qui défile, et le referme.
+- **L'accent suit le TYPE du formulaire** (`--tms-a`, dérivé du `--tm-c` que
+  pose `#tm-travail[data-analyse]`) : rouge pour une faiblesse, violet pour une
+  activité, ambre pour un rôle, ardoise pour un projet. Il prenait l'accent de
+  la PAGE, qui est l'ambre du rôle — donc l'un des quatre, posé sur les quatre.
+  ⚠️ **Le PANNEAU est posé sur le body** : il vit hors de `#tm-travail` et
+  n'hérite de rien. Le JS lui recopie la valeur CALCULÉE sur le bouton, qui est
+  dedans. Mesuré : bouton et panneau à `#dc2626` dans une faiblesse, `#7c3aed`
+  dans une activité, `#d97706` dans un rôle, `#64748b` dans un projet.
+  ⚠️ `.tms-o.est-choisi` assombrit SUR PLACE (`color-mix`) : les quatre
+  couleurs de type n'ont pas de variante profonde déclarée, et
+  `--pg-accent-deep` ramènerait l'ambre de la page.
+
+⚠️ **Un cliquet est resté vert sur le défaut même, et c'est ma déclaration qui
+l'avait masqué** : `_regle(css, ".tms-p {")` tombait sur
+`.tms, .tms-p { --tms-a: … }`, écrite dans le même changement et plus haut dans
+la feuille. Il faut ancrer sur `".tms-p {" + saut de ligne`. *(Troisième fois
+en une semaine : un cliquet qui cherche une chaîne doit borner sa zone — et
+l'homonyme peut être une ligne qu'on vient d'ajouter soi-même.)*
+
+⚠️⚠️ **Et le volet de mise au point ne tire AUCUN événement `scroll`** :
+mesuré, `window.scrollY` passe bien de 0 à 150 pendant que le compteur
+d'événements reste à **zéro**. Faire défiler pour éprouver la garde ne prouve
+donc rien — ni dans un sens ni dans l'autre. On DÉPÊCHE l'événement à la main
+(`panneau.dispatchEvent(new Event('scroll'))`), ce qui traverse la phase de
+capture et éprouve exactement la garde : panneau et option → il reste ;
+`document` et conteneur quelconque → il se referme. *(Même famille que les
+transitions CSS figées en cours de route et que les observateurs muets, déjà
+écrits plus bas.)*
+
+##### La carte 1 : la pile revient, et la carte prend du relief
+
+⚠️ **RÉVISION du plafond.** Il valait 24 (« au-delà, on n'ose plus compter »)
+— et une carto de **45 activités**, la taille courante, n'avait donc AUCUNE
+pile : juste sa phrase. C'est ce que l'utilisateur a signalé. On ne compte pas
+45 carrés un par un, mais on en voit la proportion d'un coup d'œil, et c'est
+ce qu'on vient y chercher. Les carrés rétrécissent avec le nombre
+(`tailleCarre` : 14 → 8 px, le pas d'écart proportionnel) ; au-delà de **60**,
+c'est une barre pleine largeur. Mesuré : 45 activités → carrés de 10 px, deux
+rangées, aucun débordement.
+
+**Le relief** : quatre ombres portées empilées (la lumière n'en fait pas une
+seule, nette) plus deux arêtes internes — le haut éclairé, le bas dans
+l'épaisseur.
+⚠️ **Pas de `transform`** : il ferait de la carte le repère des descendants
+`position: fixed`, et les bulles d'aide comme le panneau des listes sont posés
+sur le BODY.
+
+« Soit 10,31 équivalents temps plein » est retiré, avec ses deux clefs.
+
+##### Le calendrier de travail n'est plus écrit en 10 px
+
+« C'est une bonne idée de rappeler ces éléments, mais pas en tout petit sous
+le titre. » Il était en 13 px — **10,4 px réels** sous le `zoom: .8` du corps.
+C'est pourtant la BASE de tous les chiffres de l'écran : changez une des trois
+valeurs et la page entière bouge. Trois pastilles, le chiffre dans la police
+d'affichage, à côté du bouton qui les règle.
+
+##### À quoi servait le bouton « Calendrier de travail »
+
+Question de l'utilisateur. Il n'ouvre pas un calendrier : il mène aux
+**réglages du temps de travail** (semaines / jours / heures), qui vivent dans
+le bandeau de la page RH et que `get_calendar_params()` lit. Il y menait déjà,
+mais sans rien désigner — d'où « il amène simplement en haut de la page RH ».
+Il pointe maintenant `#calendrier`, et `rendreBandeau` fait défiler jusqu'au
+bloc et l'**allume** 1,6 s.
+⚠️ Un ancrage HTML ne suffisait pas : ce bandeau est construit en JS,
+l'élément n'existe pas au chargement.
+
+##### La carte 4 a un vrai état vide, la carte 5 une rampe qui s'étale
+
+- **L'état vide du rôle** était une ligne grise de 12 px collée en haut à
+  gauche d'une carte haute : on la lisait comme un défaut de chargement, et
+  elle ne disait pas quoi faire. C'est un bloc — icône, phrase, et le bouton
+  qui crée l'analyse.
+  ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose un
+  `display` l'emporte. **Sixième fois** que ce piège se présente.
+- **« Les trois premières font 79 % »** est parti : la barre le MONTRE, et la
+  phrase prenait la place qui manquait à la barre et à sa légende. La clef
+  part avec son seul lecteur.
+- ⚠️ **La rampe S'ÉTALE sur le nombre de segments.** Figée à six teintes,
+  trois activités n'en prenaient que les trois premières — trois violets
+  voisins, dont on ne distinguait pas les segments. On interpole le long de la
+  rampe entière : mesuré à l'écran, trois valeurs donnent `#4c1d95`,
+  `#8b5cf6`, `#e9e2fd` ; six la parcourent lentement. Plus il y en a, plus le
+  dégradé est progressif.
+
+##### ⚠️ Six libellés de retour étaient écrits EN DUR, en français
+
+Relevés en passant : les `flashFeedback` des trois formulaires portaient leur
+phrase dans le code (« Analyse activité enregistrée. », « Erreur
+d'enregistrement »…), et le nom par DÉFAUT d'une analyse de rôle aussi — celui
+qui est ENREGISTRÉ. L'écran anglais les affichait tels quels. Sept clefs
+neuves.
+
+##### Trois pièges rencontrés, tous déjà connus
+
+- ⚠️ **Un remplacement entre bornes CONSERVE sa borne de fin.** Un anchor
+  partiel (« carte 2 · la part ») coupe donc le début de sa propre ligne : le
+  `# ─────` d'un séparateur est parti ainsi, et le fichier de tests ne se
+  compilait plus. On recule jusqu'au début de la ligne de la borne.
+- ⚠️ **Un commentaire HTML dupliqué** par la même cause a laissé un `<!--`
+  jamais fermé dans le gabarit. `test_85` l'a attrapé — c'est exactement ce
+  pour quoi il existe.
+- ⚠️ **Trois cliquets ne gardaient RIEN au premier essai** : l'un appelait
+  l'aide `roles_de_la_carto` au lieu de regarder ce que la PAGE offre (remettre
+  `Role.query.all()` dans la route le laissait vert) ; un autre comptait les
+  occurrences d'une couleur au lieu des COUCHES d'ombre ; le troisième
+  cherchait `new MutationObserver`, qui apparaît deux fois dans le fichier.
+- ⚠️⚠️ **Et DEUX cas écrits la veille lisaient `Code/routes/time_view.py`
+  comme une SOURCE** : verts ici, ROUGES à chaque exécution dans l'arbre
+  d'image, compilé en bytecode. **Sixième occurrence de ce piège** — et la
+  première que j'écris après l'avoir documentée. Réécrits sur le COMPORTEMENT
+  (une carto jetable, `_CartoJetable`, avec 62 activités non chiffrées) plutôt
+  que sautés : c'est portable, et c'est un contrôle plus fort — il mordrait
+  aussi sur un plafond écrit autrement. *Un contrôle qui saute ne garde rien ;
+  un contrôle réécrit sur le comportement y gagne.*
+
+Tests : `tests/test_105_temps_refonte.py` passe de 128 à **146 cas**, plus
+deux cas alignés dans `test_95` ; **32 défauts remis un par un, 32 cliquets
+tombés**.
+ℹ️ `test_139::test_une_note_EFFACEE_arrete_le_report` échoue, et il échouait
+**déjà sur l'arbre propre** (vérifié en mettant ce travail de côté) : il est
+antérieur à cette passe et reste à traiter.
+Éprouvé au banc (`tools/devrun_temps.py`) à 1600 px dans les deux langues :
+les chiffres exacts de la capture (2 h / 4 h / 10 h → « sort en 14,0 h au lieu
+de 4,0 h », délai moyen 14,0 h, les deux enfin d'accord), le lien des unités
+dans les deux sens, le panneau d'une liste à 0,0 px de son bouton, une analyse
+de rôle enregistrée qui apparaît aussitôt sur l'accueil, le refus d'une
+analyse vide, l'état vide, et **zéro fuite française sur l'écran anglais** sur
+les cinq écrans (texte et attributs ; tout ce qui reste en français est une
+DONNÉE du banc).
+
 ### Quatre retours du pilote corrigés — et trois étaient PETITS (2026-11-10)
 
 Sur les douze points laissés ouverts le 09/11, l'utilisateur en a tranché
@@ -8270,6 +8640,693 @@ derrière elle.
 
 ---
 
+### « OÙ VOUS ÊTES » : le bassin, et les DEUX notes (2026-11-14)
+
+Tranché sur maquettes à l'échelle réelle — trois organisations dessinées, une
+retenue — avant d'écrire une ligne. C'est la neuvième fois que la méthode
+évite une journée écrite pour rien.
+
+#### ⚠️⚠️ Il y a TOUJOURS deux notes, et on n'en voyait plus qu'une
+
+« Il manque quand même quelque chose : il y a toujours deux notes, celle
+d'auto-évaluation par l'user et celle du responsable. » Exact, et c'était un
+défaut de LECTURE, pas de données : le classeur (11/11) avait compressé la
+seconde en un REPÈRE posé sous les crans de la première — un point et un
+libellé, sur la piste de l'autre. Elle existait, elle ne se lisait plus comme
+une note.
+
+Elles portent désormais chacune la même échelle 0 → 4 :
+
+| | celle qui FAIT FOI | ce que le collaborateur SE DONNE |
+|---|---|---|
+| couleur | bleu · écusson | violet · silhouette |
+| le développeur | une PISTE (il la pose) | une graduation, posée |
+| le collaborateur | une graduation, posée | une PISTE (il la pose) |
+| sortie MESURÉE | le RAIL des marches | une piste ou une graduation |
+
+- ⚠️ **L'ordre ne bouge JAMAIS** : celle qui fait foi d'abord, quel que soit
+  le regard — on sait toujours laquelle on lit.
+- ⚠️ **Celle qui vous appartient se CLIQUE, l'autre est POSÉE** : des `<span>`,
+  jamais des `<button>` — rien ne s'y clique et rien ne doit en avoir l'air.
+  Deux pistes empilées, c'est ce que le classeur avait précisément retiré, et
+  c'est ce que le collaborateur voyait tant que la note qui fait foi restait
+  une piste verrouillée.
+- ⚠️⚠️ **Les cinq colonnes tombent au MÊME PIXEL**, et c'est tout le propos :
+  c'est leur alignement qui se lit comme un accord ou un écart. La piste porte
+  un bout que la graduation n'avait pas (la gomme, et le « i » de l'échelle) —
+  mesuré : **4,5 px d'écart au deuxième cran, 18 au cinquième**. La graduation
+  rend donc des **JUMEAUX masqués** de ces deux éléments, pas une largeur
+  recopiée à la main qui dériverait. ⚠️ Et avec les MÊMES classes : `ev-i`
+  retire la bordure du « i », donc un jumeau sans elle restait 1 px trop
+  large. Mesuré après : **0,000 px**.
+- ⚠️ **La gomme d'une piste en lecture est masquée à l'œil, pas retirée du
+  flux** : sortie du flux, la piste redevenait plus large que la graduation.
+- ⚠️ **L'identité se tient PARTOUT** : une graduation porte la couleur de SA
+  note, donc celle qui fait foi reste bleue même lue par le collaborateur.
+  Sinon la même note changerait de couleur selon qui la regarde.
+- Le verdict d'accord reste HORS des deux blocs : il parle de l'ÉCART, donc
+  des deux (décision du 11/11, inchangée).
+
+#### LE BASSIN : la règle du minimum se REGARDE
+
+Le niveau d'une activité est le MINIMUM de ses sorties — et c'était une phrase
+derrière un « i ». Le bloc de nuit porte une jauge verticale : l'eau monte au
+niveau de l'activité, chaque sortie porte son repère, **l'eau s'arrête au
+repère le plus bas**. Éprouvé au banc : on monte une sortie de 1 à 4, l'eau ne
+bouge PAS (l'autre la retient) et c'est l'autre repère qui prend l'anneau ; on
+descend à 0, l'eau tombe.
+
+- ⚠️ **NULL ≠ 0** : une sortie pas encore notée n'a PAS de repère à zéro, elle
+  n'en a pas du tout — et l'eau devient HACHURÉE, parce que l'activité n'a
+  alors aucun niveau. Un trait plein dirait un verdict que personne n'a rendu.
+- ⚠️ **Le niveau affiché est un APERÇU, pas une seconde règle.**
+  `niveauActivite()` recalcule le minimum côté navigateur parce que le serveur
+  ne connaît pas la note qu'on vient de poser — et c'est justement elle qu'on
+  veut voir bouger l'eau. Le serveur reste la source : l'écran se recharge
+  après l'enregistrement.
+- ⚠️ **Sur place, jamais réécrit** : l'eau MONTE, et c'est ce mouvement qui
+  fait comprendre la règle. Réécrit, le bassin sauterait d'un niveau à l'autre.
+- ⚠️ **Deux sorties au même niveau s'empilent** (`--k`) : elles tombent sur la
+  même ligne, et c'est justement là qu'on vient lire laquelle retient l'eau —
+  aucune n'est masquée.
+- ⚠️ **La pastille d'un repère garde son NUMÉRO**, celui de la carte de
+  droite, et ne reçoit que sa couleur. `majBassin` y écrivait le NIVEAU —
+  relevé sur capture : ce que la HAUTEUR du repère dit déjà, et le seul lien
+  entre le bassin et la carte était coupé.
+
+#### Les sorties CÔTE À CÔTE, et un bandeau de moins
+
+Le classeur ne montrait qu'UNE sortie à la fois, derrière des languettes : on
+ne voyait jamais ensemble les deux chiffres dont le plus bas fait le niveau.
+Elles sont désormais toutes visibles, une carte chacune, numérotées comme leur
+repère. Les deux régimes prennent la MÊME forme — un rail de couleur dit
+lequel, un disque dit le niveau : c'est leur ressemblance qui rend la
+différence lisible.
+
+- ⚠️ **Le bandeau d'identité (`ev-tete`) a disparu DANS le bloc de nuit** : il
+  redisait le nom de la personne et le niveau du rôle à dix centimètres de la
+  chaîne qui les porte. La classe reste déclarée — la séance et le calendrier
+  s'en servent toujours.
+- La **chaîne** (le collaborateur → son rôle → l'activité) porte le verdict de
+  chaque maillon : la cascade du minimum se lit d'un bout à l'autre.
+- Le bloc de nuit **suit le défilement** (`sticky`) : c'est le bassin qui porte
+  la comparaison, il doit rester sous les yeux pendant qu'on note à droite.
+  ⚠️ En colonne unique (sous **1100 px RÉELS** — `body.pg` porte `zoom: .8` et
+  les requêtes média ignorent ce zoom) il redevient `static` : collé, il
+  masquerait la carte qu'on vient lire.
+- Partis avec le classeur : `languettes`, `majLanguette`, `montrerSortie`,
+  `sortieOuverte`, `bandeClasseur`, `feuilleSortie`, et **neuf clés** de
+  catalogue (`cl_reste_*`, `cl_mes`, `cl_main`, `cl_rien`, `ev_nb_act*`,
+  `ev_suivi_par`, `ev_niv_role`). Une clé qu'on retire en même temps que son
+  seul lecteur ne laisse rien derrière elle — un cliquet le garde.
+
+#### Mesures
+
+Tests : `test_140` (deux classes réécrites — elles affirmaient la structure du
+classeur), `test_109` (quatre cas), `test_130` (un cas). **29 cliquets
+vérifiés ROUGES**, en trois salves. Suite : **4241 passés**, 1 sauté.
+Éprouvé au banc (`tools/devrun_competences.py`) de 1000 à 1600 px dans les
+deux langues : les deux modes (développeur et collaborateur), l'eau qui ne
+bouge pas quand on monte la sortie qui ne retient rien, l'enregistrement relu
+après rechargement, **zéro fuite française sur l'écran anglais** (95 textes
+relevés, attributs compris), zéro débordement horizontal.
+
+⚠️ **Reste à faire** : la page 1 de la maquette (la vue d'ensemble — le
+classement et les marches dans un même bloc, la bande des notes, le relief au
+format compact, le radar en section dédiée) n'est PAS implantée. Seul l'écran
+où l'on note l'est.
+
+### LA VUE D'ENSEMBLE : le classement, les marches, toutes les notes (2026-11-15)
+
+Elle ne portait que le radar et la liste des rôles : on y lisait la FORME d'un
+profil, jamais ce qui le retient. Tranchée sur la même maquette que l'écran de
+notation, à l'échelle réelle. Elle porte maintenant, dans l'ordre où l'on se
+les pose : **ce qui tient tout en bas** · **le classement** des activités et
+les **marches** de celle qu'on choisit · **toutes les notes d'un coup** · le
+**relief** d'une sortie mesurée · la **prochaine séance**.
+
+#### ⚠️ Ce qui bloquait : l'API ne servait pas ces données
+
+Le classement, les marches, la bande et le relief demandent les MÊMES
+données — les sorties de chaque activité, la note qui fait foi sur chacune, et
+leurs paliers — et `/mastery/synthese` n'en porte aucune. Les servir activité
+par activité, c'est ~6 requêtes par activité (`dashboard_rows`) **plus une par
+sortie** (`paliers_de`) : le défaut déjà payé sur le tableau global de la page
+RH, qui mettait deux minutes et demie à s'ouvrir.
+
+`Code/apercu_competences.py` + `GET /mastery/apercu/<user_id>` les servent en
+un nombre **FIXE** de requêtes. Mesuré au banc : **9 requêtes** pour 8
+activités, 12 sorties et 9 paliers — et `test_145` ajoute six activités
+mesurées puis recompte : **pas une requête de plus**.
+
+- ⚠️ **Les mêmes fonctions pour trancher**, jamais une copie : `etat_sortie`
+  (paliers), `categorie_activite`, `color_for`, `couverture`,
+  `output_ids_en_bloc`. Deux écrans qui comptent avec deux codes finissent par
+  afficher deux chiffres — c'est écrit dans ce dépôt, et ça a déjà coûté une
+  enquête.
+- ⚠️ `paliers.etat_sortie` accepte désormais une progression **déjà chargée**
+  (`paliers=…`). On passe la liste plutôt que de recopier la règle ailleurs.
+- ⚠️ **Le périmètre est celui de `roles_suivis`**, comme sur la synthèse :
+  `encadre()` répond par PERSONNE, et un développeur de 2 rôles sur 4 verrait
+  les 4. Deux périmètres dans le même écran, c'est la panne « j'ai perdu mes
+  données de notation ».
+- ⚠️ Le requis d'une activité portée par **deux rôles** est le **plus
+  exigeant** : prendre le premier venu ferait dépendre le verdict de l'ordre
+  des lignes, et une activité paraîtrait tenue parce qu'un rôle n'exige rien
+  d'elle.
+
+#### ⚠️⚠️ DEUX chiffres, et ils ne disent pas la même chose
+
+`niveau` **tranche** : le minimum, et NULL tant qu'une activité évaluable
+n'est pas notée — la règle de tout le module, celle qui refuse de déclarer
+tenu quelqu'un à moitié noté. `plus_bas` **décrit** : le plus bas de ce qui est
+posé, quoi qu'il manque.
+
+C'est `plus_bas` que la vue d'ensemble montre, sous « ce qui tient tout en
+bas », et le compteur « à évaluer » dit juste à côté combien d'activités n'ont
+pas été regardées. Sans cette distinction, l'écran afficherait « — » chez
+quelqu'un qui a huit activités dont six notées, et ne dirait plus rien.
+
+#### Le CLASSEMENT, et les marches de l'activité choisie
+
+Une barre par activité, de la plus basse à la plus haute, **les sans-verdict à
+la fin** : une activité non évaluée n'a pas de rang dans la progression, elle
+n'est pas « en bas ». Cliquer une barre change les marches à droite.
+
+- ⚠️ **Un socle de 10 px** : à hauteur nulle, le niveau 0 se confondrait avec
+  « pas de barre du tout », c'est-à-dire avec NULL. Et les deux absences ne se
+  corrigent pas de la même façon — « ? » et une barre hachurée pour ce qui
+  reste à noter, « — » et un simple socle pour ce qui n'a aucune sortie :
+  l'une se note, l'autre se configure.
+- ⚠️ **La barre porte la couleur SÉMANTIQUE** de l'activité, celle que le
+  serveur calcule (CDC 3.5) et qu'elle a partout ailleurs. La bande des notes,
+  elle, a son propre dégradé bleu→vert : elle montre des SORTIES, et elle
+  porte sa légende. Deux devices, deux échelles, et chacune dit laquelle.
+- ⚠️ **Les marches réutilisent `railHtml`**, le rail de l'écran d'évaluation :
+  une sortie mesurée se lit de la même façon partout, ou elle se lit deux
+  fois. Seules ses ENCRES changent — il est posé sur un panneau sombre.
+
+#### Toutes les notes d'un coup, et le relief
+
+La bande est **le seul endroit de l'application où l'on voit D'OÙ vient le
+minimum** sans ouvrir une activité : une ligne par activité, une cellule par
+sortie, l'attendu au bout.
+⚠️ La cellule d'une sortie **mesurée** porte un liseré : son niveau ne vient
+pas d'une note mais d'un chiffre relevé en séance, et les deux ne se corrigent
+pas de la même façon.
+
+Le relief est **le MÊME `reliefSvg`** que la fenêtre des courbes : deux tracés
+d'une même progression finiraient par ne plus dire la même chose. Son
+sélecteur n'existe que s'il y a plus d'une sortie mesurée — une rangée d'un
+seul bouton est un titre déguisé.
+
+#### Deux pièges, et une leçon de méthode
+
+- ⚠️ **DEUX lectures, en PARALLÈLE** (`Promise.all`) : la synthèse porte les
+  rôles et le profil, l'aperçu porte les sorties et leurs paliers. En série,
+  c'est deux allers vers la base pour une page qui se rouvre à chaque
+  changement de collaborateur. Et un échec de l'aperçu **n'emporte pas la
+  page** : le radar et les rôles s'affichent, les cartes qui en dépendent se
+  retirent — c'est la leçon de `/panel`, qui retenait son HTML le temps d'un
+  appel et annonçait ensuite une panne.
+- ⚠️ **`renderBilan` est parti avec son seul appelant.** Ses quatre tuiles
+  sont devenues le PANNEAU du grand chiffre, à côté de ce qu'elles expliquent
+  — et elles s'affichent toujours toutes les quatre, même à zéro.
+- ⚠️ **La typographie se mesure en pixels RÉELS.** `body.pg` porte
+  `zoom: .8` : les noms du classement et les libellés du panneau, écrits à
+  9,5 px, étaient rendus à **7,6 px** — sous le plancher de l'échelle
+  (badges/méta 12, minimum 11). Remontés après mesure à l'écran.
+
+#### ⚠️ Deux injections de cliquet qui visaient À CÔTÉ
+
+Les deux sont des leçons à relire avant d'en écrire d'autres :
+
+1. **Un HOMONYME.** `.ev-ou` (l'écran de notation) et `.vo-nuit` portent la
+   MÊME ombre à quatre couches : `src.replace(present, fautif, 1)` frappait la
+   première, et le cliquet de `.vo-nuit` restait vert sur le défaut. Une
+   injection doit borner sa zone, exactement comme un cliquet qui cherche une
+   chaîne.
+2. **Un décor qui ne peut pas démentir la règle.** Le cliquet du minimum
+   partiel restait vert parce que l'activité du décor n'avait qu'UNE sortie :
+   avec une seule note, un minimum partiel et un minimum complet donnent le
+   même chiffre. Le décor porte désormais une activité à deux sorties dont une
+   seule est notée.
+
+#### Mesures
+
+Tests : `tests/test_145_vue_ensemble.py` (25 cas), plus trois cas réécrits
+dans `test_109` et `test_140` — ils affirmaient `renderBilan`. **17 cliquets
+vérifiés ROUGES.** Suite : **4354 passés**, 1 sauté.
+Éprouvé au banc (`tools/devrun_competences.py`) de 1000 à 1600 px dans les
+deux langues : les cinq états d'activité présents en même temps, le clic d'une
+barre qui change les marches, **zéro fuite française sur l'écran anglais**
+(163 textes relevés, attributs compris), zéro clé brute, zéro débordement
+horizontal.
+
+⚠️ **Trouvé en chemin, et corrigé** :
+`test_139::test_une_note_EFFACEE_arrete_le_report` rougissait **entre minuit
+et une heure à Paris**, sur HEAD comme ici. Son décor datait le palier au
+calendrier LOCAL (`date.today()`) et la note en UTC (`utcnow()`) : passé
+minuit les deux ne sont plus le même jour, le palier et la note du même geste
+tombaient dans deux colonnes, et la courbe globale démarrait une colonne trop
+loin. Même famille que `test_61_pulse` entre 00:00 et 00:08. Les deux aides
+datent désormais sur la même horloge.
+
+#### Les trois défauts du CAS CHARGÉ (2026-11-15, même jour)
+
+« Petit souci de disposition… pas mal de trucs s'affichent mal, les niveaux
+sur la pile se marchent dessus. » Mon banc n'avait que des activités à UNE ou
+DEUX sorties, dont au plus trois marches : les vraies données en portent
+quatre, toutes mesurées, **toutes au même niveau**. Sans ce cas on ne regarde
+que l'heureux — `tools/devrun_competences.py` sème désormais « Négocier
+l'offre » : quatre sorties, quatre marches chacune, toutes qualifiées.
+
+Les trois défauts ont été **mesurés** avant d'être corrigés :
+
+- ⚠️ **Les repères du bassin se chevauchaient de 2 px, et deux sortaient du
+  bassin par le haut.** Ils étaient EMPILÉS (`--k` × 30 px) alors que la
+  pastille en fait 26 px de haut — à deux sorties ça passait, à quatre non.
+  Ils se posent désormais **côte à côte** (`--k` × 34 px en abscisse), et à
+  plusieurs ils ne gardent que leur NUMÉRO, celui de la carte de droite. Seule
+  à son niveau, une sortie garde son nom : c'est le cas courant, et c'est ce
+  que la maquette montrait. ⚠️ Le nom survit dans l'info-bulle et dans
+  l'`aria-label` — une pastille réduite n'efface pas l'information.
+- ⚠️ **Le panneau des marches faisait 847 px**, quatre fois le classement
+  d'à côté, et les rails se marchaient dessus. Il ne porte plus qu'**UNE
+  sortie à la fois**, avec le pager de l'écran d'évaluation (`‹ 2 / 4 ›`) —
+  **244 px** après. Même règle que la navigation entre activités : pas de
+  bouclage, une flèche qui ne mène nulle part n'est pas un bouton. Et une
+  hauteur PLANCHER, sinon passer de quatre marches à une fait sauter le bloc.
+- ⚠️⚠️ **La mesure était écrite en BLANC sur VERT PÂLE** : `.pal-m` est une
+  PASTILLE, pas une ligne de texte, et la variante sombre ne lui donnait
+  qu'une encre. Quatre rectangles clairs et vides à l'écran. Elle reçoit son
+  propre fond, verdict par verdict. Le drapeau « au-delà » sortait aussi du
+  panneau de 8 px : resserré.
+- La pastille de norme ne redit plus « NORME DE L'ENTREPRISE » — le drapeau
+  du rail le dit deux lignes plus bas. Elle ne garde que ce qu'elle seule
+  porte : « ≤ 10 j ».
+
+**La barre des collaborateurs passe EN HAUT** sur la vue d'ensemble : en
+colonne elle prenait 268 px à la page qui en a le plus besoin. Le bloc de nuit
+passe de 1 100 à **1 373 px**. Les autres écrans n'ont pas de barre du tout
+(`pleineLargeur`) — c'est donc le seul qui s'en sert, et la rendre horizontale
+ici ne touche à rien d'autre.
+
+⚠️ **Et un cliquet d'un autre fichier est tombé en chemin** :
+`test_109::test_la_mesure_se_lit_autant_que_la_cible` lisait `.pal-pas .pal-m`
+par un `rsplit` — « c'est la DERNIÈRE qui gagne ». La variante sombre du
+panneau des marches est devenue la dernière du fichier, et le cliquet lisait
+une règle qui ne le concernait pas. Il ne retient plus que les règles qui
+visent la carte. *Un cliquet qui cherche une chaîne doit borner sa zone* — et
+c'est la troisième fois en deux jours.
+
+Tests : `test_140` (+2 cas), `test_145` (+5), `test_109` (1 réécrit).
+**9 cliquets vérifiés ROUGES.** Suite : **4359 passés**, 1 sauté. Éprouvé au
+banc sur le cas chargé, de 1000 à 1600 px, dans les deux langues : zéro
+chevauchement, zéro repère hors du bassin, zéro fuite française sur l'écran
+anglais (167 textes, attributs compris).
+
+#### ⚠️⚠️ Supprimer une section de feuille emporte ce qui s'y trouvait pour d'autres
+
+« Les boutons de la card bleue sont toujours dégueux. » Ils l'étaient, et ce
+n'était pas une affaire de goût : **`.cl-rb` avait disparu AVEC le bloc du
+classeur**, que la refonte de l'écran de notation a remplacé en bloc. Seule la
+règle de son ICÔNE avait survécu, dans la section « LES BOUTONS : UN SEUL
+VOCABULAIRE », plus bas dans la feuille.
+
+Les pastilles sont donc retombées sur le **bouton blanc par défaut** — et leur
+pastille d'icône, taillée pour un fond sombre (`rgba(255,255,255,.17)` sur
+`#fff`), est devenue **blanche sur blanc** : quatre pâtés blancs à glyphe
+invisible sur la carte de nuit. Le verre est restauré, à côté de `.ou-reg` qui
+s'en sert.
+
+Trois retouches au passage, toutes mesurées :
+- ⚠️ **« Technicitéaucun domaine »** — le `gap` d'une boîte flex ne s'applique
+  qu'entre ÉLÉMENTS, et le libellé était un nœud de texte nu. Il est dans un
+  `<span>`. (Troisième fois ce jour-là, après les pastilles de la vue
+  d'ensemble.)
+- ⚠️ **Et la valeur ABSENTE ne s'annonce plus** : « aucun domaine » en blanc
+  gras se lisait comme un verdict, et ces 75 px faisaient passer la rangée sur
+  deux lignes.
+- ⚠️ **La rangée est une GRILLE à deux colonnes**, pas un `flex-wrap` : à
+  quatre pastilles pour 520 px (mesuré : 544 px de contenu), trois restaient
+  sur une ligne et une tombait seule en dessous — ça se lit comme un
+  débordement, pas comme une disposition.
+
+#### ⚠️⚠️ Le bassin : DEUX repentirs avant de trouver
+
+« Je ne comprends pas les 4 bulles vertes, il y a un problème je pense. » Il y
+en avait un, et c'était le MIEN : deux tentatives avaient échoué pour la même
+raison — **on ne regarde pas un bassin pour y lire une liste.**
+
+1. **EMPILÉES** vers le haut : des pastilles de 26 px posées tous les 24 px se
+   chevauchaient de 2 px, et deux d'entre elles sortaient du bassin.
+2. **CÔTE À CÔTE et réduites à leur numéro** : quatre disques verts qui ne
+   disaient plus rien du tout.
+
+C'est **UNE pastille par NIVEAU**, pas par sortie. Seule à son niveau, une
+sortie porte son NOM avec son numéro — le cas courant, et ce que la maquette
+montrait. À plusieurs, la ligne porte le COMPTE (« 4 sorties à ce niveau ») et
+c'est tout ce qu'on a besoin d'y lire : le détail est sur les cartes de
+droite, et les noms restent dans l'info-bulle et l'`aria-label`.
+⚠️ Et **pas de disque** sur la pastille de groupe : il y dirait un numéro de
+carte, et c'est justement ce qu'on ne peut plus désigner.
+
+Tests : `test_140` (+4 cas, 2 réécrits), `test_145` (+1). **7 cliquets
+vérifiés ROUGES.** Suite : **4362 passés**, 1 sauté. Éprouvé au banc sur le
+cas chargé dans les deux langues.
+
+#### ⚠️⚠️ TROIS traits pleine largeur sur le même pixel (2026-11-15, même jour)
+
+« Cet élément là n'est pas bien géré : lorsque l'on a plusieurs sorties au
+même niveau, elles se marchent dessus. » La pastille unique par niveau (la
+veille) avait réglé les pastilles entre elles ; ce qui restait tenait à la
+géométrie du bassin, et il y avait **trois défauts** :
+
+1. **Le badge de l'attendu était à cheval sur sa ligne** (`top: -10px`). Or le
+   niveau d'une activité égale souvent l'attendu — c'est le cas qu'on vient
+   vérifier — et la ligne de l'attendu, la surface de l'eau et la ligne du
+   repère tombent alors **au même pixel**. La surface passait en travers du
+   texte du badge. Il se pose désormais **SOUS** sa ligne et la pastille
+   **AU-DESSUS** de la sienne : c'est ce qui les empêche de se croiser, quelle
+   que soit la langue et quelle que soit la largeur.
+   ⚠️ Au niveau 0 il n'y a que 16 px sous la ligne : `.att.hors` le repasse
+   au-dessus.
+2. **La pastille TOUCHAIT sa propre ligne.** `top: -33px` pour une pastille de
+   33 px de haut : son bord bas tombait exactement sur la ligne, donc dans la
+   surface de l'eau, qui déborde d'un pixel au-dessus. Mesuré au banc : la
+   pastille du repère le plus bas croisait la surface sur **quatre activités
+   sur neuf** — et seulement celles-là, parce que la pastille de GROUPE (sans
+   disque) ne fait que 24 px et dégageait. Les deux formes partagent donc une
+   `min-height`, et `top` la dépasse (`-37px`).
+3. **La pastille du niveau 4 était rognée par le haut.** `basY(4)` vaut
+   `h - fond` **quelle que soit la hauteur du bassin** : avec un fond et un
+   ciel égaux (20 px), elle débordait TOUJOURS de 13 px. Le bassin a donc un
+   fond (16) et un **ciel** (46) distincts — il faut au ciel la hauteur d'une
+   pastille. Mesuré après : 10,4 px de marge au-dessus.
+
+Et **l'eau porte son niveau toute seule** : la ligne du repère le plus bas
+redoublait la surface au pixel près. `.bassin.a-eau .mk.est-bas .bar` ne se
+dessine plus — sans niveau (NULL) il n'y a pas de surface, et le repère garde
+sa ligne. ⚠️ Un repère **muet** (pas le premier de son niveau) ne laisse plus
+RIEN non plus, pas même sa ligne : quatre traits identiques au même pixel,
+c'est exactement ce qui « se marchait dessus ».
+
+Mesuré au banc sur les **neuf** activités du collaborateur, animations
+coupées : **0 collision, 0 pastille hors cadre**.
+
+#### Le même écart entre toutes les cartes — DEUX COLONNES, pas deux rangées
+
+« J'aimerais que l'on ait le même espacement entre chaque carte, que ça fasse
+propre. » En grille, la hauteur d'une rangée est celle de sa carte la plus
+haute : le profil fait deux fois la carte des notes, et « Prochaines séances »
+attendait donc **190 px** sous la carte qu'elle suit — un trou qui ne se lit
+comme rien. Trois écarts différents cohabitaient par-dessus (le `gap` de la
+grille, la marge basse du profil, la marge haute des séances).
+
+Chaque colonne est désormais une **pile** (`.vo-col`, flex en colonne), et un
+jeton unique — `--vo-gap` — sépare toutes les cartes dans les deux sens.
+⚠️ Une grille ne sait pas faire ce tassement : c'est « masonry », que personne
+n'implémente encore.
+⚠️ **Conséquence assumée** : en colonne unique (sous 1100 px RÉELS) l'ordre
+suit les COLONNES — profil, relief, notes, séances — et non les rangées.
+Mesuré : **12,8 px partout**, à 1600 px comme à 1000, et aucun débordement
+horizontal.
+⚠️ Les écarts ne se mesurent qu'**animations coupées** : l'entrée des cartes
+part d'un décalage, et dans ce volet une animation reste figée en cours de
+route — relevé 8 px ici et 18 px là pour un écart qui vaut 12,8.
+
+#### Le drapeau dit « Norme », et son voisin « Au-delà »
+
+Les deux drapeaux du rail marquent des marches **VOISINES**, et chacun est
+centré sur la sienne : leur largeur cumulée ne peut pas dépasser deux fois le
+pas du rail. Mesuré sur le panneau des marches de la vue d'ensemble (pas de
+75 px) : « NORME DE L'ENTREPRISE » + « AU-DELÀ DE LA NORME » faisaient 236 px
+et se chevauchaient de 60 — c'est la capture du pilote.
+
+⚠️ **Et raccourcir le premier ne suffisait pas.** En français « Norme » +
+« Au-delà de la norme » tombe à 146 px et dégage de 2 px ; **en anglais**
+« Standard » + « Beyond the standard » fait 162 px et **se chevauchait encore
+de 6** — relevé en repassant l'écran en anglais, pas déduit. Les deux sont
+donc courts : mesuré après, 31 px d'écart en français, 26 en anglais.
+Le cliquet porte sur la **LONGUEUR** des deux libellés dans les deux langues :
+c'est elle qui décide, et une traduction plus bavarde rouvrirait le défaut.
+`pal_norme_tag` disparaît — c'était une seconde clé pour le même mot que
+`pal_norme`.
+
+#### Deux retraits, et une porte
+
+- **« Une sortie mesurée n'a pas de note à saisir… »** est partie, avec sa
+  clé : elle expliquait, sous un pied vide, une règle que le rail des marches
+  montre déjà juste au-dessus.
+- **Le maillon du RÔLE est une PORTE** : il ramène à la vue d'ensemble,
+  ouverte sur le détail de CE rôle — une ligne par activité, avec sa cible. On
+  n'y venait que par un point du radar, et il n'existait **aucun** chemin
+  depuis l'écran où l'on note.
+  ⚠️ `state.voRole` ne vaut que pour cette arrivée : gardé, il rouvrirait les
+  barres à chaque changement de collaborateur et le radar ne se verrait plus
+  jamais. Et il se lit **APRÈS** `animerProfil`, qui remet la zone sur le
+  radar.
+  ⚠️ C'est un `<button>` au milieu d'une chaîne de trois maillons : sans
+  `font: inherit` et `color: inherit`, il aurait été le seul dans la police du
+  système.
+
+⚠️ **Deux pièges de banc, tous deux déjà connus** : `String.split(sep, n)` en
+JavaScript prend une **LIMITE**, pas un nombre de coupes — `split(a, 1)` rend
+un tableau d'un seul élément, et mon détecteur de fuites a d'abord lu **zéro
+clé** dans les deux catalogues, donc zéro fuite, donc un contrôle vert qui ne
+regardait rien. Et un heredoc de shell **avale les antislashs** : un `\\d` écrit
+dans un script Python embarqué arrive `d`. Passer par un fichier.
+
+Tests : `test_140` (+5 cas, 2 réécrits), `test_145` (+2), `test_109` (+2,
+1 réécrit). **19 cliquets vérifiés ROUGES.** Suite : **4373 passés**, 1 sauté.
+Éprouvé au banc
+(`tools/devrun_competences.py`) à 1600 et 1000 px dans les deux langues :
+neuf bassins sans une collision, les écarts à 12,8 px, la porte du rôle qui
+ouvre les barres et ne survit pas au collaborateur suivant, et **zéro fuite
+française sur l'écran anglais** (1 082 textes relevés, attributs compris —
+tout ce qui reste en français est une DONNÉE du banc).
+
+### LA GALERIE D'ACCUEIL : la page ne s'ouvre plus sur une phrase (2026-11-15)
+
+« Cette sous-page fait une page très vide et qui de toute façon ne conserve
+pas sa structure, alors autant la reprendre ; il serait sympa d'avoir le
+graphique de l'ancienne page pour visualiser en un coup d'œil les compétences
+du collaborateur. » Mesuré avant de redessiner, à 1600 × 1000 :
+
+| | avant |
+|---|---|
+| vide sous le seul contenu de la page | **726 px** (la page fait 1000) |
+| largeur utilisée | **38 %** — 432 px de cadre pointillé pour 1144 disponibles |
+| la barre des collaborateurs | **214 × 253 à gauche**, puis **1373 × 67 en haut** dès qu'on choisit quelqu'un |
+| information sur l'équipe | **aucune**, alors que tout était déjà calculé |
+
+Le reproche sur la structure était exact et il est chiffrable : ce n'est pas
+une adaptation, c'est un autre objet.
+
+**Tranché sur maquette** — trois organisations cliquables à l'échelle réelle,
+avec les données du banc (artefact « Écran d'accueil Compétences ») : **A** la
+galerie, **B** la barre qui ne bouge pas plus un radar d'équipe, **C** les
+deux. Retenu : **A**. C'est la dixième fois que la méthode évite une journée
+écrite pour rien.
+
+#### Ce que l'écran montre
+
+Une carte par collaborateur : son profil en vignette, sa couverture, ses
+quatre compteurs, et ce qui reste à noter. **Les cartes SONT la liste** — pas
+de barre à l'arrivée ; une barre de noms au-dessus d'une grille des mêmes noms
+serait deux portes pour un seul geste. La barre revient quand on entre dans un
+dossier, et un bouton **« L'équipe »** y ramène.
+
+#### ⚠️ Le serveur : `apercu` par personne, c'était dix requêtes chacune
+
+`Code/apercu_competences.py::galerie(acteur, gens)` + `GET /mastery/galerie`.
+Un nombre **FIXE** de requêtes quel que soit l'effectif — mesuré : trois
+collaborateurs de plus ne coûtent pas une requête de plus. C'est le défaut qui
+mettait le tableau global de la page RH à deux minutes et demie.
+
+- ⚠️ **La carte est la VIGNETTE du dossier, pas un second calcul.** Le corps
+  de la boucle d'`apercu` est extrait dans `_activites_du` et les deux
+  l'appellent : deux calculs d'un même niveau finiraient par afficher deux
+  chiffres, et c'est une enquête qu'on a déjà payée ici. Un cliquet compare
+  les deux, personne par personne et activité par activité.
+- ⚠️ **Les gens viennent de `collaborateurs_de`, et de nulle part ailleurs.**
+  `/competences/contexte` remplissait sa liste à la main ; la fonction vit
+  maintenant dans `Code/competences_acces.py` et les deux la lisent. Une carte
+  que la liste ne porte pas serait une carte qu'aucun clic n'ouvre.
+- ⚠️ **Le périmètre des RÔLES reste celui de `roles_suivis`** : un développeur
+  de 2 rôles sur 4 ne voit pas les 4. `_suivis_en_bloc` applique la règle sans
+  refaire deux requêtes par personne, et `None` (aucune restriction) ne se
+  confond pas avec une liste VIDE (il n'en suit aucun).
+- ⚠️ **La galerie n'ÉCRIT rien.** `get_activity_outputs` matérialise les
+  connexions sortantes en `Data` : on ne l'appelle pas depuis une page de
+  lecture. On relit avec `output_ids_en_bloc`, et un cliquet compte les `Data`
+  avant et après — son décor porte exprès une activité dont les sorties ne
+  sont pas matérialisées, sans quoi il resterait vert même sur une page qui
+  écrit.
+- `_paliers_en_bloc` délègue à `_paliers_multi` : une seule forme de requête
+  pour une personne comme pour dix.
+
+#### La vignette, et les deux décisions qu'elle a coûtées
+
+- ⚠️ **Le requis passe en FANTÔME.** Premier essai avec le requis rempli,
+  comme sur le grand radar : **les trois cartes se ressemblaient trait pour
+  trait**. Normal — le requis est le même pour tout le monde, c'est la carto
+  qui l'impose. Ce qui distingue les gens, c'est le DÉMONTRÉ : c'est lui qu'on
+  remplit.
+- ⚠️ **Pas d'étiquettes** : à 150 px, neuf noms d'activité en 10,5 px ne
+  tiennent pas. C'est la FORME qui se lit d'un coup d'œil ; les noms sont à
+  l'intérieur, sur le grand radar.
+- ⚠️ **Les axes sont ceux de CETTE personne**, triés par écart croissant —
+  exactement `synthese.profil`, que le radar du dossier dessine. Des axes
+  communs à tout le monde donneraient deux graphes différents d'une même
+  personne, et une activité hors de son périmètre se lirait comme une activité
+  non évaluée.
+- ⚠️ **NULL ≠ 0**, ici comme partout : une activité que personne n'a notée n'a
+  pas de point. Lina n'a que 2 activités notées sur 9 — son radar est presque
+  vide, et c'est exactement ce qu'on doit voir.
+- **UNE seule fonction** (`radarSVG(axes, opts)`) pour les deux tailles :
+  même géométrie, même règle de couche.
+
+#### La largeur de la carte, en deux essais
+
+- `auto-fill` à `1fr` : des colonnes vides et des cartes étroites au milieu
+  d'un écran large — le vide qu'on venait de corriger, sous une autre forme.
+- `auto-fit` à `1fr` : l'inverse — mesuré, **trois cartes étirées à 562 px CSS
+  dont le contenu n'occupait que la moitié**.
+- Retenu : la piste est **plafonnée à 460 px** (la largeur éprouvée sur
+  maquette) et ce qui reste est **centré**. Mesuré : 3 cartes par rangée de
+  1280 à 1920, 2 à 980, aucun débordement horizontal nulle part.
+- ⚠️ Le repli étroit ne touche PAS à la grille : `1fr` défaisait le plafond et
+  rendait, à 980 px réels, une carte de **1 161 px CSS** de large.
+
+#### ⚠️ Trois pièges, tous déjà connus
+
+- **`[hidden]` est une règle du NAVIGATEUR** : `.gal-c` pose un `display`, donc
+  la recherche ne masquait rien tant que `.gal-c[hidden]` n'était pas déclaré.
+  **Septième fois** que ce piège se présente dans cette application.
+- **Un cliquet qui découpe sur un repère de SECTION doit couper après le
+  `*/`** : le repère est lui-même un commentaire, et il cite les quatre jetons
+  qu'il interdit. Retirer les commentaires d'abord ne suffit pas — le texte
+  reprend au milieu du commentaire, dont la fin survit au nettoyage. Sixième
+  fois.
+- **Un id RETIRÉ ne se réemploie pas.** Le bouton de retour s'appelait d'abord
+  `#cv2-retour` — or `test_109` exige que cet id soit MORT, parce qu'il avait
+  « survécu une version de trop et cassé le démarrage ». Lui redonner vie
+  désarmait ce cliquet : le retour s'appelle `#cv2-vers-galerie`.
+- ⚠️ **Deux cliquets découpaient sur une LONGUEUR FIXE** (900 signes après une
+  ancre, et la signature `radarSVG(axes)`). Ils ont rougi sans qu'une seule
+  règle ait bougé, parce qu'un commentaire s'est glissé dedans et qu'une
+  fonction a pris un second argument. Ils bornent désormais sur ce qui SUIT.
+
+#### Mesures
+
+Tests : `tests/test_147_galerie_accueil.py` (25 cas), plus trois cas de
+`test_109` réécrits sur ce qui reste vrai. **27 gardes retirées une par une,
+27 cliquets tombés.** Suite : **4 423 passés**, 1 sauté ; `repet_image`
+4 327 passés + 72 sautés. Éprouvé au banc
+(`tools/devrun_competences.py`) de 980 à 1920 px dans les deux langues :
+parcours complet (carte → dossier → retour), recherche (frappe, accents, sans
+résultat), un collaborateur qui entre droit dans son dossier sans voir de
+galerie, zéro erreur console, et **zéro fuite française sur l'écran anglais**
+(516 clés, 492 pièges, 158 textes relevés, attributs compris).
+
+#### Le détail des séances ne faisait RIEN, et le bandeau flottait (2026-11-15)
+
+« Structurellement c'est top ; on peut améliorer le visuel, pas ce que
+contiennent les sections — les graphiques — mais le reste. Et dans la section
+"comment machin a bougé", une fois un user sélectionné, le bouton détail des
+séances ne marche plus. Mets en sorte qu'il se développe sur le côté, comme on
+a de la place, plutôt que de rallonger en bas. »
+
+#### ⚠️⚠️ Le bouton était rendu et câblé NULLE PART
+
+`bilanRelief` écrit « Le détail des séances → » ; `rendreValeurs` (la fenêtre
+des courbes) branche `[data-evol]` sur `basculerHisto`. **`renderRelief`, lui,
+ne branchait rien** : sur la vue d'ensemble, le bouton existait depuis le jour
+de son arrivée et ne faisait rien. Mesuré au banc avant correction :
+`b.onclick === null`.
+
+#### ⚠️⚠️ Et le partager EN L'ÉTAT était impossible — c'est la mesure qui a tranché
+
+Le relief a un `viewBox` de **828 unités** et `width: 100 %`. Dans les 680 px
+réels d'une colonne de la vue d'ensemble il se rendait déjà à **0,78**, et ses
+libellés tombaient entre **6,6 et 10,2 px RÉELS** — sous le plancher de 11 de
+l'échelle typographique. Ouvrir un panneau à côté l'aurait ramené à 490 px,
+soit **4 px**. Illisible.
+
+Le relief quitte donc les deux colonnes et devient une **BANDE pleine largeur**
+(`vo-bande`, posée après `.vo-cols`). Trois conséquences, toutes mesurées :
+
+| | avant | après |
+|---|---|---|
+| le SVG du relief | 647 px réels (×0,78) | **1 316** (×1,59) |
+| ses libellés | 6,6 à 10,2 px réels | **13 à 21** |
+| panneau ouvert | — | relief 961 px (×1,16), panneau 336 |
+| hauteur de la bande | 619 px | **491** une fois ouverte |
+
+Elle rééquilibre aussi les colonnes : la gauche faisait 801 px contre 443 à
+droite — **358 px de vide**, exactement la place que l'utilisateur voyait.
+
+- ⚠️ `.pal-evo-duo` porte les deux colonnes et `.pal-evo-g` tient le relief et
+  son bilan. Sans ce couple, le panneau se place sous le bilan.
+- ⚠️ **Un seul bouton de fermeture à côté.** Le bouton du bas existe parce que,
+  empilé, celui qui a OUVERT se retrouve en plein milieu. À côté il ne bouge
+  pas d'un pixel : un second bouton ne ferait que doubler celui qu'on a sous
+  les yeux. La fenêtre des courbes, elle, reste empilée (1 060 px : le partage
+  y ramènerait les libellés sous 6 px) et garde le sien.
+- ⚠️ Sous **1150 px réels**, la bande repasse en pile. La borne est en px
+  RÉELS — `body.pg` porte `zoom: .8` et les requêtes média l'ignorent.
+- ⚠️ **`innerHTML` vide les enfants, PAS l'attribut.** Changer de sortie
+  pendant que le détail est ouvert laissait `data-evo="1"` sur une bande sans
+  panneau : deux colonnes dont la seconde est vide, et un relief rétréci pour
+  rien. Trouvé en relisant le code, pas à l'écran.
+
+#### Le bandeau de page flottait — sur TOUS les écrans de la page
+
+`.page-banner` plafonne à **1200 px CSS** quand
+`body.pg.page--competences .pg-container` va à **1760**. Mesuré à 1800 px :
+960 px réels de bandeau au-dessus de 1 408 px de contenu — **448 px plus
+étroit**, centré. C'est ce décalage qu'on lit comme un défaut de mise en page,
+bien avant le détail des cartes. Le bandeau suit désormais le conteneur.
+
+#### ⚠️⚠️ `repeat(auto-fit, minmax(A, B))` compte les pistes sur B, pas sur A
+
+Et resserrer peut donc EMPIRER les choses. La galerie plafonne ses cartes à
+460 px ; à 1 760 px, trois cartes se centraient en laissant 123 px de gouttière
+de chaque côté pendant que le bandeau et les compteurs allaient d'un bord à
+l'autre. Premier essai : conteneur à 1 440 px. Mesuré —
+`floor((1396 + 14) / 474)` rend **DEUX** pistes, et la galerie est passée à
+deux cartes par rangée. Il en faut **1 452** pour trois ; l'accueil se cadre à
+**1 500** (classe `a-cv2-galerie`), ce qui pose les trois cartes avec 24 px de
+marge. Bandeau, compteurs et cartes s'alignent enfin.
+
+#### La passe de style — tout sauf les graphiques
+
+- la **tuile** porte le MÊME liseré coloré que la carte qu'elle résume (c'est
+  ce qui les fait lire comme une famille), son chiffre passe à 26 px, et la
+  pastille ronde part : elle redisait le liseré ;
+- les **cartes** prennent une ombre à **quatre couches** — la lumière ne fait
+  pas une ombre nette, et c'est ce qui les pose sur la page au lieu de les y
+  coller. Même traitement au survol, en accent ;
+- le **pied de carte** passe du pointillé au filet plein : le pointillé dit
+  « provisoire », et ce pied porte le compte des notes et la porte du dossier ;
+- ⚠️ **« Aucune activité à évaluer » était faux et se lisait comme une panne.**
+  Le radar manque quand il y a moins de trois axes à tracer, pas quand il n'y a
+  rien à évaluer. Le libellé devient « Pas encore de quoi tracer un profil », et
+  il s'inscrit dans un **disque en pointillé** : une phrase grise seule au
+  milieu de la place du radar se lit comme un échec de chargement.
+
+#### Mesures
+
+Tests : `test_145` (+5), `test_147` (+3), et trois cas de `test_109` et
+`test_145` réécrits sur ce qui reste vrai. **9 gardes retirées une par une,
+9 cliquets tombés.** Suite : **4 431 passés**, 1 sauté ; repet_image
+4 359 passés + 72 sautés. Éprouvé au banc à 1400 et 1800 px dans les deux langues : le bouton
+ouvre et referme, le panneau est à droite du relief, la bande RACCOURCIT en
+s'ouvrant, et **zéro fuite française sur l'écran anglais** (363 textes relevés,
+attributs compris — les quatre relevés sont des DONNÉES du banc).
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime
@@ -8339,6 +9396,62 @@ fichiers près, et le jour où l'écran part le saut s'éteint de lui-même :
 **rien à défaire au prochain report**.
 
 ---
+
+### Le calendrier partagé, RETIRÉ le jour même (2026-11-14)
+
+Écrit, livré, puis **repris** quelques heures plus tard : « l'idée est trop
+complexe et je veux pas faire un truc à la va-vite, donc on revient à notre
+calendrier exclusivement dans les compétences ». Le calendrier de la page
+Compétences (`#cv2-ecran-cal`, 2026-10-15) est donc le seul, avec son style
+d'avant.
+
+Partis : `Code/routes/calendrier.py`, son gabarit, `static/js/calendrier.js`,
+`static/calendrier.css`, `tests/test_141_calendrier_partage.py`, le verdict
+`calendrier_ouvert` du processeur de contexte, les trois portes (page Temps,
+page Compétences, pied de la fenêtre de bienvenue) et les 43 clés `cal.*` × 2
+langues.
+
+⚠️ **Le bouton de la page Temps GARDE son nouveau nom** — « Temps de
+travail » / « Working hours ». Il avait été renommé parce qu'un vrai
+calendrier arrivait à côté ; la raison a disparu, mais le nom reste le juste :
+il ouvre les **réglages du temps de travail** (semaines / jours / heures,
+bandeau de la page RH, ancre `#calendrier`), pas un calendrier. C'est la
+question qu'avait posée l'utilisateur.
+
+ℹ️ Ce qui n'a PAS été rendu, parce que c'étaient des correctifs à part entière :
+les deux retouches de `tests/test_105_temps_refonte.py` — `_CartoJetable`
+repose TOUJOURS une entité active au lieu de retirer la clef, et le cas des
+deux boutons de l'en-tête découpe sur une borne au lieu de 600 signes.
+
+#### ⚠️⚠️ La leçon qui survit au retrait : l'échec se lisait TROIS FICHIERS PLUS LOIN
+
+`test_141` passait seul ; la suite complète rendait **six rouges dans
+`test_14_cartography_editor`**, qui ne parle ni de calendrier ni de temps.
+Mesuré plutôt que supposé : la suite SANS `test_141` était propre, et
+`test_141` + `test_14` seuls l'étaient aussi — c'est donc l'état ACCUMULÉ
+plus ce fichier.
+
+La cause : `test_141` écrivait ses activités dans l'entité du DÉCOR COMMUN —
+et `test_14` comme `test_15` lisent la carto de l'entité ACTIVE
+(`/cartography/api/load` rendait 200 là où il attendait 404). Les créations et
+les suppressions s'équilibraient pourtant ; c'est le va-et-vient de l'entité
+active, que `auth_client` repose avec `setdefault` — donc sans CORRIGER une
+valeur laissée derrière — qui faisait le reste.
+
+**La garde n'était pas un rattrapage mais une ISOLATION** : le fichier
+travaillait sur SA PROPRE carto (détruite en fin de module) avec un
+`owner_id` — une entité de test sans propriétaire est lisible par TOUT LE
+MONDE et devient le repli des fichiers suivants — et une fixture `autouse`
+PROUVAIT après chaque cas qu'il ne restait rien (carto, SVG et cinq compteurs
+comparés avant/après : un reliquat devient un échec DANS ce fichier, pas trois
+fichiers plus loin).
+
+ℹ️ Règle qui en découle, et elle vaut pour tout fichier à venir : **un fichier
+de tests neuf se donne sa propre carto.** Écrire dans celle du décor commun
+s'équilibre peut-être à la ligne près, mais l'entité ACTIVE, elle, ne revient
+pas toute seule — et le défaut se lit chez un fichier qui ne parle pas du même
+sujet. C'est la même règle que `test_82` et `test_83` appliquent déjà à la
+LANGUE.
 
 ## Notes importantes (suite)
 

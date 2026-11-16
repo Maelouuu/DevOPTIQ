@@ -22,6 +22,47 @@ def _lire(chemin):
     return io.open(os.path.join(RACINE, chemin), encoding="utf-8").read()
 
 
+class _CartoJetable:
+    """Une carto a soi, active le temps du cas, avec `n` activites NON
+    chiffrees. ⚠️ Sur sa PROPRE carto : toucher aux analyses du decor commun
+    laisse des objets morts dans la session partagee, et l'echec se lit trois
+    tests plus loin dans une route sans rapport."""
+
+    def __init__(self, client, ids, n):
+        self.client, self.ids, self.n = client, ids, n
+
+    def __enter__(self):
+        from Code.models.models import Activities, Entity
+        self.ent = Entity(name="TM-105-JETABLE-%d" % id(self),
+                          owner_id=self.ids["user_id"])
+        db.session.add(self.ent)
+        db.session.commit()
+        self.actes = [Activities(name="TM-105-a%d" % i, entity_id=self.ent.id)
+                      for i in range(self.n)]
+        db.session.add_all(self.actes)
+        db.session.commit()
+        with self.client.session_transaction() as sess:
+            self.avant = sess.get("active_entity_id")
+            sess["active_entity_id"] = self.ent.id
+        return self
+
+    def __exit__(self, *_):
+        from Code.models.models import Activities, Entity
+        # ⚠️ On REPOSE une entite, on ne se contente pas de retirer la clef :
+        # `auth_client` la met avec `setdefault`, donc il ne la corrigerait
+        # pas, et `Entity.get_active` retomberait sur « sa premiere entite » —
+        # qui n'est pas forcement celle du decor commun. Un fichier joue plus
+        # loin lirait alors la mauvaise carto, et l'echec se lirait chez lui.
+        with self.client.session_transaction() as sess:
+            sess["active_entity_id"] = (self.avant if self.avant is not None
+                                        else self.ids["entity_id"])
+        for a in self.actes:
+            db.session.delete(db.session.get(Activities, a.id))
+        db.session.delete(db.session.get(Entity, self.ent.id))
+        db.session.commit()
+        return False
+
+
 def _tdb(client):
     r = client.get("/temps/api/tableau_de_bord")
     assert r.status_code == 200, r.data
@@ -493,12 +534,22 @@ class TestLaCarteDiLeQuiManque:
             db.session.delete(db.session.get(Activities, neuve.id))
             db.session.commit()
 
-    def test_la_liste_est_plafonnee(self):
-        """Une carto de six cents activites n'a pas a les envoyer toutes pour
-        remplir une carte qui en montre trois."""
-        src_js = _lire("static/js/time.js")
-        assert "manquent.slice(0, 3)" in src_js
-        assert "tm_couv_autres" in src_js
+    def test_la_liste_est_plafonnee_cote_SERVEUR(self, auth_client, ids):
+        """Une carto de six cents activites n'a pas a les envoyer toutes.
+
+        ⚠️ La liste des trois noms a quitte la carte avec la maquette
+        « l'ordre de grandeur » : c'est le BOUTON qui porte l'action, et il
+        nomme ce qu'il ouvre (cas suivant). Le plafond, lui, reste — il
+        protege la reponse, pas l'affichage.
+
+        ⚠️ Sur le COMPORTEMENT : une version qui lisait la source de
+        `time_view` passait ici et rougissait a CHAQUE execution dans l'arbre
+        d'image, compile en bytecode."""
+        with _CartoJetable(auth_client, ids, 62):
+            couv = _tdb(auth_client)["couverture"]
+            assert couv["total"] == 62
+            assert couv["chiffrees"] == 0
+            assert len(couv["a_chiffrer"]) == 60, len(couv["a_chiffrer"])
 
     def test_le_bouton_NOMME_l_activite_qu_il_ouvre(self):
         js = _lire("static/js/time.js")
@@ -526,13 +577,19 @@ class TestLaCarteDiLeQuiManque:
         assert "if (!couv.chiffrees) cbase.textContent = tl('tm_couv_aucune'" in js
 
     @pytest.mark.parametrize("lang", ["fr", "en"])
-    def test_la_phrase_ne_designe_plus_une_carte_par_sa_POSITION(self, lang):
+    def test_aucune_phrase_ne_designe_une_carte_par_sa_POSITION(self, lang):
         """« ci-contre » / « opposite » : faux des que l'ecran se replie en
-        une seule colonne — c'est-a-dire sous 1000 px."""
-        from Code.translations import t
-        for cle in ("time.tm_couv_base", "time.tm_couv_base_une"):
-            phrase = t(cle, lang=lang).lower()
-            assert "ci-contre" not in phrase and "opposite" not in phrase, (cle, phrase)
+        une seule colonne — c'est-a-dire sous 1000 px.
+
+        \u26a0\ufe0f La regle valait pour deux clefs ; elle vaut pour TOUTES.
+        « ci-dessus » est en revanche juste : les cartes s'empilent dans
+        l'ordre du document, ce qui est au-dessus le reste."""
+        from Code.translations import TRANSLATIONS
+        for cle, phrase in TRANSLATIONS[lang].items():
+            if not cle.startswith("time."):
+                continue
+            bas = str(phrase).lower()
+            assert "ci-contre" not in bas and "opposite" not in bas, (cle, phrase)
 
 
 _N_ROLE_105 = [0]
@@ -785,7 +842,11 @@ class TestLaListeTientALEcran:
 
     def test_les_deux_boutons_de_l_entete_ne_sont_plus_des_btn_nus(self):
         g = _lire("Code/routes/templates/time_dashboard.html")
-        entete = g[g.index('class="tm-entete-actions"'):][:600]
+        # ⚠️ Jusqu'à la FIN du bloc, pas 600 signes : une porte de plus dans
+        # l'en-tête poussait le bouton primaire hors de la tranche, et le cas
+        # tombait sans qu'il y ait le moindre défaut.
+        i = g.index('class="tm-entete-actions"')
+        entete = g[i:g.index("</div>", g.index("tm-btn-nouvelle", i))]
         assert 'class="tm-b tm-b--doux"' in entete
         assert 'class="tm-b tm-b--prim"' in entete
         assert 'class="btn' not in entete, entete
@@ -1282,14 +1343,17 @@ class TestLaSectionResultatsDUneFaiblesse:
         assert "grid-template-columns" in _regle(css, ".fw-chrono {")
         assert "contents" in _regle(css, ".fw-l {")
 
-    def test_le_travail_refait_n_ALLONGE_PAS_la_piste(self):
-        """⚠️ `Y = C + M` : le modèle ne compte PAS le travail refait dans la
-        livraison. Un schéma qui l'allongerait dirait autre chose que le calcul
-        qu'il illustre — il est donc marqué À PART, dans une pastille."""
+    def test_le_travail_refait_DECALE_la_livraison(self):
+        """⚠️⚠️ RENVERSEMENT du 13/11. `Y` valait `C + M`, et le travail
+        refait était marqué à part « parce que le modèle ne le compte pas dans
+        la livraison ». C'était faux : `T = C + (L+M)·O` le compte depuis
+        toujours. Relevé à l'écran par l'utilisateur — 10 h de travail refait,
+        4 h de délai standard, le panneau annonçait 14 h de délai moyen et le
+        bilan « le résultat sort en 4 h au lieu de 4 h »."""
         js = _lire("static/js/time.js")
         bloc = js[js.index("function majSchemaFaiblesse"):][:2600]
-        assert "const total = C + M;" in bloc, bloc[:400]
-        assert "C + L + M" not in bloc
+        assert "const total = C + L + M;" in bloc, bloc[:400]
+        assert "pose('fw-sg-l-seg', L)" in bloc, bloc[:900]
 
     def test_un_segment_NUL_ne_se_dessine_pas(self):
         """⚠️ Le plancher rend visible une attente minuscule (une heure sur
@@ -1336,15 +1400,19 @@ class TestLaSectionResultatsDUneFaiblesse:
         for lg in ("fr", "en"):
             assert TRANSLATIONS[lg].get("time.fw_jamais"), lg
 
-    def test_la_legende_ne_decrit_QUE_ce_qui_est_sur_la_piste(self):
-        """⚠️ Elle annonçait « travail refait » en rouge plein — or rien n'est
-        rouge plein sur la piste : le travail refait est marqué à part. Une
-        légende qui promet un remplissage absent envoie chercher ce qui
-        n'existe pas. Relevé sur la capture."""
+    def test_la_legende_decrit_EXACTEMENT_ce_qui_est_sur_la_piste(self):
+        """Une légende qui promet un remplissage absent envoie chercher ce qui
+        n'existe pas ; une légende qui en oublie un laisse une couleur sans
+        nom. On exige donc l'ÉGALITÉ des deux jeux — c'est ce qui a manqué
+        quand le travail refait est passé sur la piste."""
+        import re
         g = _lire("Code/routes/templates/time_dashboard.html")
-        assert "fw-pt--l" not in g
-        for cle in ("fw_leg_b", "fw_leg_a", "fw_leg_m"):
-            assert "t('time.%s')" % cle in g, cle
+        segments = set(re.findall(r"fw-seg fw-seg--(\w+)", g))
+        temoins = set(re.findall(r"fw-pt fw-pt--(\w+)", g))
+        assert segments == temoins, (segments, temoins)
+        assert "l" in segments, "le travail refait est sur la piste"
+        for suffixe in sorted(temoins):
+            assert "t('time.fw_leg_%s')" % suffixe in g, suffixe
 
     def test_l_unite_n_est_plus_ecrite_DEUX_fois(self):
         """⚠️ `fmtH` rend déjà « 24.0h » : le `<span>h</span>` posé à côté
@@ -1506,16 +1574,17 @@ class TestSousUneHeureOnEcritDesMinutes:
 
     def test_une_minute_d_attente_DEPLACE_la_livraison(self, app):
         """La moitié SERVEUR du même fait : les deux bandes disent bien deux
-        choses différentes, seul l'affichage les confondait."""
+        choses différentes, seul l'affichage les confondait.
+        ⚠️ Le décor portait 90 min de travail refait et attendait `Y == C` :
+        il encodait le `Y = C + M` d'avant. On regarde l'ÉCART."""
         from Code.routes.time_view import cout_faiblesse
         p = {"hours_per_day": 7, "days_per_week": 5, "weeks_per_year": 48}
         sans = cout_faiblesse(30, 30, "hebdomadaire", 2, 90, 0, 2,
                               params=p, pct_proba=50)
         une = cout_faiblesse(30, 30, "hebdomadaire", 2, 90, 1, 2,
                              params=p, pct_proba=50)
-        assert sans["Y"] == sans["C"] == 30
         assert une["Z"] == 1
-        assert une["Y"] - une["C"] == 1
+        assert une["Y"] - sans["Y"] == 1
 
     def test_les_en_tetes_n_annoncent_plus_des_HEURES(self):
         """La valeur porte désormais son unité : « Pesée (h) » au-dessus de
@@ -1526,3 +1595,753 @@ class TestSousUneHeureOnEcritDesMinutes:
             for cle in ("time.col_charge", "time.col_weight"):
                 assert "(h)" not in TRANSLATIONS[lg][cle].lower(), (lg, cle)
             assert "(min)" in TRANSLATIONS[lg]["time.col_duration_min"], lg
+
+
+class TestLesCinqCartesArbitrees:
+    """Les cinq cartes du haut, tranchees sur maquette avant d'etre ecrites
+    (canvas « Les cartes, une par une »). Ce qui suit garde les regles que
+    chacune porte \u2014 pas son habillage."""
+
+    # ───────────────────────────── carte 1 · deux etages
+    def test_les_TROIS_rythmes_dont_le_jour_travaille(self):
+        """« Par jour travaille » est le rythme qu'on se represente le mieux,
+        et il manquait : la carte n'en donnait que deux."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        for ident in ("tm-charge-mois", "tm-charge-sem", "tm-charge-jour"):
+            assert 'id="%s"' % ident in g, ident
+        js = _lire("static/js/time.js")
+        assert "quotidien_min" in js
+
+    def test_le_serveur_envoie_la_charge_par_jour_travaille(self, auth_client):
+        d = _tdb(auth_client)
+        assert "quotidien_min" in d["charge"], d["charge"]
+        c = d["calendrier"]
+        if d["charge"]["annuel_min"]:
+            attendu = (d["charge"]["annuel_min"]
+                       / (float(c["weeks_per_year"]) * float(c["days_per_week"])))
+            assert d["charge"]["quotidien_min"] == pytest.approx(attendu)
+
+    def test_la_couverture_se_COMPTE_en_carres(self):
+        """Une jauge a moitie pleine se lit « a moitie fait » ; douze carres
+        dont six pleins se comptent.
+        ⚠️ Le plafond valait 24, et une carto de 45 activites — la taille
+        courante — n'avait donc AUCUNE pile. Les carres retrecissent ; c'est
+        au-dela de soixante seulement que la barre prend le relais."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert 'id="tm-pile"' in g
+        assert "tm-jauge" not in g, "la jauge a cede la place aux carres"
+        js = _lire("static/js/time.js")
+        # ⚠️ APPLIQUE, pas seulement declare : une constante qui ne sert
+        # a rien ne plafonne rien.
+        assert "n > PLAFOND_PILE" in js, "au-dela, on n'ose plus compter"
+        assert "classList.toggle('est-barre'" in js
+        assert "--pile-sq" in js, "la taille d'un carre suit le nombre"
+        import re
+        m = re.search(r"const PLAFOND_PILE = (\d+);", js)
+        assert m, "le plafond doit rester lisible"
+        assert int(m.group(1)) >= 45, (
+            "une carto de 45 activites doit garder ses carres")
+
+    # ───────────────────────────── carte 2 · la part, et sur quoi
+    def test_chaque_barre_nomme_SON_tout(self):
+        """⚠️ On n'additionne jamais le travail refait et l'attente ; mais
+        sans dire de quoi chacun est un pourcentage, deux barres de tailles
+        differentes laissent croire a une seule echelle."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            assert "{h}" in TRANSLATIONS[lg]["time.tm_part_de"], lg
+            assert "{p}" in TRANSLATIONS[lg]["time.tm_part_de"], lg
+
+    def test_le_bloc_gris_dit_ce_qu_on_GAGNERAIT(self):
+        """Il portait une regle d'arithmetique, qui n'apprenait rien.
+        ⚠️ Et le singulier ne se devine pas du pluriel : « si cette faiblesse
+        etait levee » n'est pas « si ces 1 faiblesses etaient levees »."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.tm_gain", "time.tm_gain_1",
+                        "time.tm_gain_att", "time.tm_gain_att_1"):
+                assert cle in TRANSLATIONS[lg], (cle, lg)
+            assert "{n}" not in TRANSLATIONS[lg]["time.tm_gain_1"]
+            assert "{h}" in TRANSLATIONS[lg]["time.tm_gain_att"]
+            assert "{h}" not in TRANSLATIONS[lg]["time.tm_gain"], (
+                "sans attente, la seconde moitie parlerait de zero")
+        js = _lire("static/js/time.js")
+        assert "(attente ? 'tm_gain_att' : 'tm_gain')" in js
+
+    # ───────────────────────────── carte 3 · l'ordre de grandeur
+    def test_la_moyenne_porte_sur_les_ACTIVITES_mesurees(self, auth_client):
+        """⚠️ Jamais sur le nombre d'ANALYSES : une meme activite peut en
+        porter plusieurs, et la moyenne tomberait sous la charge reelle
+        d'une activite.
+
+        ⚠️ Le cas ne se joue QUE si une activite porte deux analyses :
+        ailleurs les deux divisions donnent le meme chiffre, et le controle
+        ne garde rien. On le fabrique donc."""
+        from Code.models.models import Activities
+        depart = _tdb(auth_client)
+        temoin = (depart["couverture"]["a_chiffrer"] or depart["par_activite"])
+        assert temoin, "la carto active n'a aucune activite"
+        modele = db.session.get(
+            Activities, temoin[0].get("id") or temoin[0]["activity_id"])
+        neuve = Activities(name="TM-105-moyenne-deux-analyses",
+                           entity_id=modele.entity_id)
+        db.session.add(neuve)
+        db.session.commit()
+        ids = []
+        try:
+            for _ in range(2):
+                r = auth_client.post("/temps/api/activity_workload", json={
+                    "activity_id": neuve.id, "duration": 60,
+                    "duration_unit": "minutes", "recurrence": "annuel",
+                    "frequency": 1, "nb_people": 1})
+                ids.append(json.loads(r.data)["id"])
+
+            d = _tdb(auth_client)
+            couv = d["couverture"]
+            assert couv["chiffrees"] < len(d["par_activite"]), (
+                "le decor doit porter plus d'ANALYSES que d'ACTIVITES mesurees")
+            attendu = d["charge"]["annuel_min"] / couv["chiffrees"]
+            assert couv["moyenne_min"] == pytest.approx(attendu)
+        finally:
+            for i in ids:
+                auth_client.delete("/temps/api/activity_workload/%d" % i)
+            db.session.delete(db.session.get(Activities, neuve.id))
+            db.session.commit()
+
+    def test_l_estimation_n_entre_dans_AUCUN_total(self, auth_client):
+        """C'est une hypothese : elle est servie a part, et la charge
+        annuelle reste celle des activites REELLEMENT mesurees.
+
+        ⚠️ Il faut une activite chiffree ET une activite sans duree pour
+        qu'il y ait quelque chose a extrapoler : sans moyenne, ou sur une
+        carto entierement chiffree, le controle ne garderait rien. Le decor
+        du fichier n'assure ni l'une ni l'autre — on les seme."""
+        from Code.models.models import Activities
+        depart = _tdb(auth_client)
+        temoin = (depart["couverture"]["a_chiffrer"] or depart["par_activite"])
+        assert temoin, "la carto active n'a aucune activite"
+        modele = db.session.get(
+            Activities, temoin[0].get("id") or temoin[0]["activity_id"])
+        mesuree = Activities(name="TM-105-estimation-mesuree",
+                             entity_id=modele.entity_id)
+        vide = Activities(name="TM-105-estimation-sans-duree",
+                          entity_id=modele.entity_id)
+        db.session.add_all([mesuree, vide])
+        db.session.commit()
+        wid = None
+        try:
+            r = auth_client.post("/temps/api/activity_workload", json={
+                "activity_id": mesuree.id, "duration": 120,
+                "duration_unit": "minutes", "recurrence": "annuel",
+                "frequency": 1, "nb_people": 1})
+            wid = json.loads(r.data)["id"]
+
+            d = _tdb(auth_client)
+            couv = d["couverture"]
+            assert couv["chiffrees"], couv
+            assert couv["estime_min"], couv
+            assert couv["ordre_min"] == pytest.approx(
+                d["charge"]["annuel_min"] + couv["estime_min"])
+            assert d["charge"]["annuel_min"] < couv["ordre_min"]
+        finally:
+            if wid:
+                auth_client.delete("/temps/api/activity_workload/%d" % wid)
+            for a in (mesuree, vide):
+                db.session.delete(db.session.get(Activities, a.id))
+            db.session.commit()
+
+    def test_sans_rien_de_mesure_il_n_y_a_rien_a_extrapoler(self, auth_client, ids):
+        """⚠️ NUL, pas zero : sans moyenne on ne peut rien en tirer, et un
+        zero se lirait comme un resultat.
+
+        ⚠️ Sur le COMPORTEMENT, pour la meme raison que le cas du plafond."""
+        with _CartoJetable(auth_client, ids, 3):
+            couv = _tdb(auth_client)["couverture"]
+            assert couv["chiffrees"] == 0
+            assert couv["moyenne_min"] is None, couv
+            assert couv["estime_min"] is None, couv
+            assert couv["ordre_min"] is None, couv
+        js = _lire("static/js/time.js")
+        assert "couv.ordre_min != null && reste > 0" in js
+
+    def test_un_ordre_de_grandeur_ne_se_donne_pas_a_l_heure_pres(self):
+        """« ~ 2 499 h ? » se contredit : le tilde annonce une approximation,
+        le chiffre pretend le contraire. Deux chiffres significatifs."""
+        js = _lire("static/js/time.js")
+        assert "function ordreDeGrandeur(min){" in js
+        bloc = js[js.index("function ordreDeGrandeur(min){"):][:420]
+        assert "Math.log10" in bloc, bloc
+        # et le grand chiffre comme le calcul annoncent le MEME nombre
+        assert js.count("ordreDeGrandeur(couv.ordre_min)") == 2
+
+    def test_le_calcul_est_ECRIT_et_il_a_son_singulier(self):
+        """« Ce n'est pas une mesure » demandait de croire sur parole."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.tm_ordre_calc", "time.tm_ordre_calc_1"):
+                p = TRANSLATIONS[lg][cle]
+                assert "{m}" in p and "{e}" in p and "{o}" in p, (cle, lg)
+            assert "{r}" not in TRANSLATIONS[lg]["time.tm_ordre_calc_1"]
+        js = _lire("static/js/time.js")
+        assert "reste === 1 ? 'tm_ordre_calc_1' : 'tm_ordre_calc'" in js
+
+    def test_la_charge_s_ecrit_PAREIL_partout_ou_elle_est_citee_en_bloc(self):
+        """La carte 1 ecrit « 1 250 » et `fmtH` « 1249.5h » : deux chiffres
+        pour la meme grandeur, a deux centimetres l'un de l'autre."""
+        js = _lire("static/js/time.js")
+        assert "function fmtHr(min){" in js
+        for appel in ("fmtHr(an)", "fmtHr(charge)", "fmtHr(total)",
+                      "fmtHr(couv.estime_min)", "fmtHr(couv.moyenne_min)"):
+            assert appel in js, appel
+
+    # ───────────────────────────── carte 4 · la phrase
+    def test_la_phrase_a_ses_TROIS_tournures(self):
+        """⚠️ Elle ne s'ecrit jamais d'avance : un role peut depasser le temps
+        plein, et il peut n'y en avoir qu'un — « le plus charge » n'aurait
+        alors aucun sens."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("time.tm_role_ph", "time.tm_role_ph_1",
+                        "time.tm_role_ph_sur"):
+                assert cle in TRANSLATIONS[lg], (cle, lg)
+        js = _lire("static/js/time.js")
+        assert "p >= 100 ? 'tm_role_ph_sur'" in js
+        assert "roles.length === 1 ? 'tm_role_ph_1' : 'tm_role_ph'" in js
+
+    def test_le_nom_du_role_est_ECHAPPE(self):
+        """Il part en innerHTML pour porter son `<b>` : `fmtPhrase` ne fait
+        aucun echappement."""
+        js = _lire("static/js/time.js")
+        assert "nom: '<b>' + echap(top.nom) + '</b>'" in js
+
+    # ───────────────────────────── carte 5 · le cumul
+    def test_une_queue_d_UNE_activite_ne_se_reunit_pas(self):
+        """Avec six activites pour six teintes, la sixieme devenait
+        « + 1 autres » au lieu d'etre nommee."""
+        js = _lire("static/js/time.js")
+        assert "acts.length <= MAX_SEGMENTS" in js
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            assert "time.tm_cumul_autre" in TRANSLATIONS[lg], lg
+            assert "{n}" not in TRANSLATIONS[lg]["time.tm_cumul_autre"], lg
+        assert "reste.length === 1 ? 'tm_cumul_autre'" in js
+
+    def test_la_phrase_des_trois_premieres_a_QUITTE_la_carte(self):
+        """« Les trois premières font 79 % » : la barre le MONTRE, et la phrase
+        prenait la place qui manquait à la barre et à sa légende.
+        ⚠️ La clef part avec son seul lecteur : laissée au catalogue, elle
+        serait une clef morte de plus à trier un jour."""
+        from Code.translations import TRANSLATIONS
+        js = _lire("static/js/time.js")
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "tm_act_trois" not in js
+        assert "tm_act_trois" not in g
+        assert "tm-act-pied" not in g
+        for lg in ("fr", "en"):
+            assert "time.tm_act_trois" not in TRANSLATIONS[lg], lg
+
+    # ───────────────────────────── les deux langues
+    def test_le_pourcentage_suit_la_LANGUE(self):
+        """L'espace avant le % est une regle FRANCAISE : l'ecran anglais
+        ecrivait « 5% of the load » a cote d'un « 4 % »."""
+        js = _lire("static/js/time.js")
+        assert "function pourCent(n){" in js
+        bloc = js[js.index("function pourCent(n){"):][:200]
+        assert "L.lang === 'en'" in bloc, bloc
+        assert "\\u00a0%" not in js, "plus aucun % colle a la main"
+
+    def test_toute_clef_lue_par_le_JS_est_injectee_et_traduite(self):
+        """⚠️ `tl` rend la CLE quand elle manque : une clef oubliee s'affiche
+        telle quelle a l'ecran, sans la moindre erreur. C'est ce silence
+        qu'on ferme ici."""
+        import re
+        from Code.translations import TRANSLATIONS
+        js = _lire("static/js/time.js")
+        gab = _lire("Code/routes/templates/time_dashboard.html")
+        # Les commentaires d'abord : un exemple cite n'est pas une lecture.
+        net = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+        net = re.sub(r"//[^\n]*", "", net)
+        # ⚠️ On ne cherche PAS les seuls appels `tl('x')` : une clef
+        # choisie par un ternaire imbrique
+        # (`p >= 100 ? 'a' : (n === 1 ? 'b' : 'c')`) y echappe, et la clef
+        # oubliee s'affichait telle quelle a l'ecran. Toute chaine du JS qui
+        # porte le nom d'une clef `time.*` du catalogue est une lecture.
+        # ⚠️ Restreint a la famille de CET ecran : `loading` et `role`
+        # coincident avec `time.loading` et `time.role` sans etre des
+        # lectures, et un controle qui crie a tort n'est plus lu.
+        connues = {c[len("time."):] for c in TRANSLATIONS["fr"]
+                   if c.startswith("time.tm_") or c.startswith("time.fw_")}
+        lues = {s for s in re.findall(r"'([a-z0-9_]+)'", net) if s in connues}
+        lues |= set(re.findall(r"(?:tl|fmtPhrase)\(\s*'([a-z0-9_]+)'", net))
+        for base in re.findall(r"'(tm_gain(?:_att)?)'", net):
+            lues.update({base, base + "_1"})
+        # Celles que le JS construit par concatenation, hors d'atteinte.
+        lues -= {"sub_", "ok"}
+
+        paires = dict(re.findall(
+            r"^\s+([a-z0-9_]+):\s*\{\{ t\('([a-z0-9_.]+)'\)", gab, re.M))
+        manquantes = sorted(c for c in lues if c not in paires)
+        assert not manquantes, manquantes
+        for nom, cle in paires.items():
+            for lg in ("fr", "en"):
+                assert cle in TRANSLATIONS[lg], (nom, cle, lg)
+
+    def test_le_gabarit_ne_cite_que_des_clefs_qui_existent(self):
+        import re
+        from Code.translations import TRANSLATIONS
+        gab = _lire("Code/routes/templates/time_dashboard.html")
+        for cle in sorted(set(re.findall(r"t\('(time\.[a-z0-9_]+)'\)", gab))):
+            for lg in ("fr", "en"):
+                assert cle in TRANSLATIONS[lg], (cle, lg)
+
+def _role_jetable(ids):
+    """⚠️ Le decor commun ne porte pas de role : chaque cas cree le sien,
+    rattache a l'activite du decor. Prendre `Role.query.first()` ferait
+    dependre le cas d'un autre fichier joue avant."""
+    from Code.models.models import Activities, Role, activity_roles
+    ici = db.session.get(Activities, ids["activity_id"])
+    role = Role(name="TM-105-jetable-%d" % (Role.query.count() + 1),
+                entity_id=ici.entity_id)
+    db.session.add(role)
+    db.session.commit()
+    db.session.execute(activity_roles.insert().values(
+        activity_id=ici.id, role_id=role.id, status="Garant"))
+    db.session.commit()
+    return role
+
+
+class TestLesRetoursDuTreizeNovembre:
+    """Sept reproches releves a l'ecran par l'utilisateur, et ce qu'ils ont
+    mis au jour : une contradiction dans le modele de la faiblesse, et une
+    analyse de role qui s'enregistrait sans pouvoir jamais s'afficher."""
+
+    # ─────────────────────────── le travail refait decale la livraison
+    def test_Y_s_accorde_avec_le_delai_moyen_corrige(self, app):
+        """⚠️⚠️ `T` est la moyenne de `C` (cas normal) et de `Y` (cas degrade),
+        ponderee par `O` : `T = C + (Y - C)·O`. Ecrit `Y = C + M`, le modele
+        se contredisait — et c'est ce que l'utilisateur a vu : 10 h de travail
+        refait, 4 h de delai standard, le panneau annoncait 14 h de delai
+        moyen pendant que le bilan disait « le resultat sort en 4 h au lieu
+        de 4 h »."""
+        from Code.routes.time_view import cout_faiblesse
+        p = {"hours_per_day": 7, "days_per_week": 5, "weeks_per_year": 45}
+
+        # Les chiffres exacts de la capture : 2 h de duree, 4 h de delai,
+        # 10 h de travail refait, aucune attente, 100 %.
+        m = cout_faiblesse(120, 240, "journalier", 1, 600, 0, 1,
+                           params=p, pct_proba=100)
+        assert m["Y"] == 840, "4 h + 10 h = 14 h"
+        assert m["T"] == 840
+
+        for L, M, pct in ((600, 0, 100), (90, 30, 50), (0, 45, 25), (240, 240, 80)):
+            c = cout_faiblesse(120, 240, "hebdomadaire", 2, L, M,
+                               1, params=p, pct_proba=pct)
+            assert c["Y"] == c["C"] + L + M, (L, M, pct)
+            assert c["T"] == pytest.approx(c["C"] + (c["Y"] - c["C"]) * c["O"]), (L, M, pct)
+
+    def test_le_cumul_annuel_compte_chaque_minute_UNE_fois(self, app):
+        """⚠️ `Y` change, pas `U` ni `V` : le correctif du 03/11 tient. Le
+        travail refait et l'attente ne s'additionnent jamais dans le total de
+        l'accueil, et c'est une autre question que celle de la livraison."""
+        from Code.routes.time_view import cout_faiblesse
+        p = {"hours_per_day": 7, "days_per_week": 5, "weeks_per_year": 45}
+        m = cout_faiblesse(120, 240, "hebdomadaire", 2, 90, 30, 1,
+                           params=p, pct_proba=50)
+        assert m["U"] == pytest.approx(90 * m["P"])
+        assert m["V"] == pytest.approx(30 * m["P"])
+        assert m["U"] + m["V"] == pytest.approx((90 + 30) * m["P"])
+
+    # ─────────────────────────── l'analyse de role s'affiche enfin
+    def test_les_roles_offerts_sont_ceux_de_la_carto(self, auth_client, ids):
+        """⚠️ `Role.query.all()` listait TOUS les roles de l'entreprise :
+        depuis qu'ils sont communs (23/09), un role peut n'en tenir aucune
+        ici. On choisissait alors un role qui ne tient rien, la table restait
+        vide, l'analyse s'enregistrait sans ligne — et le tableau de bord,
+        qui ne montre que ce qui porte sur cette carto, n'affichait jamais
+        rien. L'ecran disait « enregistree » et il ne se passait rien."""
+        from Code.models.models import Activities, Entity, Role, activity_roles
+        from Code.routes.time_view import roles_de_la_carto
+
+        ailleurs = Entity(name="TM-105-ROLE-AILLEURS", owner_id=ids["user_id"])
+        db.session.add(ailleurs)
+        db.session.commit()
+        a_ailleurs = Activities(name="TM-105-activite-ailleurs", entity_id=ailleurs.id)
+        ici = db.session.get(Activities, ids["activity_id"])
+        db.session.add(a_ailleurs)
+        db.session.commit()
+
+        r_ici = Role(name="TM-105-role-ici", entity_id=ici.entity_id)
+        r_ailleurs = Role(name="TM-105-role-ailleurs", entity_id=ailleurs.id)
+        db.session.add_all([r_ici, r_ailleurs])
+        db.session.commit()
+        db.session.execute(activity_roles.insert().values(
+            activity_id=ici.id, role_id=r_ici.id, status="Garant"))
+        db.session.execute(activity_roles.insert().values(
+            activity_id=a_ailleurs.id, role_id=r_ailleurs.id, status="Garant"))
+        db.session.commit()
+        try:
+            noms = {r.name for r in roles_de_la_carto([ici.id])}
+            assert "TM-105-role-ici" in noms
+            assert "TM-105-role-ailleurs" not in noms
+            # Et une carto sans activite n'offre aucun role.
+            assert roles_de_la_carto([]) == []
+
+            # ⚠️ Et c'est bien ce que la PAGE offre : un cas qui n'appelle
+            # que l'aide laisserait la route revenir a `Role.query.all()`
+            # sans rien dire. On lit le selecteur rendu.
+            page = auth_client.get("/temps/").data.decode("utf-8")
+            bloc = page[page.index('id="role-select"'):]
+            bloc = bloc[:bloc.index("</select>")]
+            assert "TM-105-role-ici" in bloc
+            assert "TM-105-role-ailleurs" not in bloc
+        finally:
+            db.session.execute(activity_roles.delete().where(
+                activity_roles.c.role_id.in_([r_ici.id, r_ailleurs.id])))
+            for o in (r_ici, r_ailleurs, a_ailleurs, ailleurs):
+                db.session.delete(db.session.get(type(o), o.id))
+            db.session.commit()
+
+    def test_les_activites_d_un_role_sont_CADREES_sur_la_carto(self, auth_client, ids):
+        """Un role est commun a l'entreprise : sans ce filtre, une analyse
+        pouvait se batir entierement sur les activites d'une AUTRE carto et
+        disparaissait aussitot du tableau de bord."""
+        from Code.models.models import Activities, Entity, Role, activity_roles
+
+        ailleurs = Entity(name="TM-105-CADRE-AILLEURS", owner_id=ids["user_id"])
+        db.session.add(ailleurs)
+        db.session.commit()
+        ici = db.session.get(Activities, ids["activity_id"])
+        a_ailleurs = Activities(name="TM-105-cadre-ailleurs", entity_id=ailleurs.id)
+        db.session.add(a_ailleurs)
+        db.session.commit()
+        role = Role(name="TM-105-role-des-deux", entity_id=ici.entity_id)
+        db.session.add(role)
+        db.session.commit()
+        for a in (ici, a_ailleurs):
+            db.session.execute(activity_roles.insert().values(
+                activity_id=a.id, role_id=role.id, status="Garant"))
+        db.session.commit()
+        try:
+            r = auth_client.get("/temps/api/role_activities/%d" % role.id)
+            assert r.status_code == 200
+            rendus = {a["id"] for a in json.loads(r.data)["activities"]}
+            assert ici.id in rendus
+            assert a_ailleurs.id not in rendus, "l'autre carto n'a rien a faire ici"
+        finally:
+            db.session.execute(activity_roles.delete().where(
+                activity_roles.c.role_id == role.id))
+            for o in (role, a_ailleurs, ailleurs):
+                db.session.delete(db.session.get(type(o), o.id))
+            db.session.commit()
+
+    def test_une_analyse_de_role_SANS_LIGNE_est_refusee(self, auth_client, ids):
+        """⚠️ Elle ne pouvait apparaitre nulle part — `any()` sur une liste
+        vide est faux. On l'enregistrait quand meme, l'ecran annoncait
+        « enregistree », et rien ne se voyait. Un enregistrement silencieux
+        qui se felicite est pire qu'un refus."""
+        from Code.models.models import TimeRoleAnalysis
+        role = _role_jetable(ids)
+        avant = TimeRoleAnalysis.query.count()
+        r = auth_client.post("/temps/api/role_analysis",
+                             json={"role_id": role.id,
+                                   "name": "TM-105-vide", "lines": []})
+        assert r.status_code == 400, r.data
+        assert json.loads(r.data)["code"] == "aucune_ligne"
+        assert TimeRoleAnalysis.query.count() == avant, "rien n'est ecrit"
+
+    def test_un_PATCH_qui_VIDERAIT_l_analyse_est_refuse(self, auth_client, ids):
+        """Le renommage seul reste possible (`lines` absent ne touche a
+        rien) ; une liste VIDE, elle, ferait disparaitre l'analyse du tableau
+        de bord sans qu'on l'ait supprimee."""
+        from Code.models.models import TimeRoleAnalysis, TimeRoleLine
+        role = _role_jetable(ids)
+        r = auth_client.post("/temps/api/role_analysis", json={
+            "role_id": role.id, "name": "TM-105-patch",
+            "lines": [{"activity_id": ids["activity_id"], "duration": 30,
+                       "recurrence": "annuel", "frequency": 1}]})
+        rid = json.loads(r.data)["id"]
+        try:
+            vide = auth_client.patch("/temps/api/role_analysis/%d" % rid,
+                                     json={"lines": []})
+            assert vide.status_code == 400, vide.data
+            assert TimeRoleLine.query.filter_by(role_analysis_id=rid).count() == 1
+            # Le renommage seul passe toujours.
+            ok = auth_client.patch("/temps/api/role_analysis/%d" % rid,
+                                   json={"name": "TM-105-renomme"})
+            assert ok.status_code == 200, ok.data
+            assert db.session.get(TimeRoleAnalysis, rid).name == "TM-105-renomme"
+        finally:
+            auth_client.delete("/temps/api/role_analysis/%d" % rid)
+
+    # ─────────────────────────── les deux unites d'une meme section
+    def test_les_unites_se_lient_dans_UN_SEUL_sens(self):
+        """Une duree en heures a cote d'un delai en minutes se lit de travers.
+        ⚠️ La PREMIERE regle la seconde, jamais l'inverse : dans les deux sens
+        les deux s'annuleraient, et on ne pourrait plus jamais mettre deux
+        unites differentes."""
+        js = _lire("static/js/time.js")
+        i = js.index("[['#fw-dur-unit', '#fw-del-unit'], ['#fw-l-unit', '#fw-m-unit']]")
+        bloc = js[i:i + 700]
+        assert "b.value = a.value" in bloc, bloc
+        assert "a.value = b.value" not in bloc, "le second ne regle pas le premier"
+        # ⚠️ Poser `.value` ne declenche rien : sans cet evenement, le calcul
+        # de la faiblesse ne repartirait pas.
+        assert "dispatchEvent(new Event('change', { bubbles: true }))" in bloc
+
+    # ─────────────────────────── la carte 1
+    def test_l_equivalent_temps_plein_a_QUITTE_la_carte_1(self):
+        from Code.translations import TRANSLATIONS
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        js = _lire("static/js/time.js")
+        assert 'id="tm-etp"' not in g
+        assert "tm_etp" not in js
+        for lg in ("fr", "en"):
+            assert "time.tm_etp" not in TRANSLATIONS[lg], lg
+            assert "time.tm_etp_pl" not in TRANSLATIONS[lg], lg
+
+    def test_le_calendrier_de_travail_est_en_PASTILLES(self):
+        """⚠️ Il etait ecrit en 13 px sous le titre — 10,4 px reels sous le
+        `zoom: .8` du corps. C'est pourtant la BASE de tous les chiffres de
+        la page : changez une des trois valeurs et l'ecran entier bouge."""
+        from Code.translations import TRANSLATIONS
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert g.count('class="tm-cal-i"') == 3
+        css = _css_propre()
+        assert "var(--pg-font-display" in _regle(css, ".tm-cal-i b {")
+        for lg in ("fr", "en"):
+            for cle in ("tm_cal_sem", "tm_cal_jours", "tm_cal_heures"):
+                assert TRANSLATIONS[lg].get("time." + cle), (lg, cle)
+        # La ligne d'avant et sa clef sont parties ensemble.
+        js = _lire("static/js/time.js")
+        assert "tm_base" not in js
+        for lg in ("fr", "en"):
+            assert "time.tm_base" not in TRANSLATIONS[lg], lg
+
+    def test_la_carte_phare_a_du_RELIEF(self):
+        """⚠️ Quatre ombres portees empilees (la lumiere n'en fait pas une
+        seule, nette) plus deux aretes internes.
+        ⚠️ Pas de `transform` : il ferait de la carte le repere des
+        descendants `position: fixed` — les bulles d'aide et le panneau des
+        listes sont poses sur le BODY."""
+        css = _css_propre()
+        regle = _regle(css, ".tm-carte--phare {")
+        ombre = [d for d in regle.split(";") if "box-shadow" in d]
+        assert ombre, regle
+        couches = [c for c in ombre[0].split(",") if "px" in c]
+        # Deux aretes internes (le haut eclaire, le bas dans l'epaisseur) et
+        # quatre ombres portees : la lumiere n'en fait pas UNE seule, nette.
+        assert ombre[0].count("inset ") >= 2, ombre[0]
+        assert len(couches) >= 6, couches
+        assert "transform" not in regle, regle
+
+    # ─────────────────────────── la carte 4
+    def test_l_etat_vide_du_role_est_un_BLOC(self):
+        """⚠️ C'etait une ligne grise de 12 px collee en haut a gauche d'une
+        carte haute : on la lisait comme un defaut de chargement, et elle ne
+        disait pas quoi faire.
+        ⚠️ `[hidden]` est une regle du NAVIGATEUR : une classe d'auteur qui
+        pose un `display` l'emporte. Sixieme fois que ce piege se presente."""
+        from Code.translations import TRANSLATIONS
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        js = _lire("static/js/time.js")
+        assert 'id="tm-role-vide"' in g
+        assert "tm-vide-b" in g
+        assert "vide.hidden = roles.length > 0" in js
+        css = _css_propre()
+        assert "display: none" in _regle(css, ".tm-vide[hidden] {")
+        for lg in ("fr", "en"):
+            for cle in ("tm_vide_role", "tm_vide_role_s", "tm_vide_role_b"):
+                assert TRANSLATIONS[lg].get("time." + cle), (lg, cle)
+
+    # ─────────────────────────── la carte 5
+    def test_la_rampe_s_ETALE_sur_le_nombre_de_segments(self):
+        """⚠️ Figee a six teintes, trois activites n'en prenaient que les
+        trois premieres — trois violets voisins, dont on ne distinguait pas
+        les segments. On interpole le long de la rampe ENTIERE."""
+        js = _lire("static/js/time.js")
+        assert "const TEINTES =" not in js, "la liste figee est partie"
+        assert "function teintes(n){" in js
+        bloc = js[js.index("function teintes(n){"):][:600]
+        # Les DEUX bouts : `n - 1` au denominateur et toute la rampe au
+        # numerateur. Sans l'un des deux, la rampe ne s'etale pas.
+        assert "(n - 1)" in bloc, bloc
+        assert "(bouts.length - 1)" in bloc, bloc
+        assert len(_lire("static/js/time.js").split("const RAMPE = [")[1]
+                   .split("]")[0].split(",")) >= 4
+
+    # ─────────────────────────── les listes deroulantes
+    def test_le_SELECT_reste_la_source_de_verite(self):
+        """⚠️ Une quinzaine d'endroits lisent `.r-rec select` et ecrivent
+        `$('#fw-dur-unit').value` : les reprendre un par un serait quinze
+        occasions d'en oublier un. Le `<select>` est masque, jamais retire —
+        et la propriete est interceptee SUR L'ELEMENT, jamais sur le
+        prototype, qui vaudrait pour toute l'application."""
+        js = _lire("static/js/tm_select.js")
+        assert "HTMLSelectElement.prototype" in js
+        assert "Object.defineProperty(sel, 'value'" in js
+        assert "Object.defineProperty(HTMLSelectElement.prototype" not in js
+        css = _css_propre()
+        assert "display: none" not in _regle(css, ".tms > select {")
+
+    def test_la_liste_emet_LES_DEUX_evenements(self):
+        """Un `<select>` natif emet `input` ET `change`, et la page ecoute
+        tantot l'un (la table des roles recalcule sur `input` pose sur le
+        `<tr>`) tantot l'autre (le calcul de la faiblesse est delegue depuis
+        `#subtab-faiblesse`). N'en emettre qu'un casserait l'autre moitie."""
+        js = _lire("static/js/tm_select.js")
+        i = js.index("function choisir(o, i) {")
+        bloc = js[i:i + 900]
+        for ev in ("input", "change"):
+            assert ("new Event('%s', { bubbles: true })" % ev) in bloc, ev
+
+    def test_le_panneau_fait_la_CONVERSION_DE_ZOOM(self):
+        """⚠️ `body.pg` porte `zoom: .8` : un enfant du body en `fixed` voit
+        ses coordonnees MULTIPLIEES par ce zoom, alors que
+        `getBoundingClientRect()` les rend deja en pixels d'ecran. Sixieme
+        fois que ce piege se presente dans cette application."""
+        js = _lire("static/js/tm_select.js")
+        assert "getComputedStyle(document.body).zoom" in js
+        i = js.index("function placer(o) {")
+        bloc = js[i:i + 700]
+        assert "r.left / z" in bloc, bloc
+        assert "r.bottom + 6) / z" in bloc, bloc
+        # Et il se referme sur tout ce qui deplace ce qu'il y a dessous —
+        # sauf son propre defilement : voir le cliquet dedie plus bas.
+        assert "window.addEventListener('scroll', function (e) {" in js
+        assert "window.addEventListener('resize', fermer)" in js
+
+    def test_les_lignes_creees_APRES_le_chargement_sont_habillees(self):
+        """Les lignes des tableaux et le selecteur d'activite d'une faiblesse
+        naissent apres le chargement : un balayage unique n'en verrait
+        aucun."""
+        js = _lire("static/js/tm_select.js")
+        # ⚠️ Celui de la PAGE : il y en a un second sur les options d'un
+        # select, et chercher « new MutationObserver » tout court laissait
+        # passer un observateur de page debranche.
+        assert "observe(document.getElementById('page-temps')" in js
+        assert "{ childList: true, subtree: true }" in js
+
+    # ─────────────────────────── les deux langues
+    def test_plus_aucun_libelle_de_retour_n_est_ecrit_EN_DUR(self):
+        """Six `flashFeedback` portaient leur phrase en francais dans le code :
+        elles s'affichaient telles quelles sur l'ecran anglais."""
+        from Code.translations import TRANSLATIONS
+        js = _lire("static/js/time.js")
+        for mort in ("Analyse activit", "Analyse r\u00f4le enregistr",
+                     "Projet enregistr", "Erreur d'enregistrement",
+                     "Erreur de mise", "'Analyse r\u00f4le'"):
+            assert mort not in js, mort
+        for lg in ("fr", "en"):
+            for cle in ("save_error", "update_error", "saved_project",
+                        "saved_activity", "updated_activity", "role_saved",
+                        "role_sans_ligne"):
+                assert TRANSLATIONS[lg].get("time." + cle), (lg, cle)
+
+    def test_le_bouton_du_calendrier_mene_au_bloc_qui_le_REGLE(self):
+        """Il menait « simplement en haut de la page RH » : le bandeau est
+        bien la, mais rien ne le designait. ⚠️ Un ancrage HTML ne suffit pas —
+        ce bandeau est construit en JS, l'element n'existe pas au
+        chargement."""
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert 'href="/gestion_rh/#calendrier"' in g
+        rh = _lire("static/js/gestion_rh.js")
+        assert "location.hash === '#calendrier'" in rh
+        assert "est-pointe" in rh
+        assert "est-pointe" in _lire("static/gestion_rh.css")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Le déroulant dessiné : on ne pouvait pas y défiler, et son accent était
+#  l'ambre de la page pour les quatre types de formulaire.
+#
+#  « C'est top, seulement on ne peut pas scroller dedans cela le ferme
+#  direct. » · « Si à la place de la touche orange tu peux adapter la couleur
+#  à celle des quatre types, genre pour les faiblesses le déroulant sera
+#  rouge. »
+# ══════════════════════════════════════════════════════════════════════════
+class TestLeDeroulantSeDefileEtSuitLeType:
+
+    def test_defiler_DANS_le_panneau_ne_le_referme_PAS(self):
+        """⚠️ `scroll` en CAPTURE voyait TOUS les defilements, y compris celui
+        du panneau : il se refermait des qu'on y defilait. Et meme tout seul a
+        l'ouverture d'une longue liste — `viser()` appelle `scrollIntoView`,
+        qui fait defiler le panneau quand l'option choisie est sous le pli, et
+        le defilement arrive une image plus tard.
+        ⚠️ Le `true` reste : un evenement `scroll` ne REMONTE pas, seule la
+        phase de capture le voit."""
+        js = _lire("static/js/tm_select.js")
+        assert "window.addEventListener('scroll', fermer, true)" not in js
+        i = js.index("window.addEventListener('scroll'")
+        bloc = js[i:js.index("}, true);", i)]
+        assert "ouvert.panneau" in bloc, bloc
+        assert "closest('.tms-p')" in bloc, bloc
+        assert "fermer();" in bloc, bloc
+
+    def test_le_panneau_garde_le_geste_au_BOUT_de_son_defilement(self):
+        """Arrive en bas de SON defilement, il passait la main a la page — qui
+        defile, et le referme."""
+        # ⚠️ Ancre sur le SAUT DE LIGNE : la declaration du jeton
+        # (`.tms, .tms-p { --tms-a: ... }`) contient elle aussi « .tms-p { »,
+        # et `_regle` lisait cette regle-la — vert sur le defaut meme.
+        regle = _regle(_css_propre(), ".tms-p {" + chr(10))
+        assert "overscroll-behavior: contain" in regle, regle
+        assert "overflow-y: auto" in regle, regle
+
+    def test_l_accent_du_deroulant_suit_le_TYPE_du_formulaire(self):
+        """Les quatre formulaires ont leur couleur (`--tm-c`, posee par
+        `#tm-travail[data-analyse]`) ; le deroulant, lui, prenait l'accent de
+        la PAGE — l'ambre du role — meme dans le formulaire d'une faiblesse."""
+        css = _css_propre()
+        assert ".tms, .tms-p { --tms-a: var(--tm-c, var(--pg-accent)); }" in css
+        # ⚠️ Zone BORNEE au bloc du deroulant : `var(--pg-accent)` est partout
+        # ailleurs dans cette feuille, et un cliquet qui cherche une chaine
+        # sans borner sa zone trouve presque toujours un homonyme.
+        bloc = css[css.index(".tms, .tms-p { --tms-a"):css.index("td > .tms,")]
+        reste = bloc.replace("var(--tm-c, var(--pg-accent))", "")
+        assert "var(--pg-accent" not in reste, reste
+        for etat in (".tms-b:hover", ".tms-o.est-vise"):
+            assert "var(--tms-a)" in _regle(bloc, etat), etat
+
+    def test_le_panneau_recoit_l_accent_CALCULE(self):
+        """⚠️ Il est pose sur le BODY : il vit hors de `#tm-travail` et
+        n'herite donc pas de `--tm-c`. Sans recopie, un panneau de faiblesse
+        s'ouvrait en ambre sous un bouton rouge."""
+        js = _lire("static/js/tm_select.js")
+        i = js.index("function ouvrir(sel, bouton) {")
+        bloc = js[i:js.index("document.body.appendChild(panneau);", i)]
+        assert "getPropertyValue('--tms-a')" in bloc, bloc
+        assert "panneau.style.setProperty('--tms-a'" in bloc, bloc
+
+# ======================================================================
+#  Les retours d'enregistrement
+# ======================================================================
+class TestLesRetoursPassentParLeCatalogue:
+    """⚠️ Celui de la FAIBLESSE était écrit en dur, en français — « Analyse
+    faiblesse enregistrée avec succès » s'affichait tel quel sur l'écran
+    anglais. Ses trois voisins passaient par `tl('saved_x', '')` depuis le
+    14/11 ; il avait été oublié.
+
+    ⚠️ `tl(cle, defaut)` rend son DÉFAUT quand la clé manque : une phrase
+    française écrite là ne lève rien, elle s'affiche.
+    """
+
+    def test_aucun_retour_n_est_ecrit_en_dur(self):
+        import re
+        js = _lire("static/js/time.js")
+        accent = re.compile("[\u00e0\u00e2\u00e9\u00e8\u00ea\u00ee\u00f4\u00f9\u00fb\u00e7]")
+        for m in re.finditer(r"(?:flashFeedback|showFwFeedback)\s*\(", js):
+            arg = js[m.end():m.end() + 260].split(");")[0]
+            # ⚠️ On cherche l'accent dans TOUT l'argument. Appareiller les
+            # guillemets casse sur la chaîne vide de `tl(cle, '')` : le
+            # scanner repart au milieu, avale l'ouverture de la phrase
+            # française et la laisse passer entière — le cliquet restait
+            # VERT sur le défaut remis. Ni une clé ni une variable ne porte
+            # d'accent : un seul suffit à désigner une phrase écrite en dur.
+            assert not accent.search(arg), (
+                "retour écrit en dur : %r" % arg.strip()[:90])
+
+    def test_le_retour_de_la_faiblesse_a_sa_cle_dans_les_DEUX_langues(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "saved_weakness:" in g, "la clé doit être injectée"
+        trad = _lire("Code/translations.py")
+        assert trad.count("'time.saved_weakness'") == 2, "fr ET en"

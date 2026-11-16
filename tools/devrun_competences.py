@@ -59,6 +59,18 @@ PLAN = [
      [("Rapport d'essais", "Plan d'essais couvert à 100 %."),
       ("Procès-verbal de validation", "Signé avant le jalon de lancement.")],
      3, {0: None, 1: None}),
+    # ⚠️ LE CAS CHARGÉ, celui qui a fait tomber la mise en page : QUATRE
+    # sorties, toutes mesurées, toutes au MÊME niveau. Le bassin empilait
+    # alors quatre pastilles qui se marchaient dessus, et le panneau des
+    # marches alignait quatre rails de quatre pas. Sans lui on ne regarde que
+    # le cas heureux — deux sorties, deux marches.
+    ("Négocier l'offre",
+     "Conduire la négociation jusqu'à un accord tenable pour les deux parties.",
+     [("Enquête client", "Réponse du client sous 10 jours ouvrés."),
+      ("Demande de tests qualité", "95 % des demandes conformes du premier coup."),
+      ("Ajustement", "Chaque écart tracé et accepté."),
+      ("REX", "Un retour d'expérience à chaque affaire close.")],
+     3, {}),
     ("Industrialiser la piece", None, [], 2, {}),
     ("Suivre la performance série",
      "Piloter les indicateurs de la vie série et déclencher les actions correctives.",
@@ -172,6 +184,17 @@ with app.app_context():
         # Manqué : c'est lui qui ouvre l'analyse des savoirs.
         ("Procès-verbal de validation", 2, "j", "moins",
          [(6, 9, -5)]),
+        # ⚠️ Les QUATRE sorties de « Négocier l'offre », toutes qualifiées et
+        # donc toutes au MÊME niveau : c'est ce cas qui fait se chevaucher les
+        # repères du bassin, et c'est lui qui charge le panneau des marches.
+        ("Enquête client", 10, "j", "moins",
+         [(20, 19, -72), (14, 13, -48), (10, 9, -24), (6, 4.5, -4)]),
+        ("Demande de tests qualité", 95, "%", "plus",
+         [(67, 70, -70), (81, 84, -46), (95, 97, -22), (98, 99, -3)]),
+        ("Ajustement", 5, "j", "moins",
+         [(10, 9, -68), (7, 6, -44), (5, 4, -20), (3, 2.5, -2)]),
+        ("REX", 10, "j", "moins",
+         [(20, 18, -66), (14, 12, -42), (10, 8, -18), (6, 5, -1)]),
     ]
     from Code.models.models import PalierPerformance, SessionEvaluation
 

@@ -135,3 +135,39 @@ def peut_lire(acteur, cible_id, role_id=None):
     if role_id is not None:
         return encadre_pour_role(acteur.id, cible_id, role_id)
     return encadre(acteur.id, cible_id)
+
+
+def collaborateurs_de(acteur):
+    """(les collaborateurs à montrer, est-ce un développeur de compétences ?)
+
+    Le dossier de qui la page Compétences ouvre : ceux qu'on encadre — par le
+    rattachement global (`users.manager_id`) comme par le rattachement PAR
+    RÔLE (`user_roles.manager_id`), car n'en lire qu'un ferait dépendre le
+    droit de la FAÇON dont l'affectation a été faite. Un coordinateur ou un
+    administrateur qui n'encadre personne voit tout le monde : c'est lui qui
+    reprend un dossier quand il le faut.
+
+    ⚠️ Source UNIQUE : `/competences/contexte` remplit la liste des
+    collaborateurs avec, et `/mastery/galerie` sert les cartes de ces
+    mêmes gens. Deux listes finiraient par ne plus se recouvrir, et l'écran
+    montrerait une carte qu'un clic n'ouvre pas.
+
+    ⚠️ Cet ensemble est EXACTEMENT celui que `peut_lire` autorise — il est
+    construit sur les mêmes rattachements. La galerie ne refait donc pas deux
+    requêtes par personne pour le redemander.
+    """
+    if acteur is None:
+        return [], False
+    encadres = {u.id: u for u in User.query.filter_by(manager_id=acteur.id).all()}
+    manquants = [ur.user_id for ur in UserRole.query.filter_by(manager_id=acteur.id).all()
+                 if ur.user_id not in encadres]
+    if manquants:
+        for u in User.query.filter(User.id.in_(manquants)).all():
+            encadres[u.id] = u
+    est_dev = bool(encadres)
+    if not est_dev and _statut_eleve(acteur):
+        encadres = {u.id: u for u in User.query.all() if u.id != acteur.id}
+        est_dev = bool(encadres)
+    gens = sorted(encadres.values(),
+                  key=lambda u: ((u.last_name or ""), (u.first_name or "")))
+    return gens, est_dev

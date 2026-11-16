@@ -1335,6 +1335,14 @@ select {
 /* Le calendrier : un réglage, pas une section — quatre chiffres qu'on corrige
    sur place. Une pop-up pour changer un nombre serait disproportionnée. */
 .grh-cal { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* La page Temps renvoie ici par `#calendrier` : le bloc se DÉSIGNE, sinon
+   on arrive en haut d'une page et on cherche ce qu'on était venu régler. */
+.grh-cal.est-pointe {
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 34%, transparent);
+  transition: box-shadow .25s ease;
+}
+@media (prefers-reduced-motion: reduce) { .grh-cal.est-pointe { transition: none; } }
 .grh-cal-label {
     font-size: 12px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .03em; color: var(--muted); margin-right: 2px;

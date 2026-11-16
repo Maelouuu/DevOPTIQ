@@ -476,7 +476,22 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   font-size: 30px; font-weight: 700; letter-spacing: -.015em;
   margin: 0 0 4px; color: var(--ink);
 }
-.tm-base { font-size: 13px; color: var(--muted); }
+/* ⚠️ Le calendrier de travail était écrit là en 13 px — 10,4 px réels
+   sous le `zoom: .8` du corps. C'est pourtant la BASE de tous les chiffres
+   de la page : trois pastilles, le chiffre dans la police d'affichage. */
+.tm-cal { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 9px; }
+.tm-cal-i {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  padding: 5px 12px; border-radius: 999px;
+  background: var(--card); border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+}
+.tm-cal-i b {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 18px; font-weight: 700; color: var(--ink);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.tm-cal-i span { font-size: 12.5px; color: var(--muted); }
 
 .tm-chiffres { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 14px; }
 
@@ -485,10 +500,26 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   border-radius: var(--r-card, 14px); padding: 18px 20px;
   box-shadow: var(--sh-card);
 }
+/* ⚠️ Le RELIEF : quatre ombres portées empilées (la lumière ne fait pas
+   une seule ombre nette) plus deux arêtes internes — le haut éclairé, le
+   bas dans l'épaisseur. La carte se détache de la page au lieu d'y être
+   posée à plat.
+   ⚠️ Pas de `transform` : il ferait de la carte le repère des descendants
+   `position: fixed` — les bulles d'aide et le panneau des listes sont posés
+   sur le BODY, ils se retrouveraient ancrés ici. */
 .tm-carte--phare {
-  background: linear-gradient(135deg, #78350f, var(--tm-ambre-f));
+  position: relative;
+  background:
+    radial-gradient(118% 88% at 14% -6%, rgba(255, 255, 255, .17), transparent 56%),
+    linear-gradient(135deg, #78350f, var(--tm-ambre-f));
   border: 0; color: #fff;
-  box-shadow: 0 12px 30px rgba(120, 53, 15, .26);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .28),
+    inset 0 -2px 0 rgba(0, 0, 0, .28),
+    0 1px 1px rgba(120, 53, 15, .22),
+    0 4px 9px rgba(120, 53, 15, .20),
+    0 13px 24px rgba(120, 53, 15, .22),
+    0 28px 52px rgba(120, 53, 15, .18);
 }
 .tm-lbl {
   font-size: 11.5px; font-weight: 800; letter-spacing: .1em;
@@ -503,14 +534,57 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-carte:not(.tm-carte--phare) .tm-grand { font-size: 38px; }
 .tm-unite { font-size: 16px; font-weight: 600; opacity: .78; margin-left: 6px; }
 .tm-rouge { color: var(--tm-faiblesse); }
-.tm-etp { font-size: 13px; margin-top: 4px; color: rgba(255,255,255,.9); }
 .tm-sous { font-size: 12.5px; color: var(--muted); margin-top: 5px; }
 .tm-filet { height: 1px; background: rgba(255,255,255,.22); margin: 13px 0 11px; }
 .tm-carte:not(.tm-carte--phare) .tm-filet,
 .tm-res-bloc .tm-filet { background: var(--border); }
-.tm-secondaires { display: flex; gap: 22px; font-size: 12.5px; }
-.tm-lbl2 { opacity: .72; }
-.tm-moyen { font-size: 16px; font-weight: 700; margin-top: 1px; }
+
+/* ── Carte 1 · les trois rythmes, creuses dans la carte ─────────────────
+   ⚠️ « Par jour travaille » est NEUF : c'est le rythme qu'on se represente
+   le mieux, et il manquait. */
+.tm-panneau {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px;
+  margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(0,0,0,.2);
+}
+.tm-panneau .e {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .03em;
+  text-transform: uppercase; opacity: .74;
+}
+.tm-panneau .v {
+  font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 21px; font-weight: 700; margin-top: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Carte 1 · la couverture, en carres qu'on COMPTE ────────────────────
+   Une jauge a moitie pleine se lit « a moitie fait » ; douze carres dont
+   six pleins se comptent. */
+/* ⚠️ La taille d'un carré vient du JS (`--pile-sq`) : une carto de 45
+   activités n'avait AUCUNE pile tant que le plafond valait 24. L'écart se
+   règle en rétrécissant les carrés, pas en effaçant la mesure. */
+.tm-pile {
+  display: flex; flex-wrap: wrap; margin-top: 14px;
+  --pile-sq: 15px; gap: calc(var(--pile-sq) * .34);
+}
+.tm-pile b {
+  width: var(--pile-sq); height: var(--pile-sq); flex: none;
+  border-radius: calc(var(--pile-sq) * .27);
+  background: var(--tm-ambre-b); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12);
+}
+.tm-pile b.vide { background: rgba(255,255,255,.16); box-shadow: inset 0 0 0 1px rgba(255,255,255,.3); }
+/* Au-delà de soixante, compter n'a plus de sens — la proportion si. */
+.tm-pile.est-barre {
+  display: block; height: 13px; border-radius: 7px; overflow: hidden;
+  background: rgba(255,255,255,.17);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.3);
+}
+.tm-pile.est-barre i {
+  display: block; height: 100%; border-radius: 7px;
+  background: linear-gradient(90deg, var(--tm-ambre-b), #fde68a);
+}
+.tm-pile-l { font-size: 12.5px; margin-top: 9px; color: rgba(255,255,255,.82); line-height: 1.4; }
+.tm-pile-l:empty, .tm-pile:empty { display: none; }
 
 .tm-faib-liste { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
 .tm-faib-l { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
@@ -521,8 +595,68 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-faib-barre { height: 6px; border-radius: 4px; background: #fca5a5; flex: none; }
 .tm-faib-val { font-weight: 700; color: #b91c1c; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-.tm-jauge { height: 8px; border-radius: 5px; background: #eef0f6; margin-top: 12px; overflow: hidden; }
-.tm-jauge-in { height: 100%; background: linear-gradient(90deg, var(--tm-ambre-f), var(--tm-ambre)); }
+/* ── Carte 2 · la part, et sur quoi ─────────────────────────────────────
+   ⚠️ Chaque barre nomme SON tout. Le travail refait est plein, l'attente
+   est HACHUREE : ce n'est pas du travail, c'est du temps d'horloge. */
+.tm-part { margin-top: 13px; }
+.tm-part .p {
+  height: 10px; border-radius: 6px; background: #f1f3f8; overflow: hidden;
+  box-shadow: inset 0 0 0 1px #e6e9f0;
+}
+.tm-part .p i { display: block; height: 100%; min-width: 3px; border-radius: 6px;
+  background: linear-gradient(90deg, #ef4444, var(--tm-faiblesse)); }
+.tm-part .p i.horloge {
+  background: repeating-linear-gradient(135deg, #b4bdcb 0 4px, #eef2f7 4px 9px);
+  box-shadow: inset 0 0 0 1px #d7dde6;
+}
+.tm-part .q { display: flex; justify-content: space-between; gap: 10px;
+  margin-top: 5px; font-size: 12px; color: var(--muted); }
+.tm-part .q b { color: var(--ink-2); font-weight: 700; font-variant-numeric: tabular-nums; }
+.tm-gain {
+  margin-top: 13px; padding: 11px 13px; border-radius: 9px; font-size: 13px;
+  line-height: 1.45; background: #f6f8fb; border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+.tm-gain:empty { display: none; }
+.tm-gain b { color: var(--ink-2); font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 16px; font-variant-numeric: tabular-nums; }
+.tm-faib-pct { width: 36px; text-align: right; color: var(--muted);
+  font-variant-numeric: tabular-nums; flex: none; }
+
+/* ── Carte 3 · l'ordre de grandeur ──────────────────────────────────────
+   ⚠️ C'est une HYPOTHESE, pas une mesure : l'etiquette le dit, la hachure
+   le montre, et le calcul est ecrit. Elle n'entre dans aucun total. */
+.tm-estim {
+  display: inline-flex; align-items: center; margin-top: 10px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: #92400e; background: var(--tm-ambre-p);
+  border: 1px solid var(--tm-ambre-b); border-radius: 999px; padding: 3px 10px;
+}
+.tm-estim.hidden { display: none; }
+.tm-carte .tm-grand.tm-ordre { opacity: .8; margin-top: 4px; }
+.tm-duo { display: flex; height: 15px; border-radius: 8px; overflow: hidden;
+  margin-top: 14px; box-shadow: inset 0 0 0 1px #e2e8f0; }
+.tm-duo:empty { display: none; }
+.tm-duo i { display: block; }
+.tm-duo .m { background: linear-gradient(90deg, var(--tm-ambre-f), var(--tm-ambre)); }
+.tm-duo .u2 { background: repeating-linear-gradient(135deg, #b4bdcb 0 4px, #eef2f7 4px 9px); }
+.tm-duo-l { display: flex; justify-content: space-between; gap: 12px;
+  margin-top: 8px; font-size: 12.5px; color: var(--muted); }
+.tm-duo-l:empty { display: none; }
+.tm-duo-l b, .tm-duo-l .q2 {
+  display: block; font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 17px; font-variant-numeric: tabular-nums;
+}
+.tm-duo-l b { color: var(--ink-2); }
+.tm-duo-l .q2 { color: var(--muted); }
+.tm-calcul {
+  margin-top: 13px; padding: 11px 13px; border-radius: 9px; font-size: 13px;
+  line-height: 1.45; background: #f6f8fb; border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+.tm-calcul:empty { display: none; }
+.tm-calcul b { color: var(--ink-2); font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 16px; font-variant-numeric: tabular-nums; }
 .btn-couv {
   margin-top: 12px; width: 100%; justify-content: center;
   background: var(--tm-ambre-p); border: 1px solid var(--tm-ambre-b); color: #92400e;
@@ -575,6 +709,63 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .tm-barre-plus { padding: 8px 18px; font-size: 12px; color: var(--muted); }
+
+/* ⚠️ L'état vide était une ligne grise de 12 px collée en haut à gauche
+   d'une carte haute : on la lisait comme un défaut de chargement, et elle
+   ne disait pas quoi faire.
+   ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose
+   un `display` l'emporte. Sixième fois que ce piège se présente. */
+.tm-vide {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; gap: 9px;
+  margin: 10px 18px 18px; padding: 26px 18px;
+  border: 1px dashed color-mix(in srgb, var(--tm-role) 32%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--tm-role) 5%, transparent);
+}
+.tm-vide[hidden] { display: none; }
+.tm-vide-ic {
+  width: 40px; height: 40px; border-radius: 13px; display: grid;
+  place-items: center; font-size: 16px; color: #fff;
+  background: var(--tm-role);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--tm-role) 32%, transparent);
+}
+.tm-vide-t { font-size: 15px; font-weight: 700; color: var(--ink); }
+.tm-vide-s { font-size: 13px; color: var(--muted); max-width: 38ch; line-height: 1.45; }
+.tm-vide-b { margin-top: 3px; }
+
+/* ── Carte 4 · le fait, ecrit ───────────────────────────────────────────
+   ⚠️ La phrase ne s'ecrit jamais d'avance : un role peut depasser le temps
+   plein, et il peut n'y en avoir qu'un. */
+.tm-phrase {
+  padding: 14px 18px 2px; font-family: var(--pg-font-display, Georgia, serif);
+  font-size: 19px; line-height: 1.35; font-weight: 500; color: var(--ink);
+  text-wrap: balance;
+}
+.tm-phrase:empty { display: none; }
+.tm-phrase b { font-weight: 700; color: var(--tm-role); }
+
+/* ── Carte 5 · le cumul ─────────────────────────────────────────────────
+   Les barres mises a l'echelle du MAXIMUM faisaient paraitre les trois
+   premieres presque egales ; une seule barre de 100 % montre qu'elles font
+   presque tout. */
+/* La phrase « les trois premières font n % » est partie : la barre le
+   MONTRE, et elle prenait la place qui manquait à la barre et à sa
+   légende. */
+.tm-cumul {
+  display: flex; height: 24px; border-radius: 11px; overflow: hidden;
+  margin: 16px 18px 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
+}
+.tm-cumul:empty { display: none; }
+.tm-cumul i { display: block; min-width: 2px; }
+.tm-cumul-leg {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 13px 18px 16px;
+  font-size: 13.5px; color: var(--ink-2);
+}
+.tm-cumul-leg span { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.tm-cumul-leg em { width: 11px; height: 11px; border-radius: 4px; flex: none; }
+.tm-cumul-leg b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tm-cumul-leg .nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 190px; }
 
 /* ── Vos analyses ──
    ⚠️ REPLIABLES, fermées au départ : avec de vraies données les quatre
@@ -828,21 +1019,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 }
 
 /* Ce qui n'est pas chiffre : les NOMS, pas seulement le compte. */
-.tm-couv-liste { display: flex; flex-direction: column; gap: 5px; margin-top: 11px; }
-.tm-couv-l {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  font-family: inherit; font-size: 12.5px; text-align: left; cursor: pointer;
-  padding: 6px 9px; border-radius: 8px;
-  background: var(--card-2); border: 1px solid var(--border); color: var(--ink-2);
-}
-.tm-couv-l span {
-  flex: 1; min-width: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.tm-couv-l i { font-size: 10px; color: var(--tm-ambre); opacity: 0; transition: opacity .12s; }
-.tm-couv-l:hover { border-color: var(--tm-ambre-b); color: var(--tm-ambre-f); }
-.tm-couv-l:hover i { opacity: 1; }
-.tm-couv-plus { font-size: 11.5px; color: var(--muted); padding-left: 9px; }
 .btn-couv { gap: 7px; }
 
 /* Le rail des quatre analyses, en tete de « Vos analyses ». */
@@ -877,14 +1053,6 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .tm-r-faiblesse:hover { border-color: var(--tm-faiblesse); }
 
 /* L'attente : lisible, mais jamais confondue avec le travail refait. */
-.tm-attente {
-  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
-  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
-  font-size: 12.5px; color: var(--muted);
-}
-.tm-attente:empty { display: none; }
-.tm-attente b { font-size: 15px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.tm-attente i { font-style: normal; font-size: 11.5px; color: var(--faint, var(--muted)); }
 
 /* ───────────────────────────── Responsive ───────────────────────────── */
 /* ⚠️ Pixels REELS : une requete de media ignore le `zoom` du corps. A
@@ -1357,6 +1525,13 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 
 .fw-seg--b { background: #94a3b8; }
 .fw-seg--a { background: #e2e8f0; }
+/* ⚠️ PLEIN, pas hachuré : le travail refait est du travail, comme le
+   segment gris du début. C'est l'ATTENTE qui se hachure — du temps
+   d'horloge, que personne ne passe à travailler. */
+.fw-seg--l {
+  background: color-mix(in srgb, var(--tm-c) 58%, #fff);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tm-c) 72%, #fff);
+}
 .fw-seg--m {
   background: repeating-linear-gradient(135deg,
       color-mix(in srgb, var(--tm-c) 62%, #fff) 0 5px,
@@ -1428,6 +1603,10 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 .fw-pt { width: 13px; height: 13px; border-radius: 4px; flex: none; }
 .fw-pt--b { background: #94a3b8; }
 .fw-pt--a { background: #e2e8f0; border: 1px solid var(--border); }
+.fw-pt--l {
+  background: color-mix(in srgb, var(--tm-c) 58%, #fff);
+  border: 1px solid color-mix(in srgb, var(--tm-c) 72%, #fff);
+}
 .fw-pt--m {
   background: repeating-linear-gradient(135deg,
       color-mix(in srgb, var(--tm-c) 62%, #fff) 0 4px,
@@ -1496,3 +1675,100 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
   .fw-freq { flex-wrap: wrap; }
   .fw-quatre { grid-template-columns: 1fr; }
 }
+
+/* ══ LES LISTES DÉROULANTES ═══════════════════════════════════════════════
+   Le `<select>` du système s'affichait blanc et noir, et son panneau s'ouvre
+   où le navigateur veut — parfois à cheval sur le champ. On ne peut pas
+   styler ce panneau : la seule façon de le tenir est de le dessiner.
+   ⚠️ Le `<select>` RESTE dans le document (une quinzaine d'endroits lisent
+   et écrivent sa valeur) : il est masqué à l'œil, pas retiré. Pas
+   `display: none` non plus — un élément retiré de la mise en page ne peut
+   plus rien mesurer, et la largeur du bouton se règle sur l'enveloppe.   */
+/* ⚠️ L'ACCENT SUIT LE TYPE du formulaire — rouge pour une faiblesse,
+   violet pour une activité, ambre pour un rôle, ardoise pour un projet — et
+   non l'accent de la page, qui est l'ambre du rôle pour les quatre.
+   `#tm-travail[data-analyse]` pose déjà `--tm-c` ; on en dérive `--tms-a`,
+   qui retombe sur l'accent de la page partout ailleurs.
+   ⚠️ Le PANNEAU est posé sur le body, donc hors de `#tm-travail` : il
+   n'hérite de rien, et le JS lui recopie la valeur calculée à l'ouverture.
+   Sa déclaration ici n'est que le repli. */
+.tms, .tms-p { --tms-a: var(--tm-c, var(--pg-accent)); }
+.tms { position: relative; display: block; width: 100%; }
+/* ⚠️ Dans une rangée `.inline` (un nombre et son unité), le `<select>` se
+   dimensionnait sur son contenu : une enveloppe en `width: 100%` y devient
+   un élément flex de 470 px, qui passe à la ligne sous son champ. Vu à
+   l'écran — la mise en page d'un composant se vérifie LÀ OÙ il est posé,
+   pas dans l'abstrait. */
+.inline > .tms { width: auto; flex: 0 0 auto; }
+.inline > .tms .tms-b { width: auto; min-width: 84px; }
+.tms > select {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%);
+  white-space: nowrap; border: 0; pointer-events: none;
+}
+.tms-b {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 8px 11px; min-height: 36px;
+  font-family: inherit; font-size: 13.5px; font-weight: 500;
+  color: var(--ink); text-align: left; cursor: pointer;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-btn, 9px);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+.tms-b:hover { border-color: color-mix(in srgb, var(--tms-a) 44%, var(--border)); }
+.tms-b:focus-visible,
+.tms-b.est-ouvert {
+  outline: none;
+  border-color: var(--tms-a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tms-a) 18%, transparent);
+}
+.tms-v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Le chevron est dessiné : une glyphe d'icône dépendrait d'une police que
+   cette page ne charge pas pour elle. */
+.tms-c {
+  flex: none; width: 7px; height: 7px; margin-right: 1px;
+  border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg) translate(-2px, -2px);
+  transition: transform .16s ease;
+}
+.tms-b.est-ouvert .tms-c { transform: rotate(225deg) translate(-3px, -3px); }
+
+/* ⚠️ Posé sur le BODY en `position: fixed` : dans une cellule de tableau,
+   `.table-wrap` est en `overflow-x: auto` et le découperait. Le JS fait la
+   conversion de zoom (`body.pg` porte `zoom: .8`). */
+.tms-p {
+  position: fixed; z-index: 1200; max-height: 272px; overflow-y: auto;
+  /* ⚠️ Arrivé au bout de SON défilement, le panneau passait la main à la
+     page — qui défile, et le referme. Il garde donc le geste. */
+  overscroll-behavior: contain;
+  padding: 5px; border-radius: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .07),
+              0 14px 34px rgba(15, 23, 42, .16);
+  animation: tmsEntre .13s ease both;
+}
+.tms-p.est-dessus { transform-origin: bottom; }
+@keyframes tmsEntre { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .tms-p { animation: none; } }
+.tms-o {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 11px; border-radius: 8px; cursor: pointer;
+  font-size: 13.5px; color: var(--ink); white-space: nowrap;
+}
+.tms-o.est-vise { background: color-mix(in srgb, var(--tms-a) 11%, transparent); }
+/* ⚠️ Assombri SUR PLACE : les quatre couleurs de type n'ont pas de variante
+   profonde déclarée, et `--pg-accent-deep` ramènerait l'ambre de la page. */
+.tms-o.est-choisi {
+  font-weight: 700; color: color-mix(in srgb, var(--tms-a) 85%, #0b1020);
+}
+/* La coche marque le choix EN COURS ; le survol, lui, se lit au fond. */
+.tms-o.est-choisi::after {
+  content: ''; margin-left: auto; flex: none;
+  width: 5px; height: 9px; border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor; transform: rotate(45deg);
+}
+.tms-o.est-eteint { color: var(--faint); cursor: not-allowed; }
+
+/* Dans un tableau, la liste tient la cellule et pas un pixel de plus. */
+td > .tms, .cell-du > .tms, .cell-deu > .tms, .r-rec > .tms { min-width: 92px; }

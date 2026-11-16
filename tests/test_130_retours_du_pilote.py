@@ -489,9 +489,16 @@ class TestLesCartesDeRoleDuBas:
         assert "cv2-parrole-l" in js
 
     def test_le_plan_reste_atteignable_depuis_la_page_devaluation(self):
+        """⚠️ Il était un bouton du bandeau d'identité ; ce bandeau a disparu
+        dans le bloc de nuit de l'écran refondu. Le plan est désormais une des
+        pastilles de réglage, au pied de ce bloc — mais il reste à UN clic de
+        l'écran où l'on note, et c'est cela que ce cas garde."""
         js = _lire("static/js/competences_v2.js")
-        assert "data-plan>" in js
-        assert "bp.onclick = () => ouvrirPlan();" in js
+        reg = js.split("  function reglagesOu(st) {", 1)[1].split("\n  }", 1)[0]
+        assert "T('plan_open')" in reg
+        assert "ouvrirPlan();" in reg
+        # …et seulement pour qui peut l'ouvrir
+        assert "if (jeSuisLeDev()) {" in reg
 
 
 # ════════════════════════════════════════════════════════════════════════

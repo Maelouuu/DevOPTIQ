@@ -396,10 +396,19 @@ class TestLesDeuxRegimesCohabitent:
         js = _lire(JS)
         assert "const jePosePour = r => (jeSuisLeDev() ? !r.mesurable : true);" in js
         n = _corps(js, "  function notaSortie(r, st) {")
-        assert "piste(off, req, soi, !mien)" in n, "lue, pas cliquable"
-        assert "if (!mien) return;" in n, "aucun écouteur sur une piste lue"
+        # ⚠️ Sur une sortie mesurée, la note qui fait foi n'est même pas une
+        # piste : c'est le RAIL des marches. Il n'y a donc aucun cran à
+        # cliquer, et rien à verrouiller — l'auto-évaluation, elle, garde la
+        # sienne.
+        assert "mesuree ? railHtml(r.performance)" in n
+        assert "const maFoi = dev && !mesuree;" in n
+        assert "if (maFoi) {" in n, "les écouteurs ne se posent que sur la mienne"
+        # ⚠️ Et le pied ne le DIT plus : « Une sortie mesurée n'a pas de note
+        # à saisir… » expliquait, sous un pied vide, une règle que le rail des
+        # marches montre déjà juste au-dessus. Retirée avec sa clé.
         pied = _corps(js, "  function majPied(st) {")
-        assert "every(r => r.mesurable)" in pied and "pal_pas_de_note" in pied
+        assert "pal_pas_de_note" not in js, "la clé part avec son seul lecteur"
+        assert "rienASaisir" not in pied
     def test_une_sortie_SANS_norme_garde_son_echelle(self, app, auth_client, bob, comme_dev):
         from Code.models.models import Data
         with app.app_context():
@@ -569,8 +578,8 @@ class TestEvaluerEstUnePage:
         assert "/mastery/activity/" in bloc
         assert "/paliers/historique/" not in bloc
         assert "Promise.all" not in bloc
-        classeur = _corps(js, "  function remplirClasseur(st) {")
-        assert "historique" not in classeur, "l'historique ne s'ouvre plus avec la page"
+        ecran = _corps(js, "  function renderEval(st) {")
+        assert "historique" not in ecran, "l'historique ne s'ouvre plus avec la page"
         assert js.count("/mastery/historique/") == 1, \
             "une seule lecture, et c'est la fenêtre des courbes qui la fait"
         crb = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
@@ -789,7 +798,11 @@ class TestLeProfilSeDessineDesQuUneCibleExiste:
         """Un axe dont aucun rôle n'a fixé la cible dirait « rien n'est exigé
         ici » — la même distinction que pour le démontré (NULL ≠ 0)."""
         js = _lire(JS)
-        corps = js.split("  function radarSVG(axes) {", 1)[1].split("\n  }", 1)[0]
+        # ⚠️ L'ancre porte le NOM de la fonction, pas sa signature : elle a
+        # pris un second argument le jour où la vignette des cartes d'accueil
+        # est arrivée, et le cliquet tombait sur un écran qui n'avait pas
+        # changé.
+        corps = js.split("  function radarSVG(axes", 1)[1].split("\n  }", 1)[0]
         assert "const coucheReq = couche('required_level'" in corps
         assert "cv2-r-req-part" in corps
         assert "poly(req)" not in corps, "plus de polygone fermé sur le requis"
@@ -800,7 +813,10 @@ class TestLeProfilSeDessineDesQuUneCibleExiste:
         polygone sur un sommet absent le ferait passer par zéro, c'est-à-dire
         par « non démontré » — ce que tout le module distingue."""
         js = _lire(JS)
-        corps = js.split("const tout = axes.every(", 1)[1][:900]
+        # ⚠️ On borne sur ce qui SUIT, pas sur une longueur : 900 signes
+        # tenaient jusqu'au jour où un commentaire s'est glissé dedans, et le
+        # cliquet a rougi sans qu'une seule règle ait bougé.
+        corps = js.split("const tout = axes.every(", 1)[1].split("const points", 1)[0]
         assert "cv2-r-dem-part" in corps, "les morceaux de polyligne"
         assert "polyline" in corps
         css = _lire(CSS)
@@ -866,9 +882,18 @@ class TestLAccueilNEstPlusNu:
 
     def test_les_quatre_compteurs_s_affichent_meme_a_zero(self):
         """Trois compteurs absents sur quatre laissaient la page nue, et
-        « 0 en écart » est une information, pas un vide."""
+        « 0 en écart » est une information, pas un vide.
+
+        ⚠️ Ils ne sont plus un bandeau de tuiles : ils sont le PANNEAU du
+        grand chiffre, à côté de ce qu'ils expliquent. Mais ils sont toujours
+        quatre, et toujours tous affichés.
+        """
         js = _lire(JS)
-        assert "if (onFiltre && !compte[cle] && state.filtre !== cle) return;" in js
+        o = _corps(js, "  function renderOeil(ap) {")
+        for c in ("'held'", "'gap'", "'todo'", "'setup'"):
+            assert c in o, c
+        assert ".map(([k, lbl, t]) =>" in o, "les quatre, sans condition"
+        assert "if (!c[k])" not in o and "c[k] ?" not in o
 
     def test_la_vue_d_ensemble_porte_les_prochaines_seances(self):
         js = _lire(JS)
@@ -1047,16 +1072,17 @@ class TestLesDeuxColonnesSeDistinguent:
         assert "function remplirActivites" not in js
         nav = _corps(js, "  function majNav() {")
         assert "(i + 1) + ' / ' + n" in nav
-        bande = _corps(js, "  function bandeClasseur(st) {")
-        assert "state.activity.activity_name" in bande
-        assert "T('cl_tenu')" in bande
+        ou = _corps(js, "  function remplirOu(st) {")
+        assert "a.activity_name" in ou
+        assert "T('cl_tenu')" in ou
     def test_le_gabarit_de_la_page_ne_porte_aucun_libelle(self):
-        """⚠️ `remplirClasseur` VIDE la feuille et les languettes : un libellé
+        """⚠️ `remplirOu` et `remplirSorties` VIDENT leur zone : un libellé
         écrit dans le squelette serait effacé au premier remplissage."""
         js = _lire(JS)
-        sk = js.split('<div class="cl" id="ev-cl">', 1)[1][:420]
-        for creux in ('id="ev-cl-h"></div>', 'id="ev-ong"></div>',
-                      'id="ev-feuille"></div>'):
+        sk = js.split('<div class="ev-deux" id="ev-deux">', 1)[1][:460]
+        for creux in ('class="ev-ou" id="ev-ou"></section>',
+                      'class="ev-sorties" id="ev-sorties"></div>',
+                      'class="ev-pied" id="ev-pied"></div>'):
             assert creux in sk, creux
 class TestLEvolutionSeFermeParLeBas:
     """Une fois l'historique déplié, le bouton qui a OUVERT la section se
@@ -1067,15 +1093,21 @@ class TestLEvolutionSeFermeParLeBas:
         corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
         assert "pal-evo-fin" in corps
         assert "fa-chevron-up" in corps
-        # ⚠️ En DERNIER enfant : `.pal-form` vient après l'historique, et une
-        # marche posée pendant la lecture glisserait un formulaire SOUS lui.
-        assert "card.appendChild(bas);" in corps
+        # ⚠️ DANS le panneau qu'il ferme, pas en dernier enfant de la carte :
+        # depuis que le détail s'ouvre À CÔTÉ, un « dernier enfant » tomberait
+        # sous le relief, à l'autre bout de l'écran.
+        assert "bloc.appendChild(bas);" in corps
+        assert "card.appendChild(bas);" not in corps
 
     def test_il_part_quand_la_section_se_referme(self):
+        """Il vit DANS le panneau : retirer le panneau l'emporte, et rien ne
+        peut rester orphelin au milieu de la carte."""
         js = _lire(JS)
         corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
         avant = corps.split("card.dataset.evo = '';", 1)[0]
-        assert ".pal-evo-fin" in avant, "le repli doit le retirer"
+        assert "ouvert.remove();" in avant, "le repli doit retirer le panneau"
+        pose = corps.split("const bloc = blocHistorique(r);", 1)[1]
+        assert "bloc.appendChild(bas);" in pose
 
     def test_il_a_son_style(self):
         css = _lire(CSS)
@@ -1201,6 +1233,45 @@ class TestLeRailEstUneLIGNE:
         assert "estNorme = atteintNorme && !norme_vue" in corps
         assert "pal_audela_tag" in js, "la marche au-delà porte sa propre marque"
 
+    def test_le_drapeau_dit_juste_NORME(self):
+        """« NORME DE L'ENTREPRISE » et « AU-DELÀ DE LA NORME » se posent à
+        deux marches d'écart : sur le panneau des marches de la vue
+        d'ensemble, les deux badges se chevauchaient. Le premier n'avait pas
+        besoin de dire à qui la norme appartient — c'est le seul sens
+        qu'elle ait."""
+        js = _lire(JS)
+        assert "pal_norme_tag" not in js, "une clé de plus pour le même mot"
+        for langue in ("    fr: {", "    en: {"):
+            d = js.split(langue, 1)[1].split("\n    },", 1)[0]
+            ligne = [l for l in d.splitlines() if l.strip().startswith("pal_norme:")]
+            assert ligne, langue
+            assert "entreprise" not in ligne[0] and "Company" not in ligne[0], ligne[0]
+        rail = js.split("  function railHtml(", 1)[1].split("\n  }", 1)[0]
+        assert "T('pal_norme')" in rail
+
+    def test_les_deux_drapeaux_TIENNENT_cote_a_cote(self):
+        """⚠⚠ Ils marquent deux marches VOISINES, et chacun est centré sur
+        la sienne : leur largeur cumulée ne peut pas dépasser deux fois le pas
+        du rail. Mesuré sur le panneau des marches de la vue d'ensemble, pas
+        de 75 px : « Norme de l'entreprise » + « Au-delà de la norme »
+        faisaient 236 px et se chevauchaient de 60 — c'est la capture du
+        pilote. Raccourcis, ils en font 90.
+
+        Le contrôle porte sur la LONGUEUR des deux libellés, dans les deux
+        langues : c'est elle qui décide, et une traduction plus bavarde
+        rouvrirait le défaut sans qu'on s'en aperçoive ici."""
+        js = _lire(JS)
+        for langue in ("    fr: {", "    en: {"):
+            d = js.split(langue, 1)[1].split("\n    },", 1)[0]
+            tot = 0
+            for cle in ("pal_norme", "pal_audela_tag"):
+                ligne = [l for l in d.splitlines() if l.strip().startswith(cle + ":")]
+                assert ligne, langue + cle
+                val = ligne[0].split(":", 1)[1].strip().strip(",").strip("'\"")
+                assert len(val) <= 12, "%s %s = %r" % (langue, cle, val)
+                tot += len(val)
+            assert tot <= 20, "%s : %d signes à deux marches d'écart" % (langue, tot)
+
     def test_le_seuil_dessine_vient_du_SERVEUR(self):
         """Le rail traçait l'au-delà depuis `marge` ; il aurait montré 109 %
         quand le niveau se jouait sur 98 %."""
@@ -1216,10 +1287,14 @@ class TestLeRailEstUneLIGNE:
         js = _lire(JS)
         assert "pal_mesure_k" in js
         css = _lire(CSS)
-        # ⚠️ `.pal-pas .pal-m` est déclarée deux fois : c'est la DERNIÈRE
-        # qui gagne, et c'est donc elle qu'il faut lire.
-        bloc = css.rsplit(".pal-pas .pal-m {", 1)[1].split("}", 1)[0]
-        assert "border-radius: 999px" in bloc, "une pastille, pas une ligne grise"
+        # ⚠️ `.pal-pas .pal-m` est déclarée plusieurs fois, et c'est la
+        # DERNIÈRE qui gagne — mais seulement parmi celles qui visent la
+        # carte. Un `rsplit` prenait le dernier venu, et la variante sombre
+        # du panneau des marches (`.mpan …`) l'a montré : un cliquet qui
+        # cherche une chaîne doit borner sa zone.
+        blocs = [b.split("}", 1)[0] for b in css.split("\n.pal-pas .pal-m {")[1:]]
+        assert blocs, "la règle de base a disparu"
+        assert "border-radius: 999px" in blocs[-1], "une pastille, pas une ligne grise"
         assert ".pal-pas .pal-m b { font-size: 15px" in css
 
 
@@ -1295,18 +1370,27 @@ class TestLesDeuxNotesSeTiennent:
     empilés, chacun avec son petit en-tête : on ne voyait pas que c'est UNE
     décision regardée de deux côtés."""
 
-    def test_elles_partagent_UNE_piste(self):
-        """⚠️ Deux échelles de cinq crans l'une sous l'autre, c'étaient dix
-        crans pour une seule décision. Le niveau qui fait foi EST la piste, et
-        ce qu'il dit de lui-même est un repère SUR cette piste."""
+    def test_elles_portent_la_MEME_echelle_chacune_la_sienne(self):
+        """⚠️ RENVERSEMENT de la règle du 11/11 (« elles partagent UNE piste,
+        et l'auto-évaluation est un repère dessus »). Compressée en un point
+        posé sous les crans de l'autre, la seconde note ne se lisait plus
+        comme une note — et il y en a TOUJOURS deux.
+
+        Elles portent donc chacune la même échelle 0 → 4 : celle qui vous
+        appartient en piste (cinq crans qu'on clique), l'autre en graduation,
+        alignée au pixel. Ce ne sont pas dix crans pour une décision : ce sont
+        deux lectures d'une même échelle, et c'est leur alignement qu'on vient
+        lire.
+        """
         js = _lire(JS)
         assert "function blocNote(" not in js, "les deux blocs sont remplacés"
         n = _corps(js, "  function notaSortie(r, st) {")
-        assert n.count("piste(") == 1, "UNE piste, pas deux échelles"
-        p = _corps(js, "  function piste(pose, attendu, soi, lue) {")
-        assert 'class="soi' in p, "l'auto-évaluation est un repère sur la piste"
+        assert "nt nt--foi" in n and "nt nt--auto" in n
+        assert "maFoi ? piste(off, req, false) : graduation(off)" in n
+        assert "monAuto ? piste(soi, req, false) : graduation(soi)" in n
+        assert 'class="soi' not in js, "le repère n'a laissé aucune trace"
         css = _sans_commentaires_css(_lire(CSS))
-        assert ".crans .soi {" in css and "repeating-linear-gradient" in css
+        assert ".crans .soi {" not in css
     def test_la_preuve_est_un_bouton_pas_un_lien_souligne(self):
         js = _lire(JS)
         p = _corps(js, "  function preuveSortie(r, st) {")
@@ -1334,7 +1418,7 @@ class TestLeRelief:
         # …mais il vit toujours à la séance : c'est une AUTRE question.
         assert 'class="sq-rail">${railHtml(' in js
         # et plus une seule courbe dans la feuille
-        f = _corps(js, "  function feuilleSortie(r, st) {")
+        f = _corps(js, "  function carteSortie(r, st, i) {")
         for mort in ("reliefSvg", "friseSvg", "cv2-histo", "pal-relief"):
             assert mort not in f, mort
     def test_l_axe_vertical_est_ordonne_par_MERITE(self):

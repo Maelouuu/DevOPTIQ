@@ -2,21 +2,21 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "11/11/2026",
+    "updated_at": "13/11/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
         "progress": 96,
-        "note": "Couverture par lignes : 92 % sur Code/. Ce run : bienvenue 97 %, propositions_activite et role_i18n 100 %. Restent surtout test_panel.py et app.py."
+        "note": "Couverture par lignes : 92 % sur Code/. Ce run : 8 modules socle à 97-100 % (prompts, ai_client, logstream, ecriture, mot_de_passe, paliers, roles_permanents, carto_access). Restent surtout test_panel.py et app.py."
       },
       {
         "id": "green",
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
         "progress": 100,
-        "note": "Suite complète verte : 4049 réussis, 1 sauté, 0 échec."
+        "note": "Suite complète verte : 4186 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
@@ -49,6 +49,25 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-11-13T03:32:07",
+      "date": "13/11/2026 · 03:32",
+      "author": "routine",
+      "title": "Modules socle : prompts IA, client IA, console serveur, porte d écriture",
+      "summary": "Suite déjà entièrement verte au départ : tout le temps est allé à la couverture. 99 nouveaux tests sur huit modules socle que toutes les pages utilisent.",
+      "new_tests": 99,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "Modules socle",
+      "highlights": [
+        "prompts 48 → 97 % : bundle chiffré (clé d environnement ou de licence), mauvaise clé, clé arrivée après coup",
+        "ai_client 61 → 100 % : choix du fournisseur, modèle, base Anthropic, échec du SDK",
+        "logstream 72 → 100 % : duplication stdout, plafond du fichier, lecture incrémentale",
+        "ecriture, mot_de_passe 100 % ; paliers, roles_permanents, carto_access 99 %",
+        "Suite complète : 4186 réussis, 1 sauté, 0 échec"
+      ],
+      "next": "Restent surtout test_panel.py (83 %), app.py (81 %) et activities_map.py (90 %)."
+    },
     {
       "at": "2026-11-11T03:25:03",
       "date": "11/11/2026 · 03:25",
