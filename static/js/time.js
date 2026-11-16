@@ -485,7 +485,7 @@
     if (save) {
       if (modif) { edition.nom = payload.weakness; majBandeauEdition(); }
       showFwFeedback(true, modif ? tl('tm_maj', '')
-                                 : 'Analyse faiblesse enregistrée avec succès');
+                                 : tl('saved_weakness', ''));
     }
   }
 

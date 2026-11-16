@@ -2311,3 +2311,37 @@ class TestLeDeroulantSeDefileEtSuitLeType:
         bloc = js[i:js.index("document.body.appendChild(panneau);", i)]
         assert "getPropertyValue('--tms-a')" in bloc, bloc
         assert "panneau.style.setProperty('--tms-a'" in bloc, bloc
+
+# ======================================================================
+#  Les retours d'enregistrement
+# ======================================================================
+class TestLesRetoursPassentParLeCatalogue:
+    """⚠️ Celui de la FAIBLESSE était écrit en dur, en français — « Analyse
+    faiblesse enregistrée avec succès » s'affichait tel quel sur l'écran
+    anglais. Ses trois voisins passaient par `tl('saved_x', '')` depuis le
+    14/11 ; il avait été oublié.
+
+    ⚠️ `tl(cle, defaut)` rend son DÉFAUT quand la clé manque : une phrase
+    française écrite là ne lève rien, elle s'affiche.
+    """
+
+    def test_aucun_retour_n_est_ecrit_en_dur(self):
+        import re
+        js = _lire("static/js/time.js")
+        accent = re.compile("[\u00e0\u00e2\u00e9\u00e8\u00ea\u00ee\u00f4\u00f9\u00fb\u00e7]")
+        for m in re.finditer(r"(?:flashFeedback|showFwFeedback)\s*\(", js):
+            arg = js[m.end():m.end() + 260].split(");")[0]
+            # ⚠️ On cherche l'accent dans TOUT l'argument. Appareiller les
+            # guillemets casse sur la chaîne vide de `tl(cle, '')` : le
+            # scanner repart au milieu, avale l'ouverture de la phrase
+            # française et la laisse passer entière — le cliquet restait
+            # VERT sur le défaut remis. Ni une clé ni une variable ne porte
+            # d'accent : un seul suffit à désigner une phrase écrite en dur.
+            assert not accent.search(arg), (
+                "retour écrit en dur : %r" % arg.strip()[:90])
+
+    def test_le_retour_de_la_faiblesse_a_sa_cle_dans_les_DEUX_langues(self):
+        g = _lire("Code/routes/templates/time_dashboard.html")
+        assert "saved_weakness:" in g, "la clé doit être injectée"
+        trad = _lire("Code/translations.py")
+        assert trad.count("'time.saved_weakness'") == 2, "fr ET en"
