@@ -9327,6 +9327,97 @@ ouvre et referme, le panneau est à droite du relief, la bande RACCOURCIT en
 s'ouvrant, et **zéro fuite française sur l'écran anglais** (363 textes relevés,
 attributs compris — les quatre relevés sont des DONNÉES du banc).
 
+### END_DT : un socle de présentation, posé par SQL (2026-11-16)
+
+`tools/db/seed_end_dt.sql` — à coller dans l'éditeur SQL de Neon, sur la base
+du pilote. Trois requêtes : inventaire (lecture seule), le semis (un seul bloc
+atomique), relecture. Il crée une carto `END_DT` qui porte **la carto exacte**
+d'une entité existante, la partage, et la remplit de données de temps.
+
+Pourquoi en SQL plutôt qu'un script `tools/db/` en Python : lire la
+`DATABASE_URL` du pilote depuis Cloud Run a été **refusée** par le contrôle de
+permissions, et c'est la bonne réponse — on ne contourne pas. L'utilisateur
+colle, le script se garde tout seul.
+
+#### Les décisions qui ont coûté quelque chose
+
+- ⚠️ **La carto n'est PAS re-dérivée du diagramme.** On COPIE les lignes que
+  `_sync_carto_to_db` a déjà produites pour la source. Réécrire cette
+  dérivation en SQL en ferait une seconde implémentation, et les deux
+  finiraient par ne plus dire la même chose — la règle que tout ce dépôt tient.
+  `optiqcarto_data` est recopié tel quel : la carto est exacte par
+  construction. Mesuré : **identique octet pour octet** (65 311), et les
+  42 `shape_id` conservés.
+- ⚠️ **Seules les connexions activité → activité sont copiées.** Une connexion
+  dont un bout est une `Data` pointerait la donnée de l'AUTRE carto. On la
+  laisse : le prochain enregistrement de la carto dans l'éditeur la recréera
+  depuis le diagramme, qui est copié. Mesuré : 72/72 copiées, **0 connexion
+  hors carto**.
+- ⚠️⚠️ **Le partage compte par compte N'EXISTE PAS.** `can_read` n'ouvre une
+  carto commune que par **rôle** ou par **palier de statut**. « Partagée à nous
+  deux » se traduit donc par : propriétaire = Maël, plus **UN** rôle ouvert — et
+  ce rôle doit être celui qui a **le MOINS de titulaires**, car un rôle autorisé
+  ouvre la carto à *tous* ceux qui le tiennent. Le bloc le dit en clair, et la
+  requête 3 nomme ensuite tout le monde. Mesuré au banc : Hubert tenait deux
+  rôles porteurs, l'un à quatre titulaires et l'autre à lui seul — le script
+  a choisi le second.
+- ⚠️ **Le rôle ouvert doit porter une activité d'ICI.** `_sync_carto_to_db`
+  efface l'accès d'un rôle absent de la carte : un rôle pris ailleurs
+  s'évaporerait au premier enregistrement dans l'éditeur.
+- ⚠️ **Intersection vide → la carto reste PRIVÉE**, et le bloc dit quoi faire.
+  Une carto commune sans aucun rôle autorisé est ouverte À TOUS, le contraire
+  de ce qui est demandé.
+- ⚠️ **Il REFUSE de rejouer.** Un second passage empilerait une deuxième copie
+  des activités et des analyses. Vérifié : second passage → `ERROR`, et les
+  neuf compteurs inchangés.
+- ⚠️ **Une durée SAISIE n'est jamais remplacée** (`NULLIF(…, 0)`) : on ne
+  réécrit pas un chiffre que quelqu'un a posé. Vérifié avec un témoin à
+  777/888 min, relu à 777/888.
+- ⚠️ **Sans ligne `entreprise_settings` pour CETTE carto**,
+  `get_calendar_params` retombe sur la **PREMIÈRE ligne de la table**,
+  c'est-à-dire le calendrier d'une autre entité. Le script en pose une.
+- ⚠️ **Deux activités sur dix restent non chiffrées, volontairement** : la
+  carte « ce qui n'est pas chiffré » est la seule qui dise que le total annoncé
+  ne porte pas sur toute la carto. Si tout est mesuré, on ne la voit jamais.
+  Mesuré : 34 chiffrées sur 42, 8 nommées à chiffrer.
+- ⚠️ **Les analyses de rôle prennent TOUT le périmètre du rôle** (plafond 20).
+  Mesuré avec un plafond à 8 : les deux analyses tombaient **sous** le temps
+  plein (78 % et 83 %) — la variante la moins parlante de la carte des rôles.
+  Avec leur périmètre réel : **136 % et 83 %**, un rôle au-dessus de la ligne
+  et un bien en dessous, ce que la carte est faite pour montrer.
+- ⚠️ **Le tableau de bord cadre une analyse de rôle par ses LIGNES**, pas par
+  le rôle : celles-ci pointent END_DT, donc l'analyse ne paraît pas sur la
+  carto source, même si le rôle est commun aux deux (depuis le 23/09).
+- ⚠️ **Travail refait et attente ne s'additionnent jamais** : trois faiblesses
+  de natures différentes (surtout du travail, surtout de l'attente, aucune
+  attente). Et le délai standard ne tombe pas sous la durée
+  (`delai_plancher`) : l'écran le bornerait à l'enregistrement, on n'écrit pas
+  un état qu'il refuserait.
+- `prob_percent` est arrivé le 03/11 : le script regarde
+  `information_schema.columns` au lieu de présumer.
+
+#### Éprouvé, pas supposé
+
+Banc : un **vrai PostgreSQL 16** (conteneur jetable), schéma monté par le
+démarrage NORMAL de l'application, carto source dérivée par
+`_sync_carto_to_db` depuis `tools/provisioning/carto/map_rfq_fluidclip.json`
+(42 activités, 72 connexions, 9 rôles porteurs — l'échelle du pilote).
+Huit témoins SQL, tous verts ; puis le **vrai endpoint**
+`/temps/api/tableau_de_bord` interrogé pour de bon : **HTTP 200**, les cinq
+cartes pleines (8 517 h/an, 5,05 ETP ; 57 h de travail refait et 368 h
+d'attente, séparés ; 34/42 chiffrées ; 136 %/83 % par rôle ; 34 activités), les
+quatre groupes de « Vos analyses » non vides, et **les mêmes chiffres en
+anglais**.
+
+⚠️ Écarté en chemin : le classement des faiblesses lit bien
+`travail_annuel_min` (le travail seul) et jamais l'`annuel_min` d'un item, qui
+somme les deux natures. Il n'y a donc pas de défaut d'addition dans l'écran —
+vérifié dans `time.js`, pas supposé.
+
+⚠️ **Et un piège de shell, pour la quatrième fois** : un heredoc Bash a avalé
+les apostrophes d'un SQL français (`unexpected EOF`). Un fichier qui porte du
+texte français se pose par la Write tool, jamais par un heredoc.
+
 ### Report sur le pilote : la page Temps, sans l'écran Compétences (2026-11-16)
 
 Même recette que le 11/11, et elle se vérifie d'une commande : l'arbre de
