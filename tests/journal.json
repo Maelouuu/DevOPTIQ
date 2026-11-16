@@ -2,21 +2,21 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "13/11/2026",
+    "updated_at": "16/11/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
-        "progress": 96,
-        "note": "Couverture par lignes : 92 % sur Code/. Ce run : 8 modules socle à 97-100 % (prompts, ai_client, logstream, ecriture, mot_de_passe, paliers, roles_permanents, carto_access). Restent surtout test_panel.py et app.py."
+        "progress": 97,
+        "note": "Couverture par lignes : 94 % sur Code/. Ce run : activities_map.py 96 %, cartography_editor.py 99 %. Restent surtout test_panel.py, app.py, gestion_rh.py et time_view.py."
       },
       {
         "id": "green",
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
         "progress": 100,
-        "note": "Suite complète verte : 4186 réussis, 1 sauté, 0 échec."
+        "note": "Suite complète verte : 4494 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
@@ -49,6 +49,24 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-11-16T03:35:16",
+      "date": "16/11/2026 · 03:35",
+      "author": "routine",
+      "title": "Cartographie et éditeur OptiqCarto : couverture résiduelle",
+      "summary": "Suite déjà entièrement verte au départ (4433 réussis) : tout le temps est allé à la couverture. 61 nouveaux tests sur les deux plus gros modules de la cartographie. activities_map.py passe de 90 % à 96 %, cartography_editor.py de 91 % à 99 %, Code/ de 93 % à 94 %.",
+      "new_tests": 61,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "Cartographie / OptiqCarto",
+      "highlights": [
+        "Injection des formes cross-carto : choix des côtés, entrée/sortie sur le même côté, placement haut/bas, évitement de collision",
+        "Synchro carto→DB : renvois résolus, losanges Oui/Non, bandes sans nom, rattachement par nom, rollback",
+        "14 endpoints de l éditeur éprouvés sans entité active ; échecs de synchro remontés (save, import, calques)",
+        "Constat sans correctif : /activities/update-cartography est déclarée deux fois (blueprints activities et activities_map) ; celle d activities_map est du code mort"
+      ],
+      "next": "gestion_rh.py (93 %), time_view.py (95 %), puis test_panel.py et app.py."
+    },
     {
       "at": "2026-11-13T03:32:07",
       "date": "13/11/2026 · 03:32",

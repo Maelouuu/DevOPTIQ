@@ -32,6 +32,8 @@ PAGE_LABELS = {
     "test_143_carto_sharing_residuel": "Partage de cartos — Comparaison avant/après, arbitrage et corps invalides",
     "test_144_import_hub_gaps": "Import de données — Lecture de fichiers, IA, vérification et routes (compléments)",
     "test_146_competences_acces_apercu_gaps": "Compétences — Accès, aperçu, synthèse et première mesure (compléments)",
+    "test_148_activities_map_residuel": "Cartographie — SVG de secours, injection cross-carto, connexions et debug (résiduel)",
+    "test_149_cartography_editor_residuel": "Éditeur OptiqCarto — Synchro carto→DB, sans entité active, échecs de synchro (résiduel)",
     "test_91_noms_uniques_et_historique": "Cartographie — Noms uniques et historique",
     "test_94_page_carte_scene": "Page Carte — Tuiles, dessin et liste",
     "test_102_porte_ecriture": "Sécurité — Porte d'écriture (contrôle d'accès des écritures)",
