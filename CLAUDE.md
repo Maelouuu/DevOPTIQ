@@ -9327,6 +9327,66 @@ ouvre et referme, le panneau est à droite du relief, la bande RACCOURCIT en
 s'ouvrant, et **zéro fuite française sur l'écran anglais** (363 textes relevés,
 attributs compris — les quatre relevés sont des DONNÉES du banc).
 
+### Report sur le pilote : la page Temps, sans l'écran Compétences (2026-11-16)
+
+Même recette que le 11/11, et elle se vérifie d'une commande : l'arbre de
+staging À L'IDENTIQUE, puis les **trois fichiers d'écran** rendus à leur
+version du pilote —
+`Code/routes/templates/competences_view.html`, `static/competences.css`,
+`static/js/competences_v2.js`. L'invariant :
+`git diff --name-status origin/staging <commit>` ne rend que ces trois-là.
+
+Bâti avec un **index temporaire** (`GIT_INDEX_FILE` + `read-tree` +
+`update-index --cacheinfo` + `commit-tree`, deux parents) : rien à sortir ni à
+remettre dans l'arbre de travail de la session.
+⚠️ Et avec le git de **Windows**, pas celui de WSL : le `.git` d'un worktree
+de session pointe une UNC que WSL ne résout pas (`fatal: not a git
+repository`).
+
+**Ce qui part** : la page Temps refondue (les trois écrans, les cinq
+récurrences, les deux natures du coût d'une faiblesse, les listes déroulantes
+dessinées, la passe de style), l'ancre `#calendrier` de la page RH, et le
+backend Compétences en ENTIER — il ne peut pas être tenu en arrière sans
+casser la page RH ni le démarrage, et il porte deux correctifs d'accès.
+
+**Mesuré sur l'arbre du pilote**, dans un worktree jetable : **4 132 passés,
+302 sautés, 0 rouge**. Les 302 sont exactement les quatre fichiers d'écran
+(`test_109` 125, `test_140` 89, `test_145` 37, `test_147` 28), deux classes
+de `test_130` (13) et le saut d'arbre d'image de `test_51`. Chaque saut porte
+sa raison : la garde est un PRÉDICAT SUR LE FICHIER
+(`"renderGalerie" in competences_v2.js`), jamais un drapeau de branche — elle
+s'éteindra d'elle-même le jour où l'écran partira, et il n'y a rien à défaire.
+
+⚠️ **Vérifié EN LIGNE après le déploiement**, pas seulement au vert du
+workflow : `/health` 200, `time.js` (78 Ko) porte `saved_weakness` et
+`trimestriel`, `tm_select.js` est servi, et `competences_v2.js` fait toujours
+2 126 lignes sans `renderGalerie` ni `cv2-ecran-eval`.
+
+Livré à **06h31 en Inde**, avant la journée de travail — la règle du soir est
+tenue.
+
+#### Le contrôle de traduction qui va avec
+
+La page Temps parcourue EN ANGLAIS au banc, écran par écran : accueil groupes
+dépliés, les quatre écrans de saisie, les panneaux des listes déroulantes, la
+section Résultats et ses onze bulles, les unités (`min` / `hrs` / `day`) et
+les cinq récurrences. **Une seule fuite**, corrigée : le retour
+d'enregistrement d'une faiblesse (voir plus haut).
+
+⚠️ Le détecteur ne doit PAS prendre pour français les mots que l'anglais
+emploie aussi : `role`, `charge`, `analyse`, `project`, `minutes`. Avec eux,
+« No role reaches a full-time job » et « Minutes of work to redo… » ressortent
+comme des fuites, et on finit par ne plus lire la liste.
+
+**La dette, elle, est mesurée** : **191 chaînes françaises écrites en dur**
+dans 23 fichiers JS encore chargés par un gabarit — `propose_aptitudes.js`
+(47), `activities_map.js` (26, déjà signalé comme du code mort),
+`tasks.js` (22), `propose_from_file.js` (16), `tasks_roles.js` (10),
+`competencies.js` (10)… plus **129 dans 8 fichiers que plus aucun gabarit ne
+charge** (`synth_competences.js`, `plan_formation.js`, `performance_perso.js`,
+`test.js`…). Ce n'est pas une passe de relecture : c'est un chantier à part,
+et il se tranche écran par écran.
+
 ### Le report sur le pilote SANS la page Compétences (2026-11-11)
 
 « Je voudrais que l'on puisse push tout sauf la page compétences, car j'estime
