@@ -18,6 +18,17 @@ def _uid():
     return uuid.uuid4().hex[:8]
 
 
+def _purger_entite(ent_id):
+    """Supprime une entité de test et ce qu'elle porte (cascade ORM)."""
+    from Code.extensions import db
+    from Code.models.models import Entity
+    db.session.rollback()
+    ent = db.session.get(Entity, ent_id)
+    if ent is not None:
+        db.session.delete(ent)
+        db.session.commit()
+
+
 def _activity(app, entity_id, **kw):
     from Code.extensions import db
     from Code.models.models import Activities
@@ -410,5 +421,12 @@ class TestSuppressionRoleNeLaisseAucuneLigneOrpheline:
                 "bands": [{"id": "b2", "label": f"T95 Autre {_uid()}", "height": 200}]})
             db.session.commit()
 
-            assert TimeRoleAnalysis.query.get(analyse_id) is None
-            assert TimeRoleLine.query.filter_by(role_analysis_id=analyse_id).count() == 0
+            try:
+                assert TimeRoleAnalysis.query.get(analyse_id) is None
+                assert TimeRoleLine.query.filter_by(role_analysis_id=analyse_id).count() == 0
+            finally:
+                # Une entité SANS propriétaire est lisible et éditable par tout
+                # compte qui n'a pas de carto (repli de Entity.get_active) :
+                # la laisser en base ouvre l'écriture aux comptes `user` des
+                # tests suivants (test_102_porte_ecriture).
+                _purger_entite(ent_id)

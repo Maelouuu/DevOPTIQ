@@ -2,27 +2,27 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "16/11/2026",
+    "updated_at": "17/11/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
         "progress": 97,
-        "note": "Couverture par lignes : 94 % sur Code/. Ce run : activities_map.py 96 %, cartography_editor.py 99 %. Restent surtout test_panel.py, app.py, gestion_rh.py et time_view.py."
+        "note": "Couverture par lignes : 94 % sur Code/. Ce run : time_view.py ~100 %, gestion_rh.py 99 %. Restent surtout test_panel.py, app.py et models.py."
       },
       {
         "id": "green",
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
         "progress": 100,
-        "note": "Suite complète verte : 4494 réussis, 1 sauté, 0 échec."
+        "note": "Suite complète verte : 4542 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
         "title": "Isolation des tests (anti-pollution)",
         "status": "in_progress",
-        "progress": 75,
+        "progress": 78,
         "note": "Base et session partagées (scope=session) : rendre chaque test autonome (données dédiées + cleanup)."
       },
       {
@@ -49,6 +49,24 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-11-17T03:30:55",
+      "date": "17/11/2026 · 03:30",
+      "author": "routine",
+      "title": "Gestion du Temps et Gestion RH : couverture résiduelle + 1 pollution latente",
+      "summary": "Suite entièrement verte au départ (4494 réussis). Une pollution latente débusquée en relançant un sous-ensemble : test_95 laissait une entité sans propriétaire qui ouvrait l écriture aux comptes user de test_102 (invisible dans l ordre complet). Corrigée côté test et tracée (patch, pas de vrai bug). 48 nouveaux tests : time_view.py passe de 95 % à ~100 %, gestion_rh.py de 93 % à 99 %.",
+      "new_tests": 48,
+      "tests_fixed": 1,
+      "patches": 1,
+      "page": "temps + gestion_rh",
+      "highlights": [
+        "Patch 2026-11-17-t95-entite-orpheline : test_95 supprime désormais son entité (test_isolation, was_real_bug=false)",
+        "test_150 : tables historiques de paramètres, auto-patch du schéma rôle, faiblesse par tâches (GET/PUT), tableau de bord avec rôles et projets",
+        "test_151 : replis défensifs de la page RH, import CSV avec doublons, listes sans entité active, dissolution du lien global",
+        "Suite complète : 4542 réussis, 1 sauté, 0 échec"
+      ],
+      "next": "Restent surtout test_panel.py (83 %), app.py (81 %) et models.py (94 %)."
+    },
     {
       "at": "2026-11-16T03:35:16",
       "date": "16/11/2026 · 03:35",

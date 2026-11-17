@@ -715,5 +715,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-14T03:23:17"
+  },
+  {
+    "patch_uid": "2026-11-17-t95-entite-orpheline",
+    "title": "test_95 laissait une entité sans propriétaire qui ouvrait l écriture aux comptes user",
+    "node_ids": [
+      "tests/test_102_porte_ecriture.py::TestCeQueLaPorteRefuse::test_un_compte_user_n_ecrit_pas"
+    ],
+    "page_slug": "porte_ecriture",
+    "failure_reason": "Lancés dans l ordre test_95 puis test_102 (sous-ensemble temps + porte), 10 cas paramétrés de test_un_compte_user_n_ecrit_pas échouaient : porte() rendait None au lieu de lecture_seule pour un compte user. Invisible dans la suite complète, où test_102 passe avant test_95 (ordre lexical).",
+    "was_real_bug": false,
+    "root_cause": "test_isolation",
+    "error": "TestSuppressionRoleNeLaisseAucuneLigneOrpheline crée une Entity sans owner_id et ne la supprime jamais. Une entité sans propriétaire est lisible ET éditable par tout compte (carto_access.can_read/can_edit) ; un compte user sans carto à lui y retombe via le repli de Entity.get_active, donc _peut_ecrire() devient vrai et la porte laisse passer. Comportement applicatif voulu (entités héritées sans propriétaire) : seul le test fuyait.",
+    "fix_description": "Ajout du helper _purger_entite() dans test_95 et suppression de l entité (cascade ORM : activités, rôles, liens) dans un finally à la fin du test. test_95 + test_102 ensemble : 73/73 verts.",
+    "files_changed": [
+      "tests/test_95_temps_calculs.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-17T03:16:48"
   }
 ]

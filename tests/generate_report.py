@@ -34,6 +34,8 @@ PAGE_LABELS = {
     "test_146_competences_acces_apercu_gaps": "Compétences — Accès, aperçu, synthèse et première mesure (compléments)",
     "test_148_activities_map_residuel": "Cartographie — SVG de secours, injection cross-carto, connexions et debug (résiduel)",
     "test_149_cartography_editor_residuel": "Éditeur OptiqCarto — Synchro carto→DB, sans entité active, échecs de synchro (résiduel)",
+    "test_150_temps_residuel": "Gestion du Temps — Paramètres historiques, schéma rôle, faiblesse par tâches, tableau de bord (résiduel)",
+    "test_151_gestion_rh_residuel": "Gestion RH — Replis défensifs, import CSV doublons, listes sans entité, liens de rôle (résiduel)",
     "test_91_noms_uniques_et_historique": "Cartographie — Noms uniques et historique",
     "test_94_page_carte_scene": "Page Carte — Tuiles, dessin et liste",
     "test_102_porte_ecriture": "Sécurité — Porte d'écriture (contrôle d'accès des écritures)",
