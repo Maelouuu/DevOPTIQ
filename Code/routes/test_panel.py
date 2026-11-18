@@ -1127,11 +1127,21 @@ def admin_clone_entity():
         Savoir, SavoirFaire, Aptitude, Softskill, Constraint, Data,
         Performance, activity_roles, task_roles, task_tools
     )
-    from sqlalchemy import text
+    from sqlalchemy import bindparam, text
+    from werkzeug.exceptions import HTTPException
 
     data_req = request.get_json(silent=True) or {}
-    source_id = int(data_req.get('source_id', 1))
-    target_id = int(data_req.get('target_id'))
+    try:
+        source_id = int(data_req.get('source_id', 1))
+        target_id = int(data_req.get('target_id'))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'source_id et target_id entiers requis'}), 400
+
+    # `= ANY(:ids)` n'existe que sous PostgreSQL : sur la base SQLite locale,
+    # toute copie d'une entité ayant des activités tombait en 500. `IN` avec
+    # un paramètre « expanding » est rendu correctement par les deux moteurs.
+    def _in_ids(sql):
+        return text(sql).bindparams(bindparam('ids', expanding=True))
 
     try:
         source = Entity.query.get_or_404(source_id)
@@ -1209,7 +1219,7 @@ def admin_clone_entity():
         if activity_map:
             old_act_ids = list(activity_map.keys())
             rows = db.session.execute(
-                text("SELECT activity_id, role_id, status FROM activity_roles WHERE activity_id = ANY(:ids)"),
+                _in_ids("SELECT activity_id, role_id, status FROM activity_roles WHERE activity_id IN :ids"),
                 {'ids': old_act_ids}
             ).fetchall()
             for row in rows:
@@ -1226,7 +1236,7 @@ def admin_clone_entity():
         if task_map:
             old_task_ids = list(task_map.keys())
             rows = db.session.execute(
-                text("SELECT task_id, role_id, status FROM task_roles WHERE task_id = ANY(:ids)"),
+                _in_ids("SELECT task_id, role_id, status FROM task_roles WHERE task_id IN :ids"),
                 {'ids': old_task_ids}
             ).fetchall()
             for row in rows:
@@ -1241,7 +1251,7 @@ def admin_clone_entity():
         # 6. task_tools via raw SQL
         if task_map:
             rows = db.session.execute(
-                text("SELECT task_id, tool_id FROM task_tools WHERE task_id = ANY(:ids)"),
+                _in_ids("SELECT task_id, tool_id FROM task_tools WHERE task_id IN :ids"),
                 {'ids': old_task_ids}
             ).fetchall()
             for row in rows:
@@ -1291,6 +1301,11 @@ def admin_clone_entity():
                         'activities': len(activity_map), 'tasks': len(task_map),
                         'data_shapes': len(data_map), 'links': len(link_map)})
 
+    except HTTPException:
+        # Une entité introuvable est un 404, pas une panne : l'avaler dans le
+        # `except Exception` ci-dessous la faisait passer pour une erreur 500.
+        db.session.rollback()
+        raise
     except Exception as e:
         db.session.rollback()
         import traceback

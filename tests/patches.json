@@ -733,5 +733,91 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-17T03:16:48"
+  },
+  {
+    "patch_uid": "2026-11-18-clone-entity-any-sqlite",
+    "title": "Copie d'entité : '= ANY(:ids)' remplacé par un IN portable",
+    "node_ids": [
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityCopie::test_copie_complete_renvoie_les_compteurs",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityCopie::test_copie_reprend_le_contenu_de_l_activite",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityCopie::test_copie_reprend_les_roles_communs_sans_en_creer",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityCopie::test_copie_rattache_role_et_outil_a_la_nouvelle_tache",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityCopie::test_copie_rebranche_le_lien_et_sa_performance"
+    ],
+    "page_slug": "panel_admin_residuel",
+    "failure_reason": "POST /testpanel/admin/clone_entity sur une source ayant au moins une activité répondait 500 avec 'no such function: ANY'.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Les trois relectures des tables d'association (activity_roles, task_roles, task_tools) utilisaient la syntaxe PostgreSQL 'col = ANY(:ids)', inconnue de SQLite : la copie était impossible sur la base locale, et la transaction entière était annulée.",
+    "fix_description": "Les requêtes passent par text(...).bindparams(bindparam('ids', expanding=True)) avec 'IN :ids', rendu correctement par PostgreSQL et SQLite.",
+    "files_changed": [
+      "Code/routes/test_panel.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-18T03:24:32"
+  },
+  {
+    "patch_uid": "2026-11-18-clone-entity-404-avale",
+    "title": "Copie d'entité : une entité inconnue répond 404, plus 500",
+    "node_ids": [
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityValidation::test_source_inconnue_renvoie_404",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityValidation::test_cible_inconnue_renvoie_404"
+    ],
+    "page_slug": "panel_admin_residuel",
+    "failure_reason": "Une source ou une cible inexistante renvoyait 500 {ok: false, error: '404 Not Found…'}.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Entity.query.get_or_404 lève NotFound à l'intérieur du try, et le 'except Exception' générique l'avalait pour la transformer en erreur 500.",
+    "fix_description": "Un 'except HTTPException' placé avant le générique annule la transaction et relève l'exception : le 404 remonte tel quel.",
+    "files_changed": [
+      "Code/routes/test_panel.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-18T03:24:32"
+  },
+  {
+    "patch_uid": "2026-11-18-clone-entity-cible-400",
+    "title": "Copie d'entité : cible absente ou non entière → 400",
+    "node_ids": [
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityValidation::test_cible_absente_renvoie_400",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityValidation::test_cible_non_entiere_renvoie_400",
+      "tests/test_152_panel_admin_residuel.py::TestCloneEntityValidation::test_corps_absent_renvoie_400"
+    ],
+    "page_slug": "panel_admin_residuel",
+    "failure_reason": "Sans target_id (ou avec une valeur non numérique), la route renvoyait une page HTML 500.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "int(None) / int('abc') levait TypeError/ValueError AVANT le try : exception non rattrapée, 500 HTML.",
+    "fix_description": "La conversion de source_id/target_id est validée et renvoie 400 JSON {ok: false, error} si elle échoue.",
+    "files_changed": [
+      "Code/routes/test_panel.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-18T03:24:32"
+  },
+  {
+    "patch_uid": "2026-11-18-serve-file-lecture-arbitraire",
+    "title": "serve-file : fin de la lecture de fichier arbitraire sans connexion",
+    "node_ids": [
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_fichier_systeme_refuse_sans_connexion",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_fichier_systeme_refuse_meme_connecte",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_fichier_non_joint_refuse_meme_connecte",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_fichier_joint_refuse_sans_connexion",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_fichier_joint_refuse_sur_cloud_run",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_pseudo_fichier_proc_refuse_meme_joint",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_dossier_joint_refuse",
+      "tests/test_154_export_fichiers_locaux.py::TestServeFileLocal::test_lien_symbolique_vers_proc_refuse"
+    ],
+    "page_slug": "export_fichiers_locaux",
+    "failure_reason": "GET /utils/serve-file?path=/etc/passwd répondait 200 avec le contenu du fichier, y compris sans session ; un dossier joint faisait planter la route.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Faille de sécurité : la branche « fichier local » servait tout chemin pour lequel os.path.exists() était vrai, sans contrôle de connexion ni de provenance. Sur Cloud Run, /proc/self/environ aurait exposé les variables d'environnement (URL de base, clés IA).",
+    "fix_description": "Nouveau garde _chemin_local_autorise : session ouverte, pas sur Cloud Run (K_SERVICE), chemin réel hors /proc /sys /dev et fichier ordinaire, et chemin exactement égal au file_path d'une tâche, d'un outil ou d'une contrainte. Les liens fabriqués par l'application continuent de fonctionner en local.",
+    "files_changed": [
+      "Code/routes/export.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-18T03:28:04"
   }
 ]

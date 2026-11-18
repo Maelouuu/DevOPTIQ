@@ -78,6 +78,27 @@ def serve_db_file(file_id):
 #   - /utils/file/123       → DB
 #   - chemin absolu local   → filesystem (dev local uniquement)
 # ──────────────────────────────────────────────
+def _chemin_local_autorise(path):
+    """⚠️ Ce chemin servait N'IMPORTE QUEL fichier lisible par le processus,
+    sans connexion : `?path=/etc/passwd` répondait 200, et sur Cloud Run
+    `/proc/self/environ` aurait livré les secrets (base, clés IA). Un fichier
+    local n'est servi que s'il est un fichier ordinaire, demandé par une
+    session ouverte, hors Cloud Run (où ces chemins n'existent de toute façon
+    pas), et s'il est EXACTEMENT le chemin joint à une tâche, un outil ou une
+    contrainte — les seuls liens que l'application fabrique.
+    """
+    from flask import session
+    from Code.models.models import Constraint, Task, Tool
+
+    if os.getenv("K_SERVICE") or not session.get("user_id"):
+        return False
+    reel = os.path.realpath(path)
+    if reel.startswith(("/proc/", "/sys/", "/dev/")) or not os.path.isfile(reel):
+        return False
+    return any(m.query.filter(m.file_path == path).first() is not None
+               for m in (Task, Tool, Constraint))
+
+
 @export_bp.route("/utils/serve-file")
 def serve_local_file():
     path = request.args.get("path", "").strip()
@@ -100,7 +121,7 @@ def serve_local_file():
         )
 
     # Fichier local absolu (dev local uniquement — ne fonctionne pas sur cloud)
-    if os.path.exists(path):
+    if _chemin_local_autorise(path):
         mime, _ = mimetypes.guess_type(path)
         return send_file(path, mimetype=mime or "application/octet-stream",
                          as_attachment=False, download_name=os.path.basename(path))
