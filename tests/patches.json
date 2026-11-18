@@ -819,5 +819,27 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-18T03:28:04"
+  },
+  {
+    "patch_uid": "2026-11-18-t42-clone-assertions-du-defaut",
+    "title": "test_42 : les tests de copie d'entité figeaient le 404 avalé en 500",
+    "node_ids": [
+      "tests/test_42_activities_search_admin.py::TestAdminCloneEntity::test_clone_empty_body_returns_400",
+      "tests/test_42_activities_search_admin.py::TestAdminCloneEntity::test_clone_missing_target_id_returns_400",
+      "tests/test_42_activities_search_admin.py::TestAdminCloneEntity::test_clone_source_not_found_returns_404",
+      "tests/test_42_activities_search_admin.py::TestAdminCloneEntity::test_clone_target_not_found_returns_404",
+      "tests/test_42_activities_search_admin.py::TestAdminCloneEntity::test_clone_error_response_has_trace"
+    ],
+    "page_slug": "activities_search_admin",
+    "failure_reason": "Après correction de clone_entity (400/404), cinq tests de test_42 exigeaient encore 500 pour un corps vide, une cible absente ou une entité inconnue.",
+    "was_real_bug": false,
+    "root_cause": "test_quality",
+    "error": "Ces tests avaient été écrits pour décrire le comportement observé (TypeError non rattrapé, NotFound avalé dans le except générique) et non le comportement voulu : ils verrouillaient le défaut.",
+    "fix_description": "Assertions alignées : 400 pour une cible absente/vide, 404 pour une entité inconnue ; le test du champ 'trace' provoque désormais une vraie panne (Tool.query simulé) pour obtenir le 500.",
+    "files_changed": [
+      "tests/test_42_activities_search_admin.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-18T03:34:57"
   }
 ]

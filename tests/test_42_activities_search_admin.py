@@ -131,41 +131,35 @@ class TestActivitiesViewSearch:
 
 class TestAdminCloneEntity:
 
-    def test_clone_empty_body_returns_500(self, auth_client):
-        """Corps JSON vide → target_id None → TypeError avant le try → 500."""
+    def test_clone_empty_body_returns_400(self, auth_client):
+        """Corps JSON vide → target_id absent → 400 JSON (et non plus 500 HTML)."""
         r = auth_client.post("/testpanel/admin/clone_entity", json={})
-        assert r.status_code == 500
+        assert r.status_code == 400
+        assert r.get_json()["ok"] is False
 
-    def test_clone_missing_target_id_returns_500(self, auth_client):
-        """Pas de target_id fourni → int(None) lève TypeError → 500."""
+    def test_clone_missing_target_id_returns_400(self, auth_client):
+        """Pas de target_id fourni → 400 JSON au lieu d'un TypeError non rattrapé."""
         r = auth_client.post(
             "/testpanel/admin/clone_entity",
             json={"source_id": 1},
         )
-        assert r.status_code == 500
+        assert r.status_code == 400
 
-    def test_clone_source_not_found_returns_json_error(self, auth_client, ids):
-        """source_id inexistant → 404 capturée dans try/except → 500 JSON ok: False."""
+    def test_clone_source_not_found_returns_404(self, auth_client, ids):
+        """source_id inexistant → 404 (n'est plus avalé en 500)."""
         r = auth_client.post(
             "/testpanel/admin/clone_entity",
             json={"source_id": 999999, "target_id": ids["entity_id"]},
         )
-        assert r.status_code == 500
-        data = r.get_json()
-        assert data is not None
-        assert data["ok"] is False
-        assert "error" in data
+        assert r.status_code == 404
 
-    def test_clone_target_not_found_returns_json_error(self, auth_client, ids):
-        """target_id inexistant → 404 capturée dans try/except → 500 JSON ok: False."""
+    def test_clone_target_not_found_returns_404(self, auth_client, ids):
+        """target_id inexistant → 404 (n'est plus avalé en 500)."""
         r = auth_client.post(
             "/testpanel/admin/clone_entity",
             json={"source_id": ids["entity_id"], "target_id": 999999},
         )
-        assert r.status_code == 500
-        data = r.get_json()
-        assert data is not None
-        assert data["ok"] is False
+        assert r.status_code == 404
 
     def test_clone_empty_entity_returns_ok_true(self, auth_client, app):
         """Clone d'une entité vide → 200, ok: True, tous les compteurs à 0."""
@@ -236,15 +230,29 @@ class TestAdminCloneEntity:
             _delete_entity(app, tgt_id)
             _delete_entity(app, src_id)
 
-    def test_clone_error_response_has_trace(self, auth_client, ids):
-        """En cas d'erreur capturée, la réponse contient un champ 'trace'."""
-        r = auth_client.post(
-            "/testpanel/admin/clone_entity",
-            json={"source_id": 999999, "target_id": ids["entity_id"]},
-        )
+    def test_clone_error_response_has_trace(self, auth_client, app, monkeypatch):
+        """Une vraie panne pendant la copie → 500 JSON avec un champ 'trace'."""
+        from Code.models.models import Tool
+
+        class _Requete:
+            def filter_by(self, **_):
+                raise RuntimeError("panne simulée")
+
+        src_id = _create_entity(app, "Clone Src Trace")
+        tgt_id = _create_entity(app, "Clone Tgt Trace")
+        monkeypatch.setattr(Tool, "query", _Requete())
+        try:
+            r = auth_client.post(
+                "/testpanel/admin/clone_entity",
+                json={"source_id": src_id, "target_id": tgt_id},
+            )
+        finally:
+            monkeypatch.undo()
+            _delete_entity(app, tgt_id)
+            _delete_entity(app, src_id)
         assert r.status_code == 500
         data = r.get_json()
-        assert "trace" in data
+        assert data["ok"] is False and "trace" in data
 
 
 # ===========================================================================
