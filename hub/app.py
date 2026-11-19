@@ -23,6 +23,7 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request,
 from werkzeug.security import check_password_hash
 
 import atelier
+import atelier_modeles
 import courrier
 import inventaire
 import panel_client
@@ -395,6 +396,23 @@ def api_atelier_toile(cle):
     if res.get("conflit"):
         return jsonify(res), 409
     return jsonify(res), (200 if res.get("ok") or not atelier.disponible() else 502)
+
+
+@app.route("/api/atelier/modeles")
+@login_required
+def api_atelier_modeles():
+    """Le catalogue des pièces prêtes à poser. Sans miroir ni base : ce sont
+    des données du dépôt, pas de l'état."""
+    return jsonify(atelier_modeles.catalogue())
+
+
+@app.route("/api/atelier/modele/<cle>")
+@login_required
+def api_atelier_modele(cle):
+    m = atelier_modeles.modele(cle)
+    if m is None:
+        abort(404)
+    return jsonify(m)
 
 
 @app.route("/api/atelier/pieces", methods=["POST"])

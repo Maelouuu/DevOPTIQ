@@ -31,6 +31,7 @@ import pytest
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HUB = os.path.join(RACINE, "hub")
 SRC = os.path.join(HUB, "atelier.py")
+SRC_MOD = os.path.join(HUB, "atelier_modeles.py")
 
 
 def _module():
@@ -102,6 +103,17 @@ def _code_js(nom):
 @pytest.fixture
 def at():
     return _module()
+
+
+@pytest.fixture
+def mod():
+    if not os.path.exists(SRC_MOD):
+        pytest.skip("hub/ en bytecode — service séparé, sources absentes")
+    spec = importlib.util.spec_from_file_location("hub_atelier_modeles_test",
+                                                  SRC_MOD)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
 
 
 @pytest.fixture
@@ -457,3 +469,107 @@ class TestLesBadgesDePage:
         js = _fichier(os.path.join("static", "atelier.js"))
         bloc = js[js.index("function dupliquer("):js.index("function dansUnChamp(")]
         assert 'uid("i")' in bloc and 'uid("s")' in bloc
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  8 · Les modèles — le plan de l'app et les chantiers
+# ══════════════════════════════════════════════════════════════════════════
+
+class TestLesModeles:
+
+    def test_le_catalogue_annonce_ses_trois_entrees(self, mod):
+        cles = [m["cle"] for m in mod.catalogue()]
+        assert cles == ["tout", "pages", "chantiers"]
+        for m in mod.catalogue():
+            assert m["titre"] and m["quoi"]
+
+    def test_une_cle_inconnue_ne_rend_rien(self, mod):
+        assert mod.modele("inexistant") is None
+
+    def test_chaque_page_a_un_chemin_et_des_sections(self, mod):
+        assert len(mod.PAGES) >= 10
+        for p in mod.PAGES:
+            assert p["titre"] and p["chemin"].startswith("/")
+            assert p["sections"], p["titre"]
+            for nom, genre, quoi in p["sections"]:
+                assert nom and quoi, (p["titre"], nom)
+                # Le genre doit exister côté atelier, sinon le croquis tombe
+                # sur la classe CSS par défaut sans qu'on le voie.
+                assert genre in ("entete", "liste", "table", "form", "graphe",
+                                 "panneau", "pied"), (p["titre"], nom, genre)
+
+    def test_les_identifiants_du_modele_sont_uniques(self, mod):
+        """⚠️ L'atelier les remplace à l'insertion, mais il s'appuie dessus
+        pour remapper les rattachements : deux pièces au même id, et un badge
+        pointerait sur la mauvaise."""
+        for cle in ("tout", "pages", "chantiers"):
+            vus = set()
+            for n in mod.modele(cle)["noeuds"]:
+                assert n["id"] not in vus, (cle, n["id"])
+                vus.add(n["id"])
+                for s in n.get("sections", []):
+                    assert s["id"] not in vus, (cle, s["id"])
+                    vus.add(s["id"])
+
+    def test_CHAQUE_chantier_vise_une_page_ET_une_section_qui_EXISTENT(self, mod):
+        """⚠️ Le garde-fou qui compte. Les chantiers désignent leur page par
+        NOM : une faute de frappe ne lève rien, elle fait silencieusement
+        disparaître le badge — et la ligne se retrouve orpheline sur la toile
+        sans que personne ne sache pourquoi."""
+        connues = {}
+        for p in mod.PAGES:
+            connues[p["titre"]] = {s[0] for s in p["sections"]}
+        for texte, page, section in mod.CHANTIERS:
+            assert page in connues, "page inconnue : %r (%s)" % (page, texte)
+            assert section in connues[page], \
+                "section inconnue : %r dans %r (%s)" % (section, page, texte)
+
+    def test_les_chantiers_portent_un_page_ref_pas_un_id(self, mod):
+        """Ils se rattachent à des maquettes POSÉES, peut-être il y a trois
+        jours : la résolution se fait par nom, pas par identifiant local."""
+        liste = mod.modele("chantiers")["noeuds"][0]
+        assert liste["type"] == "liste"
+        assert len(liste["items"]) == len(mod.CHANTIERS)
+        for it in liste["items"]:
+            assert it["texte"]
+            assert it["fait"] is False
+            assert set(it["page_ref"]) == {"page", "section"}
+            assert "page" not in it
+
+    def test_le_modele_complet_porte_les_deux_et_ne_les_superpose_pas(self, mod):
+        tout = mod.modele("tout")["noeuds"]
+        maquettes = [n for n in tout if n["type"] == "maquette"]
+        listes = [n for n in tout if n["type"] == "liste"]
+        assert len(maquettes) == len(mod.PAGES)
+        assert len(listes) == 1
+        # La liste à gauche, les pages à sa droite : rien ne se chevauche.
+        gauche = listes[0]
+        assert all(m["x"] >= gauche["x"] + gauche["w"] for m in maquettes)
+
+    def test_les_pages_ne_se_chevauchent_pas(self, mod):
+        """Le rangement en colonnes doit laisser une toile lisible, pas un
+        tas de maquettes empilées."""
+        noeuds = mod.modele("pages")["noeuds"]
+        for i, a in enumerate(noeuds):
+            for b in noeuds[i + 1:]:
+                chevauche = (a["x"] < b["x"] + b["w"]
+                             and b["x"] < a["x"] + a["w"]
+                             and a["y"] < b["y"] + b["h"]
+                             and b["y"] < a["y"] + a["h"])
+                assert not chevauche, (a["titre"], b["titre"])
+
+    def test_les_routes_des_modeles_sont_protegees(self):
+        app = _fichier("app.py")
+        for chemin in ('"/api/atelier/modeles"', '"/api/atelier/modele/<cle>"'):
+            i = app.index(chemin)
+            assert "@login_required" in app[i:i + 200], chemin
+
+    def test_les_modeles_ne_touchent_a_aucune_base(self, mod):
+        """Ce sont des données du dépôt. Rien à lire, rien à écrire — et donc
+        rien qui dépende de HUB_ATELIER_DB."""
+        src = _code_py("atelier_modeles.py")
+        for interdit in ("create_engine", "HUB_ATELIER_DB", "HUB_DBS",
+                         "sqlalchemy", "os.environ"):
+            assert interdit not in src, interdit
+        # Et il répond la même chose sans aucune variable d'environnement.
+        assert mod.modele("tout")["noeuds"]

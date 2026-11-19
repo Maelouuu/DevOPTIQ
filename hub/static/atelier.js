@@ -233,9 +233,9 @@
     if (type === "maquette") {
       n.chemin = "/";
       n.sections = [
-        { id: uid("s"), nom: "En-tête", genre: "entete" },
-        { id: uid("s"), nom: "Contenu", genre: "liste" },
-        { id: uid("s"), nom: "Actions", genre: "panneau" }
+        { id: uid("s"), nom: "En-tête", genre: "entete", quoi: "" },
+        { id: uid("s"), nom: "Contenu", genre: "liste", quoi: "" },
+        { id: uid("s"), nom: "Actions", genre: "panneau", quoi: "" }
       ];
     }
     return n;
@@ -476,7 +476,7 @@
     el.innerHTML = h;
     // Les lignes de liste sont des textarea d'une ligne : elles doivent
     // s'ouvrir à la hauteur de leur contenu, sinon un texte long est coupé.
-    el.querySelectorAll("[data-item-txt]").forEach(autoHauteur);
+    el.querySelectorAll("[data-item-txt],[data-sec-quoi]").forEach(autoHauteur);
     resig(el, n);
   }
 
@@ -660,6 +660,11 @@
       + ' title="Retirer la section">×</button>'
       + "</div>"
       + '<div class="at-croquis g-' + esc(s.genre) + '">' + traits + "</div>"
+      // Ce que la section PORTE dans l'app. Une maquette qui ne dit que des
+      // noms de sections ne sert qu'à celui qui les a écrits.
+      + '<textarea class="at-sec-quoi" rows="1" data-sec-quoi="1"'
+      + ' placeholder="ce que cette section porte…">' + esc(s.quoi || "")
+      + "</textarea>"
       + puces
       + "</div>";
   }
@@ -898,9 +903,12 @@
   // ══ Choix d'une page/section ════════════════════════════════════════════
 
   var popCible = null;   // { noeud, item | null }
+  var popMode = "badge"; // "badge" (rattacher) | "modeles" (poser des pièces)
 
   function ouvrirPop(ancreEl, cible) {
+    popMode = "badge";
     popCible = cible;
+    pop.querySelector(".at-pop-tete").textContent = "Rattacher à…";
     var pages = noeuds().filter(function (n) { return n.type === "maquette"; });
     var courant = cible.item
       ? (ligneItem(cible) || {}).page
@@ -927,6 +935,10 @@
     }
 
     pop.hidden = false;
+    placerPop(ancreEl);
+  }
+
+  function placerPop(ancreEl) {
     // L'ancre peut avoir déjà disparu (un blur a reconstruit la pièce avant
     // que le clic n'arrive) : on retombe alors sur la position du pointeur.
     var r = ancreEl.getBoundingClientRect();
@@ -942,7 +954,7 @@
     pop.style.top = y + "px";
   }
 
-  function fermerPop() { pop.hidden = true; popCible = null; }
+  function fermerPop() { pop.hidden = true; popCible = null; popMode = "badge"; }
 
   function ligneItem(cible) {
     var n = noeud(cible.noeud), i;
@@ -954,6 +966,11 @@
   }
 
   popCorps.addEventListener("click", function (ev) {
+    if (popMode === "modeles") {
+      var m = ev.target.closest("[data-modele]");
+      if (m) { fermerPop(); insererModele(m.dataset.modele); }
+      return;
+    }
     var b = ev.target.closest("[data-pp]"), rien = ev.target.closest("[data-pp-rien]");
     if (!popCible || (!b && !rien)) { return; }
     avant();
@@ -972,10 +989,125 @@
 
   document.addEventListener("pointerdown", function (ev) {
     if (pop.hidden) { return; }
-    if (!pop.contains(ev.target) && !ev.target.closest("[data-badge-plus]")) {
+    if (!pop.contains(ev.target) && !ev.target.closest("[data-badge-plus]")
+        && ev.target.closest("#at-modeles") === null) {
       fermerPop();
     }
   }, true);
+
+  // ══ Modèles — des pièces prêtes à poser ═════════════════════════════════
+  // Le plan de l'application et la liste des chantiers vivent dans le dépôt
+  // (hub/atelier_modeles.py) : on les POSE sur la toile, on ne les importe
+  // pas. L'import remplace tout ; ici, on ajoute, et Ctrl+Z retire.
+
+  function ouvrirPopModeles(ancreEl) {
+    popMode = "modeles";
+    popCible = null;
+    pop.querySelector(".at-pop-tete").textContent = "Poser un modèle…";
+    popCorps.innerHTML = '<p class="at-pop-vide">Chargement…</p>';
+    pop.hidden = false;
+    placerPop(ancreEl);
+    jsonGet("/api/atelier/modeles").then(function (liste) {
+      popCorps.innerHTML = liste.map(function (m) {
+        return '<button class="at-pop-mod" data-modele="' + esc(m.cle) + '">'
+          + "<b>" + esc(m.titre) + "</b><span>" + esc(m.quoi) + "</span></button>";
+      }).join("")
+      + '<p class="at-pop-note">Les pièces se posent à droite de ce qui est '
+      + "déjà là, et restent sélectionnées — <b>Ctrl+Z</b> les retire d'un "
+      + "coup.</p>";
+      placerPop(ancreEl);
+    }).catch(function (e) {
+      popCorps.innerHTML = '<p class="at-pop-vide">Modèles indisponibles : '
+        + esc(e.message) + "</p>";
+    });
+  }
+
+  /* Un rattachement de modèle se lit de deux façons : par identifiant local
+     (les pièces du modèle entre elles) ou par NOM (une liste de chantiers qui
+     vise des maquettes déjà posées, peut-être il y a trois jours). */
+  function trouverPageParNom(nomPage, nomSection) {
+    // ⚠️ On parcourt TOUTES les maquettes homonymes. S'arrêter à la première
+    // qui porte le bon titre laissait un chantier sans badge dès qu'une vieille
+    // maquette du même nom traînait sur la toile sans la bonne section.
+    var l = noeuds(), i, j, p;
+    for (i = 0; i < l.length; i++) {
+      p = l[i];
+      if (p.type !== "maquette" || (p.titre || "") !== nomPage) { continue; }
+      for (j = 0; j < (p.sections || []).length; j++) {
+        if (p.sections[j].nom === nomSection) {
+          return { n: p.id, s: p.sections[j].id };
+        }
+      }
+    }
+    return null;
+  }
+
+  function resoudrePage(page, ref, carte) {
+    if (page && carte[page.n] && carte[page.s]) {
+      return { n: carte[page.n], s: carte[page.s] };
+    }
+    if (ref) { return trouverPageParNom(ref.page, ref.section); }
+    return page || null;
+  }
+
+  function insererModele(cle) {
+    etatVisuel("cours", "…", "Pose du modèle");
+    jsonGet("/api/atelier/modele/" + encodeURIComponent(cle))
+      .then(function (m) {
+        if (!m || !m.noeuds || !m.noeuds.length) { return; }
+        avant();
+        // À droite de tout ce qui existe : on n'empile jamais un modèle sur
+        // le travail en cours.
+        var ici = boite(noeuds()), la = boite(m.noeuds);
+        var dx = ici ? (ici.x + ici.w + 140) - la.x : 0;
+        var dy = ici ? ici.y - la.y : 0;
+
+        var carte = {};
+        var neufs = m.noeuds.map(function (src) {
+          var c = copie(src);
+          carte[src.id] = c.id = uid();
+          (c.sections || []).forEach(function (s) {
+            var v = uid("s"); carte[s.id] = v; s.id = v;
+          });
+          (c.items || []).forEach(function (it) { it.id = uid("i"); });
+          c.x = Math.round(c.x + dx);
+          c.y = Math.round(c.y + dy);
+          return c;
+        });
+
+        // Poser AVANT de résoudre : une ligne de chantier peut viser une page
+        // du même modèle, qui n'existe qu'une fois sur la toile.
+        var liste = noeuds();
+        neufs.forEach(function (c) { liste.push(c); });
+        neufs.forEach(function (c) {
+          c.page = resoudrePage(c.page, c.page_ref, carte);
+          delete c.page_ref;
+          (c.items || []).forEach(function (it) {
+            it.page = resoudrePage(it.page, it.page_ref, carte);
+            delete it.page_ref;
+          });
+        });
+        (m.liens || []).forEach(function (l) {
+          if (carte[l.de] && carte[l.vers]) {
+            liens().push({ id: uid("l"), de: carte[l.de], vers: carte[l.vers],
+                           texte: l.texte || "" });
+          }
+        });
+
+        choisir(neufs.map(function (c) { return c.id; }));
+        rendre();
+        marquer();
+        cadrer(boite(neufs), 70, 0.9);
+      })
+      .catch(function (e) {
+        etatVisuel("mal", "modèle KO", e.message);
+      });
+  }
+
+  document.getElementById("at-modeles").addEventListener("click", function () {
+    if (!pop.hidden && popMode === "modeles") { fermerPop(); return; }
+    ouvrirPopModeles(this);
+  });
 
   // ══ Enregistrement ══════════════════════════════════════════════════════
 
@@ -1630,12 +1762,22 @@
       }
       return;
     }
-    if (ev.target.dataset.secNom) {
+    if (ev.target.dataset.secNom || ev.target.dataset.secQuoi) {
       var sEl = ev.target.closest(".at-sec");
       var sec = (n.sections || []).filter(function (x) {
         return x.id === sEl.dataset.sec;
       })[0];
-      if (sec) { sec.nom = ev.target.value; resig(carte, n); majRail(); marquer(); }
+      if (sec) {
+        if (ev.target.dataset.secQuoi) {
+          sec.quoi = ev.target.value;
+          autoHauteur(ev.target);
+        } else {
+          sec.nom = ev.target.value;
+          majRail();
+        }
+        resig(carte, n);
+        marquer();
+      }
       return;
     }
     if (ev.target.classList.contains("at-texte")) {
@@ -1707,7 +1849,7 @@
     }
     if (ev.target.closest("[data-sec-plus]")) {
       avant();
-      n.sections.push({ id: uid("s"), nom: "Section", genre: "liste" });
+      n.sections.push({ id: uid("s"), nom: "Section", genre: "liste", quoi: "" });
       rendre();
       marquer();
       return;

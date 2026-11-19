@@ -13,7 +13,7 @@ Le hub rassemble :
 | **Outils locaux** | Le catalogue des commandes : ce que fait chacune, quand s'en servir, la ligne exacte copiable en un clic. |
 | **Dépôt & CI** | Quelle branche part où, par quel workflow, et quels secrets GitHub sont en jeu. |
 | **Courrier** | Les réinitialisations de mot de passe demandées sur chaque instance (lecture SEULE de `password_resets`), et ce qui est REVENU sur l'adresse d'envoi — les rejets, seule preuve qu'un mail n'est pas arrivé. |
-| **Atelier** | Le plan de travail : une toile infinie de notes, listes à cocher, captures, liens — et des **maquettes de pages** de l'application sur lesquelles on accroche les fonctionnalités à venir. |
+| **Atelier** | Le plan de travail : une toile infinie de notes, listes à cocher, captures, liens — et des **maquettes de pages** de l'application sur lesquelles on accroche les fonctionnalités à venir. Le bouton *Modèles* y pose d'un clic les 14 pages de l'app et la liste des chantiers, déjà rattachés. |
 
 ## Ce que le hub ne fait pas
 
@@ -74,6 +74,14 @@ Google sur `*.run.app` (404 avant même d'atteindre le conteneur).
 Tout le contenu vit dans **`inventaire.py`** — instances, documents, commandes,
 branches, workflows, secrets. Le gabarit ne contient aucune donnée en dur :
 ajouter une instance ou une commande, c'est éditer une liste Python.
+
+Les modèles de l'atelier vivent dans **`atelier_modeles.py`** — les pages de
+l'application, leurs sections et ce qu'elles portent, plus la liste des
+chantiers. ⚠️ Ce fichier **décrit** l'application, il ne la lit pas (le hub
+n'a ni ses gabarits ni sa base) : quand une page bouge, on le reporte ici.
+Un chantier désigne sa page par son NOM ; `tests/test_156_hub_atelier.py`
+vérifie que chaque couple (page, section) existe, car une faute de frappe ne
+lève rien — elle fait disparaître le badge en silence.
 
 ⚠️ Aucun secret dans ce fichier : on **nomme** les bases et les secrets GitHub,
 on ne recopie jamais leurs valeurs.

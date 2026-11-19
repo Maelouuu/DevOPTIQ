@@ -2700,7 +2700,34 @@ de l'app. Trois chemins pour rattacher : le bouton ⊕ de la note, le rail
   `navbar-in` à 1400 px et des pilules resserrées, sinon « Dépôt & CI » sortait
   du cadre sans ascenseur.
 
-Tests : `tests/test_156_hub_atelier.py` (37 cas, SQLite). Même garde de saut
+#### Modèles — le plan de l'app, posé en un clic (2026-11-19)
+
+`hub/atelier_modeles.py` : des pièces prêtes à poser, servies par
+`/api/atelier/modeles` et `/api/atelier/modele/<cle>`. Trois entrées — les
+**14 pages de l'application** (82 sections, chacune avec ce qu'elle porte), la
+**liste des chantiers**, et les deux ensemble.
+
+- ⚠️ **Ce fichier DÉCRIT l'app, il ne la lit pas.** Le hub est un service
+  séparé : ni gabarits, ni blueprints, ni base. Relevé le 19/11/2026 sur
+  `staging` ; quand une page bouge, c'est là qu'on le reporte. Un test
+  interdit tout `create_engine` / `HUB_*` dans ce module : ce sont des données
+  de dépôt, pas de l'état.
+- ⚠️ **On POSE, on n'importe pas.** L'import de sauvegarde remplace toute la
+  toile ; un modèle s'ajoute à droite de l'existant, reste sélectionné, et
+  Ctrl+Z le retire d'un coup.
+- ⚠️ **Les chantiers visent leur page par NOM** (`page_ref`), pas par
+  identifiant : ils se rattachent à des maquettes posées il y a trois jours
+  comme à celles du même modèle. `test_156` vérifie que chaque couple
+  (page, section) existe — une faute de frappe ne lève rien, elle fait
+  disparaître le badge en silence.
+- ⚠️ `trouverPageParNom` parcourt **toutes** les maquettes homonymes :
+  s'arrêter à la première laissait un chantier sans badge dès qu'une vieille
+  maquette du même nom traînait sans la bonne section.
+- Les sections portent désormais un champ `quoi` — ce qu'elles contiennent
+  dans l'app. Masqué tant qu'il est vide, pour qu'une maquette qu'on esquisse
+  n'affiche pas dix invites grises.
+
+Tests : `tests/test_156_hub_atelier.py` (48 cas, SQLite). Même garde de saut
 dans l'arbre d'image que `test_124`.
 
 **Pour brancher le miroir (facultatif)** : une base PostgreSQL à soi →
