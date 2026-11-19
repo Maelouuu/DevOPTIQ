@@ -2727,6 +2727,21 @@ de l'app. Trois chemins pour rattacher : le bouton ⊕ de la note, le rail
   dans l'app. Masqué tant qu'il est vide, pour qu'une maquette qu'on esquisse
   n'affiche pas dix invites grises.
 
+#### Deux corrections d'usage, au premier retour (2026-11-19)
+
+Rapporté après la première ouverture : « on ne peut pas se déplacer » et
+« je ne vois pas ce que tu décris, j'ai l'ancienne toile par défaut ».
+
+- ⚠️ **Glisser le fond DÉPLACE la toile.** C'était la sélection au lasso, et
+  le déplacement demandait Espace, le clic du milieu ou Alt — autant dire
+  rien pour qui n'ouvre pas l'aide. Le lasso passe sous **Maj + glisser**
+  (même modificateur que le clic qui ajoute à la sélection), un clic sans
+  déplacement désélectionne toujours, et le curseur du fond est une main.
+- ⚠️ **Le bouton « Modèles » est à l'ÉTABLI**, libellé, pas en icône muette
+  au fond de la barre du haut : personne ne l'avait vu, et le plan de l'app
+  restait à poser. Un modèle est une pièce qu'on pose — sa place est avec les
+  six autres. La toile de départ et l'écran vide y renvoient aussi.
+
 Tests : `tests/test_156_hub_atelier.py` (48 cas, SQLite). Même garde de saut
 dans l'arbre d'image que `test_124`.
 

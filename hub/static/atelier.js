@@ -1451,9 +1451,19 @@
       return;
     }
 
-    geste = { mode: "lasso", x0: ev.clientX, y0: ev.clientY,
-              ajout: ev.shiftKey };
-    if (!ev.shiftKey) { choisir([]); }
+    // ⚠️ Glisser le fond DÉPLACE LA TOILE. C'est le geste qu'on fait cent
+    // fois par séance sur un plan sans bord ; l'imposer avec Espace ou le
+    // clic du milieu, c'est le rendre inaccessible à qui ne lit pas l'aide.
+    // La sélection au lasso reste là, sous Maj — le même modificateur que le
+    // clic qui ajoute une pièce à la sélection.
+    if (ev.shiftKey) {
+      geste = { mode: "lasso", x0: ev.clientX, y0: ev.clientY, ajout: true };
+      scene.setPointerCapture(ev.pointerId);
+      return;
+    }
+    geste = { mode: "cam", x0: ev.clientX, y0: ev.clientY,
+              cx: cam.x, cy: cam.y, surFond: true };
+    scene.classList.add("tire-en-cours");
     scene.setPointerCapture(ev.pointerId);
   });
 
@@ -1603,6 +1613,15 @@
     if (!geste) { return; }
     var g = geste;
     geste = null;
+
+    // Un clic sur le fond, sans déplacement : c'est une désélection. Depuis
+    // que le glisser déplace la toile, c'est le seul moyen qui reste de
+    // tout désélectionner à la souris.
+    if (g.mode === "cam" && g.surFond
+        && Math.abs(ev.clientX - g.x0) < 4 && Math.abs(ev.clientY - g.y0) < 4) {
+      choisir([]);
+      return;
+    }
 
     if (g.mode === "deplacer") {
       // Le pointeur n'a jamais bougé : c'était un clic, rien à enregistrer.
@@ -2389,12 +2408,17 @@
     var mode = neuf("note", 40, 40);
     mode.titre = "Comment s'en servir";
     mode.teinte = "craie";
-    mode.h = 230;
-    mode.texte = "Double-cliquez sur le fond pour une note.\n"
-      + "Collez une capture avec **Ctrl+V**.\n"
+    mode.h = 320;
+    mode.texte = "**Modèles**, en bas à droite de l'établi, pose d'un coup "
+      + "le plan de l'application et vos chantiers.\n"
+      + "\n---\n"
+      + "Glissez le fond pour déplacer la toile.\n"
+      + "Double-cliquez dessus pour une note. Collez une capture avec "
+      + "**Ctrl+V**.\n"
       + "- `N` note · `L` liste · `P` page · `I` capture\n"
       + "- Tirez la bille à droite d'une pièce pour la relier\n"
       + "- Le badge ⊕ accroche une ligne à une section de page\n"
+      + "- `?` ouvre tous les raccourcis\n"
       + "\n---\nCette note est un exemple : supprimez-la.";
 
     var liste = neuf("liste", 40, 300);

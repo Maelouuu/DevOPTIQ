@@ -376,6 +376,42 @@ class TestLaPage:
         assert "{% block heros %}" in page
         assert "colonne--plein" in page
 
+    def test_glisser_le_fond_DEPLACE_la_toile(self):
+        """⚠️ C'est le geste qu'on fait cent fois par séance sur un plan sans
+        bord. L'imposer avec Espace ou le clic du milieu, c'est le rendre
+        inaccessible à qui ne lit pas l'aide : le premier retour utilisateur
+        a été « on ne peut pas se déplacer »."""
+        js = _fichier(os.path.join("static", "atelier.js"))
+        bloc = js[js.index("// Fond nu"):js.index("function demarrerDeplacement")]
+        # Sans Maj : la caméra. Avec Maj : le lasso.
+        assert 'mode: "cam"' in bloc
+        assert "if (ev.shiftKey) {" in bloc
+        assert bloc.index("if (ev.shiftKey) {") < bloc.index('mode: "cam"')
+        assert 'mode: "lasso"' in bloc
+        # Et le curseur doit l'annoncer avant qu'on essaie.
+        css = _fichier(os.path.join("static", "atelier.css"))
+        bloc_css = css[css.index(".at-scene{"):css.index(".at-monde{")]
+        assert "cursor:grab" in bloc_css
+
+    def test_un_clic_sur_le_fond_deselectionne_encore(self):
+        """Depuis que le glisser déplace la toile, c'est le seul geste de
+        souris qui reste pour tout désélectionner."""
+        js = _fichier(os.path.join("static", "atelier.js"))
+        i = js.index('if (g.mode === "cam" && g.surFond')
+        assert "choisir([])" in js[i:i + 320]
+
+    def test_les_modeles_sont_a_l_ETABLI_pas_en_icone_muette(self):
+        """⚠️ En icône sans libellé au fond de la barre du haut, personne ne
+        l'a vu — et le plan de l'app restait à poser. Un modèle EST une pièce
+        qu'on pose : sa place est à l'établi, avec les six autres."""
+        page = _fichier(os.path.join("templates", "atelier.html"))
+        etabli = page[page.index('class="at-etabli"'):page.index("at-mini")]
+        assert 'id="at-modeles"' in etabli
+        assert "<span>Modèles</span>" in etabli
+        # Et nulle part ailleurs : deux entrées pour la même chose, c'est du
+        # bruit dans une barre déjà chargée.
+        assert page.count('id="at-modeles"') == 1
+
     def test_hidden_est_neutralise(self):
         """⚠️ `hidden` ne vaut qu'un `display:block` par défaut : le moindre
         `display:grid` le piétine. L'aide, le rail et le sélecteur de page

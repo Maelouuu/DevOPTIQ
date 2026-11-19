@@ -104,11 +104,16 @@
 /* ══ Plan ═════════════════════════════════════════════════════════════════ */
 .at-plan{flex:1;min-height:0;display:flex;position:relative}
 
+/* La main sur le fond : le glisser déplace la toile, et le curseur doit le
+   dire avant qu'on essaie. Les pièces, elles, reprennent le curseur du
+   contenu — sans quoi on croirait pouvoir tirer la toile depuis une note. */
 .at-scene{position:relative;flex:1;min-width:0;overflow:hidden;outline:0;
-  cursor:default;touch-action:none;contain:layout paint}
+  cursor:grab;touch-action:none;contain:layout paint}
 .at-scene.tire{cursor:grab}
 .at-scene.tire-en-cours{cursor:grabbing}
 .at-scene.relie{cursor:crosshair}
+.at-noeud{cursor:auto}
+.at-rendu{cursor:text}
 
 /* Le quadrillage est un dégradé répété : il suit la caméra en
    `background-position`, donc il ne coûte aucun nœud ni aucun repaint. */
@@ -153,6 +158,13 @@
 .at-piece .ic{width:16px;height:16px}
 .at-piece:hover{background:color-mix(in srgb,var(--t) 11%,#fff);color:var(--t)}
 .at-piece.arme{background:var(--t);color:#fff}
+.at-etabli-sep{width:1px;height:20px;background:var(--trait2);flex-shrink:0;
+  margin:0 4px}
+/* Les modèles ne posent pas une pièce vide mais tout un plan : ils se
+   distinguent des six autres, sans crier. */
+.at-piece--mod{color:var(--t);background:color-mix(in srgb,var(--t) 9%,#fff)}
+.at-piece--mod:hover{background:color-mix(in srgb,var(--t) 18%,#fff)}
+.at-piece--mod .ic{width:17px;height:17px}
 
 /* ══ Mini-carte ═══════════════════════════════════════════════════════════ */
 .at-mini{position:absolute;right:16px;bottom:16px;z-index:11;width:160px;

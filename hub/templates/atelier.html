@@ -55,10 +55,6 @@
 
     <span class="at-sep"></span>
 
-    <button class="at-ic" id="at-modeles" type="button"
-            title="Poser un modèle (pages de l'app, chantiers…)">
-      <svg class="ic"><use href="#i-pile"></use></svg>
-    </button>
     <button class="at-ic" id="at-rail-bascule" type="button"
             title="Pages & sections" aria-pressed="false">
       <svg class="ic"><use href="#i-maquette"></use></svg>
@@ -122,7 +118,8 @@
       </svg>
       <h2>La toile est vide</h2>
       <p>Double-cliquez n'importe où pour poser une note.<br>
-         Ou collez une capture : <kbd>Ctrl</kbd>+<kbd>V</kbd>.</p>
+         Ou prenez <b>Modèles</b>, en bas : il pose le plan de l'application
+         et vos chantiers.</p>
     </div>
 
     {# ── Établi : les pièces qu'on pose sur la toile ── #}
@@ -150,6 +147,14 @@
       <button class="at-piece" data-poser="cadre" type="button"
               title="Cadre — C">
         <svg class="ic"><use href="#i-cadre"></use></svg><span>Cadre</span>
+      </button>
+
+      {# ⚠️ Un modèle EST une pièce qu'on pose : sa place est à l'établi, pas
+         en icône muette au fond de la barre du haut — là, personne ne l'a vu. #}
+      <span class="at-etabli-sep"></span>
+      <button class="at-piece at-piece--mod" id="at-modeles" type="button"
+              title="Poser les pages de l'application, vos chantiers…">
+        <svg class="ic"><use href="#i-pile"></use></svg><span>Modèles</span>
       </button>
     </div>
 
@@ -191,10 +196,10 @@
       <section>
         <h3>Se déplacer</h3>
         <dl>
+          <dt>Glisser le fond</dt><dd>déplacer la toile</dd>
           <dt>Molette</dt><dd>défiler la toile</dd>
           <dt>Ctrl + molette</dt><dd>zoomer sur le pointeur</dd>
-          <dt>Espace + glisser</dt><dd>déplacer la toile</dd>
-          <dt>Clic milieu</dt><dd>déplacer la toile</dd>
+          <dt>Clic milieu</dt><dd>déplacer la toile, même sur une pièce</dd>
           <dt>Maj + 1</dt><dd>tout cadrer</dd>
           <dt>Maj + 2</dt><dd>cadrer la sélection</dd>
         </dl>
@@ -213,8 +218,9 @@
         <h3>Travailler</h3>
         <dl>
           <dt>Glisser l'en-tête</dt><dd>déplacer une pièce</dd>
-          <dt>Glisser le fond</dt><dd>sélection au lasso</dd>
+          <dt>Maj + glisser le fond</dt><dd>sélection au lasso</dd>
           <dt>Maj + clic</dt><dd>ajouter à la sélection</dd>
+          <dt>Clic sur le fond</dt><dd>tout désélectionner</dd>
           <dt>Ctrl + D</dt><dd>dupliquer</dd>
           <dt>Suppr</dt><dd>supprimer la sélection</dd>
           <dt>Flèches</dt><dd>décaler d'un cran (Maj : dix)</dd>
