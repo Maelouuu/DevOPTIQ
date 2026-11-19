@@ -265,8 +265,19 @@ def boite(limite=25, serveur=None, env=None):
     mdp = (env.get("HUB_IMAP_PASSWORD") or "").strip()
     hote = (serveur or env.get("HUB_IMAP_SERVER") or "imap.gmail.com").strip()
     if not (user and mdp):
+        # ⚠️ On NOMME ce qui manque, l'un ou l'autre ou les deux. Un « non
+        # configuré » global a coûté une demi-journée : les secrets d'envoi de
+        # l'application (MAIL_USERNAME / MAIL_PASSWORD) existent depuis
+        # longtemps, ils ressemblent à ceux-là, et on croit les avoir posés.
+        # Le hub ne les lit PAS — ils vivent sur les services de l'app, pas
+        # sur le sien, et la séparation est voulue (révoquer la lecture ne
+        # doit pas couper l'envoi).
         return {"configure": False, "adresse": user, "erreur": None,
-                "messages": [], "compte": {}}
+                "messages": [], "compte": {},
+                "manque": ([] if user else ["HUB_IMAP_USER"])
+                          + ([] if mdp else ["HUB_IMAP_PASSWORD"]),
+                "pose": ([] if not user else ["HUB_IMAP_USER"])
+                        + ([] if not mdp else ["HUB_IMAP_PASSWORD"])}
 
     messages = []
     cx = None

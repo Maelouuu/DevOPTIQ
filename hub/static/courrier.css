@@ -90,6 +90,14 @@
                   background: #f6f4ee; border: 1px solid var(--trait2);
                   border-radius: 4px; padding: 1px 5px; color: var(--encre) }
 
+/* Le piège : MAIL_USERNAME / MAIL_PASSWORD ressemblent aux secrets attendus,
+   existent depuis longtemps, et ne sont pas lus ici. Ça se signale. */
+.cr-manque-piege { background: #fdf6e6; border: 1px solid #f0d79a;
+                   border-left: 3px solid #e0a015; border-radius: 10px;
+                   padding: 11px 13px; color: var(--encre2) !important }
+.cr-manque-piege code { background: #fff; border-color: #e8d3a4 }
+.cr-manque-quoi strong, .cr-manque-piege strong { color: var(--encre) }
+
 @media (max-width: 720px) {
   .cr-chiffres { grid-template-columns: repeat(2, 1fr) }
   .cr-msg      { grid-template-columns: 70px 1fr; }

@@ -2549,6 +2549,31 @@ passe d'application, puis poser `HUB_IMAP_USER` et `HUB_IMAP_PASSWORD` en
 secrets GitHub. Tant qu'ils manquent, les chiffres fonctionnent et la boîte dit
 calmement ce qu'il lui faut.
 
+#### « J'ai pourtant déjà ce qu'elle demande » — non : ce sont d'autres secrets (2026-11-19)
+
+Signalé après coup, capture des secrets du dépôt à l'appui. **Rien n'était
+cassé.** `HUB_IMAP_USER` et `HUB_IMAP_PASSWORD` n'existent tout simplement pas
+dans `Settings → Secrets → Actions` — le workflow les lit (`deploy-hub.yml`,
+étape *Deploy to Cloud Run*) et ne les pose que si **les deux** sont non vides,
+donc le service n'en voit aucun et la page dit vrai.
+
+⚠️ **Ce qui existe, et qui n'a rien à voir** : `MAIL_USERNAME`,
+`MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER`. Ceux-là font **ENVOYER
+l'application** — ils sont posés sur les services de l'app par
+`deploy-staging.yml`, `deploy-officielle.yml` et `deploy-beta.yml`. Le hub a
+son propre service Cloud Run : **il ne les voit pas**, et la séparation est
+voulue (révoquer la lecture ne doit pas couper l'envoi). Les noms se
+ressemblent, ils sont dans la même liste, et on les prend pour les bons.
+
+Correction apportée : `courrier.boite()` rend désormais `manque` et `pose` — la
+page **nomme** ce qui manque (l'un, l'autre ou les deux) au lieu d'un « non
+configuré » global, et affiche un encart qui dit explicitement que
+`MAIL_USERNAME` / `MAIL_PASSWORD` ne sont **pas** lus ici. Les trois étapes
+pointent le bon écran GitHub (*Secrets and variables → Actions → New repository
+secret*) et rappellent que le workflow n'écrit les variables que si les deux
+secrets existent. `inventaire.SECRETS` nomme les deux familles côte à côte,
+avec la différence en toutes lettres.
+
 #### ⚠️⚠️ La livraison a cassé TOUT le hub, et pour deux raisons (2026-10-29)
 
 Rapporté par l'utilisateur après le déploiement : la page Courrier n'affichait
@@ -2620,6 +2645,67 @@ script Python embarqué de `deploy-hub.yml` (YAML invalide), une fois dans une
 chaîne de `test_72` (SyntaxError). Les deux ont été vus tout de suite parce
 qu'un contrôle les relisait. Écrire la séquence par `chr(92) + "n"`, ou passer
 par un fichier plutôt qu'un heredoc.
+
+
+### Module « Atelier » du hub — le plan de travail (2026-11-19)
+
+`/atelier` — une **toile infinie** où poser tout ce qui ne tient pas dans un
+ticket : notes, listes à cocher, captures collées, liens, cadres de
+regroupement, et surtout des **maquettes de pages de l'application** sur
+lesquelles on accroche les fonctionnalités. `hub/atelier.py`,
+`hub/templates/atelier.html`, `hub/static/atelier.{css,js}`.
+
+**Le geste central, c'est le badge.** Une note ou une ligne de liste porte un
+badge « *page · section* ». La maquette, en face, affiche dans chaque section
+tout ce qui lui est rattaché. On réordonne les sections à la souris, on les
+renomme, on change leur genre (en-tête, liste, tableau, formulaire, graphique,
+panneau, pied) — c'est un **schéma pour penser la structure**, jamais un rendu
+de l'app. Trois chemins pour rattacher : le bouton ⊕ de la note, le rail
+« Pages & sections », ou lâcher la note sur la section.
+
+- ⚠️ **Le navigateur tient la toile (IndexedDB), le serveur n'est qu'un
+  MIROIR.** L'ordre inverse rendrait chaque frappe tributaire d'un
+  aller-retour. Conséquence assumée : **l'atelier marche sans aucun secret** —
+  `HUB_ATELIER_DB` absente, tout vit en local et la page le dit, avec l'export
+  fichier comme filet. Un outil de travail qui réclame un secret avant la
+  première note n'est pas un outil de travail.
+- ⚠️ **`indexedDB` et pas `localStorage`** : ce dernier plafonne autour de 5 Mo
+  pour tout le domaine. Une dizaine de captures suffisaient à faire échouer un
+  enregistrement **en silence**.
+- ⚠️ **Les captures sortent du document** (table `hub_atelier_piece`, une
+  data-URL immuable par identifiant de contenu). Inlinées, chaque
+  enregistrement repousserait plusieurs Mo d'images inchangées pour un titre
+  corrigé. Elles sont réduites à 1600 px / WebP q0.86 **avant** d'être rangées.
+- ⚠️ **Une base À SOI, jamais celle d'une instance.** `HUB_DBS_B64` porte les
+  bases des clients et ne se lit qu'en lecture seule ; l'atelier écrit.
+  `test_156::test_l_atelier_n_ouvre_JAMAIS_une_base_d_instance` interdit la
+  moindre mention croisée dans le code (commentaires exclus).
+- ⚠️ **`navigator.sendBeacon` ne poste qu'en POST** : la route
+  `/api/atelier/toile/<cle>` accepte donc POST en plus de PUT. C'est elle qui
+  pousse la dernière frappe à la fermeture de l'onglet — un 405 là ne se voit
+  nulle part, la page n'existe déjà plus.
+- ⚠️ **`rev` est un garde-fou, pas un verrou** : une écriture partie d'une
+  révision plus ancienne que celle en base rend 409 avec la version en place,
+  plutôt que d'écraser le travail d'un onglet resté ouvert ailleurs.
+- ⚠️ **`hidden` ne vaut qu'un `display:block`.** Les `display:grid` / `flex` de
+  la feuille le piétinaient : l'aide, le rail et le sélecteur de page
+  s'affichaient en permanence par-dessus la toile. Neutralisé en tête de
+  `atelier.css`, et tenu par un test.
+- ⚠️ **La signature d'une maquette inclut ce que les AUTRES pièces lui
+  accrochent.** Sans ça, rattacher une note ailleurs n'invalidait pas son
+  rendu : le badge apparaissait sur la note et la section restait vide — on
+  croyait le rattachement perdu.
+- **Au passage** : `base.html` expose le bandeau en `{% block heros %}` (une
+  page plein cadre le remplace), et la nav passe à **neuf** entrées — d'où
+  `navbar-in` à 1400 px et des pilules resserrées, sinon « Dépôt & CI » sortait
+  du cadre sans ascenseur.
+
+Tests : `tests/test_156_hub_atelier.py` (37 cas, SQLite). Même garde de saut
+dans l'arbre d'image que `test_124`.
+
+**Pour brancher le miroir (facultatif)** : une base PostgreSQL à soi →
+secret `HUB_ATELIER_DB` → rejouer *Deploy → Optiq Hub*. Les tables se créent
+toutes seules au premier appel.
 
 
 ## Provisionnement — compléter une carto avec un Excel client

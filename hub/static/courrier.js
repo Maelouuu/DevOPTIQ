@@ -118,20 +118,44 @@
 
   function rendreBoite(j) {
     if (!j.configure) {
-      // On dit QUOI faire. Un « non configuré » sec envoie chercher ailleurs.
+      // On dit QUOI faire, et surtout CE QUI MANQUE, nommément. Un « non
+      // configuré » global envoie chercher ailleurs : les secrets d'envoi de
+      // l'application (MAIL_USERNAME / MAIL_PASSWORD) existent depuis
+      // longtemps et leur ressemblent, au point de faire croire que c'est
+      // déjà fait. Le hub ne les lit pas — ils sont posés sur les services de
+      // l'app, pas sur le sien.
+      var manque = j.manque || ["HUB_IMAP_USER", "HUB_IMAP_PASSWORD"];
+      var pose = j.pose || [];
+      var listeManque = manque.map(function (v) {
+        return "<code>" + esc(v) + "</code>";
+      }).join(" et ");
+
       zBoite.innerHTML = '<div class="cr-manque">'
-        + "<h3>La boîte n'est pas branchée</h3>"
-        + "<p>Il manque un mot de passe d'application — <strong>un second</strong>, "
-        + "distinct de celui qui sert à envoyer : révoquer l'un ne doit pas couper "
-        + "l'autre.</p>"
+        + "<h3>" + (pose.length
+            ? "Il manque encore " + (manque.length > 1 ? "deux secrets" : "un secret")
+            : "La boîte n'est pas branchée") + "</h3>"
+        + '<p class="cr-manque-quoi">Le hub cherche ' + listeManque
+        + " sur <em>son</em> service Cloud Run. "
+        + (pose.length
+            ? pose.map(function (v) { return "<code>" + esc(v) + "</code>"; }).join(" et ")
+              + (pose.length > 1 ? " sont posés" : " est posé") + ", pas le reste."
+            : "Ni l'un ni l'autre n'y est.")
+        + "</p>"
+        + '<p class="cr-manque-piege"><strong>Ce ne sont pas '
+        + "<code>MAIL_USERNAME</code> / <code>MAIL_PASSWORD</code>.</strong> "
+        + "Ceux-là font ENVOYER l'application, et sont posés sur ses services à "
+        + "elle ; le hub ne les voit pas. Le mot de passe d'application attendu "
+        + "ici est un <strong>second</strong>, pour LIRE : révoquer l'un ne doit "
+        + "pas couper l'autre.</p>"
         + "<ol>"
         + "<li>Compte Google de l'adresse d'envoi → Sécurité → "
         + "Mots de passe d'application → en créer un, nommé <code>Optiq Hub</code>.</li>"
-        + "<li>Dépôt GitHub → Settings → Secrets → Actions : "
-        + "<code>HUB_IMAP_USER</code> (l'adresse) et "
-        + "<code>HUB_IMAP_PASSWORD</code> (le mot de passe d'application, "
-        + "sans les espaces).</li>"
-        + "<li>Redéployer le hub.</li>"
+        + "<li>Dépôt GitHub → Settings → Secrets and variables → Actions → "
+        + "<em>New repository secret</em> : " + listeManque
+        + " (l'adresse, et le mot de passe d'application sans ses espaces).</li>"
+        + "<li>Actions → <em>Deploy → Optiq Hub</em> → <em>Run workflow</em>. "
+        + "Les deux secrets ne sont posés sur le service que si "
+        + "<strong>les deux</strong> existent.</li>"
         + "</ol></div>";
       if (nBoite) { nBoite.textContent = ""; }
       return;

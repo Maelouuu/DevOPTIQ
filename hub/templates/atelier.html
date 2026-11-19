@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block titre %}Atelier — Optiq Hub{% endblock %}
+{% block accent %}atelier{% endblock %}
+{% block colonne_sup %}colonne--plein{% endblock %}
+
+{# L'atelier remplace le bandeau à arche par une barre d'outils : c'est un plan
+   de travail, et chaque pixel pris en haut est un pixel de toile en moins. #}
+{% block heros %}
+<link rel="stylesheet" href="{{ url_for('static', filename='atelier.css') }}">
+
+<header class="at-barre">
+  <div class="at-barre-g">
+    <span class="at-marque">
+      <svg class="ic"><use href="#i-palette"></use></svg>
+      <b>Atelier</b>
+    </span>
+    <nav class="at-toiles" id="at-toiles" aria-label="Toiles"></nav>
+    <button class="at-ic" id="at-toile-plus" type="button"
+            title="Nouvelle toile">
+      <svg class="ic"><use href="#i-plus"></use></svg>
+    </button>
+  </div>
+
+  <div class="at-barre-d">
+    <div class="at-cherche">
+      <svg class="ic"><use href="#i-loupe"></use></svg>
+      <input id="at-cherche" type="search" placeholder="Chercher…"
+             autocomplete="off" spellcheck="false">
+      <span class="at-cherche-n" id="at-cherche-n"></span>
+    </div>
+
+    <span class="at-sep"></span>
+
+    <button class="at-ic" id="at-annuler" type="button"
+            title="Annuler (Ctrl+Z)" disabled>
+      <svg class="ic"><use href="#i-annuler"></use></svg>
+    </button>
+    <button class="at-ic" id="at-refaire" type="button"
+            title="Refaire (Ctrl+Maj+Z)" disabled>
+      <svg class="ic"><use href="#i-refaire"></use></svg>
+    </button>
+
+    <span class="at-sep"></span>
+
+    <div class="at-zoom">
+      <button class="at-ic" id="at-zoom-moins" type="button" title="Dézoomer">−</button>
+      <button class="at-zoom-val" id="at-zoom-val" type="button"
+              title="Revenir à 100 %">100 %</button>
+      <button class="at-ic" id="at-zoom-plus" type="button" title="Zoomer">+</button>
+    </div>
+    <button class="at-ic" id="at-cadrer" type="button"
+            title="Tout cadrer (Maj+1)">
+      <svg class="ic"><use href="#i-cadrer"></use></svg>
+    </button>
+
+    <span class="at-sep"></span>
+
+    <button class="at-ic" id="at-rail-bascule" type="button"
+            title="Pages & sections" aria-pressed="false">
+      <svg class="ic"><use href="#i-maquette"></use></svg>
+    </button>
+    <button class="at-ic" id="at-exporter" type="button"
+            title="Exporter la sauvegarde (.json)">
+      <svg class="ic"><use href="#i-telecharger"></use></svg>
+    </button>
+    <button class="at-ic" id="at-importer" type="button"
+            title="Importer une sauvegarde">
+      <svg class="ic"><use href="#i-televerser"></use></svg>
+    </button>
+    <input type="file" id="at-fichier" accept="application/json,.json" hidden>
+    <button class="at-ic" id="at-aide" type="button" title="Raccourcis (?)">
+      <svg class="ic"><use href="#i-aide"></use></svg>
+    </button>
+
+    <span class="at-etat" id="at-etat" title="">
+      <i></i><span id="at-etat-txt">Chargement…</span>
+    </span>
+  </div>
+</header>
+{% endblock %}
+
+{% block contenu %}
+<div class="at-plan">
+
+  {# ── La scène ─────────────────────────────────────────────────────────
+     Trois couches superposées, toutes pilotées par la même caméra :
+     le fond quadrillé (en `background-position`, donc gratuit), les liens
+     (SVG en coordonnées du monde) et les nœuds (DOM, pour rester éditables
+     au clavier et accessibles). #}
+  <section class="at-scene" id="at-scene" tabindex="0"
+           aria-label="Toile de l'atelier">
+    <div class="at-fond" id="at-fond" aria-hidden="true"></div>
+    <div class="at-monde" id="at-monde">
+      <svg class="at-liens" id="at-liens" aria-hidden="true">
+        <defs>
+          <marker id="at-fleche" viewBox="0 0 10 10" refX="9" refY="5"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 1.5 9 5 0 8.5z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g id="at-liens-g"></g>
+      </svg>
+      <div class="at-noeuds" id="at-noeuds"></div>
+    </div>
+    <div class="at-lasso" id="at-lasso" hidden aria-hidden="true"></div>
+
+    <div class="at-vide" id="at-vide" hidden>
+      <svg viewBox="0 0 120 90" aria-hidden="true" class="at-vide-dessin">
+        <path d="M14 76c10-26 26-40 46-42s34 10 46 32" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              opacity=".35"/>
+        <rect x="22" y="24" width="30" height="24" rx="4" fill="#fff"
+              stroke="currentColor" stroke-width="2" opacity=".8"/>
+        <rect x="62" y="38" width="34" height="26" rx="4" fill="#fff"
+              stroke="currentColor" stroke-width="2" opacity=".8"/>
+        <path d="M28 32h18M28 38h12M68 46h22M68 52h14" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" opacity=".45"/>
+      </svg>
+      <h2>La toile est vide</h2>
+      <p>Double-cliquez n'importe où pour poser une note.<br>
+         Ou collez une capture : <kbd>Ctrl</kbd>+<kbd>V</kbd>.</p>
+    </div>
+
+    {# ── Établi : les pièces qu'on pose sur la toile ── #}
+    <div class="at-etabli" role="toolbar" aria-label="Pièces">
+      <button class="at-piece" data-poser="note" type="button"
+              title="Note — N">
+        <svg class="ic"><use href="#i-note"></use></svg><span>Note</span>
+      </button>
+      <button class="at-piece" data-poser="liste" type="button"
+              title="Liste à cocher — L">
+        <svg class="ic"><use href="#i-coche-liste"></use></svg><span>Liste</span>
+      </button>
+      <button class="at-piece" data-poser="maquette" type="button"
+              title="Maquette de page — P">
+        <svg class="ic"><use href="#i-maquette"></use></svg><span>Page</span>
+      </button>
+      <button class="at-piece" data-poser="image" type="button"
+              title="Capture — I">
+        <svg class="ic"><use href="#i-image"></use></svg><span>Capture</span>
+      </button>
+      <button class="at-piece" data-poser="lien" type="button"
+              title="Lien — U">
+        <svg class="ic"><use href="#i-lien-nd"></use></svg><span>Lien</span>
+      </button>
+      <button class="at-piece" data-poser="cadre" type="button"
+              title="Cadre — C">
+        <svg class="ic"><use href="#i-cadre"></use></svg><span>Cadre</span>
+      </button>
+    </div>
+
+    {# ── Mini-carte : où l'on est dans un plan qui n'a pas de bord ── #}
+    <div class="at-mini" id="at-mini" title="Mini-carte — cliquez pour vous y rendre">
+      <svg id="at-mini-svg" viewBox="0 0 160 110" preserveAspectRatio="none"></svg>
+    </div>
+  </section>
+
+  {# ── Rail : les pages de l'app et leurs sections ───────────────────── #}
+  <aside class="at-rail" id="at-rail" hidden aria-label="Pages et sections">
+    <header class="at-rail-tete">
+      <h2>Pages &amp; sections</h2>
+      <button class="at-ic" id="at-rail-fermer" type="button" title="Fermer">×</button>
+    </header>
+    <p class="at-rail-mot">
+      Les maquettes posées sur la toile. Cliquez une section : elle y envoie
+      la sélection s'il y en a une, sinon elle vous y emmène. Le chiffre, c'est
+      ce qui y est déjà accroché.
+    </p>
+    <div class="at-rail-corps" id="at-rail-corps"></div>
+  </aside>
+</div>
+
+{# ── Choix d'une page/section pour un badge ───────────────────────────── #}
+<div class="at-pop" id="at-pop" hidden role="dialog" aria-label="Rattacher à une page">
+  <div class="at-pop-tete">Rattacher à…</div>
+  <div class="at-pop-corps" id="at-pop-corps"></div>
+</div>
+
+{# ── Raccourcis ───────────────────────────────────────────────────────── #}
+<div class="at-voile" id="at-voile" hidden>
+  <div class="at-aide" role="dialog" aria-modal="true" aria-label="Raccourcis">
+    <header>
+      <h2>Prendre l'atelier en main</h2>
+      <button class="at-ic" id="at-aide-fermer" type="button" title="Fermer">×</button>
+    </header>
+    <div class="at-aide-corps">
+      <section>
+        <h3>Se déplacer</h3>
+        <dl>
+          <dt>Molette</dt><dd>défiler la toile</dd>
+          <dt>Ctrl + molette</dt><dd>zoomer sur le pointeur</dd>
+          <dt>Espace + glisser</dt><dd>déplacer la toile</dd>
+          <dt>Clic milieu</dt><dd>déplacer la toile</dd>
+          <dt>Maj + 1</dt><dd>tout cadrer</dd>
+          <dt>Maj + 2</dt><dd>cadrer la sélection</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>Poser</h3>
+        <dl>
+          <dt>Double-clic</dt><dd>une note, là où vous cliquez</dd>
+          <dt>N · L · P · I · U · C</dt><dd>note, liste, page, capture, lien, cadre</dd>
+          <dt>Ctrl + V</dt><dd>coller une capture ou du texte</dd>
+          <dt>Glisser-déposer</dt><dd>des images depuis le bureau</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>Travailler</h3>
+        <dl>
+          <dt>Glisser l'en-tête</dt><dd>déplacer une pièce</dd>
+          <dt>Glisser le fond</dt><dd>sélection au lasso</dd>
+          <dt>Maj + clic</dt><dd>ajouter à la sélection</dd>
+          <dt>Ctrl + D</dt><dd>dupliquer</dd>
+          <dt>Suppr</dt><dd>supprimer la sélection</dd>
+          <dt>Flèches</dt><dd>décaler d'un cran (Maj : dix)</dd>
+          <dt>Ctrl + Z</dt><dd>annuler · Ctrl+Maj+Z refaire</dd>
+          <dt>Échap</dt><dd>tout désélectionner</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>Relier et rattacher</h3>
+        <dl>
+          <dt>Poignée ronde</dt><dd>tirer un lien vers une autre pièce</dd>
+          <dt>Badge ⊕</dt><dd>rattacher à une page et à sa section</dd>
+          <dt>Clic sur un badge</dt><dd>voler jusqu'à la section</dd>
+        </dl>
+      </section>
+    </div>
+    <footer class="at-aide-pied" id="at-aide-pied"></footer>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='atelier.js') }}"></script>
+{% endblock %}

@@ -22,6 +22,7 @@ from flask import (Flask, abort, jsonify, redirect, render_template, request,
                    send_from_directory, session, url_for)
 from werkzeug.security import check_password_hash
 
+import atelier
 import courrier
 import inventaire
 import panel_client
@@ -350,6 +351,79 @@ def api_courrier_reset():
 def api_courrier_boite():
     force = request.args.get("force") == "1"
     return jsonify(courrier.cache("boite", courrier.boite, force=force))
+
+
+# ── Module Atelier ────────────────────────────────────────────────────────
+# Le plan de travail : une toile infinie de notes, listes, captures et
+# MAQUETTES de pages de l'application, sur lesquelles on accroche les
+# fonctionnalités à venir.
+#
+# ⚠️ C'est le navigateur qui tient la toile (IndexedDB) : l'atelier s'ouvre et
+# s'écrit sans aucun secret. Ces routes ne servent que le MIROIR durable, et
+# répondent proprement « pas de miroir » quand `HUB_ATELIER_DB` est absente —
+# la page reste entièrement utilisable.
+
+# ⚠️ `endpoint="atelier"` est explicite, comme pour le courrier : `page_active`
+# vaut `request.endpoint` et la nav le compare à la clé de `inventaire.PAGES`,
+# mais nommer la vue `atelier` masquerait le module du même nom dans ce fichier.
+
+@app.route("/atelier", endpoint="atelier")
+@login_required
+def page_atelier():
+    # Aucune lecture ici : la toile locale s'affiche immédiatement, le miroir
+    # est interrogé ensuite. Même raison que /courrier et /panel — une base
+    # froide ne doit pas retenir le squelette.
+    return render_template("atelier.html")
+
+
+@app.route("/api/atelier/etat")
+@login_required
+def api_atelier_etat():
+    return jsonify(atelier.etat())
+
+
+# ⚠️ POST autant que PUT : `navigator.sendBeacon` ne sait envoyer qu'en POST,
+# et c'est lui qui pousse la dernière frappe quand l'onglet se ferme. Un 405
+# là-dessus ne se voit nulle part — la page n'existe déjà plus.
+@app.route("/api/atelier/toile/<cle>", methods=["GET", "PUT", "POST"])
+@login_required
+def api_atelier_toile(cle):
+    if request.method == "GET":
+        return jsonify(atelier.lire(cle))
+    charge = request.get_json(silent=True) or {}
+    res = atelier.ecrire(cle, charge.get("contenu"), charge.get("rev"))
+    if res.get("conflit"):
+        return jsonify(res), 409
+    return jsonify(res), (200 if res.get("ok") or not atelier.disponible() else 502)
+
+
+@app.route("/api/atelier/pieces", methods=["POST"])
+@login_required
+def api_atelier_pieces():
+    """Quelles captures le miroir a DÉJÀ — pour n'envoyer que les nouvelles.
+
+    Une capture ne change jamais : la renvoyer à chaque enregistrement ferait
+    repartir plusieurs méga-octets pour un titre corrigé.
+    """
+    ids = (request.get_json(silent=True) or {}).get("ids") or []
+    return jsonify({"connues": atelier.pieces_connues(ids),
+                    "miroir": atelier.disponible()})
+
+
+@app.route("/api/atelier/piece/<ident>", methods=["GET", "PUT"])
+@login_required
+def api_atelier_piece(ident):
+    if request.method == "GET":
+        piece = atelier.piece_lire(ident)
+        if piece is None:
+            abort(404)
+        return jsonify(piece)
+    charge = request.get_json(silent=True) or {}
+    donnees = charge.get("donnees") or ""
+    if not atelier.data_url_valide(donnees):
+        return jsonify({"ok": False, "erreur": "data-URL invalide"}), 400
+    res = atelier.piece_ecrire(ident, charge.get("mime"), donnees)
+    return jsonify(res), (200 if res.get("ok") or not atelier.disponible() else 502)
 
 
 @app.route("/ci")

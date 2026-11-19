@@ -1,0 +1,565 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ATELIER — le plan de travail du hub.
+
+   Même direction artistique que le reste (mur chaulé, cartes blanches, titres
+   Fraunces, pastilles) appliquée à une toile infinie. Trois règles de plus :
+
+   1. la toile se DÉPLACE, la page ne défile pas — tout est posé dans
+      `.at-monde`, une seule transformation pour les trois couches ;
+   2. rien de permanent ne flotte au-dessus de la toile sauf l'établi et la
+      mini-carte : une pièce posée doit toujours pouvoir être lue en entier ;
+   3. la couleur d'une pièce est une TEINTE d'en-tête, jamais un aplat — on
+      lit du texte sur ces cartes pendant des heures.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ⚠️ À poser AVANT tout le reste. `hidden` ne vaut qu'un `display:block`
+   par défaut : le moindre `display:grid`/`flex` plus loin le piétine, et
+   l'aide, le rail et le sélecteur de page s'affichaient en permanence. */
+.at-voile[hidden],.at-pop[hidden],.at-rail[hidden],.at-lasso[hidden],
+.at-vide[hidden]{display:none !important}
+
+.at-teinte-craie   { --n:#b9ae97; --n-clair:#f7f3ea; }
+.at-teinte-ocre    { --n:#e0a015; --n-clair:#fdf3dd; }
+.at-teinte-olive   { --n:#588b2f; --n-clair:#eef5e5; }
+.at-teinte-ciel    { --n:#3d92b5; --n-clair:#e6f4f9; }
+.at-teinte-garance { --n:#b5497e; --n-clair:#fbeaf2; }
+.at-teinte-sienne  { --n:#b4603a; --n-clair:#fbeee7; }
+.at-teinte-lavande { --n:#8b6fb5; --n-clair:#f1ecf9; }
+
+/* ══ Barre ════════════════════════════════════════════════════════════════ */
+.at-barre{flex-shrink:0;display:flex;align-items:center;gap:14px;
+  padding:9px 18px;background:rgba(255,255,255,.72);
+  backdrop-filter:blur(12px) saturate(1.2);
+  border-bottom:1px solid var(--trait)}
+.at-barre-g{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.at-barre-d{display:flex;align-items:center;gap:7px;flex-shrink:0}
+
+.at-marque{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;
+  color:var(--t);padding-right:4px}
+.at-marque .ic{width:18px;height:18px}
+.at-marque b{font-family:var(--f-titre);font-size:16px;font-weight:600;
+  color:var(--encre);letter-spacing:-.01em}
+
+.at-toiles{display:flex;align-items:center;gap:4px;min-width:0;
+  overflow-x:auto;scrollbar-width:none}
+.at-toiles::-webkit-scrollbar{display:none}
+.at-onglet{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  padding:6px 13px;border-radius:var(--r-pilule);border:1px solid transparent;
+  background:none;cursor:pointer;font-family:var(--f-corps);font-size:13px;
+  font-weight:600;color:var(--gris);transition:.14s}
+.at-onglet:hover{background:#fff;color:var(--encre);border-color:var(--trait)}
+.at-onglet.actif{background:var(--t);color:#fff;border-color:transparent;
+  box-shadow:var(--om1)}
+.at-onglet .at-onglet-n{font-family:var(--f-titre);font-style:italic;
+  font-size:11.5px;opacity:.75}
+.at-onglet-x{display:none;width:15px;height:15px;border-radius:50%;border:0;
+  background:rgba(255,255,255,.3);color:#fff;cursor:pointer;font-size:12px;
+  line-height:1;padding:0}
+.at-onglet.actif .at-onglet-x{display:inline-block}
+.at-onglet-x:hover{background:rgba(255,255,255,.55)}
+
+.at-ic{display:inline-grid;place-items:center;width:31px;height:31px;
+  border-radius:10px;border:1px solid transparent;background:none;
+  cursor:pointer;color:var(--gris);font-size:16px;line-height:1;
+  font-family:var(--f-corps);transition:.14s}
+.at-ic .ic{width:16px;height:16px}
+.at-ic:hover:not(:disabled){background:#fff;border-color:var(--trait);
+  color:var(--encre)}
+.at-ic:disabled{opacity:.3;cursor:default}
+.at-ic[aria-pressed="true"]{background:var(--t);color:#fff}
+
+.at-sep{width:1px;height:20px;background:var(--trait2);flex-shrink:0}
+
+.at-cherche{position:relative;display:flex;align-items:center;gap:7px;
+  background:#fff;border:1px solid var(--trait);border-radius:var(--r-pilule);
+  padding:0 12px;height:31px;transition:.14s}
+.at-cherche:focus-within{border-color:var(--t);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--t) 15%,transparent)}
+.at-cherche .ic{width:14px;height:14px;color:var(--gris2)}
+.at-cherche input{border:0;outline:0;background:none;width:140px;
+  font-family:var(--f-corps);font-size:13px;color:var(--encre)}
+.at-cherche input::-webkit-search-cancel-button{display:none}
+.at-cherche-n{font-family:var(--f-titre);font-style:italic;font-size:11.5px;
+  color:var(--gris2);white-space:nowrap}
+
+.at-zoom{display:flex;align-items:center;background:#fff;
+  border:1px solid var(--trait);border-radius:var(--r-pilule);padding:1px}
+.at-zoom .at-ic{width:25px;height:25px;border-radius:50%}
+.at-zoom-val{min-width:52px;border:0;background:none;cursor:pointer;
+  font-family:var(--f-mono);font-size:11.5px;color:var(--encre2)}
+.at-zoom-val:hover{color:var(--t)}
+
+.at-etat{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;
+  border-radius:var(--r-pilule);border:1px solid var(--trait);background:#fff;
+  font-family:var(--f-titre);font-style:italic;font-size:12px;color:var(--gris);
+  white-space:nowrap}
+.at-etat i{width:7px;height:7px;border-radius:50%;background:var(--gris2);
+  flex-shrink:0;transition:background .2s}
+.at-etat.ok i{background:#588b2f}
+.at-etat.cours i{background:#e0a015;animation:at-pulse 1s ease-in-out infinite}
+.at-etat.local i{background:#3d92b5}
+.at-etat.mal i{background:#c2452f}
+@keyframes at-pulse{50%{opacity:.25}}
+
+/* ══ Plan ═════════════════════════════════════════════════════════════════ */
+.at-plan{flex:1;min-height:0;display:flex;position:relative}
+
+.at-scene{position:relative;flex:1;min-width:0;overflow:hidden;outline:0;
+  cursor:default;touch-action:none;contain:layout paint}
+.at-scene.tire{cursor:grab}
+.at-scene.tire-en-cours{cursor:grabbing}
+.at-scene.relie{cursor:crosshair}
+
+/* Le quadrillage est un dégradé répété : il suit la caméra en
+   `background-position`, donc il ne coûte aucun nœud ni aucun repaint. */
+.at-fond{position:absolute;inset:0;pointer-events:none;
+  background-color:transparent;
+  background-image:
+    radial-gradient(circle at 1px 1px,
+      color-mix(in srgb,var(--encre) 16%,transparent) 1px, transparent 0);
+  opacity:.5}
+
+.at-monde{position:absolute;left:0;top:0;width:0;height:0;
+  transform-origin:0 0;will-change:transform}
+.at-liens{position:absolute;left:0;top:0;width:1px;height:1px;
+  overflow:visible;pointer-events:none;color:var(--gris2)}
+.at-noeuds{position:absolute;left:0;top:0;width:0;height:0}
+
+.at-lasso{position:absolute;z-index:5;pointer-events:none;
+  border:1.5px dashed var(--t);border-radius:6px;
+  background:color-mix(in srgb,var(--t) 9%,transparent)}
+
+/* ══ Toile vide ═══════════════════════════════════════════════════════════ */
+.at-vide{position:absolute;inset:0;display:grid;place-content:center;
+  justify-items:center;text-align:center;pointer-events:none;color:var(--t)}
+.at-vide-dessin{width:140px;height:105px;margin-bottom:10px;opacity:.7}
+.at-vide h2{font-family:var(--f-titre);font-size:22px;font-weight:600;
+  color:var(--encre);margin-bottom:5px}
+.at-vide p{font-size:13.5px;color:var(--gris);line-height:1.7}
+.at-vide kbd{font-family:var(--f-mono);font-size:11.5px;background:#fff;
+  border:1px solid var(--trait2);border-bottom-width:2px;border-radius:5px;
+  padding:1px 5px;color:var(--encre2)}
+
+/* ══ Établi ═══════════════════════════════════════════════════════════════ */
+.at-etabli{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);
+  z-index:12;display:flex;align-items:center;gap:3px;padding:5px;
+  background:rgba(255,255,255,.9);backdrop-filter:blur(12px) saturate(1.3);
+  border:1px solid var(--trait);border-radius:var(--r-pilule);
+  box-shadow:var(--om3)}
+.at-piece{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;
+  border:0;border-radius:var(--r-pilule);background:none;cursor:pointer;
+  font-family:var(--f-corps);font-size:12.5px;font-weight:600;
+  color:var(--gris);transition:.14s;white-space:nowrap}
+.at-piece .ic{width:16px;height:16px}
+.at-piece:hover{background:color-mix(in srgb,var(--t) 11%,#fff);color:var(--t)}
+.at-piece.arme{background:var(--t);color:#fff}
+
+/* ══ Mini-carte ═══════════════════════════════════════════════════════════ */
+.at-mini{position:absolute;right:16px;bottom:16px;z-index:11;width:160px;
+  height:110px;background:rgba(255,255,255,.88);border:1px solid var(--trait);
+  border-radius:12px;box-shadow:var(--om2);overflow:hidden;cursor:crosshair;
+  backdrop-filter:blur(8px)}
+.at-mini svg{display:block;width:100%;height:100%}
+.at-mini .mc-n{fill:color-mix(in srgb,var(--t) 42%,#fff);
+  stroke:color-mix(in srgb,var(--t) 60%,#fff);stroke-width:.6}
+.at-mini .mc-vue{fill:color-mix(in srgb,var(--t) 12%,transparent);
+  stroke:var(--t);stroke-width:1.2;stroke-dasharray:3 2}
+
+/* ══ Une pièce ════════════════════════════════════════════════════════════ */
+/* ⚠️ `overflow:visible` et NON `hidden` : la bille de liaison déborde du bord
+   droit, et un `hidden` sur la carte la rendait invisible — le lien était
+   intirable sans que rien ne le dise. Les arrondis sont donc portés par les
+   enfants (en-tête en haut, corps/légende en bas), pas par la carte. */
+.at-noeud{position:absolute;display:flex;flex-direction:column;
+  background:#fff;border:1px solid var(--trait2);border-radius:14px;
+  box-shadow:var(--om1);overflow:visible;
+  transition:box-shadow .14s,border-color .14s}
+.at-noeud:hover{box-shadow:var(--om2)}
+.at-noeud.choisi{border-color:var(--t);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--t) 38%,transparent),var(--om2)}
+.at-noeud.trouve{box-shadow:0 0 0 3px #f4b924,var(--om2)}
+.at-noeud.estompe{opacity:.3}
+.at-noeud.glisse{box-shadow:var(--om3);z-index:40 !important;cursor:grabbing}
+.at-noeud.cible{border-color:var(--t);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--t) 40%,transparent)}
+
+.at-tete{display:flex;align-items:center;gap:7px;padding:7px 9px 7px 11px;
+  background:var(--n-clair);border-bottom:1px solid
+    color-mix(in srgb,var(--n) 22%,transparent);
+  border-radius:13px 13px 0 0;
+  cursor:grab;user-select:none;flex-shrink:0}
+.at-tete:active{cursor:grabbing}
+.at-tete .at-tete-ic{width:14px;height:14px;color:var(--n);flex-shrink:0;
+  fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;
+  stroke-linejoin:round}
+.at-titre{flex:1;min-width:0;border:0;outline:0;background:none;
+  font-family:var(--f-titre);font-size:13.5px;font-weight:600;
+  color:var(--encre);padding:1px 2px;border-radius:4px}
+.at-titre:focus{background:#fff;box-shadow:0 0 0 2px
+  color-mix(in srgb,var(--n) 35%,transparent)}
+.at-titre::placeholder{color:var(--gris2);font-weight:400;font-style:italic}
+
+.at-tete-btns{display:flex;align-items:center;gap:1px;flex-shrink:0;
+  opacity:0;transition:opacity .14s}
+.at-noeud:hover .at-tete-btns,.at-noeud.choisi .at-tete-btns{opacity:1}
+.at-mini-btn{display:grid;place-items:center;width:21px;height:21px;border:0;
+  border-radius:6px;background:none;cursor:pointer;color:var(--gris);
+  font-size:13px;line-height:1;padding:0;transition:.12s}
+.at-mini-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.at-mini-btn:hover{background:#fff;color:var(--encre)}
+.at-mini-btn.sup:hover{color:#c2452f}
+
+.at-corps{flex:1;min-height:0;overflow:auto;padding:10px 12px 11px;
+  border-radius:0 0 13px 13px}
+.at-badges-pied{flex-shrink:0;padding:0 11px 9px;background:#fff;
+  border-radius:0 0 13px 13px}
+.at-badges-pied .at-badges:empty{display:none}
+.at-corps::-webkit-scrollbar{width:8px}
+.at-corps::-webkit-scrollbar-thumb{background:var(--trait2);border-radius:4px}
+
+.at-poignee{position:absolute;right:0;bottom:0;width:16px;height:16px;
+  cursor:nwse-resize;opacity:0;transition:opacity .14s}
+.at-noeud:hover .at-poignee,.at-noeud.choisi .at-poignee{opacity:1}
+.at-poignee::after{content:"";position:absolute;right:3px;bottom:3px;
+  width:7px;height:7px;border-right:2px solid var(--gris2);
+  border-bottom:2px solid var(--gris2);border-radius:0 0 3px 0}
+
+/* Prise de lien : la bille qu'on tire vers une autre pièce. */
+.at-prise{position:absolute;right:-7px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;border-radius:50%;background:#fff;
+  border:2px solid var(--n);cursor:crosshair;opacity:0;z-index:3;
+  transition:opacity .14s,transform .14s}
+.at-noeud:hover .at-prise,.at-noeud.choisi .at-prise{opacity:1}
+.at-prise:hover{transform:translateY(-50%) scale(1.35)}
+/* La bille fait 14 px à l'écran, et moins encore dès qu'on dézoome : on vise
+   à côté une fois sur deux et on part en sélection au lasso. La zone de
+   saisie est donc plus large que le dessin. */
+.at-prise::before{content:"";position:absolute;inset:-8px;border-radius:50%}
+
+/* ── Note ── */
+.at-texte{width:100%;min-height:100%;border:0;outline:0;background:none;
+  resize:none;font-family:var(--f-corps);font-size:13px;line-height:1.62;
+  color:var(--encre2);white-space:pre-wrap;word-break:break-word}
+.at-texte::placeholder{color:var(--gris2);font-style:italic}
+.at-rendu{font-size:13px;line-height:1.62;color:var(--encre2);
+  word-break:break-word}
+.at-rendu h4{font-family:var(--f-titre);font-size:14.5px;font-weight:600;
+  color:var(--encre);margin:9px 0 4px}
+.at-rendu h4:first-child{margin-top:0}
+.at-rendu p{margin-bottom:7px}
+.at-rendu p:last-child{margin-bottom:0}
+.at-rendu ul{margin:0 0 7px 17px}
+.at-rendu li{margin-bottom:2px}
+.at-rendu code{font-family:var(--f-mono);font-size:11.5px;background:#f6f4ee;
+  border:1px solid var(--trait);border-radius:4px;padding:0 4px}
+.at-rendu a{color:var(--t);text-decoration:underline;
+  text-underline-offset:2px}
+.at-rendu hr{border:0;border-top:1px solid var(--trait2);margin:9px 0}
+.at-rendu .at-vide-txt{color:var(--gris2);font-style:italic}
+
+/* ── Liste à cocher ── */
+.at-items{list-style:none;display:flex;flex-direction:column;gap:1px}
+.at-item{display:flex;align-items:flex-start;gap:8px;padding:4px 5px;
+  border-radius:8px;transition:background .12s}
+.at-item:hover{background:#faf8f3}
+.at-item.faite .at-item-txt{color:var(--gris2);text-decoration:line-through;
+  text-decoration-color:var(--gris2)}
+.at-case{appearance:none;flex-shrink:0;width:15px;height:15px;margin-top:2px;
+  border:1.8px solid var(--trait2);border-radius:5px;cursor:pointer;
+  background:#fff;transition:.14s;position:relative}
+.at-case:hover{border-color:var(--n)}
+.at-case:checked{background:var(--n);border-color:var(--n)}
+.at-case:checked::after{content:"";position:absolute;left:4px;top:1px;
+  width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;
+  transform:rotate(42deg)}
+.at-item-corps{flex:1;min-width:0}
+.at-item-txt{width:100%;border:0;outline:0;background:none;resize:none;
+  font-family:var(--f-corps);font-size:12.8px;line-height:1.5;
+  color:var(--encre2);overflow:hidden}
+.at-item-txt:focus{color:var(--encre)}
+.at-item-sup{opacity:0}
+.at-item:hover .at-item-sup{opacity:1}
+.at-ajout{display:inline-flex;align-items:center;gap:6px;margin-top:5px;
+  padding:4px 9px;border:1px dashed var(--trait2);border-radius:8px;
+  background:none;cursor:pointer;font-family:var(--f-titre);font-style:italic;
+  font-size:12px;color:var(--gris)}
+.at-ajout:hover{border-color:var(--n);color:var(--n);
+  background:color-mix(in srgb,var(--n) 6%,#fff)}
+.at-jauge{height:3px;border-radius:2px;background:var(--trait);
+  overflow:hidden;margin:0 0 9px}
+.at-jauge i{display:block;height:100%;background:var(--n);border-radius:2px;
+  transition:width .25s}
+.at-compte{font-family:var(--f-mono);font-size:10.5px;color:var(--gris2);
+  flex-shrink:0;padding-right:2px}
+
+/* ── Badge de page ── */
+.at-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.at-badge{display:inline-flex;align-items:center;gap:5px;max-width:100%;
+  padding:2px 8px 2px 6px;border-radius:var(--r-pilule);cursor:pointer;
+  border:1px solid color-mix(in srgb,var(--b,#b5497e) 40%,#fff);
+  background:color-mix(in srgb,var(--b,#b5497e) 11%,#fff);
+  color:color-mix(in srgb,var(--b,#b5497e) 78%,#000);
+  font-size:10.5px;font-weight:600;line-height:1.7;transition:.12s}
+.at-badge:hover{background:color-mix(in srgb,var(--b,#b5497e) 20%,#fff)}
+.at-badge i{width:6px;height:6px;border-radius:50% 0 50% 50%;flex-shrink:0;
+  background:var(--b,#b5497e)}
+.at-badge b{font-weight:700}
+.at-badge em{font-style:normal;opacity:.72;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+/* Discret mais jamais invisible : c'est LE geste de l'atelier (accrocher une
+   fonctionnalité à l'endroit de l'app où elle doit vivre). À opacité nulle,
+   il fallait savoir qu'il existait pour le trouver. */
+.at-badge-plus{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;
+  border-radius:var(--r-pilule);border:1px dashed var(--trait2);
+  background:none;cursor:pointer;font-size:10.5px;color:var(--gris2);
+  line-height:1.7;opacity:.42;transition:.12s}
+.at-item:hover .at-badge-plus,.at-noeud:hover .at-badge-plus,
+.at-badge-plus:focus{opacity:1}
+.at-badge-plus:hover{border-color:var(--t);color:var(--t)}
+
+/* ── Capture ── */
+.at-image{flex:1;min-height:0;display:flex;align-items:center;
+  justify-content:center;background:
+    repeating-conic-gradient(#f4f1e9 0 25%, #fff 0 50%) 0 0/14px 14px;
+  overflow:hidden}
+.at-image img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.at-image-vide{display:flex;flex-direction:column;align-items:center;gap:7px;
+  padding:18px;text-align:center;color:var(--gris2);font-size:12px;
+  font-family:var(--f-titre);font-style:italic;cursor:pointer}
+.at-image-vide svg{width:26px;height:26px;fill:none;stroke:currentColor;
+  stroke-width:1.6}
+.at-legende{flex-shrink:0;border:0;outline:0;background:#fff;width:100%;
+  padding:6px 11px 4px;font-family:var(--f-titre);font-style:italic;
+  font-size:11.5px;color:var(--gris);border-top:1px solid var(--trait)}
+
+/* ── Lien ── */
+.at-lien-corps{display:flex;flex-direction:column;gap:7px}
+.at-url{width:100%;border:1px solid var(--trait);border-radius:8px;
+  padding:6px 9px;outline:0;background:#faf8f3;font-family:var(--f-mono);
+  font-size:11px;color:var(--encre2)}
+.at-url:focus{border-color:var(--n);background:#fff}
+.at-ouvrir{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;
+  padding:5px 12px;border-radius:var(--r-pilule);background:var(--n);color:#fff;
+  text-decoration:none;font-size:11.5px;font-weight:600}
+.at-ouvrir:hover{filter:brightness(1.08)}
+
+/* ── Cadre ── */
+/* ⚠️ Un cadre ne doit pas voler les clics de la toile qu'il entoure : sans
+   `pointer-events:none`, impossible de lasso-sélectionner à l'intérieur, et
+   le double-clic n'y posait plus de note. Seuls l'en-tête et la poignée
+   restent saisissables. */
+.at-noeud.t-cadre{background:color-mix(in srgb,var(--n) 7%,transparent);
+  border:1.5px dashed color-mix(in srgb,var(--n) 48%,#fff);
+  box-shadow:none;border-radius:18px;z-index:0 !important;pointer-events:none}
+.at-noeud.t-cadre .at-tete,.at-noeud.t-cadre .at-poignee{pointer-events:auto}
+.at-noeud.t-cadre:hover{box-shadow:none;
+  border-color:color-mix(in srgb,var(--n) 70%,#fff)}
+.at-noeud.t-cadre .at-tete{background:none;border-bottom:0;padding:8px 10px}
+.at-noeud.t-cadre .at-titre{font-size:15px;color:color-mix(in srgb,var(--n) 72%,#000)}
+.at-noeud.t-cadre .at-corps{display:none}
+
+/* ══ Maquette de page ═════════════════════════════════════════════════════
+   Une fenêtre stylisée : pas une capture, pas un rendu fidèle — un SCHÉMA
+   qu'on empile, renomme et réordonne pour voir où une fonctionnalité tombe. */
+.at-noeud.t-maquette .at-corps{padding:0;background:#f7f5ef;overflow:auto}
+.at-mq-chrome{display:flex;align-items:center;gap:7px;padding:7px 11px;
+  background:#fff;border-bottom:1px solid var(--trait);flex-shrink:0}
+.at-mq-pastilles{display:flex;gap:4px;flex-shrink:0}
+.at-mq-pastilles i{width:7px;height:7px;border-radius:50%;background:var(--trait2)}
+.at-mq-url{flex:1;min-width:0;border:0;outline:0;background:#f4f1e9;
+  border-radius:var(--r-pilule);padding:3px 10px;font-family:var(--f-mono);
+  font-size:10px;color:var(--gris)}
+.at-mq-url:focus{background:#fff;box-shadow:0 0 0 2px
+  color-mix(in srgb,var(--n) 30%,transparent)}
+
+.at-sections{display:flex;flex-direction:column;gap:5px;padding:9px}
+.at-sec{position:relative;background:#fff;border:1px solid var(--trait);
+  border-radius:9px;padding:7px 9px 7px 8px;transition:.12s;cursor:default}
+.at-sec:hover{border-color:color-mix(in srgb,var(--n) 42%,#fff)}
+.at-sec.vise{border-color:var(--t);background:
+  color-mix(in srgb,var(--t) 8%,#fff);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--t) 32%,transparent)}
+.at-sec.brille{animation:at-brille 1.5s ease-out}
+@keyframes at-brille{
+  0%,100%{box-shadow:none}
+  20%{box-shadow:0 0 0 4px color-mix(in srgb,#f4b924 70%,transparent)}
+}
+.at-sec-tete{display:flex;align-items:center;gap:6px}
+.at-sec-grip{flex-shrink:0;width:11px;height:14px;cursor:grab;opacity:.35;
+  background-image:radial-gradient(circle at 2px 2px,currentColor 1px,transparent 0);
+  background-size:4px 4px;color:var(--encre)}
+.at-sec-grip:active{cursor:grabbing}
+.at-sec-nom{flex:1;min-width:0;border:0;outline:0;background:none;
+  font-family:var(--f-corps);font-size:11.5px;font-weight:600;
+  color:var(--encre);padding:1px 3px;border-radius:4px}
+.at-sec-nom:focus{background:#f7f5ef}
+.at-sec-genre{flex-shrink:0;border:0;outline:0;background:none;cursor:pointer;
+  font-family:var(--f-titre);font-style:italic;font-size:10.5px;
+  color:var(--gris2);padding:1px 3px;border-radius:5px;
+  -webkit-appearance:none;appearance:none;text-align:right}
+.at-sec-genre:hover{background:#f4f1e9;color:var(--encre2)}
+.at-sec-n{flex-shrink:0;display:inline-grid;place-items:center;min-width:16px;
+  height:16px;padding:0 4px;border-radius:var(--r-pilule);
+  background:color-mix(in srgb,var(--n) 16%,#fff);
+  color:color-mix(in srgb,var(--n) 80%,#000);font-family:var(--f-mono);
+  font-size:9.5px;font-weight:700}
+.at-sec-sup{opacity:0}
+.at-sec:hover .at-sec-sup{opacity:1}
+
+/* Le croquis : ce que la section EST, en trois traits. */
+.at-croquis{display:flex;flex-direction:column;gap:3px;margin-top:6px;
+  padding:5px 6px;background:#faf8f3;border-radius:6px}
+.at-croquis span{display:block;height:4px;border-radius:2px;
+  background:color-mix(in srgb,var(--n) 26%,#e8e3d7)}
+.at-croquis.g-entete span:first-child{height:9px;
+  background:color-mix(in srgb,var(--n) 45%,#e8e3d7)}
+.at-croquis.g-liste span{width:100%}
+.at-croquis.g-liste span:nth-child(2){width:78%}
+.at-croquis.g-liste span:nth-child(3){width:88%}
+.at-croquis.g-table{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
+.at-croquis.g-table span{height:4px}
+.at-croquis.g-form span{height:9px;background:#fff;
+  border:1px solid color-mix(in srgb,var(--n) 30%,#ddd6c6)}
+.at-croquis.g-graphe{flex-direction:row;align-items:flex-end;height:30px;gap:4px}
+.at-croquis.g-graphe span{flex:1;height:auto;border-radius:2px 2px 0 0}
+.at-croquis.g-graphe span:nth-child(1){height:40%}
+.at-croquis.g-graphe span:nth-child(2){height:75%}
+.at-croquis.g-graphe span:nth-child(3){height:55%}
+.at-croquis.g-graphe span:nth-child(4){height:95%}
+.at-croquis.g-panneau{padding:9px 6px}
+.at-croquis.g-panneau span:first-child{width:45%;height:6px}
+.at-croquis.g-pied{padding:3px 6px}
+.at-croquis.g-pied span{height:3px;opacity:.7}
+
+/* Ce qui est accroché à la section : les fonctionnalités rattachées. */
+.at-accroches{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.at-accroche{display:inline-flex;align-items:center;gap:4px;max-width:100%;
+  padding:2px 7px;border-radius:var(--r-pilule);background:#f4f1e9;
+  border:1px solid var(--trait);cursor:pointer;font-size:10px;
+  color:var(--encre2);line-height:1.6}
+.at-accroche:hover{border-color:var(--t);color:var(--t);background:#fff}
+.at-accroche.faite{opacity:.55;text-decoration:line-through}
+.at-accroche span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  max-width:130px}
+
+.at-sec-ajout{margin:0 9px 9px}
+
+/* ══ Liens entre pièces ═══════════════════════════════════════════════════ */
+.at-lien-trait{fill:none;stroke:var(--gris2);stroke-width:2;
+  stroke-linecap:round;marker-end:url(#at-fleche);transition:stroke .14s}
+.at-lien-prise{fill:none;stroke:transparent;stroke-width:14;
+  pointer-events:stroke;cursor:pointer}
+.at-lien-g:hover .at-lien-trait{stroke:var(--t);stroke-width:2.6}
+.at-lien-g.choisi .at-lien-trait{stroke:var(--t);stroke-width:3}
+.at-lien-etiq{font-family:var(--f-titre);font-style:italic;font-size:11px;
+  fill:var(--gris);text-anchor:middle;paint-order:stroke;stroke:#fbf6ec;
+  stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.at-lien-fantome{fill:none;stroke:var(--t);stroke-width:2;stroke-dasharray:5 4;
+  stroke-linecap:round}
+
+/* ══ Rail ═════════════════════════════════════════════════════════════════ */
+.at-rail{flex-shrink:0;width:288px;display:flex;flex-direction:column;
+  background:rgba(255,255,255,.78);backdrop-filter:blur(10px);
+  border-left:1px solid var(--trait)}
+.at-rail-tete{display:flex;align-items:center;gap:8px;padding:13px 14px 8px}
+.at-rail-tete h2{flex:1;font-family:var(--f-titre);font-size:15px;
+  font-weight:600;color:var(--encre)}
+.at-rail-mot{padding:0 14px 11px;font-family:var(--f-titre);font-style:italic;
+  font-size:11.5px;color:var(--gris);line-height:1.55}
+.at-rail-corps{flex:1;overflow-y:auto;padding:0 12px 16px}
+.at-rail-vide{padding:16px 2px;font-family:var(--f-titre);font-style:italic;
+  font-size:12.5px;color:var(--gris2);line-height:1.6}
+
+.at-rp{background:#fff;border:1px solid var(--trait);border-radius:12px;
+  margin-bottom:9px;overflow:hidden}
+.at-rp-tete{display:flex;align-items:center;gap:8px;width:100%;padding:9px 11px;
+  border:0;background:none;cursor:pointer;text-align:left;
+  border-left:3px solid var(--n)}
+.at-rp-tete:hover{background:#faf8f3}
+.at-rp-tete b{flex:1;min-width:0;font-family:var(--f-titre);font-size:13px;
+  font-weight:600;color:var(--encre);overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.at-rp-tete em{font-family:var(--f-mono);font-style:normal;font-size:10px;
+  color:var(--gris2)}
+.at-rp-secs{list-style:none;padding:0 7px 8px}
+.at-rp-sec{display:flex;align-items:center;gap:7px;width:100%;padding:6px 8px;
+  border:0;border-radius:8px;background:none;cursor:pointer;text-align:left;
+  font-family:var(--f-corps);font-size:11.8px;color:var(--encre2)}
+.at-rp-sec:hover{background:color-mix(in srgb,var(--t) 10%,#fff);color:var(--t)}
+.at-rp-sec span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.at-rp-sec em{font-family:var(--f-mono);font-style:normal;font-size:9.5px;
+  color:var(--gris2)}
+
+/* ══ Choix de rattachement ════════════════════════════════════════════════ */
+.at-pop{position:fixed;z-index:60;width:264px;max-height:330px;
+  display:flex;flex-direction:column;background:#fff;
+  border:1px solid var(--trait2);border-radius:14px;box-shadow:var(--om3);
+  overflow:hidden}
+.at-pop-tete{padding:10px 13px 7px;font-family:var(--f-titre);
+  font-style:italic;font-size:12px;color:var(--gris);
+  border-bottom:1px solid var(--trait)}
+.at-pop-corps{overflow-y:auto;padding:6px}
+.at-pop-p{padding:7px 8px 2px;font-family:var(--f-titre);font-size:12px;
+  font-weight:600;color:var(--encre);display:flex;align-items:center;gap:7px}
+.at-pop-p i{width:7px;height:7px;border-radius:50% 0 50% 50%;background:var(--n)}
+.at-pop-s{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;
+  border:0;border-radius:8px;background:none;cursor:pointer;text-align:left;
+  font-family:var(--f-corps);font-size:12px;color:var(--encre2)}
+.at-pop-s:hover{background:color-mix(in srgb,var(--t) 11%,#fff);color:var(--t)}
+.at-pop-s.actif{background:var(--t);color:#fff}
+.at-pop-s em{margin-left:auto;font-family:var(--f-titre);font-style:italic;
+  font-size:10.5px;opacity:.65}
+.at-pop-rien{width:100%;padding:8px 10px;border:0;border-radius:8px;
+  background:none;cursor:pointer;text-align:left;font-family:var(--f-titre);
+  font-style:italic;font-size:12px;color:var(--gris)}
+.at-pop-rien:hover{background:#faf8f3;color:#c2452f}
+.at-pop-vide{padding:14px 10px;font-family:var(--f-titre);font-style:italic;
+  font-size:12px;color:var(--gris2);line-height:1.6}
+
+/* ══ Aide ═════════════════════════════════════════════════════════════════ */
+.at-voile{position:fixed;inset:0;z-index:70;display:grid;place-items:center;
+  padding:24px;background:rgba(43,42,32,.34);backdrop-filter:blur(3px)}
+.at-aide{width:min(760px,100%);max-height:86vh;display:flex;
+  flex-direction:column;background:var(--chaux);border-radius:22px;
+  box-shadow:var(--om3);overflow:hidden}
+.at-aide header{display:flex;align-items:center;gap:10px;padding:18px 22px 14px;
+  background:#fff;border-bottom:1px solid var(--trait)}
+.at-aide header h2{flex:1;font-family:var(--f-titre);font-size:20px;
+  font-weight:600;color:var(--encre)}
+.at-aide-corps{overflow-y:auto;padding:20px 22px;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.at-aide-corps h3{display:flex;align-items:center;gap:8px;
+  font-family:var(--f-titre);font-style:italic;font-size:13px;color:var(--t);
+  margin-bottom:8px}
+.at-aide-corps h3::after{content:"";flex:1;height:1px;background:var(--trait2)}
+.at-aide dl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;
+  align-items:baseline}
+.at-aide dt{font-family:var(--f-mono);font-size:11px;color:var(--encre);
+  background:#fff;border:1px solid var(--trait2);border-bottom-width:2px;
+  border-radius:6px;padding:2px 7px;white-space:nowrap;justify-self:start}
+.at-aide dd{font-size:12.5px;color:var(--gris)}
+.at-aide-pied{padding:13px 22px;background:#fff;border-top:1px solid var(--trait);
+  font-family:var(--f-titre);font-style:italic;font-size:12px;color:var(--gris);
+  line-height:1.6}
+.at-aide-pied code{font-family:var(--f-mono);font-style:normal;font-size:11px;
+  background:#f6f4ee;border:1px solid var(--trait2);border-radius:4px;
+  padding:1px 5px;color:var(--encre)}
+
+@media (prefers-reduced-motion:reduce){
+  .at-noeud,.at-sec,.at-jauge i{transition:none}
+  .at-sec.brille{animation:none}
+}
+
+/* En dessous, la mini-carte vient chevaucher l'établi : entre les deux,
+   c'est l'établi qui sert à chaque geste. */
+@media (max-width:1100px){ .at-mini{display:none} }
+
+@media (max-width:980px){
+  .at-rail{position:absolute;right:0;top:0;bottom:0;z-index:20;
+    box-shadow:var(--om3)}
+  .at-piece span{display:none}
+  .at-piece{padding:9px 11px}
+  .at-cherche input{width:96px}
+}

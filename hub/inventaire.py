@@ -26,6 +26,7 @@ def _url(service):
 # ── Pages du hub ──────────────────────────────────────────────────────────
 PAGES = [
     {"cle": "accueil",  "titre": "Accueil",        "route": "/",              "accent": "accueil",  "icone": "grille"},
+    {"cle": "atelier",  "titre": "Atelier",        "route": "/atelier",       "accent": "atelier",  "icone": "palette"},
     {"cle": "instances", "titre": "Instances",     "route": "/instances",     "accent": "instances", "icone": "fenetre"},
     {"cle": "infrastructure", "titre": "Infrastructure", "route": "/infrastructure", "accent": "infra",    "icone": "serveur"},
     {"cle": "documentation", "titre": "Documentation",  "route": "/documentation", "accent": "docs",     "icone": "livre"},
@@ -210,5 +211,12 @@ SECRETS = [
     ("PROMPTS_KEY", "Déchiffrement des prompts IA"),
     ("PULSE_PASSWORD", "Accès OptiqPulse"),
     ("HUB_PASSWORD", "Accès à ce hub"),
+    ("MAIL_USERNAME · MAIL_PASSWORD", "ENVOI des mails par l'application — "
+     "posés sur les services de l'app, jamais lus par le hub"),
+    ("HUB_IMAP_USER · HUB_IMAP_PASSWORD", "LECTURE de la boîte d'envoi "
+     "(page Courrier). Mot de passe d'application distinct de MAIL_PASSWORD : "
+     "révoquer la lecture ne doit pas couper l'envoi"),
+    ("HUB_ATELIER_DB", "Miroir de l'atelier — facultatif, base à soi. "
+     "Sans lui, la toile ne vit que dans le navigateur"),
     ("GCP_WIF_PROVIDER · GCP_SA_EMAIL", "Déploiements Cloud Run"),
 ]

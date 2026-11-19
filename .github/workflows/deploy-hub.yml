@@ -155,6 +155,7 @@ jobs:
           SECRET_HUB_PASSWORD: ${{ secrets.HUB_PASSWORD }}
           HUB_IMAP_USER: ${{ secrets.HUB_IMAP_USER }}
           HUB_IMAP_PASSWORD: ${{ secrets.HUB_IMAP_PASSWORD }}
+          HUB_ATELIER_DB: ${{ secrets.HUB_ATELIER_DB }}
         # Plus de jeton GitHub : le module Panel fait exécuter la suite par
         # l'instance elle-même, il n'y a plus rien à déclencher chez un tiers.
         run: |
@@ -176,6 +177,18 @@ jobs:
             echo "Boite d'envoi : identifiants IMAP poses sur le service"
           else
             echo "Boite d'envoi : secrets HUB_IMAP_* absents - la page le dira"
+          fi
+          # Miroir de l'atelier (page /atelier). FACULTATIF : sans lui,
+          # l'atelier tourne entierement dans le navigateur (IndexedDB) et le
+          # dit. C'est voulu - un outil de travail ne doit pas reclamer un
+          # secret avant d'accepter la premiere note.
+          # ⚠️ Une base A SOI, jamais celle d'une instance : l'atelier ECRIT,
+          # alors que HUB_DBS_B64 est en lecture seule.
+          if [ -n "$HUB_ATELIER_DB" ]; then
+            VARS="${VARS}##HUB_ATELIER_DB=${HUB_ATELIER_DB}"
+            echo "Atelier : miroir serveur branche"
+          else
+            echo "Atelier : pas de miroir - la toile vit dans le navigateur"
           fi
           if ! gcloud run deploy ${{ env.SERVICE }} \
             --image ${{ env.IMAGE }}:${{ github.sha }} \
