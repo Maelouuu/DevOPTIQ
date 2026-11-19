@@ -3,6 +3,7 @@ from flask import jsonify
 import os, io, contextlib, traceback
 from Code.scripts.extract_visio import process_visio_file, print_summary
 from Code.models.models import Entity
+from Code.carto_access import can_edit
 
 @activities_bp.route('/update-cartography', methods=['GET'])
 def update_cartography():
@@ -12,6 +13,11 @@ def update_cartography():
 
         if not active_entity:
             return jsonify({"error": "Aucune entité active trouvée"}), 400
+
+        # L'import réécrit activités, données et liens de la carto : réservé à
+        # qui peut l'enregistrer directement.
+        if not can_edit(active_entity):
+            return jsonify({"error": "Modification de la cartographie non autorisée"}), 403
 
         # Vérifier que l'entité a un fichier SVG défini
         if not active_entity.svg_filename:
@@ -45,7 +51,7 @@ def update_cartography():
         print(f"📍 Traitement de la cartographie: {vsdx_path}")
 
         # Traiter le fichier Visio
-        process_visio_file(vsdx_path)
+        process_visio_file(vsdx_path, entity_id=active_entity.id)
 
         # Générer le résumé
         summary_output = io.StringIO()

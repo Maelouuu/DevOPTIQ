@@ -32,6 +32,31 @@ connectors_list = []  # On y stocke toutes les infos des connecteurs (déclencha
 link_summaries = []     # (data_name, data_type, source_name, target_name)
 rename_summaries = []   # (old_name, new_name)
 
+# Entité ciblée par l'import en cours. None = mode historique (script autonome,
+# base mono-entité). Depuis la route, l'import est TOUJOURS borné à l'entité
+# active : sans ce périmètre, il vidait la table `links` de toutes les entités
+# et supprimait leurs activités issues d'un Visio.
+_current_entity_id = None
+
+
+def _scoped(query, model):
+    if _current_entity_id is None:
+        return query
+    return query.filter(model.entity_id == _current_entity_id)
+
+
+def _purge_links():
+    if _current_entity_id is None:
+        Link.query.delete()
+        return
+    act_ids = [a.id for a in Activities.query.filter_by(entity_id=_current_entity_id).all()]
+    q = Link.query.filter(db.or_(
+        Link.entity_id == _current_entity_id,
+        Link.source_activity_id.in_(act_ids),
+        Link.target_activity_id.in_(act_ids),
+    ))
+    q.delete(synchronize_session=False)
+
 
 def create_app():
     """Exécuter ce script directement (standalone)."""
@@ -47,7 +72,7 @@ def create_app():
     return app
 
 
-def process_visio_file(vsdx_path):
+def process_visio_file(vsdx_path, entity_id=None):
     """
     1) Parcours toutes les pages / formes du VSDX
     2) Gère creation / maj / suppression de Activities/Data + fusion retours
@@ -60,6 +85,9 @@ def process_visio_file(vsdx_path):
         return
 
     print(f"INFO : Démarrage de l’import depuis {vsdx_path}")
+
+    global _current_entity_id
+    _current_entity_id = entity_id
 
     # Réinit des globales
     activity_mapping.clear()
@@ -80,8 +108,8 @@ def process_visio_file(vsdx_path):
     del_act_count = remove_activities_not_in_new_mapping()
     del_data_count = remove_data_not_in_new_mapping()
 
-    # On vide la table 'links'
-    Link.query.delete()
+    # On vide la table 'links' (celle de l'entité ciblée)
+    _purge_links()
     db.session.commit()
     print("INFO : Table 'links' vidée, on va la reconstruire à partir de connectors_list...")
 
@@ -125,7 +153,7 @@ def add_or_update_activity(shape, is_result=False):
     if fill and fill != "1":
         is_result = True
 
-    act = Activities.query.filter_by(shape_id=key).first()
+    act = _scoped(Activities.query.filter_by(shape_id=key), Activities).first()
     if act:
         changed = False
         old_name = act.name
@@ -141,7 +169,8 @@ def add_or_update_activity(shape, is_result=False):
         else:
             print(f"INFO : Activity (ID={act.id}) déjà existante, pas de modif.")
     else:
-        new_a = Activities(name=txt, is_result=is_result, shape_id=key)
+        new_a = Activities(name=txt, is_result=is_result, shape_id=key,
+                           entity_id=_current_entity_id)
         db.session.add(new_a)
         db.session.flush()
         print(f"INFO : Activity créée => '{txt}' (ID={new_a.id}, shape_id={key}, is_result={is_result})")
@@ -158,9 +187,9 @@ def add_or_update_return(shape):
     2) Fusion si d’autres Retours ont le même nom
     """
     key = standardize_id(shape.ID)
-    txt = shape.text.strip() or "Retour sans nom"
+    txt = (shape.text or "").strip() or "Retour sans nom"
 
-    d = Data.query.filter_by(shape_id=key, type="Retour").first()
+    d = _scoped(Data.query.filter_by(shape_id=key, type="Retour"), Data).first()
     if d:
         old = d.name
         if old != txt:
@@ -169,7 +198,7 @@ def add_or_update_return(shape):
             db.session.commit()
             print(f"INFO : Return (ID={d.id}) renommé '{old}' => '{txt}'")
     else:
-        d = Data(name=txt, type="Retour", shape_id=key)
+        d = Data(name=txt, type="Retour", shape_id=key, entity_id=_current_entity_id)
         db.session.add(d)
         db.session.flush()
         print(f"INFO : Return créé => '{txt}' (ID={d.id}, shape_id={key})")
@@ -184,11 +213,11 @@ def add_or_update_return(shape):
 def unify_retours(d):
     """Si d’autres Data(type='Retour') ont le même .name, on supprime (sauf d)."""
     keeper_id = d.id
-    duplicates = Data.query.filter(
+    duplicates = _scoped(Data.query.filter(
         Data.type == "Retour",
         Data.name == d.name,
         Data.id != keeper_id
-    ).all()
+    ), Data).all()
     for dupe in duplicates:
         print(f"INFO : Fusion retours => supprime Return ID={dupe.id} shape_id={dupe.shape_id}")
         db.session.delete(dupe)
@@ -201,10 +230,10 @@ def store_connector_info(shape, layer):
     puis on créera les liens plus tard dans rebuild_links_from_connectors().
     """
     key = standardize_id(shape.ID)
-    txt = shape.text.strip() or "Donnée sans nom"
+    txt = (shape.text or "").strip() or "Donnée sans nom"
     data_type = "déclenchante" if layer == "T link" else "nourrissante"
 
-    d = Data.query.filter_by(shape_id=key, type=data_type).first()
+    d = _scoped(Data.query.filter_by(shape_id=key, type=data_type), Data).first()
     if d:
         old = d.name
         if old != txt:
@@ -213,7 +242,8 @@ def store_connector_info(shape, layer):
             db.session.commit()
             print(f"INFO : Connector rename: (ID={d.id}) '{old}' => '{txt}'")
     else:
-        d = Data(name=txt, type=data_type, shape_id=key, layer=layer)
+        d = Data(name=txt, type=data_type, shape_id=key, layer=layer,
+                 entity_id=_current_entity_id)
         db.session.add(d)
         db.session.flush()
         print(f"INFO : Connector créé => '{txt}' (ID={d.id}, shape_id={key})")
@@ -236,7 +266,7 @@ def store_connector_info(shape, layer):
 
 
 def remove_activities_not_in_new_mapping():
-    existing_acts = Activities.query.filter(Activities.shape_id.isnot(None)).all()
+    existing_acts = _scoped(Activities.query.filter(Activities.shape_id.isnot(None)), Activities).all()
     count = 0
     for act in existing_acts:
         if act.shape_id not in activity_mapping:
@@ -248,7 +278,7 @@ def remove_activities_not_in_new_mapping():
 
 
 def remove_data_not_in_new_mapping():
-    existing_data = Data.query.filter(Data.shape_id.isnot(None)).all()
+    existing_data = _scoped(Data.query.filter(Data.shape_id.isnot(None)), Data).all()
     count = 0
     for d in existing_data:
         sid = d.shape_id
@@ -294,7 +324,7 @@ def create_single_link(data_id, data_name, data_type, skind, sid, tkind, tid):
     s_name = get_entity_name(sid, skind)
     t_name = get_entity_name(tid, tkind)
 
-    new_link = Link(type=data_type, description=data_name)
+    new_link = Link(type=data_type, description=data_name, entity_id=_current_entity_id)
 
     if skind == 'activity':
         new_link.source_activity_id = sid
@@ -410,7 +440,7 @@ def resolve_visio_id(raw_id):
         d = Data.query.get(d_id)
         if d and d.type.lower() == "retour":
             # Chercher l'activité portant le même nom
-            same_act = Activities.query.filter_by(name=d.name).first()
+            same_act = _scoped(Activities.query.filter_by(name=d.name), Activities).first()
             if same_act:
                 return ('activity', same_act.id)
         return ('data', d_id)

@@ -841,5 +841,52 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-18T03:34:57"
+  },
+  {
+    "patch_uid": "2026-11-19-extract-visio-perimetre-entite",
+    "title": "Import Visio historique : vidait les liens et activités de TOUTES les entités",
+    "node_ids": [
+      "tests/test_155_extract_visio.py::TestPerimetreEntite::test_import_d_une_entite_epargne_la_voisine",
+      "tests/test_155_extract_visio.py::TestPerimetreEntite::test_meme_shape_id_dans_deux_entites_reste_distinct",
+      "tests/test_155_extract_visio.py::TestPerimetreEntite::test_les_objets_crees_portent_l_entite",
+      "tests/test_155_extract_visio.py::TestPerimetreEntite::test_purge_des_liens_de_l_entite_y_compris_sans_entity_id",
+      "tests/test_155_extract_visio.py::TestPerimetreEntite::test_retour_homonyme_resolu_dans_l_entite_seulement",
+      "tests/test_155_extract_visio.py::TestRouteUpdateCartography::test_lecteur_seul_recoit_403_et_l_import_ne_tourne_pas",
+      "tests/test_155_extract_visio.py::TestRouteUpdateCartography::test_proprietaire_lance_l_import_borne_a_son_entite",
+      "tests/test_63_cartography_translate_advanced.py::TestUpdateCartographySuccessAndError::test_success_returns_200_with_summary",
+      "tests/test_63_cartography_translate_advanced.py::TestUpdateCartographySuccessAndError::test_processing_exception_returns_500"
+    ],
+    "page_slug": "extract_visio",
+    "failure_reason": "Les nouveaux tests de périmètre échouaient : process_visio_file n'acceptait aucune entité ; un import sur l'entité A effaçait les liens et les activités Visio de l'entité B. La route acceptait aussi un compte en simple lecture.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "GET /activities/update-cartography (accessible à tout compte connecté ayant une entité active, y compris un 'user' lecteur d'une carto commune, et hors porte d'écriture car en GET) appelait process_visio_file sans périmètre : Link.query.delete() vidait la table links de toute l'instance, remove_activities_not_in_new_mapping supprimait les activités à shape_id des autres entités, et les objets créés n'avaient pas d'entity_id. Le même shape_id dans deux entités était confondu.",
+    "fix_description": "process_visio_file(vsdx_path, entity_id=None) : toutes les requêtes (activités, données, retours, fusion, résolution par nom, suppression) sont bornées à l'entité ; la purge des liens ne vise que ceux de l'entité (entity_id ou accrochés à ses activités) ; les Activities/Data/Link créés portent entity_id. Mode autonome (entity_id=None) inchangé. La route passe l'entité active et renvoie 403 si can_edit est faux. Mocks de test_63 réalignés sur la nouvelle signature.",
+    "files_changed": [
+      "Code/scripts/extract_visio.py",
+      "Code/routes/activities_cartography.py",
+      "tests/test_63_cartography_translate_advanced.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-19T03:27:23"
+  },
+  {
+    "patch_uid": "2026-11-19-extract-visio-retour-sans-texte",
+    "title": "Import Visio : un retour ou connecteur sans texte faisait planter l'import",
+    "node_ids": [
+      "tests/test_155_extract_visio.py::TestRetoursEtConnecteurs::test_retour_sans_texte_ne_plante_pas",
+      "tests/test_155_extract_visio.py::TestRetoursEtConnecteurs::test_connecteur_nourrissant_sans_texte"
+    ],
+    "page_slug": "extract_visio",
+    "failure_reason": "AttributeError: 'NoneType' object has no attribute 'strip' sur une forme Retour/connecteur sans texte.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "add_or_update_return et store_connector_info appelaient shape.text.strip() sans garde (contrairement à add_or_update_activity) : le libellé par défaut ('Retour sans nom', 'Donnée sans nom') n'était jamais atteint et l'import entier tombait en 500.",
+    "fix_description": "(shape.text or '').strip() avant le repli sur le libellé par défaut.",
+    "files_changed": [
+      "Code/scripts/extract_visio.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-19T03:27:23"
   }
 ]

@@ -39,6 +39,7 @@ PAGE_LABELS = {
     "test_152_panel_admin_residuel": "Panel de Tests — Copie et migration d'entités (admin), branches défensives (résiduel)",
     "test_153_vsdx_decisions_residuel": "Import VSDX — Losanges de décision : XML illisible, badges par proximité, découpage, inférence Oui/Non (résiduel)",
     "test_154_export_fichiers_locaux": "Export & fichiers joints — Service sécurisé des fichiers locaux, export HTML garni",
+    "test_155_extract_visio": "Import Visio historique — Formes, retours, connecteurs, liens, périmètre par entité, /activities/update-cartography",
     "test_91_noms_uniques_et_historique": "Cartographie — Noms uniques et historique",
     "test_94_page_carte_scene": "Page Carte — Tuiles, dessin et liste",
     "test_102_porte_ecriture": "Sécurité — Porte d'écriture (contrôle d'accès des écritures)",

@@ -38,7 +38,7 @@ class TestUpdateCartographySuccessAndError:
 
         monkeypatch.setattr(
             "Code.routes.activities_cartography.process_visio_file",
-            lambda path: None,
+            lambda path, entity_id=None: None,
         )
         monkeypatch.setattr(
             "Code.routes.activities_cartography.print_summary",
@@ -62,7 +62,7 @@ class TestUpdateCartographySuccessAndError:
         fake_file.write_bytes(b"fake")
         _set_svg_filename(app, ids["entity_id"], str(fake_file))
 
-        def _boom(path):
+        def _boom(path, entity_id=None):
             raise ValueError("fichier visio corrompu")
 
         monkeypatch.setattr(

@@ -2,21 +2,21 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "18/11/2026",
+    "updated_at": "19/11/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
         "progress": 98,
-        "note": "Couverture par lignes : 95 % sur Code/. Ce run : test_panel.py, vsdx_decision_extractor.py et export.py à 99 %. Restent app.py et models.py."
+        "note": "Ce run : scripts/extract_visio.py 12 % → 98 %. Restent app.py (81 %) et models.py (94 %)."
       },
       {
         "id": "green",
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
         "progress": 100,
-        "note": "Suite complète verte : 4542 réussis, 1 sauté, 0 échec."
+        "note": "Suite complète verte : 4666 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
@@ -49,6 +49,23 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-11-19T03:27:30",
+      "date": "19/11/2026 · 03:27",
+      "author": "routine",
+      "title": "Import Visio historique : 57 tests, faille cross-entité corrigée",
+      "summary": "Suite verte au départ (4609 réussis). Cible : Code/scripts/extract_visio.py, le module le moins couvert (12 %). En le testant sur une base isolée, deux vrais défauts : (1) GET /activities/update-cartography, ouvert à tout compte connecté y compris un lecteur de carto commune, vidait la table links de TOUTES les entités et supprimait leurs activités issues d un Visio — import désormais borné à l entité active + 403 sans droit d écriture ; (2) un retour ou connecteur sans texte faisait planter l import (AttributeError). extract_visio.py 12 % → 98 %. Suite finale : 4666 réussis, 0 échec.",
+      "new_tests": 57,
+      "tests_fixed": 2,
+      "patches": 2,
+      "page": "extract_visio",
+      "highlights": [
+        "Faille : un import Visio sur une entité effaçait les liens de toute l instance",
+        "Route update-cartography : 403 pour un compte sans droit d écriture",
+        "Tests sur base SQLite mémoire dédiée : le module ne touche jamais la base partagée"
+      ],
+      "next": "Résidus de Code/app.py (81 %) et Code/models/models.py (94 %)."
+    },
     {
       "at": "2026-11-18T03:34:57",
       "date": "18/11/2026 · 03:34",
