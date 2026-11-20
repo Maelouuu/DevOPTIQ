@@ -2341,7 +2341,12 @@ class TestLesRetoursPassentParLeCatalogue:
                 "retour écrit en dur : %r" % arg.strip()[:90])
 
     def test_le_retour_de_la_faiblesse_a_sa_cle_dans_les_DEUX_langues(self):
+        """⚠️ On interroge le CATALOGUE, on ne relit pas `translations.py`.
+        Un test qui lit une SOURCE `.py` rougit à chaque exécution dans
+        l'arbre d'image (bytecode-only) — et un contrôle toujours rouge
+        n'est plus lu le jour où il a raison."""
         g = _lire("Code/routes/templates/time_dashboard.html")
         assert "saved_weakness:" in g, "la clé doit être injectée"
-        trad = _lire("Code/translations.py")
-        assert trad.count("'time.saved_weakness'") == 2, "fr ET en"
+        from Code.translations import TRANSLATIONS
+        for langue in ("fr", "en"):
+            assert "time.saved_weakness" in TRANSLATIONS[langue], langue
