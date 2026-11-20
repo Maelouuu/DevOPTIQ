@@ -2742,8 +2742,73 @@ Rapporté après la première ouverture : « on ne peut pas se déplacer » et
   restait à poser. Un modèle est une pièce qu'on pose — sa place est avec les
   six autres. La toile de départ et l'écran vide y renvoient aussi.
 
-Tests : `tests/test_156_hub_atelier.py` (48 cas, SQLite). Même garde de saut
-dans l'arbre d'image que `test_124`.
+#### La molette zoome, et la maquette se LIT (2026-11-20)
+
+« Il faut que la molette zoome et dézoome », et « les données du modèle des
+pages, là tout est compact et serré, on comprend pas trop ». Les deux étaient
+exacts, et le second se mesurait.
+
+**La molette zoome, sans modificateur.** Le zoom était derrière Ctrl et la
+molette nue faisait défiler : sur un plan sans bord, c'est le geste inverse de
+celui qu'on fait. Maj + molette défile, un balayage HORIZONTAL ne zoome jamais
+(deux doigts qui glissent de côté ne demandent pas un zoom), et Ctrl + molette
+reste accepté — c'est le pincement d'un pavé tactile.
+
+- ⚠️⚠️ **Le pas se NORMALISE avant d'entrer dans le zoom.** Un cran vaut
+  **100** en pixels (Chrome), **3** en lignes (Firefox) et **1** en pages :
+  avec le facteur brut d'origine (`0,99^deltaY`), le même cran donnait
+  **×0,37** d'un côté et **×0,97** de l'autre. On ramène tout en pixels (une
+  ligne = 33 px), on borne la rafale d'inertie d'un pavé tactile à ±220, et un
+  cran vaut alors **×1,128** partout. Mesuré : Chrome 1,128 / Firefox 1,126, et
+  le point sous le curseur ne bouge pas d'un pixel.
+
+**La maquette : le croquis était la chose la plus LOURDE de chaque section.**
+Mesuré avant de redessiner : une bande de barres colorées de ~30 px posée sous
+chaque titre, plus lourde que le nom (11,5 px) et bien plus que le texte —
+celui-là même qui dit ce que la section porte, en **10,8 px italiques gris**.
+Dix sections faisaient un mur de barres. Et le genre était écrit DEUX fois : le
+croquis le dessinait, un mot le répétait à droite du titre.
+
+- **Le croquis devient une VIGNETTE de 32 × 25 px**, devant le nom, et il
+  porte le choix du genre : le `<select>` est étendu dessus en transparence.
+  Un seul objet, qui se lit d'un coup d'œil et qui se clique — le menu natif
+  s'ouvre sous la vignette, et c'est là qu'on lit le mot.
+  ⚠️ `pointer-events: none` sur le croquis, sinon il intercepte le clic du
+  select posé dessus.
+- **Ce que la section porte devient le CORPS** : 12,3 px, police du corps,
+  encre normale. Il était en italique grise, c'est-à-dire en note de bas de
+  page — alors que c'est la seule chose qu'on vienne lire.
+- **Les cartes passent de 340 à 400 px**, et ⚠️ **la hauteur se CALCULE sur le
+  texte**. Le forfait de 96 px par section laissait défiler à l'intérieur toute
+  page dont les phrases dépassaient deux lignes, et une maquette qu'on ne voit
+  jamais en entier ne sert plus de plan. Les quatre constantes sont **mesurées
+  à l'écran** sur les 83 sections : 56 signes par ligne au pire, 20 px la
+  ligne, 62 px le reste d'une section, 134 px le haut et le bas. Relevé après
+  coup : **aucune page sous-estimée, 14 maquettes sur 14 sans défilement
+  interne**, la plus juste gardant 16 px.
+- ⚠️ **Une section PORTE les chantiers qu'on lui accroche** : sans eux au
+  calcul, la page la plus chargée défilait encore de 69 px. `_hauteur` reçoit
+  donc le compte par (page, section) ; 33 px la première pastille, 29 les
+  suivantes.
+- ⚠️ **Le badge « page · section » d'une ligne de liste ne se replie QUE si
+  une barre de défilement a volé 15 px à la carte** — c'est-à-dire seulement
+  si la hauteur est trop courte. Le calcul juste est donc son propre point
+  fixe : assez haut, rien ne défile, rien ne se replie. 81 px de réserve
+  prévus pour ce repli ont été retirés une fois le point fixe atteint.
+- **Les pastilles de chantier prennent toute la largeur**, une par ligne.
+  Bornées à 150 px et côte à côte, elles rendaient « Échanger les boutons
+  « Ouv… » — on ne savait plus de quel chantier on parlait, et deux pastilles
+  tenaient de toute façon sur deux lignes : la largeur ne coûte rien.
+  ⚠️ `min-width: 0` sur la pastille **et** sur son texte : la taille minimale
+  automatique d'un élément flex est celle de son CONTENU, et un libellé en
+  `nowrap` débordait de 13 px hors de sa propre boîte.
+- ⚠️ **Une maquette posée à la main fait la même largeur que celles du
+  modèle** (`GABARIT.maquette.w` = `LARGEUR`), sinon le plan part en dents de
+  scie dès qu'on ajoute une page. Tenu par un test qui lit les deux fichiers.
+
+Tests : `tests/test_156_hub_atelier.py` passe de 51 à **62 cas** ; **11 défauts
+remis un par un, 11 cliquets tombés**. Même garde de saut dans l'arbre d'image
+que `test_124`.
 
 **Pour brancher le miroir (facultatif)** : une base PostgreSQL à soi →
 secret `HUB_ATELIER_DB` → rejouer *Deploy → Optiq Hub*. Les tables se créent

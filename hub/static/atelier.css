@@ -385,10 +385,15 @@
 .at-mq-url:focus{background:#fff;box-shadow:0 0 0 2px
   color-mix(in srgb,var(--n) 30%,transparent)}
 
-.at-sections{display:flex;flex-direction:column;gap:5px;padding:9px}
+/* ── Une section ────────────────────────────────────────────────────────
+   L'ordre de lecture est : le NOM, puis CE QU'ELLE PORTE. Le croquis dit le
+   genre d'un coup d'œil et ne doit jamais peser plus que le texte — c'est
+   exactement ce qu'il faisait, en bande, sous chaque titre. */
+.at-sections{display:flex;flex-direction:column;gap:9px;padding:12px}
 .at-sec{position:relative;background:#fff;border:1px solid var(--trait);
-  border-radius:9px;padding:7px 9px 7px 8px;transition:.12s;cursor:default}
-.at-sec:hover{border-color:color-mix(in srgb,var(--n) 42%,#fff)}
+  border-radius:10px;padding:10px 12px 11px;transition:.12s;cursor:default}
+.at-sec:hover{border-color:color-mix(in srgb,var(--n) 42%,#fff);
+  box-shadow:0 1px 5px rgba(43,42,32,.055)}
 .at-sec.vise{border-color:var(--t);background:
   color-mix(in srgb,var(--t) 8%,#fff);
   box-shadow:0 0 0 2px color-mix(in srgb,var(--t) 32%,transparent)}
@@ -397,76 +402,99 @@
   0%,100%{box-shadow:none}
   20%{box-shadow:0 0 0 4px color-mix(in srgb,#f4b924 70%,transparent)}
 }
-.at-sec-tete{display:flex;align-items:center;gap:6px}
-.at-sec-grip{flex-shrink:0;width:11px;height:14px;cursor:grab;opacity:.35;
+.at-sec-tete{display:flex;align-items:center;gap:8px}
+.at-sec-grip{flex-shrink:0;width:11px;height:15px;cursor:grab;opacity:.3;
   background-image:radial-gradient(circle at 2px 2px,currentColor 1px,transparent 0);
   background-size:4px 4px;color:var(--encre)}
+.at-sec:hover .at-sec-grip{opacity:.45}
 .at-sec-grip:active{cursor:grabbing}
 .at-sec-nom{flex:1;min-width:0;border:0;outline:0;background:none;
-  font-family:var(--f-corps);font-size:11.5px;font-weight:600;
-  color:var(--encre);padding:1px 3px;border-radius:4px}
+  font-family:var(--f-corps);font-size:13px;font-weight:650;
+  letter-spacing:-.005em;color:var(--encre);padding:2px 4px;border-radius:5px}
 .at-sec-nom:focus{background:#f7f5ef}
-.at-sec-genre{flex-shrink:0;border:0;outline:0;background:none;cursor:pointer;
-  font-family:var(--f-titre);font-style:italic;font-size:10.5px;
-  color:var(--gris2);padding:1px 3px;border-radius:5px;
-  -webkit-appearance:none;appearance:none;text-align:right}
-.at-sec-genre:hover{background:#f4f1e9;color:var(--encre2)}
-.at-sec-n{flex-shrink:0;display:inline-grid;place-items:center;min-width:16px;
-  height:16px;padding:0 4px;border-radius:var(--r-pilule);
+.at-sec-n{flex-shrink:0;display:inline-grid;place-items:center;min-width:18px;
+  height:18px;padding:0 5px;border-radius:var(--r-pilule);
   background:color-mix(in srgb,var(--n) 16%,#fff);
   color:color-mix(in srgb,var(--n) 80%,#000);font-family:var(--f-mono);
-  font-size:9.5px;font-weight:700}
+  font-size:10px;font-weight:700}
 .at-sec-sup{opacity:0}
 .at-sec:hover .at-sec-sup{opacity:1}
 
-/* Le croquis : ce que la section EST, en trois traits. */
-.at-croquis{display:flex;flex-direction:column;gap:3px;margin-top:6px;
-  padding:5px 6px;background:#faf8f3;border-radius:6px}
-.at-croquis span{display:block;height:4px;border-radius:2px;
-  background:color-mix(in srgb,var(--n) 26%,#e8e3d7)}
-.at-croquis.g-entete span:first-child{height:9px;
-  background:color-mix(in srgb,var(--n) 45%,#e8e3d7)}
-.at-croquis.g-liste span{width:100%}
-.at-croquis.g-liste span:nth-child(2){width:78%}
-.at-croquis.g-liste span:nth-child(3){width:88%}
-.at-croquis.g-table{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
-.at-croquis.g-table span{height:4px}
-.at-croquis.g-form span{height:9px;background:#fff;
-  border:1px solid color-mix(in srgb,var(--n) 30%,#ddd6c6)}
-.at-croquis.g-graphe{flex-direction:row;align-items:flex-end;height:30px;gap:4px}
-.at-croquis.g-graphe span{flex:1;height:auto;border-radius:2px 2px 0 0}
+/* Le croquis : ce que la section EST, en trois traits — une VIGNETTE posée
+   devant le nom. Elle porte aussi le choix du genre : le <select> est étendu
+   dessus en transparence, donc le menu natif s'ouvre sous la vignette. */
+.at-genre{position:relative;flex-shrink:0;width:32px;height:25px;
+  border-radius:7px;background:#faf8f3;border:1px solid var(--trait);
+  cursor:pointer;transition:.12s}
+.at-genre:hover{background:#fff;border-color:color-mix(in srgb,var(--n) 50%,#fff)}
+.at-genre:focus-within{border-color:var(--t);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--t) 28%,transparent)}
+.at-sec-genre{position:absolute;inset:0;width:100%;height:100%;opacity:0;
+  border:0;padding:0;margin:0;cursor:pointer;font-size:11px;
+  -webkit-appearance:none;appearance:none}
+.at-croquis{display:flex;flex-direction:column;justify-content:center;gap:2px;
+  width:100%;height:100%;padding:4px 5px;overflow:hidden;
+  pointer-events:none}
+.at-croquis span{display:block;height:3px;border-radius:1.5px;
+  background:color-mix(in srgb,var(--n) 34%,#ddd6c6)}
+.at-croquis.g-entete span:first-child{height:6px;
+  background:color-mix(in srgb,var(--n) 58%,#ddd6c6)}
+.at-croquis.g-liste span:nth-child(2){width:72%}
+.at-croquis.g-liste span:nth-child(3){width:86%}
+.at-croquis.g-table{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+  align-content:center}
+.at-croquis.g-form span{height:4px;background:#fff;
+  border:1px solid color-mix(in srgb,var(--n) 34%,#ddd6c6)}
+.at-croquis.g-graphe{flex-direction:row;align-items:flex-end;gap:2px;
+  padding:5px}
+.at-croquis.g-graphe span{flex:1;height:auto;border-radius:1.5px 1.5px 0 0}
 .at-croquis.g-graphe span:nth-child(1){height:40%}
 .at-croquis.g-graphe span:nth-child(2){height:75%}
 .at-croquis.g-graphe span:nth-child(3){height:55%}
-.at-croquis.g-graphe span:nth-child(4){height:95%}
-.at-croquis.g-panneau{padding:9px 6px}
-.at-croquis.g-panneau span:first-child{width:45%;height:6px}
-.at-croquis.g-pied{padding:3px 6px}
-.at-croquis.g-pied span{height:3px;opacity:.7}
+.at-croquis.g-graphe span:nth-child(4){height:100%}
+.at-croquis.g-panneau span:first-child{width:45%}
+.at-croquis.g-pied{justify-content:flex-end}
+.at-croquis.g-pied span{height:2.5px;opacity:.7}
 
-/* Ce que la section porte dans l'application. Masquée tant qu'elle est vide :
-   une maquette qu'on esquisse ne doit pas afficher dix invites grises. */
-.at-sec-quoi{display:block;width:100%;margin-top:6px;border:0;outline:0;
-  background:none;resize:none;overflow:hidden;font-family:var(--f-titre);
-  font-style:italic;font-size:10.8px;line-height:1.5;color:var(--gris)}
+/* ⚠️ Le corps s'aligne sur la VIGNETTE, pas sur le nom : la poignée est un
+   outil, pas du contenu — et un retrait de 57 px mangerait un sixième de la
+   largeur de la carte. */
+.at-sec-corps{padding-left:19px}
+
+/* Ce que la section porte dans l'application : le texte qu'on vient lire.
+   Masqué tant qu'il est vide — une maquette qu'on esquisse ne doit pas
+   afficher dix invites grises. */
+.at-sec-quoi{display:block;width:100%;margin-top:5px;border:0;outline:0;
+  background:none;resize:none;overflow:hidden;font-family:var(--f-corps);
+  font-size:12.3px;line-height:1.55;color:var(--encre2)}
+.at-sec-quoi::placeholder{font-family:var(--f-titre);font-style:italic;
+  color:var(--gris)}
 .at-sec-quoi:placeholder-shown{display:none}
 .at-sec:hover .at-sec-quoi:placeholder-shown,
-.at-sec-quoi:focus{display:block;color:var(--gris2)}
-.at-sec-quoi:focus{color:var(--encre2);background:#faf8f3;border-radius:5px;
-  padding:3px 5px;margin-left:-5px;width:calc(100% + 10px)}
+.at-sec-quoi:focus{display:block}
+.at-sec-quoi:focus{background:#faf8f3;border-radius:6px;padding:4px 6px;
+  margin-left:-6px;width:calc(100% + 12px)}
 
-/* Ce qui est accroché à la section : les fonctionnalités rattachées. */
-.at-accroches{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
-.at-accroche{display:inline-flex;align-items:center;gap:4px;max-width:100%;
-  padding:2px 7px;border-radius:var(--r-pilule);background:#f4f1e9;
-  border:1px solid var(--trait);cursor:pointer;font-size:10px;
-  color:var(--encre2);line-height:1.6}
+/* Ce qui est accroché à la section : les fonctionnalités rattachées.
+   ⚠️ Une pastille prend TOUTE la largeur, une par ligne. Côte à côte et
+   bornées à 150 px, elles rendaient « Échanger les boutons « Ouv… » — on ne
+   savait plus de quel chantier on parlait, et deux pastilles tenaient de
+   toute façon sur deux lignes : la largeur ne coûte donc rien. */
+.at-accroches{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+/* ⚠️ `min-width:0` sur la pastille ET sur son texte : la taille minimale
+   automatique d'un élément flex est celle de son CONTENU, et un libellé en
+   `nowrap` débordait alors de 13 px hors de sa propre boîte. */
+.at-accroche{display:flex;align-items:center;gap:5px;flex:1 1 100%;
+  min-width:0;padding:3px 9px;border-radius:var(--r-pilule);text-align:left;
+  background:color-mix(in srgb,var(--n) 9%,#fff);
+  border:1px solid color-mix(in srgb,var(--n) 22%,#fff);cursor:pointer;
+  font-size:10.8px;color:var(--encre2);line-height:1.6}
 .at-accroche:hover{border-color:var(--t);color:var(--t);background:#fff}
 .at-accroche.faite{opacity:.55;text-decoration:line-through}
 .at-accroche span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  max-width:130px}
+  min-width:0}
 
-.at-sec-ajout{margin:0 9px 9px}
+.at-sec-ajout{margin:0 12px 12px}
 
 /* ══ Liens entre pièces ═══════════════════════════════════════════════════ */
 .at-lien-trait{fill:none;stroke:var(--gris2);stroke-width:2;

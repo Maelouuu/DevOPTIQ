@@ -609,3 +609,168 @@ class TestLesModeles:
             assert interdit not in src, interdit
         # Et il répond la même chose sans aucune variable d'environnement.
         assert mod.modele("tout")["noeuds"]
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  9 · La molette
+# ══════════════════════════════════════════════════════════════════════════
+
+def _bloc_molette():
+    js = _fichier(os.path.join("static", "atelier.js"))
+    i = js.index('scene.addEventListener("wheel"')
+    return js[i:js.index('scene.addEventListener("dblclick"')]
+
+
+class TestLaMolette:
+
+    def test_la_molette_zoome_SANS_modificateur(self):
+        """⚠️ Le zoom était derrière Ctrl et la molette nue faisait défiler :
+        sur un plan sans bord, c'est le geste inverse de celui qu'on fait.
+        Demandé en toutes lettres — « il faut que la molette zoom et
+        dézoom »."""
+        bloc = _bloc_molette()
+        assert "zoomer(cam.k" in bloc
+        # Le zoom est la SORTIE du gestionnaire : tout le reste est une
+        # exception qui rend la main avant lui.
+        for sortie in ("ev.shiftKey", "ev.deltaX"):
+            assert bloc.index(sortie) < bloc.index("zoomer(cam.k"), sortie
+        # Et il n'exige plus Ctrl.
+        avant = bloc[:bloc.index("zoomer(cam.k")]
+        assert "if (ev.ctrlKey || ev.metaKey) {" not in avant
+
+    def test_le_pas_de_la_molette_est_NORMALISE(self):
+        """⚠️ Un cran vaut 100 en pixels, 3 en lignes et 1 en pages : le même
+        cran donnait ×0,37 sous Chrome et ×0,97 sous Firefox. Et une rafale
+        d'inertie de pavé tactile doit être bornée, sinon un seul geste
+        traverse toute l'échelle."""
+        js = _fichier(os.path.join("static", "atelier.js"))
+        i = js.index("function pasMolette(")
+        corps = js[i:js.index("scene.addEventListener(\"wheel\"")]
+        assert "ev.deltaMode === 1" in corps
+        assert "ev.deltaMode === 2" in corps
+        assert "borne(" in corps
+        assert "pasMolette(ev)" in _bloc_molette()
+
+    def test_un_balayage_horizontal_ne_zoome_PAS(self):
+        """Deux doigts qui glissent de côté ne demandent jamais un zoom."""
+        bloc = _bloc_molette()
+        i = bloc.index("Math.abs(ev.deltaX) > Math.abs(ev.deltaY)")
+        assert "cam.x -= ev.deltaX" in bloc[i:i + 200]
+        assert "return" in bloc[i:i + 200]
+
+    def test_l_aide_dit_ce_que_fait_la_molette(self):
+        """Une aide qui décrit le geste d'avant est pire que pas d'aide."""
+        page = _fichier(os.path.join("templates", "atelier.html"))
+        i = page.index("<dt>Molette</dt>")
+        assert "zoomer" in page[i:i + 90]
+        assert "<dt>Maj + molette</dt>" in page
+        # L'ancienne ligne « Ctrl + molette » ne dit plus rien de neuf.
+        assert "<dt>Ctrl + molette</dt>" not in page
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  10 · La maquette se LIT
+# ══════════════════════════════════════════════════════════════════════════
+
+def _corps_js(depart, fin):
+    js = _fichier(os.path.join("static", "atelier.js"))
+    return js[js.index(depart):js.index(fin)]
+
+
+def _regle(css, selecteur):
+    """Le corps d'UNE règle, bornée — un fichier de cette taille porte
+    toujours un homonyme de ce qu'on croit lire."""
+    i = css.index(selecteur + "{")
+    return css[i:css.index("}", i)]
+
+
+class TestLaMaquetteSeLit:
+
+    def test_le_croquis_est_une_VIGNETTE_dans_la_tete(self):
+        """⚠️ En bande sous le titre, il pesait une trentaine de pixels de
+        barres colorées par section : plus lourd que le nom, bien plus lourd
+        que le texte. Dix sections faisaient un mur de barres — « tout est
+        compact et serré, on comprend pas trop »."""
+        f = _corps_js("function uneSection(", "function genre(")
+        assert (f.index("at-sec-tete") < f.index("at-croquis")
+                < f.index("at-sec-nom"))
+        # Et le texte vit dans un corps, APRÈS la tête.
+        assert f.index("at-sec-corps") > f.index("at-sec-nom")
+        assert f.index("at-sec-quoi") > f.index("at-sec-corps")
+
+    def test_le_genre_se_change_ENCORE(self):
+        """La vignette remplace le mot répété à droite de chaque titre, mais
+        elle porte le même <select> : un objet qu'on lit ET qu'on clique."""
+        f = _corps_js("function uneSection(", "function genre(")
+        assert 'data-sec-genre="1"' in f
+        assert f.index("at-genre") < f.index("at-croquis")
+        assert "aria-label=" in f
+        css = _fichier(os.path.join("static", "atelier.css"))
+        bloc = _regle(css, ".at-sec-genre")
+        assert "opacity:0" in bloc and "cursor:pointer" in bloc
+        # ⚠️ Le croquis ne doit jamais intercepter le clic du select posé
+        # dessus : sinon la vignette ne s'ouvre plus.
+        assert "pointer-events:none" in _regle(css, ".at-croquis")
+
+    def test_le_texte_pese_plus_que_le_croquis(self):
+        """Ce que la section porte est la seule chose qu'on vienne lire : il
+        était en 10,8 px italiques gris sous une bande de barres."""
+        css = _fichier(os.path.join("static", "atelier.css"))
+        quoi = _regle(css, ".at-sec-quoi")
+        assert float(re.search(r"font-size:([\d.]+)px", quoi).group(1)) >= 12
+        # La police du CORPS, pas celle des sur-titres : un texte en italique
+        # grise se lit comme une note de bas de page.
+        assert "var(--f-corps)" in quoi
+        assert "font-style:italic" not in quoi
+        nom = _regle(css, ".at-sec-nom")
+        assert float(re.search(r"font-size:([\d.]+)px", nom).group(1)) >= 12.5
+        barre = _regle(css, ".at-croquis span")
+        assert float(re.search(r"height:([\d.]+)px", barre).group(1)) <= 3.5
+
+    def test_la_hauteur_d_une_page_SUIT_SON_TEXTE(self, mod):
+        """⚠️ Un forfait par section laissait défiler À L'INTÉRIEUR toute page
+        dont les phrases dépassaient deux lignes — et une maquette qu'on ne
+        voit jamais en entier ne sert plus de plan."""
+        courte = {"titre": "X", "sections": [("A", "liste", "deux mots")]}
+        longue = {"titre": "X",
+                  "sections": [("A", "liste", "mot " * 60)]}
+        assert mod._hauteur(longue) > mod._hauteur(courte)
+        # Et deux pages de même nombre de sections ne sortent pas de la même
+        # taille si leurs textes diffèrent.
+        par_nb = {}
+        for p in mod.PAGES:
+            par_nb.setdefault(len(p["sections"]), set()).add(mod._hauteur(p))
+        assert any(len(v) > 1 for v in par_nb.values())
+
+    def test_une_section_qui_PORTE_des_chantiers_est_plus_haute(self, mod):
+        """Les pastilles d'un chantier accroché vivent DANS la section : sans
+        elles au calcul, la page la plus chargée défilait de 69 px."""
+        page = mod.PAGES[1]
+        nom = page["sections"][0][0]
+        seul = mod._hauteur(page)
+        avec = mod._hauteur(page, {(page["titre"], nom): 2})
+        assert avec > seul
+        assert mod._hauteur(page, {(page["titre"], nom): 1}) < avec
+        # Le modèle complet les compte vraiment.
+        compte = mod._accroches_par_page()
+        assert compte and sum(compte.values()) == len(mod.CHANTIERS)
+
+    def test_une_maquette_posee_a_la_main_a_la_MEME_largeur(self):
+        """Sinon le plan est en dents de scie dès qu'on ajoute une page."""
+        js = _code_js(os.path.join("static", "atelier.js"))
+        i = js.index("maquette: { w:")
+        largeur = int(re.search(r"w: (\d+)", js[i:i + 60]).group(1))
+        src = _fichier("atelier_modeles.py")
+        assert largeur == int(re.search(r"^LARGEUR = (\d+)", src,
+                                        re.M).group(1))
+
+    def test_aucune_regle_neuve_ne_lit_un_accent_doux_de_la_racine(self):
+        """⚠️ `--pg-accent-soft` et ses frères sont déclarés sur `:root`, où
+        l'accent vaut encore le gris par défaut : ils rendent du GRIS. Les
+        mélanges s'écrivent sur place."""
+        css = re.sub(r"/\*.*?\*/", "",
+                     _fichier(os.path.join("static", "atelier.css")),
+                     flags=re.S)
+        for interdit in ("--pg-accent-soft", "--pg-accent-softer",
+                         "--pg-accent-border", "--pg-accent-glow"):
+            assert interdit not in css, interdit

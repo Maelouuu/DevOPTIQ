@@ -65,7 +65,7 @@
     liste: { w: 280, h: 230, titre: "", teinte: "olive" },
     image: { w: 320, h: 260, titre: "", teinte: "ciel" },
     lien: { w: 260, h: 130, titre: "", teinte: "lavande" },
-    maquette: { w: 320, h: 400, titre: "", teinte: "garance" },
+    maquette: { w: 400, h: 420, titre: "", teinte: "garance" },
     cadre: { w: 560, h: 400, titre: "Groupe", teinte: "sienne" }
   };
 
@@ -649,24 +649,35 @@
       }).join("") + "</div>";
     }
 
+    /* ⚠️ Le croquis est une VIGNETTE dans la tête, plus une bande sous le
+       titre. En bande il pesait une trentaine de pixels de barres colorées
+       PAR section — plus lourd que le nom, bien plus lourd que le texte :
+       dix sections faisaient un mur de barres qu'on ne lisait pas. Il porte
+       en prime le choix du genre (le <select> est posé dessus, transparent)
+       au lieu d'un mot répété à droite de chaque titre : un seul objet, qui
+       se lit d'un coup d'œil et qui se clique. */
     return '<div class="at-sec" data-sec="' + esc(s.id) + '">'
       + '<div class="at-sec-tete">'
       + '<span class="at-sec-grip" data-sec-grip="1" title="Glisser pour réordonner"></span>'
+      + '<label class="at-genre" title="' + esc(g.nom) + ' — changer le genre">'
+      + '<span class="at-croquis g-' + esc(s.genre) + '">' + traits + "</span>"
+      + '<select class="at-sec-genre" data-sec-genre="1"'
+      + ' aria-label="Genre de la section">' + opts + "</select></label>"
       + '<input class="at-sec-nom" data-sec-nom="1" value="' + esc(s.nom)
       + '" placeholder="Section">'
-      + '<select class="at-sec-genre" data-sec-genre="1">' + opts + "</select>"
-      + (att.length ? '<span class="at-sec-n">' + att.length + "</span>" : "")
+      + (att.length ? '<span class="at-sec-n" title="' + att.length
+         + ' pièce(s) rattachée(s)">' + att.length + "</span>" : "")
       + '<button class="at-mini-btn sup at-sec-sup" data-sec-sup="1"'
       + ' title="Retirer la section">×</button>'
       + "</div>"
-      + '<div class="at-croquis g-' + esc(s.genre) + '">' + traits + "</div>"
-      // Ce que la section PORTE dans l'app. Une maquette qui ne dit que des
-      // noms de sections ne sert qu'à celui qui les a écrits.
+      // Ce que la section PORTE dans l'app : c'est le texte qu'on vient
+      // lire, donc c'est lui qui a la taille et l'encre, pas le croquis.
+      + '<div class="at-sec-corps">'
       + '<textarea class="at-sec-quoi" rows="1" data-sec-quoi="1"'
       + ' placeholder="ce que cette section porte…">' + esc(s.quoi || "")
       + "</textarea>"
       + puces
-      + "</div>";
+      + "</div></div>";
   }
 
   function genre(cle) {
@@ -1732,15 +1743,27 @@
 
   // ══ Molette ═════════════════════════════════════════════════════════════
 
+  /* ⚠️ Le pas se NORMALISE avant d'entrer dans le zoom. Un cran de molette
+     vaut 100 en PIXELS (Chrome), 3 en LIGNES (Firefox) et 1 en PAGES : avec
+     un facteur brut, le même cran faisait ×0,37 d'un côté et ×0,97 de
+     l'autre. La ligne compte donc 33 px, la rafale d'inertie d'un pavé
+     tactile est bornée, et un cran vaut ~12 % de zoom partout. */
+  function pasMolette(ev) {
+    var d = ev.deltaY;
+    if (ev.deltaMode === 1) { d *= 33; }
+    else if (ev.deltaMode === 2) { d *= 400; }
+    return borne(d, -220, 220);
+  }
+
   scene.addEventListener("wheel", function (ev) {
     ev.preventDefault();
-    if (ev.ctrlKey || ev.metaKey) {
-      zoomer(cam.k * Math.pow(0.99, ev.deltaY), ev.clientX, ev.clientY);
-      return;
+    // Un balayage HORIZONTAL n'est jamais une intention de zoom.
+    if (!ev.ctrlKey && !ev.metaKey
+        && Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) {
+      cam.x -= ev.deltaX; appliquerCam(); return;
     }
-    if (ev.shiftKey) { cam.x -= ev.deltaY; }
-    else { cam.x -= ev.deltaX; cam.y -= ev.deltaY; }
-    appliquerCam();
+    if (ev.shiftKey) { cam.y -= ev.deltaY; appliquerCam(); return; }
+    zoomer(cam.k * Math.pow(0.9988, pasMolette(ev)), ev.clientX, ev.clientY);
   }, { passive: false });
 
   scene.addEventListener("dblclick", function (ev) {

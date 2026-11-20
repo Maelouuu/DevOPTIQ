@@ -362,24 +362,55 @@ CHANTIERS = [
 # Rangement en colonnes de hauteur égale : une grille rigide laisserait des
 # trous sous les pages courtes, et la toile serait deux fois plus haute.
 
-LARGEUR = 340
-ECART_X = 34
-ECART_Y = 28
+LARGEUR = 400
+ECART_X = 36
+ECART_Y = 32
 COLONNES = 4
 
+# ⚠️ La hauteur se CALCULE sur le texte, elle ne se devine pas à la section.
+# Un forfait par section (c'était 96 px) laissait défiler à l'intérieur toute
+# page dont les phrases dépassaient deux lignes — et une maquette qu'on ne
+# voit jamais en entier ne sert plus de plan.
+#
+# Les quatre constantes sont MESURÉES à l'écran, à 400 px de large, sur les
+# 83 sections du modèle : 56 signes par ligne au pire (le retour à la ligne
+# tombe entre 56 et 59 selon les mots), 20 px la ligne, 62 px le reste d'une
+# section, 134 px le haut et le bas de la pièce. Relevé après coup : aucune
+# page sous-estimée, la plus juste garde 16 px de marge.
+SIGNES_PAR_LIGNE = 56
+HAUTEUR_LIGNE = 20
+SECTION_FIXE = 62
+CHROME = 134          # en-tête de la pièce + barre d'adresse + « + une section »
+ACCROCHE_1 = 33       # ⚠️ une section PORTE les chantiers qu'on lui accroche :
+ACCROCHE_N = 29       #    sans ça, la page la plus chargée défilait de 69 px
 
-def _hauteur(nb_sections):
-    # En-tête + barre d'adresse + une section, bornée : au-delà la maquette
-    # défile, ce qui vaut mieux qu'une pièce de deux mètres de haut.
-    return min(760, 150 + 96 * nb_sections)
+
+def _accroches_par_page():
+    """Combien de chantiers tombent sur chaque (page, section)."""
+    compte = {}
+    for _texte, page, section in CHANTIERS:
+        cle = (page, section)
+        compte[cle] = compte.get(cle, 0) + 1
+    return compte
 
 
-def _maquettes(depart_x=0, depart_y=0):
+def _hauteur(page, accroches=None):
+    h = CHROME
+    for nom, _genre, quoi in page["sections"]:
+        lignes = max(1, -(-len(quoi) // SIGNES_PAR_LIGNE))
+        h += SECTION_FIXE + lignes * HAUTEUR_LIGNE
+        k = (accroches or {}).get((page["titre"], nom), 0)
+        if k:
+            h += ACCROCHE_1 + ACCROCHE_N * (k - 1)
+    return h
+
+
+def _maquettes(depart_x=0, depart_y=0, accroches=None):
     noeuds = []
     bas = [depart_y] * COLONNES
     for i, page in enumerate(PAGES):
         col = bas.index(min(bas))
-        h = _hauteur(len(page["sections"]))
+        h = _hauteur(page, accroches)
         noeuds.append({
             "id": "pg%d" % i,
             "type": "maquette",
@@ -399,13 +430,31 @@ def _maquettes(depart_x=0, depart_y=0):
     return noeuds
 
 
+LIGNE_SIGNES = 50     # la même mesure, pour le texte d'une ligne de liste
+LIGNE_FIXE = 44
+CHROME_LISTE = 105
+
+
+def _hauteur_chantiers():
+    """⚠️ Le badge « page · section » ne tient sur deux lignes QUE si une
+    barre de défilement a volé 15 px à la carte — c'est-à-dire seulement si
+    la hauteur est trop courte. Le calcul juste est donc son propre point
+    fixe : assez haut, rien ne défile, rien ne se replie. Mesuré : 962 px
+    nécessaires, 1005 calculés."""
+    h = CHROME_LISTE
+    for texte, _page, _section in CHANTIERS:
+        h += LIGNE_FIXE + HAUTEUR_LIGNE * max(
+            1, -(-len(texte) // LIGNE_SIGNES))
+    return h
+
+
 def _chantiers(depart_x=0, depart_y=0):
     """Une liste à cocher, chaque ligne rattachée par NOM à sa page."""
     return [{
         "id": "ch",
         "type": "liste",
         "x": depart_x, "y": depart_y,
-        "w": 400, "h": 680,
+        "w": 400, "h": _hauteur_chantiers(),
         "teinte": "garance",
         "titre": "Chantiers à venir",
         "items": [
@@ -458,6 +507,8 @@ def modele(cle):
         # La liste à gauche, les pages à sa droite : on lit la liste, et les
         # badges emmènent sur la maquette voisine.
         return {"cle": cle, "titre": "Le plan de l'app + mes chantiers",
-                "noeuds": _chantiers() + _maquettes(depart_x=460),
+                "noeuds": _chantiers()
+                          + _maquettes(depart_x=460,
+                                       accroches=_accroches_par_page()),
                 "liens": []}
     return None

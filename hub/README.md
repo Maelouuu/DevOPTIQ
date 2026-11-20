@@ -83,6 +83,15 @@ Un chantier désigne sa page par son NOM ; `tests/test_156_hub_atelier.py`
 vérifie que chaque couple (page, section) existe, car une faute de frappe ne
 lève rien — elle fait disparaître le badge en silence.
 
+⚠️ **La hauteur d'une maquette se CALCULE sur son texte** (`_hauteur`), elle
+ne se devine pas à la section : un forfait laissait défiler à l'intérieur
+toute page dont les phrases dépassaient deux lignes, et une maquette qu'on ne
+voit jamais en entier ne sert plus de plan. Les constantes sont **mesurées à
+l'écran** (56 signes par ligne, 20 px la ligne, 62 px le reste d'une section,
+134 px le haut et le bas, 33 px la première pastille de chantier) : les
+changer sans remesurer rouvre le défaut. Et les pastilles comptent — une
+section porte ce qu'on lui accroche.
+
 ⚠️ Aucun secret dans ce fichier : on **nomme** les bases et les secrets GitHub,
 on ne recopie jamais leurs valeurs.
 
