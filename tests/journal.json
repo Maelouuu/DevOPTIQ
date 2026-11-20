@@ -50,6 +50,23 @@
   },
   "entries": [
     {
+      "at": "2026-11-20T03:30:47",
+      "date": "20/11/2026 · 03:30",
+      "author": "routine",
+      "title": "Carte des activités + modèles : 57 tests de couverture résiduelle",
+      "summary": "Suite verte au départ (4729 réussis, 0 échec) : aucun correctif à faire, tout le temps est allé à la couverture. Cibles : les branches restantes de Code/routes/activities_map.py (partage avec destinataires ou remplacement illisibles, activation d une entité legacy sans propriétaire, suppression d un rôle devenu orphelin, dé-officialisation de liaison refusée / carto d origine illisible / formes injectées retirées, cross_carto_matches sur carto illisible ou sans forme hachurée) et les méthodes de Code/models/models.py jamais appelées par les routes (Entity.accessible/set_active/for_user, for_active_entity de 6 modèles, Link.source_id/target_id, TimeAnalysis.delay_gap/delay_ratio/recurrence_factor, _capture_changes). Constat : /activities/update-cartography est déclarée deux fois ; c est activities_bp qui la sert, la version de activities_map.py est du code mort. Suite finale : 4786 réussis, 0 échec.",
+      "new_tests": 57,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "activities_map",
+      "highlights": [
+        "Route en double : /activities/update-cartography de activities_map.py n est jamais atteinte",
+        "Tests isolés : entités T157/T158 jetables, entité active de session restaurée",
+        "Modèles testés dans un test_request_context dédié, sans toucher la session partagée"
+      ],
+      "next": "Résidus de Code/app.py (81 %) et Code/permissions.py (95 %)."
+    },
+    {
       "at": "2026-11-19T03:27:30",
       "date": "19/11/2026 · 03:27",
       "author": "routine",
