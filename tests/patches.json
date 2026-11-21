@@ -888,5 +888,23 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-19T03:27:23"
+  },
+  {
+    "patch_uid": "2026-11-21-hub-login-redirection-ouverte",
+    "title": "Hub : la connexion redirigeait vers un site externe via suite=//hote",
+    "node_ids": [
+      "tests/test_157_hub_app.py::TestHubConnexion::test_login_suite_relative_au_protocole_refusee"
+    ],
+    "page_slug": "hub_app",
+    "failure_reason": "Après une connexion réussie avec suite=//evil.example/x, la réponse 302 portait Location: //evil.example/x au lieu de /.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "login() ne validait suite que par startswith(\"/\") : une URL relative au protocole (//hote/…) passe ce contrôle et le navigateur quitte le hub — redirection ouverte exploitable pour l hameçonnage d un compte qui voit bases, secrets et instances.",
+    "fix_description": "suite est ramenée à / si elle ne commence pas par / OU si son 2e caractère est / ou \\ (formes que les navigateurs lisent comme relatives au protocole).",
+    "files_changed": [
+      "hub/app.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-21T03:11:43"
   }
 ]

@@ -189,7 +189,9 @@ def etats_instances(force=False):
 def login():
     erreur = None
     suite = request.args.get("suite") or request.form.get("suite") or "/"
-    if not suite.startswith("/"):
+    # `//hote/…` (et `/\hote`, que les navigateurs lisent pareil) commence par
+    # « / » mais est une URL relative au PROTOCOLE : le navigateur quitte le hub.
+    if not suite.startswith("/") or suite[1:2] in ("/", "\\"):
         suite = "/"
     if request.method == "POST":
         ip = request.headers.get("X-Forwarded-For",
