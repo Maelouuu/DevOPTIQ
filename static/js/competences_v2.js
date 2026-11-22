@@ -77,7 +77,6 @@
       vo_leg_mesure: 'relevé en séance', vo_leg_rien: 'pas de note',
       vo_bouge: 'Comment « [[x]] » a bougé',
       vo_pas_qualifie: 'la norme reste à franchir',
-      cl_tenu: 'Niveau tenu',
       cl_courbes: 'Les courbes',
       cl_prec: 'Activité précédente',
       cl_suiv: 'Activité suivante',
@@ -509,7 +508,6 @@
       vo_leg_mesure: 'recorded in a session', vo_leg_rien: 'not rated',
       vo_bouge: 'How “[[x]]” moved',
       vo_pas_qualifie: 'the standard is not met yet',
-      cl_tenu: 'Level held',
       cl_courbes: 'The curves',
       cl_prec: 'Previous activity',
       cl_suiv: 'Next activity',
@@ -4831,7 +4829,6 @@
     const z = $('#ev-ou');
     const a = state.activity;
     const niv = niveauActivite(st);
-    const req = estNul(st.required_level) ? null : st.required_level;
     const dev = jeSuisLeDev();
     z.innerHTML = `
       <div class="ou-h">
@@ -4849,11 +4846,6 @@
           ${a.competence
             ? `<div class="ou-comp"><em>${esc(T('ou_comp'))}</em>${esc(a.competence)}</div>` : ''}
         </div>
-        <div class="ou-niv">
-          <p class="ou-lbl">${esc(T('cl_tenu'))}<span data-min></span></p>
-          <p class="v" data-niv>${estNul(niv) ? '—' : niv}<i>/4</i></p>
-          <span class="e" data-ecart></span>
-        </div>
       </div>
       ${bassinHtml(st)}
       <div class="ou-reg" id="ev-cl-reg"></div>`;
@@ -4862,7 +4854,11 @@
     const pr = z.querySelector('[data-aller-role]');
     if (pr) pr.onclick = () => { state.voRole = state.roleId; chargerSynthese(); };
     z.querySelector('[data-min]').appendChild(boutonInfo(T('ev_min_t'), texteMinimum()));
-    majEcart(z, niv, req);
+    // ⚠️ Le CHIFFRE et l'écart sont écrits par la fonction dont c'est le
+    // métier, pas ici : `majBassin` ne touche qu'à ce qui BOUGE (la hauteur
+    // de l'eau et celle du cartouche). Un `innerHTML` dans le bassin le
+    // ferait sauter d'un niveau à l'autre au lieu de l'y faire monter.
+    majNiveauTenu(st);
     reglagesOu(st);
     majNav();
   }
@@ -4948,7 +4944,14 @@
   // `basY(4)` vaut `h - fond` quelle que soit la hauteur du bassin — celle
   // du niveau 4 débordait donc toujours de 13 px par le haut, rognée par
   // l'`overflow: hidden`. Il faut au ciel la hauteur d'une pastille.
-  const BAS = { h: 300, bas: 16, haut: 46 };
+  // ⚠️⚠️ Et depuis que le NIVEAU est posé sur la ligne d'eau, les deux bords
+  // valent la moitié de son cartouche : au niveau 0 sa moitié basse descend
+  // sous `basY(0)`, au niveau 4 sa moitié haute monte au-dessus de
+  // `basY(4) = h - haut`, et l'`overflow: hidden` rognerait l'une ou l'autre.
+  // Mesuré : 26 px sous la ligne, 48 px au-dessus (la pastille d'écart s'y
+  // empile). Le ciel passe donc de 46 à 60 — il garde sa raison d'être
+  // (la pastille d'un repère, 37 px au-dessus de sa ligne) et gagne celle-ci.
+  const BAS = { h: 300, bas: 34, haut: 60 };
   const basPas = () => (BAS.h - BAS.bas - BAS.haut) / 4;
   const basY = n => BAS.bas + basPas() * n;
 
@@ -4975,6 +4978,27 @@
         <span class="bar"></span>
         <span class="et"><b></b><span class="z"></span></span></span>`;
     });
+    // ⚠️⚠️ LE NIVEAU DE L'ACTIVITÉ VIT ICI, ET NULLE PART AILLEURS.
+    //
+    // Il était écrit en 48 px au-dessus du bassin — et la ligne d'eau, 295 px
+    // plus bas (mesuré), disait exactement la même valeur. Deux énoncés d'une
+    // seule chose, que rien ne reliait : « le lien entre l'activité et ses
+    // résultats doit être plus marqué. »
+    //
+    // Le chiffre est donc posé SUR la surface, dans un couloir réservé à
+    // droite du bassin, et la ligne d'eau TRAVERSE ce couloir pour venir
+    // finir sous lui. Poser une note déplace le repère le plus bas, donc
+    // l'eau, donc le chiffre : le découlement se regarde au lieu de
+    // s'expliquer, et il ne reste qu'un seul endroit où lire le niveau.
+    //
+    // ⚠️ `[data-niv]` garde SON contrat — il porte le chiffre ET le « /4 »,
+    // parce que `majNiveauTenu` y écrit `niv + '<i>/4</i>'` sans réécrire le
+    // bloc de nuit (le réécrire ferait sauter l'eau au lieu de la faire
+    // monter). L'info-bulle est posée à côté, pas dedans.
+    h += `<span class="bas-niv" data-basniv>
+      <span class="e" data-ecart></span>
+      <span class="n"><b class="v" data-niv>—<i>/4</i></b><span data-min></span></span>
+    </span>`;
     h += '</div><p class="bas-note" data-bnote></p>';
     return h;
   }
@@ -5004,6 +5028,16 @@
     surf.className = 'surf ' + (vert ? 'vert' : 'bleu');
     surf.style.opacity = estNul(niv) ? 0 : 1;
     surf.style.bottom = (basY(estNul(niv) ? bas : niv) - 2) + 'px';
+
+    // ⚠️ Le chiffre suit la MÊME hauteur que l'eau, par la même transition :
+    // c'est ce qui en fait une conséquence et non un doublon. Sans niveau, il
+    // se pose au sommet de la hachure — là où s'arrête ce qu'on sait.
+    const pl = b.querySelector('[data-basniv]');
+    if (pl) {
+      pl.style.bottom = basY(estNul(niv) ? bas : niv) + 'px';
+      pl.classList.toggle('est-vert', vert);
+      pl.classList.toggle('est-vide', estNul(niv));
+    }
 
     // ⚠️⚠️ UNE pastille par NIVEAU, pas par sortie.
     //

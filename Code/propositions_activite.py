@@ -49,6 +49,14 @@ from Code.extensions import db
 _SEGMENTS = {
     "tasks": "task",
     "gestion_outils": "tool",
+    # ⚠️ `/tools/add` et `/tools/delete` RATTACHENT (ou détachent) un outil à
+    # une TÂCHE — ils ne touchent pas au catalogue. Ils manquaient à cette
+    # liste : un champion se faisait refuser l'outillage d'une tâche avec
+    # `lecture_seule`, le motif réservé à `user`. Même famille que l'oubli du
+    # garant (« Unable to set the garentor », pilote du 29/10) — et c'est
+    # bloquant depuis le 22/11, puisque le PALIER de soumission exige au moins
+    # un outil par activité : sans ces deux routes il serait infranchissable.
+    "tools": "tool",
     "skills": "skill",
     "savoirs": "savoir",
     "savoir_faires": "savoirfaire",
@@ -154,12 +162,23 @@ def lire_geste(chemin, methode, corps):
         verbe = "role_add" if methode == "POST" else "role_del"
     if famille == "tool" and bouts[-1] == "replace":
         verbe = "replace"
+    # ⚠️ `POST /tools/delete` DÉTACHE : le verbe se lit sur le chemin, pas sur
+    # la méthode, sinon le coordinateur lisait « Ajouter l'outil » pour un
+    # retrait.
+    if famille == "tool" and bouts[-1] == "delete":
+        verbe = "delete"
 
     # ⚠️ Un OUTIL n'appartient à aucune activité : c'est le catalogue de la
     # carto. Le corps d'une création peut pourtant en porter une (il part du
     # panneau d'une tâche) — la retenir ferait paraître « Ajouter l'outil X »
     # sous une fiche qui ne le porte pas.
-    activity_id = None if famille == "tool" else _entier(corps.get("activity_id"))
+    # ⚠️ SAUF quand on le rattache à une TÂCHE (`/tools/add`, `/tools/delete`,
+    # qui portent un `task_id`) : là le geste concerne bien la fiche de son
+    # activité, et c'est sous elle qu'on vient le relire.
+    if famille == "tool":
+        activity_id = _activite_de_la_tache(_entier(corps.get("task_id")))
+    else:
+        activity_id = _entier(corps.get("activity_id"))
     if activity_id is None:
         activity_id = _activite_du_chemin(famille, bouts)
 
@@ -172,6 +191,15 @@ def lire_geste(chemin, methode, corps):
         "activite": _nom_activite(activity_id),
         "objet": _nom_objet(famille, bouts, corps),
     }
+
+
+def _activite_de_la_tache(task_id):
+    """L'activité d'une tâche, ou None. Sert aux gestes qui outillent."""
+    from Code.models.models import Task
+    if not task_id:
+        return None
+    t = db.session.get(Task, task_id)
+    return t.activity_id if t else None
 
 
 def _activite_du_chemin(famille, bouts):
@@ -213,7 +241,33 @@ def _nom_objet(famille, bouts, corps):
         valeur = (corps.get(cle) or "").strip() if isinstance(corps.get(cle), str) else ""
         if valeur:
             return valeur[:200]
+    # ⚠️ `/tools/add` ne porte NI `name` NI identifiant dans son chemin : les
+    # outils arrivent par `new_tools` (des noms) et `existing_tool_ids` (des
+    # identifiants). Sans ce cas la proposition se lisait « Ajouter l'outil
+    # — », et le coordinateur devait deviner lequel.
+    if famille == "tool":
+        nom = _nom_des_outils(corps)
+        if nom:
+            return nom
     return _nom_en_base(famille, bouts)
+
+
+def _nom_des_outils(corps):
+    """Les outils nommés par un geste de rattachement, « X » ou « X +2 »."""
+    from Code.models.models import Tool
+    noms = [str(n).strip() for n in (corps.get("new_tools") or [])
+            if isinstance(n, (str,)) and str(n).strip()]
+    for tid in (corps.get("existing_tool_ids") or []):
+        outil = db.session.get(Tool, _entier(tid))
+        if outil is not None:
+            noms.append(outil.name)
+    if not noms:
+        outil = db.session.get(Tool, _entier(corps.get("tool_id")))
+        if outil is not None:
+            noms.append(outil.name)
+    if not noms:
+        return None
+    return noms[0][:200] if len(noms) == 1 else "%s +%d" % (noms[0][:180], len(noms) - 1)
 
 
 def _nom_en_base(famille, bouts):
@@ -330,6 +384,45 @@ def _neutraliser_commits():
     return vrai
 
 
+def _appliquer_gestes(liste):
+    """Rejoue les gestes dans la session COURANTE, sans rien valider.
+
+    Le corps commun de `rejouer` (qui valide) et de `simuler` (qui annule) :
+    deux boucles de rejeu finiraient par ne plus appliquer la même chose, et
+    l'écran annoncerait une carto que l'envoi refuserait.
+
+    ⚠️ On appelle la VUE directement, jamais par le client de test : les
+    `before_request` ne tirent donc pas, et c'est nécessaire — la porte
+    d'écriture détournerait les gestes du champion vers son propre brouillon,
+    en boucle.
+    """
+    app = current_app._get_current_object()
+    adaptateur = app.url_map.bind("localhost")
+    memoire = dict(session)
+    for rang, geste in enumerate(liste):
+        chemin = geste.get("chemin") or ""
+        methode = (geste.get("methode") or "POST").upper()
+        corps = geste.get("corps") if isinstance(geste.get("corps"), dict) else {}
+        try:
+            point, args = adaptateur.match(chemin, method=methode)
+        except Exception as exc:
+            raise EchecDeRejeu(rang, geste, "route: %s" % exc)
+        vue = app.view_functions.get(point)
+        if vue is None:
+            raise EchecDeRejeu(rang, geste, "route inconnue")
+        with app.test_request_context(chemin, method=methode, json=corps):
+            # ⚠️ Les routes lisent la session (entité active, langue) : sans
+            # la recopier, le rejeu travaillerait hors de toute carto.
+            session.update(memoire)
+            try:
+                reponse = vue(**args)
+            except Exception as exc:
+                raise EchecDeRejeu(rang, geste, str(exc))
+        statut = _statut(reponse)
+        if statut >= 400:
+            raise EchecDeRejeu(rang, geste, "HTTP %s" % statut)
+
+
 def rejouer(cr, acteur):
     """Applique les gestes de la proposition. Lève `EchecDeRejeu` au premier
     qui échoue, après avoir tout annulé.
@@ -343,33 +436,9 @@ def rejouer(cr, acteur):
     if not liste:
         return 0
 
-    app = current_app._get_current_object()
-    adaptateur = app.url_map.bind("localhost")
-    memoire = dict(session)
     vrai_commit = _neutraliser_commits()
     try:
-        for rang, geste in enumerate(liste):
-            chemin = geste.get("chemin") or ""
-            methode = (geste.get("methode") or "POST").upper()
-            corps = geste.get("corps") if isinstance(geste.get("corps"), dict) else {}
-            try:
-                point, args = adaptateur.match(chemin, method=methode)
-            except Exception as exc:
-                raise EchecDeRejeu(rang, geste, "route: %s" % exc)
-            vue = app.view_functions.get(point)
-            if vue is None:
-                raise EchecDeRejeu(rang, geste, "route inconnue")
-            with app.test_request_context(chemin, method=methode, json=corps):
-                # ⚠️ Les routes lisent la session (entité active, langue) : sans
-                # la recopier, le rejeu travaillerait hors de toute carto.
-                session.update(memoire)
-                try:
-                    reponse = vue(**args)
-                except Exception as exc:
-                    raise EchecDeRejeu(rang, geste, str(exc))
-            statut = _statut(reponse)
-            if statut >= 400:
-                raise EchecDeRejeu(rang, geste, "HTTP %s" % statut)
+        _appliquer_gestes(liste)
     except Exception:
         db.session.commit = vrai_commit
         db.session.rollback()
@@ -377,6 +446,38 @@ def rejouer(cr, acteur):
     db.session.commit = vrai_commit
     db.session.commit()
     return len(liste)
+
+
+def simuler(cr, mesurer):
+    """Ce que le brouillon DONNERAIT s'il s'appliquait — sans rien écrire.
+
+    Rend la valeur de `mesurer()`, appelée une fois les gestes rejoués.
+
+    ⚠️ On rejoue les vraies routes, puis on ANNULE. C'est la seule façon de
+    n'avoir qu'une idée de ce qu'« ajouter une tâche » veut dire : une mesure
+    qui relirait les gestes à sa façon finirait par annoncer une carto
+    complète que l'envoi refuse — ou l'inverse.
+
+    ⚠️ L'annulation est dans un `finally` : une simulation qui laisse une
+    ligne derrière elle a écrit sans qu'on le lui demande. Et elle remet la
+    session en état AVANT que l'appelant ne mesure à nouveau sur la base —
+    après une vue qui a levé, la session refuse toute requête tant qu'on n'a
+    pas annulé.
+
+    ⚠️ `EchecDeRejeu` REMONTE : un geste qui ne s'applique plus ne se mesure
+    pas, il se dit. L'appelant tranche (et l'envoi butera dessus de toute
+    façon).
+    """
+    liste = gestes(cr) if cr is not None else []
+    if not liste:
+        return mesurer()
+    vrai_commit = _neutraliser_commits()
+    try:
+        _appliquer_gestes(liste)
+        return mesurer()
+    finally:
+        db.session.commit = vrai_commit
+        db.session.rollback()
 
 
 def _statut(reponse):

@@ -19,6 +19,7 @@ from Code.extensions import db
 from Code.models.models import ActivityChangeRequest, Entity, User
 from Code.propositions_activite import (EchecDeRejeu, brouillon, gestes,
                                         rejouer, retirer_geste)
+from Code.socle_activites import etat as socle_etat
 
 acp_bp = Blueprint("activite_propositions", __name__, url_prefix="/api/propositions")
 
@@ -103,15 +104,43 @@ def vider_brouillon():
     return jsonify({"ok": True})
 
 
-@acp_bp.route("/envoyer", methods=["POST"])
-def envoyer():
-    """Le brouillon part à l'examen."""
+@acp_bp.route("/socle")
+def get_socle():
+    """Où en est la carto du PALIER de soumission.
+
+    ⚠️ Une LECTURE, et elle coûte un rejeu simulé : elle n'est donc pas
+    calculée au rendu de chaque page (le bandeau, lui, ne fait que compter
+    les gestes). On l'interroge quand on ouvre la fenêtre — là où l'on vient
+    chercher la réponse.
+    """
     user = _connecte()
     if not user:
         return jsonify({"error": "Non connecté"}), 401
-    cr = brouillon(user, Entity.get_active())
+    return jsonify(socle_etat(user, Entity.get_active()))
+
+
+@acp_bp.route("/envoyer", methods=["POST"])
+def envoyer():
+    """Le brouillon part à l'examen — si le PALIER est franchi."""
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    entite = Entity.get_active()
+    cr = brouillon(user, entite)
     if cr is None or not gestes(cr):
         return jsonify({"error": "Rien à envoyer", "code": "vide"}), 400
+
+    # ⚠️ LE PALIER, et il est appliqué ICI : le bouton éteint de la fenêtre
+    # n'est pas une sécurité, et une proposition déposée sur une carto à
+    # moitié remplie est précisément ce qui noie le coordinateur.
+    socle = socle_etat(user, entite)
+    if not socle.get("complet"):
+        return jsonify({"error": "Carto incomplète", "code": "socle",
+                        "socle": socle}), 409
+
+    # ⚠️ Le socle a SIMULÉ le brouillon puis annulé : la ligne qu'on tenait
+    # est expirée. On la reprend avant d'écrire dessus.
+    cr = brouillon(user, entite)
     data = request.get_json(silent=True) or {}
     cr.message = (data.get("message") or "").strip() or None
     cr.status = "pending"

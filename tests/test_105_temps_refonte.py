@@ -554,7 +554,9 @@ class TestLaCarteDiLeQuiManque:
     def test_le_bouton_NOMME_l_activite_qu_il_ouvre(self):
         js = _lire("static/js/time.js")
         assert "tm_couv_btn_nom" in js
-        assert "ouvrirAnalyse('activite', manquent[0].id)" in js
+        # ⚠️ `ouvrirNeuve` depuis le 22/11 : la porte CRÉE, elle doit donc
+        # vider le formulaire — `ouvrirAnalyse` seul le laissait rempli.
+        assert "ouvrirNeuve('activite', manquent[0].id)" in js
 
     def test_et_l_ouvrir_la_pre_choisit(self):
         """⚠️ Et remet le champ a l'etat NON SAISI : `intact()` refuse sinon
@@ -791,7 +793,12 @@ class TestOuvrirUneAnalysePourLaModifier:
         js = _lire("static/js/time.js")
         bloc = js[js.index("function addProjectRow"):][:2600]
         assert "recalc();\n    } else {" in bloc, bloc[-700:]
-        role = js[js.index("function addRoleRow"):][:2200]
+        # ⚠️ On borne sur ce qui SUIT, jamais sur un nombre de signes : la
+        # version d'avant découpait 2200 caractères après `addRoleRow`, et
+        # le simple ajout du sélecteur d'unité a poussé la ligne dehors — le
+        # cliquet est tombé sans qu'aucune règle ait bougé.
+        d = js.index("function addRoleRow")
+        role = js[d:js.index("function recalcRoleTotals", d)]
         assert "if (duration) recalc(); else prefillDuration();" in role
 
 
@@ -1588,13 +1595,17 @@ class TestSousUneHeureOnEcritDesMinutes:
 
     def test_les_en_tetes_n_annoncent_plus_des_HEURES(self):
         """La valeur porte désormais son unité : « Pesée (h) » au-dessus de
-        « 35 min » redevenait le défaut qu'on venait de corriger. ⚠️ Les
-        colonnes de SAISIE, elles, gardent la leur : le nombre y est nu."""
+        « 35 min » redevenait le défaut qu'on venait de corriger.
+
+        ⚠️ La colonne de SAISIE du rôle portait la sienne (« Durée (min) »)
+        parce qu'elle n'acceptait rien d'autre. Depuis le 22/11 l'unité se
+        CHOISIT à côté : un en-tête qui en annonce une au-dessus d'un
+        sélecteur qui en propose trois mentirait deux fois sur trois."""
         from Code.translations import TRANSLATIONS
         for lg in ("fr", "en"):
-            for cle in ("time.col_charge", "time.col_weight"):
+            for cle in ("time.col_charge", "time.col_weight", "time.col_duration"):
                 assert "(h)" not in TRANSLATIONS[lg][cle].lower(), (lg, cle)
-            assert "(min)" in TRANSLATIONS[lg]["time.col_duration_min"], lg
+                assert "(min)" not in TRANSLATIONS[lg][cle].lower(), (lg, cle)
 
 
 class TestLesCinqCartesArbitrees:

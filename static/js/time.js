@@ -125,13 +125,33 @@
     if (type === 'faiblesse') { refreshWeaknessDefaults().then(() => calculFaiblesse()); }
   }
 
+  /* ══ CRÉER, c'est partir d'un formulaire VIDE ════════════════════════
+     `viderSaisie` existait, et seule la croix du bandeau de modification
+     l'appelait : les trois portes qui CRÉENT se contentaient de quitter
+     l'édition. On rouvrait donc « Rôle » sur le nom et les durées de
+     l'analyse qu'on venait de relire — et « Enregistrer » créait une
+     seconde analyse qui en était la copie.
+
+     ⚠️ Dans cet ORDRE, et pas l'inverse : `ouvrirAnalyse` pose l'activité
+     choisie (le chemin « à chiffrer ») et la liste déroulante du rôle, que
+     `viderSaisie` lit ensuite pour recharger les lignes.
+     ⚠️ Et SURTOUT pas dans `ouvrirAnalyse` : `ouvrirPourModifier` l'appelle
+     aussi, et `viderSaisie('role')` lance un `loadRoleActivities` ASYNCHRONE
+     dont les lignes atterriraient après celles que `chargerRole` vient de
+     poser — l'analyse rouverte s'afficherait en double. */
+  function ouvrirNeuve(type, activityId) {
+    sortirEdition();
+    ouvrirAnalyse(type, activityId);
+    viderSaisie(type);
+  }
+
   $('#tm-btn-nouvelle')?.addEventListener('click', () => ouvrirEcran('choix'));
   $$('.tm-retour').forEach(b => b.addEventListener('click', () => ouvrirAccueil()));
   /* ⚠️ Les portes, pas `[data-analyse]` tout court : `#tm-travail` porte cet
      attribut (c'est lui qui teinte l'icone de la barre), on lui poserait un
      ecouteur qui le rouvrirait sur lui-meme. */
   $$('.tm-porte').forEach(
-    b => b.addEventListener('click', () => { sortirEdition(); ouvrirAnalyse(b.dataset.analyse); }));
+    b => b.addEventListener('click', () => ouvrirNeuve(b.dataset.analyse)));
   /* ⚠️ Le rail de l'accueil MONTRE ce qui est enregistre ; il ouvrait un
      formulaire vierge — ce que fait deja « + Nouvelle analyse », a dix
      centimetres au-dessus. Et chaque tuile porte le NOMBRE d'analyses de son
@@ -142,7 +162,7 @@
   /* L'état vide d'une carte, lui, CRÉE : il n'y a rien à relire. Câblé par
      son id et non par `.tm-porte`, dont il n'a ni la place ni l'habillage. */
   $('#tm-role-vide .tm-vide-b')?.addEventListener('click',
-    () => { sortirEdition(); ouvrirAnalyse('role'); });
+    () => ouvrirNeuve('role'));
   /* ⚠️ Le repère MÈNE au champ, il ne porte pas une seconde saisie : le nom
      n'a qu'une source. C'est là que l'utilisateur vient le chercher — un
      crayon et un nom — et il n'y trouvait qu'une croix qui QUITTE. */
@@ -893,16 +913,26 @@
      un LIBELLE, son identifiant vit sur la ligne, et il n'y a plus ni ajout
      ni retrait. Ce qui reste reglable : la duree, la recurrence, la
      frequence — ce qu'on vient vraiment estimer. */
-  function addRoleRow(activityId=null, duration=0, _unit='minutes', recurrence='journalier', frequency=1){
+  function addRoleRow(activityId=null, duration=0, unit='minutes', recurrence='journalier', frequency=1){
     const tr = document.createElement('tr');
     tr.dataset.activityId = activityId == null ? '' : String(activityId);
     tr.innerHTML = `
       <td class="r-act">${echap(nomActivite(activityId))}</td>
       <td><input type="number" min="0" step="0.1" class="input r-dur" /></td>
+      <td class="r-du"></td>
       <td class="r-rec"></td>
       <td><input type="number" min="1" step="1" class="input r-freq" value="1" /></td>
       <td class="r-weight">0</td>
     `;
+
+    /* L'unité se CHOISIT, comme pour le projet et l'activité : une tâche de
+       rôle se compte souvent en heures, et la saisir en minutes demandait de
+       multiplier de tête. ⚠️ La conversion est faite par le serveur — la
+       colonne s'appelle `duration_minutes` — et ici seulement pour la pesée
+       affichée. */
+    const du = unitSelect();
+    tr.querySelector('.r-du').appendChild(du);
+    du.value = unit || 'minutes';
 
     const recSel = document.createElement('select');
     recSel.className='input';
@@ -923,7 +953,9 @@
       const r = await fetch(`/temps/api/activity_defaults/${id}`);
       const j = await r.json();
       const champ = tr.querySelector('.r-dur');
-      if (intact(champ)) champ.value = parseFloat(j.duration_minutes) || 0;
+      // ⚠️ La fiche porte des MINUTES : poser la valeur sans ramener l'unité
+      // la lirait dans celle qui traîne (« 30 jours » pour 30 min).
+      if (intact(champ)) { champ.value = parseFloat(j.duration_minutes) || 0; du.value = 'minutes'; }
       recalc();
     }
 
@@ -932,7 +964,7 @@
     if (duration) recalc(); else prefillDuration();
 
     function recalc(){
-      const durMin = parseFloat(tr.querySelector('.r-dur').value || '0');
+      const durMin = toMinutes(tr.querySelector('.r-dur').value, du.value);
       const freq = parseInt(tr.querySelector('.r-freq').value || '1', 10);
       const weight = durMin * Math.max(1, freq);
       const wCell = tr.querySelector('.r-weight');
@@ -986,9 +1018,9 @@
   async function loadRoleActivities(roleId){
     roleBody.innerHTML = '';
     const ok = await chargerOptionsRole(roleId);
-    if (!ok) { roleBody.innerHTML = `<tr><td colspan="5" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
+    if (!ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
     if (!roleActivitiesOptions.length) {
-      roleBody.innerHTML = `<tr><td colspan="5" class="muted">${tl('role_no_activity', 'Aucune activité pour ce rôle.')}</td></tr>`;
+      roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('role_no_activity', 'Aucune activité pour ce rôle.')}</td></tr>`;
       return;
     }
     // Pré-remplir une ligne par activité du rôle (comme avant)
@@ -1004,7 +1036,9 @@
     const lines = $$('#role-rows tr').filter(tr=>tr.querySelector('.r-rec select')).map(tr=>({
       activity_id: parseInt(tr.dataset.activityId || '0', 10),
       duration: parseFloat(tr.querySelector('.r-dur').value || '0'),
-      duration_unit: 'minutes',
+      // ⚠️ L'unité CHOISIE, plus un « minutes » écrit en dur : le serveur la
+      // lit (`_duree_ligne_role`) et convertit avant d'écrire.
+      duration_unit: (tr.querySelector('.r-du select') || {}).value || 'minutes',
       recurrence: tr.querySelector('.r-rec select').value,
       frequency: parseInt(tr.querySelector('.r-freq').value || '1',10)
     }));
@@ -1539,7 +1573,7 @@
       // lesquelles, ni ou on atterrissait.
       updateKpi('tm-btn-couv-txt',
                 fmtPhrase('tm_couv_btn_nom', '{nom}', { nom: manquent[0].nom }));
-      bouton.onclick = () => ouvrirAnalyse('activite', manquent[0].id);
+      bouton.onclick = () => ouvrirNeuve('activite', manquent[0].id);
     }
 
     // — Ce que chaque analyse contient deja

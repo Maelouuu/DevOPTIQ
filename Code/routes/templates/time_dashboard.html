@@ -555,7 +555,7 @@
                    role, on n'en ajoute ni n'en retire (voir addRoleRow). #}
                 <colgroup>
                   <col class="col-activity">
-                  <col class="col-num">
+                  <col class="col-num"><col class="col-unit">
                   <col class="col-rec">
                   <col class="col-num-xs">
                   <col class="col-num">
@@ -563,10 +563,17 @@
                 <thead>
                   <tr>
                     <th>{{ t('time.col_activity') }}</th>
-                    <!-- ⚠️ MINUTES, pas heures : `addRoleRow` lit ce champ tel
-                         quel. L'en-tête disait « (h) » et faisait saisir une
-                         charge soixante fois autre que celle qu'on croyait. -->
-                    <th>{{ t('time.col_duration_min') }}</th>
+                    <!-- ⚠️ L'en-tête ne porte PLUS son unité : elle se choisit
+                         dans la colonne d'à côté, comme pour le projet et
+                         l'activité. Il disait « (min) » parce que la saisie
+                         n'en acceptait pas d'autre ; un en-tête qui annonce
+                         une unité au-dessus d'un sélecteur qui en propose
+                         trois ment une fois sur trois.
+                         ⚠️ Et la conversion est faite par le SERVEUR
+                         (`_duree_ligne_role`) : la colonne s'appelle
+                         `duration_minutes`. -->
+                    <th>{{ t('time.col_duration') }}</th>
+                    <th>{{ t('time.col_unit') }}</th>
                     <th>{{ t('time.col_recurrence') }}</th>
                     <th>{{ t('time.col_freq') }}</th>
                     <th>{{ t('time.col_weight') }}</th>

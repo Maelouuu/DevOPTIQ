@@ -21,40 +21,57 @@ def _lire(chemin):
 class TestLUniteDeLaDureeDuRole:
     """R04 / H13 / F36 — « saisir 60 dans Durée (h) donne 1,0 h ».
 
-    Le champ EST en minutes : `addRoleRow` lit sa valeur telle quelle
-    (`durMin`), la multiplie par la fréquence, puis `fmtH()` convertit pour
-    l'affichage. Le calcul est cohérent ; c'est l'en-tête qui mentait.
+    Le champ était en minutes et l'en-tête annonçait des heures : le calcul
+    était juste, c'est l'en-tête qui mentait.
+
+    ⚠️ **La règle a changé de forme le 22/11, pas de fond.** L'unité se
+    CHOISIT désormais (minutes / heures / jours), comme pour le projet et
+    l'activité. Donc : l'en-tête n'annonce PLUS d'unité du tout — il en
+    annoncerait une au-dessus d'un sélecteur qui en propose trois — et la
+    conversion doit exister, au SERVEUR, parce que la colonne s'appelle
+    `duration_minutes`. Ce qui reste interdit est le même qu'avant : un
+    en-tête qui dit une unité que la saisie ne respecte pas.
     """
 
-    def test_le_tableau_de_saisie_annonce_des_MINUTES(self):
+    def test_l_en_tete_de_saisie_n_annonce_AUCUNE_unite(self):
         gabarit = _lire("Code/routes/templates/time_dashboard.html")
-        entete = gabarit[gabarit.index('id="role-rows"') - 1400:
+        entete = gabarit[gabarit.index('id="role-rows"') - 1800:
                          gabarit.index('id="role-rows"')]
-        assert "time.col_duration_min" in entete
+        assert "time.col_duration'" in entete or 'time.col_duration"' in entete
+        assert "time.col_duration_min" not in entete
         assert "time.col_duration_h" not in entete
+        # Et la colonne qui porte le choix est bien là.
+        assert "time.col_unit" in entete
 
-    def test_le_champ_est_lu_TEL_QUEL_donc_en_minutes(self):
-        """⚠️ C'est ce qui rend l'en-tête juste : `recalc()` ne convertit
-        rien, il multiplie la valeur du champ par la fréquence. Le jour où
-        quelqu'un y glisse un `toMinutes(...)`, l'en-tête devra redire des
-        heures.
+    def test_le_champ_est_CONVERTI_par_le_serveur(self):
+        """⚠️ C'est LE point du correctif : la route lisait
+        `float(ln['duration'])` tel quel, et le client lui envoyait un
+        `duration_unit: 'minutes'` que personne ne lisait. Offrir les heures
+        à l'écran sans toucher à la route aurait enregistré « 2 heures »
+        comme deux MINUTES, en silence — même famille que les `<option>` sans
+        `value` du 03/11."""
+        from Code.routes.time_view import _duree_ligne_role
+        assert _duree_ligne_role({"duration": 2, "duration_unit": "heures"}) == 120
+        assert _duree_ligne_role({"duration": 1, "duration_unit": "jours"}) == 1440
+        assert _duree_ligne_role({"duration": 30, "duration_unit": "minutes"}) == 30
+        # ⚠️ Le défaut reste MINUTES : tous les appels d'avant n'envoyaient
+        # rien, et ils saisissaient bien des minutes.
+        assert _duree_ligne_role({"duration": 30}) == 30
 
-        ⚠️ La version d'avant visait les tableaux de LECTURE des accordéons
-        (« Durée (h) », « Pesée (h) »). Ils ont disparu avec la refonte du
-        13/10 : l'écran de saisie, qui les remplace, est modifiable et porte
-        ses propres en-têtes. Un test qui vise du code supprimé ne garde rien.
-        """
+    def test_l_ecran_envoie_l_unite_CHOISIE(self):
+        """Un `duration_unit` écrit en dur rendait le sélecteur décoratif."""
         js = _lire("static/js/time.js")
-        bloc = js[js.index("function addRoleRow"):][:2200]
-        recalc = bloc[bloc.index("function recalc()"):][:420]
-        assert "parseFloat(tr.querySelector('.r-dur').value" in recalc, recalc
-        assert "toMinutes(" not in recalc, recalc
+        assert "duration_unit: 'minutes'" not in js
+        assert "'.r-du select'" in js
 
-    @pytest.mark.parametrize("lang,attendu", [("fr", "Durée (min)"),
-                                              ("en", "Duration (min)")])
-    def test_la_cle_existe_dans_les_deux_langues(self, lang, attendu):
-        from Code.translations import t
-        assert t("time.col_duration_min", lang=lang) == attendu
+    def test_la_pesee_affichee_convertit_aussi(self):
+        """La colonne « Pesée » est lue pendant la saisie : sans conversion
+        elle annoncerait 2 min pour 2 heures, à côté d'un total juste."""
+        js = _lire("static/js/time.js")
+        d = js.index("function addRoleRow")
+        role = js[d:js.index("function recalcRoleTotals", d)]
+        recalc = role[role.index("function recalc()"):]
+        assert "toMinutes(tr.querySelector('.r-dur').value, du.value)" in recalc, recalc
 
 
 class TestLApercuDeLActivite:

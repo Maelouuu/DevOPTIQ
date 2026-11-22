@@ -30,7 +30,74 @@
       .replace(/"/g, '&quot;');
   }
 
-  var S = { n: 0, gestes: [], id: null, ouvert: false };
+  var S = { n: 0, gestes: [], id: null, ouvert: false, socle: null };
+
+  /* ══ LE PALIER DE SOUMISSION ════════════════════════════════════════
+     Une carto ne part à l'examen que complète : chaque activité porte un
+     garant, au moins une tâche et au moins un outil. Sinon le coordinateur
+     reçoit autant de demandes que de lignes saisies.
+
+     ⚠️ Le socle coûte un rejeu simulé côté serveur : on le lit quand la
+     FENÊTRE s'ouvre — là où l'on vient chercher la réponse — et après un
+     retrait. Jamais à chaque geste détourné : le bandeau, lui, ne fait que
+     compter.
+     ⚠️ Et tant qu'on ne l'a pas, le bouton reste ALLUMÉ. L'écran ne promet
+     rien qu'il ne sache ; c'est `/envoyer` qui tranche, et il répond 409
+     avec l'état — le bouton éteint n'est pas une sécurité. */
+  async function chargerSocle() {
+    try {
+      var r = await window.__acpFetch('/api/propositions/socle');
+      S.socle = r.ok ? await r.json() : null;
+    } catch (_) { S.socle = null; }
+    if (S.ouvert) rendre();
+  }
+
+  function chip(code, n) {
+    return '<span class="acp-ex"><b>' + esc(T('socle_c_' + code)) + '</b>'
+      + '<i>' + n + '</i></span>';
+  }
+
+  function blocSocle(s) {
+    if (!s) return '';
+    if (s.complet) {
+      return '<p class="acp-socle acp-socle--ok">'
+        + '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>'
+        + esc(T(s.total ? 'socle_ok' : 'socle_vide')) + '</p>';
+    }
+    var manque = s.manque || {};
+    var chips = ['garant', 'tache', 'outil'].filter(function (c) {
+      return manque[c] > 0;
+    }).map(function (c) { return chip(c, manque[c]); }).join('');
+
+    var noms = (s.activites || []).map(function (a) {
+      return '<li><span class="acp-sa-n">' + esc(a.nom || '—') + '</span>'
+        + (a.manque || []).map(function (c) {
+          return '<em>' + esc(T('socle_c_' + c)) + '</em>';
+        }).join('') + '</li>';
+    }).join('');
+    if (s.reste > 0) {
+      noms += '<li class="acp-sa-plus">' + esc(F('et_autres', { n: s.reste })) + '</li>';
+    }
+
+    return '<div class="acp-socle">'
+      + '<div class="acp-socle-h">'
+      + '<span class="acp-socle-ic"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span>'
+      + '<div><strong>' + esc(T('socle_titre')) + '</strong>'
+      + '<p>' + esc(T('socle_exige')) + '</p></div>'
+      + '<span class="acp-socle-j">'
+      + esc(F('socle_pretes', { n: s.pretes, t: s.total })) + '</span></div>'
+      + (s.rejeu
+         ? '<p class="acp-socle-r">' + esc(F('socle_rejeu', { n: s.rejeu.rang })) + '</p>'
+         : '')
+      + (chips ? '<p class="acp-socle-l">' + esc(T('socle_manque')) + '</p>'
+                 + '<div class="acp-exs">' + chips + '</div>' : '')
+      + (noms ? '<p class="acp-socle-l">' + esc(T('socle_liste')) + '</p>'
+                + '<ul class="acp-sa">' + noms + '</ul>' : '')
+      + '<p class="acp-socle-p">' + esc(T('socle_pourquoi')) + '</p>'
+      + '<p class="acp-socle-g"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>'
+      + esc(T('socle_garde')) + '</p>'
+      + '</div>';
+  }
 
   /* ── Le libellé d'un geste, composé dans la langue de CELUI QUI LIT ──
      ⚠️ Jamais figé à l'écriture : le champion propose dans sa langue, le
@@ -107,6 +174,7 @@
     ou.textContent = noms.length === 1 ? noms[0]
       : (noms.length ? F('sur_n_fiches', { n: noms.length }) : T('sous'));
     rendre();
+    chargerSocle();
   }
 
   function fermer() {
@@ -141,8 +209,14 @@
         + '<i class="fa-solid fa-xmark"></i></button></li>';
     }).join('');
 
+    // ⚠️ Le palier se lit AVANT le message et le bouton : c'est ce qui
+    // décide si l'envoi est possible, et le lire après avoir cliqué serait
+    // le découvrir trop tard.
+    var bloque = !!(S.socle && !S.socle.complet);
+
     z.innerHTML = '<p class="acp-ordre">' + esc(T('ordre')) + '</p>'
       + '<ol class="acp-liste">' + lignes + '</ol>'
+      + blocSocle(S.socle)
       + '<label class="acp-msg"><span>' + esc(T('message')) + '</span>'
       + '<textarea id="acp-message" rows="2" placeholder="'
       + esc(T('message_ph')) + '"></textarea></label>'
@@ -150,7 +224,8 @@
       + '<button type="button" class="acp-danger" data-abandonner>'
       + '<i class="fa-solid fa-trash-can"></i>' + esc(T('abandonner')) + '</button>'
       + '<span class="sp"></span>'
-      + '<button type="button" class="acp-ok" data-envoyer>'
+      + '<button type="button" class="acp-ok" data-envoyer'
+      + (bloque ? ' disabled aria-disabled="true"' : '') + '>'
       + '<span class="ic"><i class="fa-solid fa-paper-plane"></i></span>'
       + esc(T('envoyer')) + '</button></div>';
   }
@@ -184,6 +259,10 @@
   async function retirer(i) {
     await window.__acpFetch('/api/propositions/brouillon/' + i, { method: 'DELETE' });
     await charger();
+    /* ⚠️ Retirer un geste peut DÉFAIRE le palier : la tâche qu'on vient
+       d'enlever était peut-être la seule de son activité. Un panneau qui
+       continuerait d'annoncer « complète » mentirait jusqu'au refus. */
+    if (S.ouvert) await chargerSocle();
   }
 
   async function abandonner() {
@@ -202,7 +281,23 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: champ ? champ.value : '' })
     });
-    if (!r.ok) { signaler(T('err')); return; }
+    if (!r.ok) {
+      /* ⚠️ Le PALIER : le serveur a le dernier mot, et il rend l'état avec
+         son refus. On le montre là où l'on vient de cliquer plutôt que de
+         dire « erreur » — « ça ne marche pas » n'apprend rien, « il manque un
+         garant sur 39 activités » dit quoi faire. */
+      var j = null;
+      try { j = await r.json(); } catch (_) { j = null; }
+      if (j && j.code === 'socle' && j.socle) {
+        S.socle = j.socle;
+        rendre();
+        var p = document.querySelector('.acp-socle');
+        if (p && p.scrollIntoView) p.scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      signaler(T('err'));
+      return;
+    }
     // ⚠️ `charger()` re-rend la fenêtre quand elle est ouverte, et son rendu
     // asynchrone arrivait APRÈS l'écran de fin : on lisait « Mes
     // propositions » là où on attendait « Proposition envoyée ». On ferme

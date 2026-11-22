@@ -9797,6 +9797,181 @@ pas toute seule — et le défaut se lit chez un fichier qui ne parle pas du mê
 sujet. C'est la même règle que `test_82` et `test_83` appliquent déjà à la
 LANGUE.
 
+### LE PALIER DE SOUMISSION, et quatre points relevés à l'usage (2026-11-22)
+
+Cinq demandes d'un coup. L'une est un changement de modèle ; les quatre
+autres sont des détails, dont deux cachaient un défaut.
+
+#### ⚠️⚠️ Une carto ne part à l'examen que COMPLÈTE — `Code/socle_activites.py`
+
+« Sur une carto de cent activités, si on dépose une demande dès qu'on met un
+truc, on va faire des centaines de demandes pour remplir la carto. » Le
+reproche porte sur le coordinateur : c'est lui qui arbitre, et un arbitre noyé
+n'arbitre plus. Une première version se soumet donc d'un bloc.
+
+**La règle** : chaque activité porte un GARANT, au moins une TÂCHE et au moins
+un OUTIL. Sans exception — c'est ce qui la rend lisible, elle ne se négocie pas
+activité par activité.
+
+- ⚠️ **« Chaque activité » veut dire chaque activité que la carto TIENT.** Un
+  **RÉSULTAT** (`is_result`) est une SORTIE, pas un travail ; une activité
+  **`external` / `extco`** appartient à une AUTRE carto. Les exiger rendrait le
+  palier inatteignable, donc inutile. La seconde règle n'est pas inventée ici :
+  `activities_map` écarte déjà ces deux sous-types quand il cherche « la vraie
+  activité ». Un RENVOI, lui, n'a même pas de ligne (`_sync_carto_to_db` ne crée
+  d'activité que pour les formes de `_ACTIVITY_TYPES`).
+- ⚠️ **Le palier se libère TOUT SEUL.** Une fois la carto complète il ne gêne
+  plus : corriger une seule tâche passe le contrôle, puisque le contrôle est
+  « la carto est complète ». Il n'y a donc PAS de « première version » à
+  marquer, ni de drapeau à tenir — ce serait un état de plus dont on pourrait
+  se tromper, et qui resterait faux une fois mal posé.
+- ⚠️⚠️ **Ce qui est mesuré, c'est la carto PLUS LE BROUILLON.** Sur une carto
+  commune, tout ce que le champion écrit est DÉTOURNÉ dans son brouillon
+  (`ecriture.porte` → 202) et n'atteint jamais la base. Mesuré sur la base
+  seule, le palier annoncerait « 0 activité complète » quel que soit le travail
+  fourni, et ne se franchirait **jamais**. On SIMULE donc le brouillon.
+- **`propositions_activite.simuler(cr, mesurer)`** rejoue les gestes par le
+  chemin NORMAL (`_appliquer_gestes`, extrait de `rejouer`) puis **annule dans
+  un `finally`**. Une seconde implémentation de « ajouter une tâche » finirait
+  par diverger de celle qu'on applique vraiment — c'est l'argument qui a fait
+  de `ecriture.py` une porte centrale, et il vaut ici.
+- ⚠️ Le coût ne grandit pas avec la carto : **quatre requêtes**, cadrées par un
+  JOIN sur l'entité et jamais par un `IN (…)` d'identifiants (une carto du
+  pilote en porte 601, et SQLite borne le nombre de paramètres). La simulation,
+  elle, coûte un rejeu : elle n'est PAS calculée au rendu de chaque page, mais
+  à l'ouverture de la fenêtre et à l'envoi.
+- ⚠️ Un geste **qui ne s'applique plus** (une tâche supprimée entre-temps) ne se
+  mesure pas : on le DIT (`rejeu`) et le socle est déclaré incomplet. Mesurer
+  « ce que les gestes d'avant donnent » laisserait croire à un envoi que
+  `rejouer` refuserait de toute façon.
+- **La garde vit dans la ROUTE** (`POST /api/propositions/envoyer` → 409
+  `socle`), après le contrôle « vide » : le bouton éteint de la fenêtre n'est
+  pas une sécurité. ⚠️ Et la ligne du brouillon est **reprise après la
+  simulation** — celle qu'on tenait est expirée par le rollback.
+- **L'écran** (`GET /api/propositions/socle`, bloc ambre dans la fenêtre) :
+  combien d'activités sont prêtes, ce qui manque par famille, puis la liste
+  **nommée** (15 au plus, « et n autres »). Un compteur seul n'apprend rien —
+  on vient chercher QUOI remplir.
+
+⚠️⚠️ **Ce que la demande a mis au jour : `/tools/add` et `/tools/delete`
+n'étaient PAS dans `_SEGMENTS`.** Un champion se faisait donc refuser l'ajout
+d'un outil avec le code `lecture_seule` — **le motif réservé à `user`**, alors
+que proposer est précisément ce qui l'en distingue. Sans ce correctif le
+nouveau palier aurait été **insatisfiable** : on ne peut pas exiger un outil
+par activité si l'outil ne peut pas se proposer. Même famille que le garant,
+oublié de la même liste le 05/11. Trouvé en se demandant, AVANT d'écrire les
+tests, si un champion peut réellement satisfaire la règle.
+- ⚠️ Un OUTIL n'appartient à aucune activité : c'est le catalogue de la carto,
+  et il se rattache à une TÂCHE (`task_tools`). L'activité d'un geste d'outil
+  se lit donc par sa tâche (`_activite_de_la_tache`), et « au moins un outil »
+  veut dire « au moins une tâche de cette activité est outillée ».
+
+ℹ️ **La sauvegarde de ce qui est saisi existait déjà** : le brouillon
+(`ActivityChangeRequest` en `status='draft'`, un par auteur et par carto) porte
+les gestes depuis le 19/10 et survit à la déconnexion. Ce qui manquait n'était
+pas la persistance, c'était le palier et la phrase qui l'explique.
+
+Tests : `tests/test_159_palier_soumission.py` (58 cas) ; `test_112` et
+`test_114` franchissent le palier en base (`_franchir_le_palier`) — ils portent
+sur la MÉCANIQUE du dépôt, pas sur le palier, et ce qu'ils déposent est la
+correction d'une carto déjà remplie. ⚠️ Trois de leurs assertions comptaient
+des lignes (`count() == 1`) : elles comparent désormais des NOMS, puisque la
+carto porte maintenant la tâche du palier.
+⚠️ **Deux cas lisaient un `.py` comme un SOURCE** — septième occurrence du
+piège : ils auraient rougi à chaque exécution dans l'arbre d'image, compilé en
+bytecode. Réécrits sur le COMPORTEMENT plutôt que sautés, et les deux y
+gagnent : le coût se mesure sur le SQL réellement envoyé (le nombre de
+paramètres ne bouge pas quand on ajoute 30 activités), et le refus du serveur
+s'éprouve en appelant la route. ⚠️ Un `NOT IN (?, ?)` subsiste dans le SQL —
+les deux sous-types hors carto : ce n'est pas une liste d'identifiants, elle
+ne grandit pas. C'est le NOMBRE DE PARAMÈTRES qu'on garde, pas le mot `IN`.
+
+#### ⚠️⚠️ L'unité d'une ligne de rôle n'était jamais LUE — 60× trop peu
+
+« Pour l'analyse de rôle rajouter comme unité heure et jours (actuellement que
+minute). » Le sélecteur manquait, mais le défaut était plus bas : `addRoleRow`
+recevait déjà un paramètre `unit`, **nommé `_unit` et jamais employé**, et le
+serveur écrivait `float(ln.get('duration') or 0)` — la valeur BRUTE. Une durée
+saisie en heures se serait donc enregistrée en MINUTES, sans la moindre erreur
+pour le dire. Même famille que les `<option>` sans `value` du 03/11.
+- `_duree_ligne_role(ln)` convertit aux DEUX sites d'écriture (création et
+  `PATCH`), et la colonne « Durée (min) » redevient « Durée » puisqu'elle n'en
+  impose plus une. ⚠️ Sans renommer la clé partout : `time.col_duration_h` sert
+  à quatre tableaux dont trois affichent de vraies heures.
+- ⚠️ `time.col_duration_min` n'a plus de lecteur : elle quitte le catalogue avec
+  lui.
+
+#### Une analyse neuve part d'un formulaire VIDE
+
+`viderSaisie(type)` existait et n'était câblé nulle part : les quatre portes de
+l'accueil, l'état vide du rôle et le bouton « Chiffrer … » ouvraient l'écran
+avec ce qu'il restait de la saisie précédente — nom compris. `ouvrirNeuve()`
+sort du mode modification, ouvre, puis vide.
+
+#### La page Carte : l'ÉDITEUR rentre dans les réglages, les entités en sortent
+
+Les deux boutons sont échangés. « Ouvrir l'éditeur » prend la première place du
+bloc repliable, « Gérer les entités » devient la pilule pleine qui reste
+dehors — c'est elle qu'on vient chercher en arrivant sur la page.
+
+#### ⚠️⚠️ LE NIVEAU EST POSÉ SUR LA LIGNE D'EAU (page Compétences)
+
+« Intensifier le découlement de l'activité vis-à-vis de ses résultats dans la
+carte bleue : visuellement, le lien entre les deux doit être plus marqué. »
+
+Le reproche était mesurable. Le niveau de l'activité s'écrivait en 48 px
+au-dessus du bassin, et la ligne d'eau — **295 px plus bas, relevé à l'écran** —
+disait exactement la même valeur. Deux énoncés d'une seule chose, que rien ne
+reliait.
+
+Le chiffre est donc posé **SUR la surface**, dans un **couloir réservé** à
+droite du bassin (`--rail`), et la ligne d'eau **traverse ce couloir** pour
+venir finir sous lui. Poser une note déplace le repère le plus bas, donc l'eau,
+donc le chiffre : mesuré au banc, `bottom` du cartouche et `height` de l'eau
+suivent la même valeur (240 → 85,5 → 240). Le découlement se REGARDE.
+
+- ⚠️ **Tout le bassin s'arrête au couloir — SAUF la surface.** L'eau, les
+  graduations, l'attendu et les repères prennent `right: var(--rail)` ; la
+  surface garde `right: 0`, parce que **c'est elle qui fait le lien**. Mesuré :
+  18 à 36 px de trait nu entre l'eau et le cartouche, selon la langue.
+- ⚠️⚠️ **Le CHIFFRE est centré sur la ligne, pas la boîte.** Le JS ancre le
+  cartouche à `basY(niveau)` et une `margin-bottom` négative (la moitié du
+  chiffre plus le rembourrage bas) le descend d'autant. Mesuré : **0 px**
+  d'écart entre le centre du chiffre et la surface, aux cinq niveaux.
+- ⚠️⚠️ **Les deux bords du bassin lui réservent sa moitié.** `basY(0)` vaut
+  `bas` et `basY(4)` vaut `h - haut` : centré sur la ligne, le cartouche
+  déborde par le fond au niveau 0 et par le ciel au niveau 4. `BAS` passe de
+  `{bas: 16, haut: 46}` à `{bas: 34, haut: 60}` — 26 px passent sous la ligne,
+  52 restent au-dessus. Mesuré : 6 px de marge en bas, 7 en haut.
+- ⚠️ **La pastille d'écart ne passe JAMAIS à la ligne** (`nowrap`) : deux
+  lignes et le cartouche grandit de 12 px, donc sort du bassin au niveau 4.
+  C'est l'ANGLAIS qui décide — « below target · −3 » fait 92 px contre 70 pour
+  « en écart · −3 ». Les sept activités du banc relues en anglais : le plus
+  large cartouche fait 112 px pour 122 disponibles.
+- ⚠️ Elle s'empile **au-dessus** du chiffre, jamais en dessous, où le fond du
+  bassin la rognerait au niveau 0.
+- ⚠️ **`bottom: 0` par défaut** : `majBassin` le pose à chaque rendu, mais sans
+  valeur de départ il vaudrait `auto` — c'est-à-dire le HAUT du bassin, l'exact
+  contraire du fond. Relevé à l'écran.
+- ⚠️ **`majBassin` ne REÉCRIT rien** : le chiffre et l'écart sont écrits par
+  `majNiveauTenu`, dont c'est le métier, et le bassin ne touche qu'à ce qui
+  BOUGE. Un `innerHTML` dedans le ferait sauter d'un niveau à l'autre au lieu
+  de l'y faire monter — c'est le cliquet qui l'a rappelé.
+- **La couleur du chiffre est celle de la SURFACE** (et le filet du cartouche
+  la reprend) : le chiffre et le trait sont une seule chose, ils changent de
+  teinte ensemble. Sans cela le lien ne tiendrait que par la position.
+- Le bloc `.ou-niv` disparaît : l'activité reprend toute la largeur de l'en-tête,
+  et `cl_tenu` quitte le catalogue avec son dernier lecteur. Le libellé ne
+  manque pas — le bassin ne parle que de ça, et le « i » y explique la règle du
+  minimum.
+
+Tests : `tests/test_140_classeur_evaluation.py` +8 cas
+(`TestLeNiveauEstPoseSurLaLigneDEau`), **8 défauts remis un par un, 8 cliquets
+tombés** ; un cas de `test_109` réécrit (il affirmait que l'en-tête porte le
+niveau). Éprouvé au banc (`tools/devrun_competences.py`) dans les deux langues,
+aux cinq niveaux plus le cas NULL : 0 px d'écart chiffre/ligne, 0 débordement,
+0 croisement avec les pastilles de repère, 0 erreur console.
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

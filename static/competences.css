@@ -3215,26 +3215,6 @@ button.mail:active { transform: translateY(1px); }
   font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
   color: rgba(255, 255, 255, .62);
 }
-.ou-niv { flex: none; width: 132px; text-align: right; }
-.ou-niv .v {
-  margin: 0; font-family: var(--pg-font-display); font-size: 48px; font-weight: 700;
-  line-height: .92; font-variant-numeric: tabular-nums;
-}
-.ou-niv .v i {
-  margin-left: 2px; font-size: 17px; font-weight: 600; font-style: normal; opacity: .62;
-}
-.ou-niv .e {
-  display: inline-block; margin-top: 7px; padding: 3px 9px; border-radius: 999px;
-  font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
-  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .26);
-}
-.ou-niv .e:empty { display: none; }
-.ou-niv .e.ko {
-  background: rgba(252, 165, 165, .2); border-color: rgba(252, 165, 165, .45); color: #fecaca;
-}
-.ou-niv .e.ok {
-  background: rgba(110, 231, 183, .2); border-color: rgba(110, 231, 183, .48); color: #a7f3d0;
-}
 .ev-ou .cv2-i {
   border-color: rgba(255, 255, 255, .4); color: #c5d6f7;
   background: rgba(255, 255, 255, .12);
@@ -3247,16 +3227,30 @@ button.mail:active { transform: translateY(1px); }
    un panneau légèrement plus clair sur du bleu nuit ne se détache pas, et
    l'eau, elle aussi bleu clair, s'y fondait. Mesuré à l'écran. */
 .bassin {
+  /* ⚠️ Le COULOIR DU VERDICT : une bande réservée à droite où le niveau de
+     l'activité est posé à la hauteur de l'eau. Tout ce qui appartient au
+     bassin s'y arrête — l'eau, les graduations, l'attendu, les repères —
+     SAUF la surface, qui le traverse et va finir sous le chiffre : c'est ce
+     trait qui fait le lien, il ne peut donc pas s'arrêter au bord. */
+  --rail: 176px;
   position: relative; margin-top: 18px; border-radius: 13px; overflow: hidden;
   background: rgba(0, 0, 0, .28);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 3px 12px rgba(0, 0, 0, .4);
+}
+/* Le bord du couloir : assez pour qu'on voie où l'eau s'arrête, pas assez
+   pour couper le bassin en deux. La surface passe PAR-DESSUS (elle est un
+   enfant, lui un pseudo-élément de fond). */
+.bassin::before {
+  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: var(--rail);
+  border-left: 1px solid rgba(255, 255, 255, .16);
+  background: rgba(0, 0, 0, .22); pointer-events: none;
 }
 .bassin::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 13px;
   background: linear-gradient(102deg, rgba(255, 255, 255, .1) 0 12%, transparent 28%);
 }
 .bassin .eau {
-  position: absolute; left: 0; right: 0; bottom: 0;
+  position: absolute; left: 0; right: var(--rail); bottom: 0;
   transition: height .44s cubic-bezier(.4, 0, .2, 1), background .44s ease;
 }
 .bassin .eau.bleu { background: linear-gradient(180deg, #5fb4f7, #1b45c0); }
@@ -3282,7 +3276,7 @@ button.mail:active { transform: translateY(1px); }
 }
 .bassin .att.hors span { top: auto; bottom: 4px; }
 .bassin .gd {
-  position: absolute; left: 0; right: 0; height: 0;
+  position: absolute; left: 0; right: var(--rail); height: 0;
   border-top: 1px solid rgba(255, 255, 255, .17);
 }
 .bassin .gd b {
@@ -3290,7 +3284,7 @@ button.mail:active { transform: translateY(1px); }
   color: rgba(255, 255, 255, .55); font-variant-numeric: tabular-nums;
 }
 .bassin .att {
-  position: absolute; left: 0; right: 0; height: 0;
+  position: absolute; left: 0; right: var(--rail); height: 0;
   border-top: 2px dashed rgba(255, 255, 255, .7);
 }
 /* ⚠️⚠️ Le badge se pose SOUS sa ligne, et la pastille d'un repère AU-DESSUS
@@ -3307,7 +3301,7 @@ button.mail:active { transform: translateY(1px); }
    sorties au même palier tombent sur la même ligne, et c'est justement là
    qu'on vient lire laquelle retient l'eau. */
 .bassin .mk {
-  position: absolute; left: 0; right: 0; height: 0;
+  position: absolute; left: 0; right: var(--rail); height: 0;
   display: flex; align-items: center;
   transition: bottom .44s cubic-bezier(.4, 0, .2, 1);
 }
@@ -3357,6 +3351,59 @@ button.mail:active { transform: translateY(1px); }
 .bassin .mk.est-bas .et { box-shadow: 0 8px 24px rgba(0, 0, 0, .45), 0 0 0 2px var(--b4); }
 .bas-note { margin: 10px 2px 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
 .bas-note:empty { display: none; }
+
+/* ── LE NIVEAU, POSÉ SUR LA LIGNE D'EAU ───────────────────────────────
+   Il vivait en 48 px au-dessus du bassin, à 295 px (mesuré) de la ligne qui
+   dit la même valeur : deux énoncés que rien ne reliait. Il est maintenant
+   dans le couloir, à la hauteur de l'eau, et il monte avec elle — même
+   transition, même couleur que la surface. */
+/* ⚠️⚠️ `margin-bottom` descend le cartouche de la MOITIÉ de son chiffre (19)
+   plus son rembourrage bas et son filet (7) : le JS l'ancre à `basY(niveau)`,
+   et c'est cette marge qui met le CHIFFRE — pas la boîte — à la hauteur
+   exacte de la ligne d'eau, donc du repère le plus bas. Les deux valeurs
+   vivent ici, à côté du rembourrage dont elles dépendent ; `BAS.bas` et
+   `BAS.haut` (competences_v2.js) leur réservent la place. */
+/* ⚠️ `bottom: 0` par défaut : `majBassin` le pose à `basY(niveau)` à chaque
+   rendu, mais sans valeur de départ il vaudrait `auto` — c'est-à-dire le HAUT
+   du bassin, l'exact contraire du fond. */
+.bas-niv {
+  position: absolute; right: 14px; bottom: 0; margin-bottom: -26px;
+  max-width: calc(var(--rail) - 24px);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+  padding: 6px 12px; border-radius: 13px; box-sizing: border-box;
+  background: rgba(6, 13, 32, .74); border: 1px solid rgba(255, 255, 255, .17);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .5);
+  transition: bottom .44s cubic-bezier(.4, 0, .2, 1), border-color .44s ease;
+}
+.bas-niv .n { display: flex; align-items: center; gap: 7px; height: 38px; }
+.bas-niv .v {
+  font-family: var(--pg-font-display); font-size: 38px; font-weight: 700;
+  line-height: 1; font-variant-numeric: tabular-nums; color: #cfe9ff;
+}
+.bas-niv .v i {
+  margin-left: 1px; font-size: 13px; font-weight: 600; font-style: normal; opacity: .6;
+}
+/* La couleur est celle de la surface — le chiffre et le trait sont une seule
+   chose, et ils changent de teinte ensemble. Le filet du cartouche la reprend :
+   c'est ce qui dit que la ligne entre LÀ. */
+.bas-niv { border-color: rgba(125, 211, 252, .42); }
+.bas-niv.est-vert { border-color: rgba(110, 231, 183, .48); }
+.bas-niv.est-vert .v { color: #bdf5dc; }
+.bas-niv.est-vide { border-color: rgba(255, 255, 255, .17); }
+.bas-niv.est-vide .v { color: rgba(255, 255, 255, .58); }
+.bas-niv .e {
+  display: inline-block; padding: 3px 8px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  text-align: right; line-height: 1.25; white-space: nowrap;
+  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .26);
+}
+.bas-niv .e:empty { display: none; }
+.bas-niv .e.ko {
+  background: rgba(252, 165, 165, .2); border-color: rgba(252, 165, 165, .45); color: #fecaca;
+}
+.bas-niv .e.ok {
+  background: rgba(110, 231, 183, .2); border-color: rgba(110, 231, 183, .48); color: #a7f3d0;
+}
 
 /* ── LES RÉGLAGES, en pastilles de VERRE ───────────────────────────────
    ⚠️⚠️ `.cl-rb` avait disparu AVEC le bloc du classeur : seule la règle de

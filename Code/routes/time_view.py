@@ -662,6 +662,23 @@ def api_activities_list():
     })
 
 # ========================= ROLE ANALYSIS =========================
+def _duree_ligne_role(ln):
+    """La durée d'une ligne de rôle, en MINUTES, quelle que soit l'unité saisie.
+
+    ⚠️ La colonne s'appelle `duration_minutes` et la route lisait
+    `float(ln['duration'])` TEL QUEL : le formulaire ne proposait que des
+    minutes, et le client envoyait un `duration_unit: 'minutes'` que personne
+    ne lisait. Le jour où l'écran offre les heures et les jours — c'est fait —
+    « 2 heures » se serait enregistré comme deux MINUTES, sans la moindre
+    erreur pour le dire. Même famille que les `<option>` sans `value` du
+    03/11 : une unité qui n'est pas convertie est une unité qui ment.
+
+    ⚠️ Le défaut reste `minutes` : tous les appels antérieurs envoient cette
+    valeur, et un appel qui n'envoie rien saisissait bien des minutes.
+    """
+    return to_minutes(ln.get('duration') or 0, ln.get('duration_unit') or 'minutes')
+
+
 @time_bp.route('/api/role_analysis', methods=['POST'])
 def api_role_analysis_create():
     ensure_time_role_schema()
@@ -688,7 +705,7 @@ def api_role_analysis_create():
             activity_id=int(ln['activity_id']),
             recurrence=(ln.get('recurrence') or 'journalier').strip().lower(),
             frequency=int(ln.get('frequency') or 1),
-            duration_minutes=float(ln.get('duration') or 0)
+            duration_minutes=_duree_ligne_role(ln)
         ))
     db.session.commit()
     return jsonify({"ok": True, "id": R.id})
@@ -752,7 +769,7 @@ def api_role_analysis_read_patch_delete(rid):
                     activity_id=int(ln['activity_id']),
                     recurrence=(ln.get('recurrence') or 'journalier').strip().lower(),
                     frequency=int(ln.get('frequency') or 1),
-                    duration_minutes=float(ln.get('duration') or 0)))
+                    duration_minutes=_duree_ligne_role(ln)))
         db.session.commit()
         return jsonify({"ok": True, "id": R.id, "name": R.name})
     if request.method == 'DELETE':

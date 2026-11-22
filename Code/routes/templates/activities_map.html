@@ -320,15 +320,17 @@
            lieu de s'écraser. `display: none` ne s'anime pas. -->
       <span class="cs-pliable" id="cs-pliable">
         <span class="cs-pliable-in">
+        {% if has_optiqcarto %}
         <span class="cs-tw">
-          <button type="button" id="carto-wizard-btn" class="cs-t cs-t--entites"
-                  aria-label="{{ t('map.btn_entities') }} — {{ t('map.tt_entities') }}">
-            <span class="cs-t-ic"><i class="fa-solid fa-building-columns"></i></span>
-            <span class="cs-t-lab">{{ t('map.btn_entities') }}</span>
-            <i class="fa-solid fa-building-columns cs-t-fil" aria-hidden="true"></i>
-          </button>
-          <span class="cs-tt" aria-hidden="true"><b>{{ t('map.btn_entities') }}</b>{{ t('map.tt_entities') }}</span>
+          <a href="/cartography/editor" class="cs-t cs-t--editeur"
+             aria-label="{{ t('map.viewer_open_editor') }} — {{ t('map.tt_editor') }}">
+            <span class="cs-t-ic"><i class="fa-solid fa-pen-ruler"></i></span>
+            <span class="cs-t-lab">{{ t('map.viewer_open_editor') }}</span>
+            <i class="fa-solid fa-pen-ruler cs-t-fil" aria-hidden="true"></i>
+          </a>
+          <span class="cs-tt" aria-hidden="true"><b>{{ t('map.viewer_open_editor') }}</b>{{ t('map.tt_editor') }}</span>
         </span>
+        {% endif %}
         <span class="cs-tw">
           <button type="button" id="btn-import-full" class="cs-t cs-t--import"
                   aria-label="{{ t('map.btn_import_ia') }} — {{ t('map.tt_import_ia') }}">
@@ -369,25 +371,29 @@
 
       <!-- ⚠️ La poignée NE DOIT PAS ressembler aux tuiles qu'elle range :
            on la prendrait pour un cinquième réglage. C'est une pastille
-           étroite. Et le repli n'emporte QUE les réglages : la tuile qui
-           ouvre l'éditeur reste dehors. -->
+           étroite. Et le repli n'emporte QUE ce qui est derrière elle : la
+           tuile PRIMAIRE reste dehors, toujours à un clic.
+           ⚠️ C'est « Gérer les entités » qui l'occupe, et plus « Ouvrir
+           l'éditeur » : sur une instance qui porte quinze cartos, choisir
+           celle qu'on regarde est le geste du quotidien — et sans carto du
+           tout, c'était la SEULE chose utile de la page, rangée derrière un
+           chevron replié par défaut. L'éditeur a pris sa place dans le
+           pliable. -->
       <button type="button" class="cs-plier" id="cs-plier" data-cs="actions"
               title="{{ t('map.sc_actions_plier') }}" aria-label="{{ t('map.sc_actions_plier') }}"
               aria-expanded="true" aria-controls="cs-pliable">
         <i class="fa-solid fa-chevron-right"></i>
       </button>
 
-      {% if has_optiqcarto %}
       <span class="cs-tw cs-tw--prim">
-        <a href="/cartography/editor" class="cs-t cs-t--prim"
-           aria-label="{{ t('map.viewer_open_editor') }} — {{ t('map.tt_editor') }}">
-          <span class="cs-t-ic"><i class="fa-solid fa-pen-ruler"></i></span>
-          <span class="cs-t-lab">{{ t('map.viewer_open_editor') }}</span>
-          <i class="fa-solid fa-pen-ruler cs-t-fil" aria-hidden="true"></i>
-        </a>
-        <span class="cs-tt" aria-hidden="true"><b>{{ t('map.viewer_open_editor') }}</b>{{ t('map.tt_editor') }}</span>
+        <button type="button" id="carto-wizard-btn" class="cs-t cs-t--prim"
+                aria-label="{{ t('map.btn_entities') }} — {{ t('map.tt_entities') }}">
+          <span class="cs-t-ic"><i class="fa-solid fa-building-columns"></i></span>
+          <span class="cs-t-lab">{{ t('map.btn_entities') }}</span>
+          <i class="fa-solid fa-building-columns cs-t-fil" aria-hidden="true"></i>
+        </button>
+        <span class="cs-tt" aria-hidden="true"><b>{{ t('map.btn_entities') }}</b>{{ t('map.tt_entities') }}</span>
       </span>
-      {% endif %}
     </div>
   </header>
 

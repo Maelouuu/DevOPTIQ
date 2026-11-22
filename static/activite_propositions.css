@@ -278,3 +278,118 @@
 .acp-toast.est-la { opacity: 1; transform: translate(-50%, 0); }
 .acp-toast i { font-size: 14px; color: var(--acp-or); }
 @media (prefers-reduced-motion: reduce) { .acp-toast { transition: none; } }
+
+/* ══ LE PALIER DE SOUMISSION ══════════════════════════════════════════════
+   Une carto ne part a l'examen que complete : chaque activite porte un
+   garant, au moins une tache et au moins un outil. Le panneau se lit AVANT
+   le message et le bouton — c'est lui qui decide si l'envoi est possible.
+
+   Il reste dans la famille AMBRE de la fenetre : c'est de gouvernance qu'il
+   parle, pas d'une erreur de saisie. Seuls deux elements en sortent, et pour
+   une raison : le verdict « complete » prend le VERT semantique de
+   l'application, et le geste qui ne se rejoue plus prend le ROUGE.
+
+   ⚠️ Aucune regle ici ne lit `--pg-accent-soft` ni ses trois freres : ils
+   sont declares sur `:root`, ou `--pg-accent` vaut encore le gris par
+   defaut, et rendraient du GRIS. Les melanges sont ecrits sur place. */
+.acp-socle {
+  margin: 4px 0 18px;
+  padding: 15px 17px 14px;
+  border: 1px solid #ecd9b2;
+  border-left: 4px solid var(--acp-or);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fffaef, #fffdf8);
+}
+.acp-socle-h { display: flex; align-items: flex-start; gap: 12px; }
+.acp-socle-ic {
+  width: 32px; height: 32px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 14px;
+  color: #fff; background: linear-gradient(135deg, var(--acp-or), var(--acp-or-f));
+}
+.acp-socle-h > div { flex: 1; min-width: 0; }
+.acp-socle-h strong {
+  display: block; font-family: var(--pg-font-display);
+  font-size: 16px; font-weight: 600; color: var(--acp-nuit);
+}
+.acp-socle-h p { margin: 2px 0 0; font-size: 13px; color: var(--acp-encre2); }
+/* La jauge chiffree : « Prêtes : 3 sur 42 ». Aucune phrase n'accorde un
+   adjectif sur un nombre — deux cles par langue, et l'anglais n'accorde pas
+   au meme seuil. */
+.acp-socle-j {
+  flex: none; align-self: center;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+  color: var(--acp-or-f); background: #fdf0d8; border: 1px solid #f2dcb4;
+}
+.acp-socle-l {
+  margin: 14px 0 7px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase; color: var(--acp-sur);
+}
+.acp-exs { display: flex; flex-wrap: wrap; gap: 8px; }
+.acp-ex {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 5px 5px 12px; border-radius: 999px;
+  background: #fff; border: 1px solid #ecd9b2;
+  font-size: 13px; color: var(--acp-encre);
+}
+.acp-ex b { font-weight: 600; }
+.acp-ex i {
+  font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums;
+  min-width: 24px; padding: 2px 7px; border-radius: 999px; text-align: center;
+  color: #fff; background: var(--acp-or-f); font-size: 12px;
+}
+/* ⚠️ La liste DEFILE au-dela de quelques lignes : quinze activites nommees
+   pousseraient le message et le bouton hors de la fenetre, et le bouton est
+   justement ce qu'on vient chercher. */
+.acp-sa {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 168px; overflow: auto;
+  border: 1px solid #f0e3c8; border-radius: 10px; background: #fff;
+}
+.acp-sa li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 11px; font-size: 13px; color: var(--acp-encre);
+  border-bottom: 1px solid #faf3e5;
+}
+.acp-sa li:last-child { border-bottom: none; }
+.acp-sa-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acp-sa li em {
+  flex: none; font-style: normal; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+  color: var(--acp-or-f); background: #fdf0d8; border: 1px solid #f2dcb4;
+}
+.acp-sa-plus { color: var(--acp-encre2); font-style: italic; }
+.acp-socle-p { margin: 13px 0 0; font-size: 12.5px; color: var(--acp-encre2); }
+/* « Rien n'est perdu » : la seule chose du panneau qui RASSURE, et elle ne
+   doit pas se lire comme un reproche de plus. Hors de l'ambre, donc. */
+.acp-socle-g {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.45;
+  color: #334155; background: #f4f6fa; border: 1px solid #e2e8f0;
+}
+.acp-socle-g i { margin-top: 2px; color: #64748b; }
+/* Le geste qui ne se rejoue plus : rouge, et il passe AVANT ce qui manque —
+   tant qu'il est la, rien ne partira. */
+.acp-socle-r {
+  margin: 12px 0 0; padding: 9px 12px; border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  color: #9f1239; background: #fff1f2; border: 1px solid #fecdd3;
+}
+/* Le verdict : complete. Vert SEMANTIQUE, celui des verdicts de l'app. */
+.acp-socle--ok {
+  display: flex; align-items: center; gap: 10px;
+  border-left-color: #10b981;
+  background: linear-gradient(180deg, #f2fbf6, #fbfffd);
+  border-color: #c7ecd9;
+  font-size: 14px; font-weight: 600; color: #0f6848;
+}
+.acp-socle--ok i { font-size: 16px; color: #10b981; }
+
+/* Le bouton eteint. ⚠️ Ce n'est PAS la securite : `/envoyer` refuse aussi,
+   avec le code `socle` et l'etat — et c'est lui qui a le dernier mot. */
+.acp-ok[disabled] {
+  cursor: not-allowed; opacity: .5;
+  background: #ece4d6; color: var(--acp-encre2); box-shadow: none;
+}
+.acp-ok[disabled]:hover { transform: none; box-shadow: none; }

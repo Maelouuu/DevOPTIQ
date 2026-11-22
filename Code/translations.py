@@ -304,11 +304,11 @@ TRANSLATIONS = {
         'time.unit_days':            'j',
         'time.col_activity':         'Activité',
         'time.col_duration_h':       'Durée (h)',
-        # ⚠️ Le tableau de SAISIE du rôle est en minutes : `addRoleRow`
-        # lit le champ tel quel (`durMin`). Saisir 60 donnait « 1,0 h »
-        # sous un en-tête « Durée (h) » — une charge 60 fois autre que
-        # celle qu'on croyait poser.
-        'time.col_duration_min':     'Durée (min)',
+        # ℹ️ `time.col_duration_min` est partie le 22/11 avec son SEUL
+        # lecteur : le tableau de saisie du rôle porte désormais une colonne
+        # d'unité (minutes / heures / jours) et son en-tête n'en annonce plus
+        # aucune. Une clé retirée en même temps que son lecteur ne laisse
+        # rien derrière elle.
         'time.col_delay_h':          'Délai (h)',
         'time.col_count':            'Nb',
         'time.col_load_h':           'Charge (h)',
@@ -793,6 +793,29 @@ TRANSLATIONS = {
         'acp.f_contrainte': 'la contrainte',
         'acp.f_donnee': 'la donnée',
         'acp.f_garant': 'le rôle garant',
+        # ── LE PALIER DE SOUMISSION ────────────────────────────────────
+        # ⚠️ Aucune phrase ne fait accorder un adjectif sur un nombre :
+        # « 1 activité prête sur 42 » et « 3 activités prêtes sur 42 »
+        # demanderaient deux clés par langue, et l'anglais n'accorde pas au
+        # même seuil. « Prêtes : n sur t » se lit pareil à tous les comptes.
+        'acp.socle_titre': 'La carto doit être complète pour partir à l\'examen',
+        'acp.socle_pourquoi': 'Une première version se soumet d\'un bloc : sinon le '
+                              'coordinateur reçoit autant de demandes que de lignes saisies.',
+        'acp.socle_exige': 'Chaque activité porte un garant, au moins une tâche et au '
+                           'moins un outil.',
+        'acp.socle_pretes': 'Prêtes : [[n]] sur [[t]]',
+        'acp.socle_manque': 'Ce qui manque encore',
+        'acp.socle_liste': 'Les activités à compléter',
+        'acp.socle_ok': 'La carto est complète : la proposition peut partir.',
+        'acp.socle_garde': 'Rien n\'est perdu : ce que vous saisissez est gardé ici, '
+                           'visite après visite. Rien ne part au coordinateur avant '
+                           'que vous n\'envoyiez.',
+        'acp.socle_rejeu': 'L\'étape n° [[n]] ne s\'applique plus : retirez-la avant '
+                           'd\'envoyer.',
+        'acp.socle_c_garant': 'Garant',
+        'acp.socle_c_tache': 'Tâche',
+        'acp.socle_c_outil': 'Outil',
+        'acp.socle_vide': 'Cette carto ne porte aucune activité à compléter.',
         'examen.bandeau_n': '{n} modifications proposées attendent votre décision',
         'examen.sur_carto': 'Sur la carto « {nom} »',
         'examen.sur_n_cartos': 'Sur {n} cartos',
@@ -2660,7 +2683,6 @@ TRANSLATIONS = {
         'time.unit_days':            'day',
         'time.col_activity':         'Activity',
         'time.col_duration_h':       'Duration (h)',
-        'time.col_duration_min':     'Duration (min)',
         'time.col_delay_h':          'Delay (h)',
         'time.col_count':            'Qty',
         'time.col_load_h':           'Workload (h)',
@@ -3137,6 +3159,23 @@ TRANSLATIONS = {
         'acp.f_contrainte': 'the constraint',
         'acp.f_donnee': 'the data item',
         'acp.f_garant': 'the guarantor role',
+        'acp.socle_titre': 'The map must be complete before it goes for review',
+        'acp.socle_pourquoi': 'A first version is submitted in one go: otherwise the '
+                              'coordinator gets as many requests as there are entries.',
+        'acp.socle_exige': 'Every activity needs a guarantor, at least one task and at '
+                           'least one tool.',
+        'acp.socle_pretes': 'Ready: [[n]] of [[t]]',
+        'acp.socle_manque': 'Still missing',
+        'acp.socle_liste': 'Activities left to complete',
+        'acp.socle_ok': 'The map is complete: the proposal can be sent.',
+        'acp.socle_garde': 'Nothing is lost: what you enter is kept here, visit after '
+                           'visit. Nothing reaches the coordinator until you send it.',
+        'acp.socle_rejeu': 'Step [[n]] can no longer be applied: remove it before '
+                           'sending.',
+        'acp.socle_c_garant': 'Guarantor',
+        'acp.socle_c_tache': 'Task',
+        'acp.socle_c_outil': 'Tool',
+        'acp.socle_vide': 'This map has no activity left to complete.',
         'examen.bandeau_n': '{n} proposed changes are waiting for your decision',
         'examen.sur_carto': 'On the map “{nom}”',
         'examen.sur_n_cartos': 'Across {n} maps',

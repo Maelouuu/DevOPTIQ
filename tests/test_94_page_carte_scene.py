@@ -202,16 +202,25 @@ class TestLaCartoPrendToutePlace:
         assert 'cs-flot' in html
 
     def test_le_repli_n_emporte_que_les_reglages(self, app, client, scene):
-        """« Les boutons prennent trop de place » : les quatre tuiles de
-        réglage se rangent derrière un chevron. Mais ouvrir l'éditeur et
-        recadrer restent DEHORS, toujours à un clic — l'un après la poignée
-        de repli, l'autre carrément au coin du dessin."""
+        """« Les boutons prennent trop de place » : les tuiles de réglage se
+        rangent derrière un chevron. Mais la tuile PRIMAIRE et le recadrage
+        restent DEHORS, toujours à un clic — l'une après la poignée de repli,
+        l'autre carrément au coin du dessin.
+
+        ⚠️ C'est « Gérer les entités » qui occupe cette place depuis le
+        22/11, et plus « Ouvrir l'éditeur » : sans carto du tout, c'était la
+        SEULE chose utile de la page, et elle était rangée derrière un chevron
+        replié par défaut. Le cliquet garde la PLACE, pas son occupant."""
         html = _page(client, app, scene["u"], scene["avec"])
         pliable = html.index('id="cs-pliable"')
         poignee = html.index('id="cs-plier"')
-        editeur = html.index('cs-t--prim')
+        primaire = html.index('cs-tw--prim')
         flottants = html.index('class="cs-flottants"')
-        assert pliable < poignee < editeur < flottants
+        assert pliable < poignee < primaire < flottants
+        # Et c'est bien la gestion des entités qui est dehors, l'éditeur
+        # dedans — l'inverse de ce qui était livré jusqu'au 22/11.
+        assert 'id="carto-wizard-btn"' in html[primaire:flottants]
+        assert "cs-t--editeur" in html[pliable:poignee]
 
     def test_le_zoom_s_aligne_sur_la_LARGEUR_de_la_zone(self, app, client, scene):
         """Mesuré : la boîte du dessin (8787 × 6221, ratio 1,41) est bien plus
@@ -254,8 +263,12 @@ class TestLaCartoPrendToutePlace:
         l'éditeur ». Il ne correspond à AUCUNE fonction de la page : la tuile
         entière est le lien."""
         html = _page(client, app, scene["u"], scene["avec"])
-        d = html.index('cs-t--prim')
-        tuile = html[d:html.index("</a>", d)]
+        # ⚠️ On borne sur l'info-bulle qui SUIT la tuile, pas sur `</a>` : la
+        # tuile primaire est un `<button>` depuis le 22/11 (elle ouvre la
+        # gestion des entités), et le découpage partait alors chercher le
+        # `</a>` de l'éditeur, bien plus loin dans la page.
+        d = html.index('cs-tw--prim')
+        tuile = html[d:html.index('class="cs-tt"', d)]
         assert 'fa-arrow' not in tuile
         assert tuile.count("<i ") == 2   # l'icône de la pastille, et le filigrane
 

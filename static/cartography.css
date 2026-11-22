@@ -5260,7 +5260,10 @@ body.a-carto-scene { margin-bottom: 0; }
   pointer-events: none;
 }
 
-.cs-t--entites { --t-1: #fff;        --t-2: var(--cs-r-1); --t-bord: #f6dcea;        --t-ic: #f472b6; --t-ic2: #db2777; --t-ink: #9d174d; --t-glow: rgba(219, 39, 119, .22); }
+/* ⚠️ La première tuile du pliable ouvre l'ÉDITEUR depuis le 22/11 : « Gérer
+   les entités » lui a pris la place primaire, dehors. La palette, elle, ne
+   bouge pas — c'est le ton de la position 1, pas celui d'une fonction. */
+.cs-t--editeur { --t-1: #fff;        --t-2: var(--cs-r-1); --t-bord: #f6dcea;        --t-ic: #f472b6; --t-ic2: #db2777; --t-ink: #9d174d; --t-glow: rgba(219, 39, 119, .22); }
 .cs-t--import  { --t-1: var(--cs-r-1); --t-2: var(--cs-r-2); --t-bord: var(--cs-r-3);  --t-ic: #e879f9; --t-ic2: #c026d3; --t-ink: #86198f; --t-glow: rgba(192, 38, 211, .22); }
 .cs-t--acces   { --t-1: var(--cs-r-2); --t-2: #f9d3e6;       --t-bord: var(--cs-r-bord); --t-ic: #ec4899; --t-ic2: #9d174d; --t-ink: #831843; --t-glow: rgba(157, 23, 77, .24); }
 
@@ -5790,16 +5793,16 @@ body.a-carto-scene { margin-bottom: 0; }
 /* Sous 1380 px les quatre réglages deviennent des carrés : le libellé d'une
    tuile est un confort, la rangée qui déborde est un défaut. */
 @media (max-width: 1200px) {
-  .cs-t--entites, .cs-t--import, .cs-t--acces, .cs-t--cx {
+  .cs-t--editeur, .cs-t--import, .cs-t--acces, .cs-t--cx {
     min-width: 0;
     width: 48px;
     padding: 11px 0;
     align-items: center;
     justify-content: center;
   }
-  .cs-t--entites .cs-t-lab, .cs-t--import .cs-t-lab,
+  .cs-t--editeur .cs-t-lab, .cs-t--import .cs-t-lab,
   .cs-t--acces .cs-t-lab, .cs-t--cx .cs-t-lab { display: none; }
-  .cs-t--entites .cs-t-fil, .cs-t--import .cs-t-fil,
+  .cs-t--editeur .cs-t-fil, .cs-t--import .cs-t-fil,
   .cs-t--acces .cs-t-fil, .cs-t--cx .cs-t-fil { display: none; }
   .cs-t--cx .cs-t-switch { display: none; }
   .cs-t--cx { padding-right: 0; }

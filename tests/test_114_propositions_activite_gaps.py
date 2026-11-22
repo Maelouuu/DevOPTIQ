@@ -35,15 +35,24 @@ def decor(app):
         db.session.add(act)
         db.session.commit()
         d = {"coord": coord.id, "champ": champ.id, "autre": autre.id,
-             "ent": ent.id, "act": act.id}
+             "ent": ent.id, "act": act.id, "n": n}
     yield d
     with app.app_context():
         from Code.models.models import (ActivityChangeRequest, Competency,
-                                        Task, Tool)
+                                        Role, Task, Tool, activity_roles,
+                                        task_tools)
         ActivityChangeRequest.query.filter_by(entity_id=d["ent"]).delete()
+        # Les tables d'association d'abord : PostgreSQL applique les clés
+        # étrangères, et SQLite laisserait des lignes orphelines derrière.
+        ids = [t.id for t in Task.query.filter_by(activity_id=d["act"]).all()]
+        if ids:
+            db.session.execute(task_tools.delete().where(task_tools.c.task_id.in_(ids)))
+        db.session.execute(activity_roles.delete().where(
+            activity_roles.c.activity_id == d["act"]))
         Task.query.filter_by(activity_id=d["act"]).delete()
         Competency.query.filter_by(activity_id=d["act"]).delete()
         Tool.query.filter_by(entity_id=d["ent"]).delete()
+        Role.query.filter_by(entity_id=d["ent"]).delete()
         db.session.query(Activities).filter_by(id=d["act"]).delete()
         db.session.query(Entity).filter_by(id=d["ent"]).delete()
         User.query.filter(User.id.in_(
@@ -63,6 +72,30 @@ def _anonyme(app):
     return app.test_client()
 
 
+def _franchir_le_palier(app, decor):
+    """Rend la carto du décor COMPLÈTE : garant, une tâche, un outil.
+
+    ⚠️ Depuis le 22/11 une proposition ne part à l'examen que si chaque
+    activité de la carto porte les trois (`Code/socle_activites.py`). Les cas
+    de ce fichier portent sur les REFUS et la lecture des routes, pas sur le
+    palier : ils le franchissent en base, et ce qu'ils déposent est la
+    correction d'une carto déjà remplie. Le palier a son propre fichier
+    (`test_159_palier_soumission.py`).
+    """
+    from Code.models.models import Role, Task, Tool, activity_roles
+    with app.app_context():
+        role = Role(name="Garant ACPG %d" % decor["n"], entity_id=decor["ent"])
+        outil = Tool(name="Outil ACPG %d" % decor["n"], entity_id=decor["ent"])
+        db.session.add_all([role, outil])
+        db.session.flush()
+        tache = Task(name="Tâche socle", activity_id=decor["act"])
+        tache.tools.append(outil)
+        db.session.add(tache)
+        db.session.execute(activity_roles.insert().values(
+            activity_id=decor["act"], role_id=role.id, status="Garant"))
+        db.session.commit()
+
+
 def _proposer(app, decor, noms=("Peser",)):
     c = _comme(app, decor["champ"], decor["ent"])
     for nom in noms:
@@ -70,6 +103,7 @@ def _proposer(app, decor, noms=("Peser",)):
 
 
 def _envoyer(app, decor, noms=("Peser",)):
+    _franchir_le_palier(app, decor)
     _proposer(app, decor, noms)
     c = _comme(app, decor["champ"], decor["ent"])
     assert c.post("/api/propositions/envoyer", json={"message": "m"}).status_code == 201
@@ -156,6 +190,7 @@ class TestBrouillon:
 class TestEnvoyer:
 
     def test_envoyer_sans_message_laisse_le_message_vide(self, app, decor):
+        _franchir_le_palier(app, decor)
         _proposer(app, decor)
         c = _comme(app, decor["champ"], decor["ent"])
         r = c.post("/api/propositions/envoyer", json={"message": "   "})
@@ -164,6 +199,7 @@ class TestEnvoyer:
         assert p["status"] == "pending" and p["message"] == "" and p["submitted_at"]
 
     def test_envoyer_sans_corps_json_fonctionne(self, app, decor):
+        _franchir_le_palier(app, decor)
         _proposer(app, decor)
         r = _comme(app, decor["champ"], decor["ent"]).post("/api/propositions/envoyer")
         assert r.status_code == 201
@@ -182,6 +218,7 @@ class TestEnvoyer:
         assert r.status_code == 400 and r.get_json()["code"] == "vide"
 
     def test_envoyer_renseigne_le_nom_de_la_carto(self, app, decor):
+        _franchir_le_palier(app, decor)
         _proposer(app, decor)
         r = _comme(app, decor["champ"], decor["ent"]).post("/api/propositions/envoyer", json={})
         assert r.get_json()["proposition"]["entity_name"].startswith("ACPG carto")
@@ -322,7 +359,9 @@ class TestDecision:
             with coord.session_transaction() as s:
                 assert s["active_entity_id"] == autre_id
             with app.app_context():
-                assert Task.query.filter_by(activity_id=decor["act"]).count() == 1
+                # Par NOM : la carto porte déjà la tâche du palier.
+                assert Task.query.filter_by(
+                    activity_id=decor["act"], name="Peser").count() == 1
         finally:
             with app.app_context():
                 db.session.query(Entity).filter_by(id=autre_id).delete()

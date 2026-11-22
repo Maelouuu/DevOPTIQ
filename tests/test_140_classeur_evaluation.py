@@ -919,7 +919,7 @@ class TestLesLibellesSontDansLesDeuxLangues:
         js = _lire(JS)
         fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
         en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
-        cles = ["cl_tenu", "cl_courbes", "cl_seance",
+        cles = ["cl_courbes", "cl_seance",
                 "ou_titre", "ou_notez", "ou_comp", "ou_collab", "ou_role",
                 "ou_act", "ou_attendu", "ou_manque_1", "ou_manque_n",
                 "ou_ecart", "ou_au_niveau", "ou_au_dessus",
@@ -1107,3 +1107,110 @@ class TestLaPorteDuRole:
         for langue in ("    fr: {", "    en: {"):
             d = js.split(langue, 1)[1].split("\n    },", 1)[0]
             assert "ou_voir_role:" in d, langue
+
+
+# ══════════════════════════════════════════════════════════════════════════
+class TestLeNiveauEstPoseSurLaLigneDEau:
+    """⚠️⚠️ « Le lien entre l'activité et ses résultats doit être plus marqué. »
+
+    Il l'était mal, et c'était mesurable : le niveau de l'activité s'écrivait
+    en 48 px au-dessus du bassin, et la ligne d'eau — 295 px plus bas, relevée
+    à l'écran — disait EXACTEMENT la même valeur. Deux énoncés d'une seule
+    chose, que rien ne reliait.
+
+    Le chiffre est maintenant posé SUR la surface, dans un couloir réservé à
+    droite du bassin, et la ligne d'eau traverse ce couloir pour venir finir
+    sous lui. Poser une note déplace le repère le plus bas, donc l'eau, donc
+    le chiffre : le découlement se REGARDE, et il ne reste qu'un seul endroit
+    où lire le niveau.
+    """
+
+    def test_le_niveau_vit_dans_le_BASSIN_et_plus_dans_l_en_tete(self):
+        """⚠️ Écrit aux deux endroits, il redirait en grand ce que l'eau
+        montre — le doublon d'origine."""
+        js = _lire(JS)
+        ou = _corps(js, "  function remplirOu(st) {")
+        bas = _corps(js, "  function bassinHtml(st) {")
+        assert "data-niv" not in ou, "le niveau est resté dans l'en-tête"
+        assert "data-basniv" in bas and "data-niv" in bas
+        # Et le bloc qui le portait n'existe plus nulle part.
+        assert "ou-niv" not in js and "ou-niv" not in _lire(CSS)
+
+    def test_le_chiffre_suit_la_MEME_hauteur_que_l_eau(self):
+        """C'est ce qui en fait une conséquence et non un doublon : une
+        seconde expression dériverait de la première au premier correctif."""
+        m = _corps(_lire(JS), "  function majBassin(st) {")
+        hauteur = "basY(estNul(niv) ? bas : niv)"
+        assert m.count(hauteur) >= 3, "l'eau, la surface et le chiffre"
+        assert "pl.style.bottom = " + hauteur + " + 'px';" in m
+
+    def test_la_SURFACE_traverse_le_couloir_que_tout_le_reste_respecte(self):
+        """⚠️ C'est le TRAIT qui fait le lien : il ne peut pas s'arrêter au
+        bord du couloir. Tout le reste du bassin, lui, s'y arrête — sinon
+        l'eau passerait sous le chiffre et il n'y aurait plus de couloir."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "--rail:" in _regle(css, "\n.bassin {")
+        for sel in ("\n.bassin .eau {", "\n.bassin .gd {",
+                    "\n.bassin .att {", "\n.bassin .mk {"):
+            assert "right: var(--rail)" in _regle(css, sel), sel
+        surf = _regle(css, "\n.bassin .surf {")
+        assert "right: 0" in surf and "var(--rail)" not in surf
+
+    def test_le_cartouche_du_niveau_TIENT_aux_deux_bouts(self):
+        """⚠️⚠️ `basY(0)` vaut `bas` et `basY(4)` vaut `h - haut` : centré sur
+        la ligne, le cartouche déborde par le FOND au niveau 0 et par le CIEL
+        au niveau 4 si les deux bords ne lui réservent pas sa moitié.
+        Mesuré au banc : 26 px passent sous la ligne, 52 restent au-dessus
+        (le chiffre, la pastille d'écart qui s'y empile, les rembourrages) —
+        il reste 6 px de marge en bas et 9 en haut, aux cinq niveaux."""
+        js = _sans_commentaires_js(_lire(JS))
+        h, bas, haut = (int(x) for x in re.search(
+            r"const BAS = \{ h: (\d+), bas: (\d+), haut: (\d+) \};", js).groups())
+        css = _sans_commentaires_css(_lire(CSS))
+        marge = int(re.search(r"margin-bottom: -(\d+)px",
+                              _regle(css, "\n.bas-niv {")).group(1))
+        assert bas > marge, "la moitié basse du chiffre est rognée par le fond"
+        assert haut >= 52, "le cartouche du niveau 4 sort du bassin"
+
+    def test_le_cartouche_part_du_FOND_et_pas_du_HAUT(self):
+        """⚠️ `majBassin` lui pose son `bottom` à chaque rendu — mais sans
+        valeur de départ il vaudrait `auto`, c'est-à-dire le HAUT du bassin,
+        l'exact contraire du fond. Relevé à l'écran."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "bottom: 0" in _regle(css, "\n.bas-niv {")
+
+    def test_la_pastille_d_ecart_ne_passe_JAMAIS_a_la_ligne(self):
+        """⚠️ Deux lignes et le cartouche grandit de 12 px : au niveau 4 il
+        sort du bassin. En anglais « below target · −3 » est le libellé le
+        plus large (92 px mesurés) — c'est lui qui décide."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "white-space: nowrap" in _regle(css, "\n.bas-niv .e {")
+        # … et elle s'empile AU-DESSUS du chiffre, jamais en dessous, où le
+        # fond du bassin la rognerait au niveau 0.
+        bas = _corps(_lire(JS), "  function bassinHtml(st) {")
+        bloc = bas.split('class="bas-niv"', 1)[1]
+        assert bloc.index("data-ecart") < bloc.index("data-niv")
+
+    def test_le_chiffre_prend_la_couleur_de_la_SURFACE(self):
+        """Le chiffre et le trait sont une seule chose : ils changent de
+        teinte ensemble, sinon le lien ne tient que par la position."""
+        css = _sans_commentaires_css(_lire(CSS))
+        vert = re.search(r"#[0-9a-f]{6}", _regle(css, "\n.bassin .surf.vert {")).group(0)
+        bleu = re.search(r"#[0-9a-f]{6}", _regle(css, "\n.bassin .surf.bleu {")).group(0)
+        assert vert in _regle(css, "\n.bas-niv.est-vert .v {")
+        assert bleu in _regle(css, "\n.bas-niv .v {")
+        m = _corps(_lire(JS), "  function majBassin(st) {")
+        assert "pl.classList.toggle('est-vert', vert);" in m
+        assert "pl.classList.toggle('est-vide', estNul(niv));" in m
+
+    def test_le_cartouche_ne_lit_aucun_DERIVE_de_l_accent(self):
+        """`--pg-accent-soft` et ses frères sont déclarés sur `:root`, où
+        `--pg-accent` vaut encore le gris par défaut : ils rendent du GRIS."""
+        # ⚠️ Bornée : un fichier de 3 500 lignes contient presque toujours un
+        # homonyme de ce qu'on croit garder.
+        zone = _sans_commentaires_css(_lire(CSS))
+        zone = zone[zone.index(".bas-niv {"):]
+        zone = zone[:zone.index(".bas-niv .e.ok {") + 200]
+        for derive in ("--pg-accent-soft", "--pg-accent-softer",
+                       "--pg-accent-border", "--pg-accent-glow"):
+            assert derive not in zone, derive

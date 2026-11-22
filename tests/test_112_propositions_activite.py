@@ -67,8 +67,20 @@ def decor(app):
     yield d
     with app.app_context():
         from Code.models.models import (ActivityChangeRequest, Competency,
-                                        Savoir, Task, Tool)
+                                        Role, Savoir, Task, Tool,
+                                        activity_roles, task_tools)
         ActivityChangeRequest.query.filter_by(entity_id=d["ent"]).delete()
+        # ⚠️ Un `Task.query.delete()` en bloc ne touche PAS `task_tools` : on
+        # laisserait des lignes d'association orphelines, et PostgreSQL
+        # refuserait ensuite la suppression de l'outil (SQLite, lui, n'applique
+        # pas les FK — le défaut ne se verrait qu'en ligne).
+        ids_t = [t.id for t in Task.query.filter_by(activity_id=d["act"])]
+        if ids_t:
+            db.session.execute(
+                task_tools.delete().where(task_tools.c.task_id.in_(ids_t)))
+        db.session.execute(
+            activity_roles.delete().where(activity_roles.c.activity_id == d["act"]))
+        Role.query.filter_by(entity_id=d["ent"]).delete()
         Task.query.filter_by(activity_id=d["act"]).delete()
         Competency.query.filter_by(activity_id=d["act"]).delete()
         Savoir.query.filter_by(activity_id=d["act"]).delete()
@@ -89,6 +101,33 @@ def _comme(app, uid, entity_id):
         s["user_id"] = uid
         s["active_entity_id"] = entity_id
     return c
+
+
+def _franchir_le_palier(app, decor):
+    """Rend la carto du décor COMPLÈTE : garant, une tâche, un outil.
+
+    ⚠️ Depuis le 22/11 une proposition ne part à l'examen que si chaque
+    activité de la carto porte les trois (`Code/socle_activites.py`) : sinon
+    le coordinateur reçoit autant de demandes que de lignes saisies. Les cas
+    de ce fichier portent sur la MÉCANIQUE du dépôt et de la décision, pas
+    sur le palier — ils franchissent donc le palier en base, et ce qu'ils
+    déposent est la correction d'une carto déjà remplie. Le palier lui-même
+    a son fichier (`test_159_palier_soumission.py`).
+    """
+    from Code.models.models import Role, Task, Tool, activity_roles
+    with app.app_context():
+        role = Role(name="Garant socle %d" % decor["n"], entity_id=decor["ent"])
+        outil = Tool(name="Outil socle %d" % decor["n"], entity_id=decor["ent"])
+        db.session.add_all([role, outil])
+        db.session.flush()
+        tache = Task(name="Tâche socle", activity_id=decor["act"])
+        tache.tools.append(outil)
+        db.session.add(tache)
+        db.session.execute(activity_roles.insert().values(
+            activity_id=decor["act"], role_id=role.id, status="Garant"))
+        db.session.commit()
+        decor["role_socle"] = role.id
+        decor["tache_socle"] = tache.id
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -221,6 +260,7 @@ class TestLeBrouillonEstUnLOT:
     def test_un_BROUILLON_n_attend_la_decision_de_personne(self, app, decor):
         """⚠️ Tant qu'il n'est pas envoyé, il ne doit pas encombrer la file du
         coordinateur : on examine une intention, pas une saisie en cours."""
+        _franchir_le_palier(app, decor)
         c = _comme(app, decor["champ"], decor["ent"])
         c.post("/tasks/add", json={"activity_id": decor["act"], "name": "Pas fini"})
         vu = _comme(app, decor["coord"], decor["ent"])
@@ -241,6 +281,7 @@ class TestLeBrouillonEstUnLOT:
 class TestAppliquerEstToutOuRien:
 
     def _deposer(self, app, decor, gestes=None):
+        _franchir_le_palier(app, decor)
         c = _comme(app, decor["champ"], decor["ent"])
         for url, corps in (gestes or [
             ("/tasks/add", {"activity_id": decor["act"], "name": "Peser"}),
@@ -260,7 +301,11 @@ class TestAppliquerEstToutOuRien:
         r = vu.post("/api/propositions/%d/approve" % rid, json={"comment": "ok"})
         assert r.status_code == 200 and r.get_json()["n"] == 2
         with app.app_context():
-            assert Task.query.filter_by(activity_id=decor["act"]).count() == 1
+            # ⚠️ Par NOM, pas par compte : la carto porte déjà la tâche du
+            # socle (sans elle, le palier refuserait l'envoi), et un compte
+            # dirait seulement « il y a deux lignes ».
+            noms = {t.name for t in Task.query.filter_by(activity_id=decor["act"])}
+            assert "Peser" in noms
             assert Competency.query.filter_by(activity_id=decor["act"]).count() == 1
 
     def test_un_geste_impossible_ANNULE_les_autres(self, app, decor):
@@ -293,7 +338,11 @@ class TestAppliquerEstToutOuRien:
         assert corps["code"] == "rejeu"
         assert corps["objet"] == "fantôme", "on dit LEQUEL a bloqué"
         with app.app_context():
-            assert Task.query.filter_by(activity_id=decor["act"]).count() == 0, \
+            # ⚠️ Par NOM : la tâche du socle existait AVANT le dépôt (le
+            # palier l'exige). Ce qui doit être absent, c'est le geste du
+            # lot qui précédait celui qui a échoué.
+            noms = {t.name for t in Task.query.filter_by(activity_id=decor["act"])}
+            assert "Première" not in noms, \
                 "rien n'est écrit quand un geste échoue"
             assert db.session.get(ActivityChangeRequest, rid).status == "pending", \
                 "la proposition reste examinable"
@@ -305,7 +354,11 @@ class TestAppliquerEstToutOuRien:
         assert vu.post("/api/propositions/%d/reject" % rid,
                        json={"comment": "non"}).status_code == 200
         with app.app_context():
-            assert Task.query.filter_by(activity_id=decor["act"]).count() == 0
+            # ⚠️ Par NOM : la tâche du socle est là avant le dépôt (le palier
+            # l'exige), donc « zéro tâche » ne veut plus rien dire. Ce qui
+            # compte est que ce qui était PROPOSÉ ne soit pas écrit.
+            noms = {t.name for t in Task.query.filter_by(activity_id=decor["act"])}
+            assert "Peser" not in noms
             cr = db.session.get(ActivityChangeRequest, rid)
             assert cr.status == "rejected" and cr.review_comment == "non"
 
@@ -321,6 +374,7 @@ class TestAppliquerEstToutOuRien:
 class TestQuiTrancheEtQuiVoit:
 
     def _envoyee(self, app, decor):
+        _franchir_le_palier(app, decor)
         c = _comme(app, decor["champ"], decor["ent"])
         c.post("/tasks/add", json={"activity_id": decor["act"], "name": "X"})
         c.post("/api/propositions/envoyer", json={})
@@ -496,6 +550,7 @@ class TestLeMenageEtLeBandeau:
         compterait qu'une laisserait l'autre dormir — c'est ce qui faisait
         manquer les propositions quand elles vivaient dans la page RH."""
         from Code.models.models import CartoChangeRequest
+        _franchir_le_palier(app, decor)
         c = _comme(app, decor["champ"], decor["ent"])
         c.post("/tasks/add", json={"activity_id": decor["act"], "name": "X"})
         c.post("/api/propositions/envoyer", json={})

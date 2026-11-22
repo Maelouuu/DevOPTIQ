@@ -1074,7 +1074,12 @@ class TestLesDeuxColonnesSeDistinguent:
         assert "(i + 1) + ' / ' + n" in nav
         ou = _corps(js, "  function remplirOu(st) {")
         assert "a.activity_name" in ou
-        assert "T('cl_tenu')" in ou
+        # ⚠️ Le NIVEAU, lui, a quitté l'en-tête : il est posé sur la ligne
+        # d'eau, dans le bassin — voir `TestLeNiveauEstPoseSurLaLigneDEau`
+        # (test_140). Écrit ici ET là, il redirait en 48 px ce que l'eau
+        # montre, à 295 px de distance.
+        assert "data-niv" not in ou
+        assert "data-niv" in _corps(js, "  function bassinHtml(st) {")
     def test_le_gabarit_de_la_page_ne_porte_aucun_libelle(self):
         """⚠️ `remplirOu` et `remplirSorties` VIDENT leur zone : un libellé
         écrit dans le squelette serait effacé au premier remplissage."""
