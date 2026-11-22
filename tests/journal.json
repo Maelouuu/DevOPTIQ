@@ -50,6 +50,24 @@
   },
   "entries": [
     {
+      "at": "2026-11-22T03:33:56",
+      "date": "22/11/2026 · 03:33",
+      "author": "routine",
+      "title": "Démarrage de l app et résidus des modèles : 142 tests, 0 patch",
+      "summary": "Suite verte au départ (4729 réussis, 0 échec) : tout le temps est allé à la couverture. Cible : Code/app.py (81 %), le chemin de DÉMARRAGE de production que la suite sautait entièrement (create_app(test_config=…)). Chaque démarrage tourne sur une base SQLite jetable : premier compte admin (créé, mot de passe haché, retiré du fichier de config, jamais en double), données de démo idempotentes, purge de la télémétrie, colonnes rattrapées, alembic_version, reprises de données et créations de tables qui échouent sans bloquer le boot. Plus les hooks (session périmée en 401 JSON sur /api), le contexte des gabarits et les filtres Jinja. Puis models.py (requêtes VIDES sans entité active sur 6 modèles, set_active refusé sur la carto privée d autrui) et permissions.py. app.py 81 % → 98 %, models.py 94 % → 97 %, permissions.py 95 % → 99 %. Aucun vrai bug trouvé. Suite finale : 4871 réussis, 0 échec.",
+      "new_tests": 142,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "demarrage_app",
+      "highlights": [
+        "Le bootstrap du 1er admin chez un client est désormais éprouvé de bout en bout",
+        "Une session sans entité active ne lit RIEN (requête vide) — vérifié sur Data, Tool, Role, Link, User, TimeProject",
+        "Code mort repéré : CustomMail (app.py) n est utilisé nulle part",
+        "escapejs : l auto-échappement HTML passe après — sûr dans un attribut onclick, pas dans un bloc <script>"
+      ],
+      "next": "Résidus de Code/routes/activities_map.py (96 %, 60 lignes) puis extensions.py / translations.py."
+    },
+    {
       "at": "2026-11-19T03:27:30",
       "date": "19/11/2026 · 03:27",
       "author": "routine",
