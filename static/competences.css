@@ -14,6 +14,16 @@
    suivent pas l'accent de page : ce sont des feux, pas de la décoration.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
+  /* ══ LE BLEU DE NUIT ═══════════════════════════════════════════════════
+     ⚠️ UNE seule paire de bouts pour les TROIS surfaces sombres de la page :
+     le bloc de gauche, la bande de données et l'en-tête d'identité. Elles
+     portaient trois dégradés différents — « un bleu un peu décalé et un effet
+     de con ». Seul l'ANGLE change d'une surface à l'autre, parce qu'une bande
+     large et un bloc haut ne se traversent pas pareil.
+     Et il est plus clair qu'avant : l'ancien finissait sur #0b1120, presque
+     du noir dans une carte blanche. */
+  --nuit-1: #1d2c56;
+  --nuit-2: #2c58b6;
   /* ══ TILLEUL — ce qui est TENU ══════════════════════════════════════════
      Le vert franc ne vit pas sur le bleu de nuit de la vue d'ensemble : il y
      devient acide. Le tilleul (jaune-vert) s'y pose, et sur le blanc des
@@ -491,12 +501,6 @@ header { position: sticky; top: 0; z-index: 30; }
 @keyframes cv2spin { to { transform: rotate(360deg); }}
 
 /* Le sélecteur des domaines techniques (bloc Technicité). */
-.cv2-domsel {
-  padding: 7px 9px; font-family: inherit; font-size: 13px; font-weight: 600;
-  color: var(--ink); background: var(--card);
-  border: 1px solid var(--border-strong); border-radius: var(--r-btn);
-}
-.cv2-domsel:focus { outline: none; border-color: var(--pg-accent); }
 
 /* Diagnostic */
 .cv2-diagres {
@@ -584,19 +588,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-tech[open] > summary .caret { transform: rotate(90deg); }
 .cv2-tech .tbody { padding: 2px 15px 15px; }
 .cv2-tech .texp { margin-bottom: 12px; font-size: 12px; line-height: 1.5; color: var(--muted); }
-.cv2-domrow {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 0; border-bottom: 1px solid var(--border);
-}
-.cv2-domrow:last-child { border-bottom: none; }
-.cv2-domrow .dn { flex: 1; min-width: 120px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
-.cv2-domrow .df { display: flex; flex-direction: column; gap: 3px; }
-.cv2-domrow .df .fl { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
-.cv2-domadd { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
-.cv2-domadd input {
-  flex: 1; min-width: 140px; padding: 7px 10px; font-family: inherit; font-size: 13.5px;
-  background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--r-btn);
-}
 .cv2-emptydom { padding: 6px 0 2px; font-size: 12px; color: var(--muted); }
 
 /* Toast */
@@ -933,7 +924,10 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-plan-win {
   position: fixed; top: 50%; left: 50%; z-index: 51;
   transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
-  width: min(940px, 95vw); max-height: 92vh;
+  /* ⚠️ 1 000 px et non 940 : les 60 px vont au panneau de droite, dont le
+     verdict (besoin / capacité / la phrase qui dit ce qui manque) est ce
+     qu'on vient lire — à 258 px il se repliait sur quatre lignes. */
+  width: min(1000px, 95vw); max-height: 92vh;
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--card); border: 1px solid var(--border); border-radius: 18px;
   box-shadow: var(--sh-pop);
@@ -973,7 +967,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-ph .x:hover { background: rgba(255, 255, 255, .3); }
 .cv2-pb { flex: 1; overflow-y: auto; padding: 18px 24px 20px; }
 
-.cv2-plan-grille { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.55fr) minmax(258px, 1fr); }
+.cv2-plan-grille { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.5fr) minmax(318px, 1fr); }
 .cv2-plan-h {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px;
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
@@ -1018,7 +1012,10 @@ header { position: sticky; top: 0; z-index: 30; }
   background: var(--card-2); border: 1px solid var(--border); border-radius: 12px;
 }
 .cv2-etapes-gh .l1 { display: flex; align-items: baseline; gap: 12px; }
-.cv2-etapes-gh .t { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+.cv2-etapes-gh .t {
+  flex: 1; min-width: 0; font-family: var(--pg-font-display); font-size: 16px;
+  font-weight: 600; color: var(--ink);
+}
 .cv2-etapes-gh .tot {
   flex: none; white-space: nowrap;
   font-size: 12.5px; font-weight: 700; color: var(--ink-2);
@@ -1067,20 +1064,20 @@ header { position: sticky; top: 0; z-index: 30; }
   flex: none; width: 24px; height: 24px; display: grid; place-items: center;
   border-radius: 8px; font-size: 11.5px; color: var(--c); background: var(--c-soft);
 }
-.cv2-etape-t { margin-top: 8px; font-size: 15px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+.cv2-etape-t { margin-top: 9px; font-size: 16px; font-weight: 700; line-height: 1.35; color: var(--ink); }
 
 /* Les champs portent leur ÉTIQUETTE dans une colonne à part : l'œil descend
    les libellés, puis lit la valeur qui l'intéresse. */
 .cv2-etape-d {
-  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px;
-  margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--card-2);
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 9px 16px;
+  margin: 11px 0 0; padding: 13px 15px; border-radius: 11px; background: var(--card-2);
 }
 .cv2-etape-d dt {
-  padding-top: 2px; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding-top: 2px; font-size: 11.5px; font-weight: 800; letter-spacing: .05em;
   text-transform: uppercase; color: var(--muted);
 }
 .cv2-etape-d dd {
-  margin: 0; font-size: 13px; line-height: 1.45; color: var(--ink-2);
+  margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2);
   white-space: pre-line;   /* un critère par ligne quand il y en a plusieurs */
 }
 
@@ -1182,25 +1179,28 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-barre.tendu i { background: linear-gradient(90deg, #fbbf24, var(--cv-orange)); }
 .cv2-barre.trop i  { background: linear-gradient(90deg, var(--cv-r-40), var(--cv-red)); }
 .cv2-chiffres {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 9px;
-  font-size: 11.5px; font-weight: 700; color: var(--muted);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 11px;
+  font-size: 12px; font-weight: 700; color: var(--muted);
 }
-.cv2-chiffres b { font-family: var(--pg-font-display); font-size: 15px; color: var(--ink); }
-.cv2-dit { margin-top: 11px; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.cv2-chiffres b { font-family: var(--pg-font-display); font-size: 19px; color: var(--ink); }
+.cv2-dit { margin-top: 12px; padding: 12px 14px; border-radius: 11px; font-size: 13.5px; font-weight: 600; line-height: 1.5; }
 .cv2-dit--ok    { background: var(--cv-g-05); border: 1px solid var(--cv-g-20); color: var(--cv-green-deep); }
 .cv2-dit--tendu { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
 .cv2-dit--trop  { background: var(--cv-r-05); border: 1px solid var(--cv-r-20); color: var(--cv-red-deep); }
 .cv2-juste {
   width: 100%; margin-top: 10px; padding: 8px 12px; cursor: pointer;
   font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--pg-accent-deep);
-  background: var(--card); border: 1px dashed var(--pg-accent-border); border-radius: 9px; transition: .14s;
+  background: var(--card); border-radius: 10px; transition: .14s;
+  border: 1px dashed color-mix(in srgb, var(--pg-accent) 34%, var(--card));
 }
-.cv2-juste:hover { background: var(--pg-accent-soft); border-style: solid; }
+.cv2-juste:hover {
+  background: color-mix(in srgb, var(--pg-accent) 9%, var(--card)); border-style: solid;
+}
 
 /* L'échéancier : où tombe chaque action dans les semaines disponibles. */
 .cv2-semaines { display: flex; gap: 3px; margin-top: 12px; }
 .cv2-semaine {
-  flex: 1; height: 26px; border-radius: 5px; background: var(--card-2);
+  flex: 1; height: 29px; border-radius: 5px; background: var(--card-2);
   box-shadow: inset 0 0 0 1px var(--border);
   display: flex; align-items: flex-end; overflow: hidden;
 }
@@ -1387,13 +1387,6 @@ header { position: sticky; top: 0; z-index: 30; }
    vert sémantique (« niveau tenu »). Le bandeau plein la sépare franchement de
    l'évaluation tout en restant dans le bleu de la page.
    ══════════════════════════════════════════════════════════════════════════ */
-.cv2-bloc--tech .cv2-bloc-tete {
-  margin: 0 0 12px; padding: 11px 13px; border-radius: 11px;
-  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
-}
-.cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
-.cv2-bloc--tech .cv2-bloc-h { color: #fff; }
-.cv2-bloc--tech .cv2-bloc-d { color: rgba(255, 255, 255, .86); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    LISIBILITÉ DES FENÊTRES
@@ -1411,8 +1404,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-prop { font-size: 11.5px; }
 .cv2-ia-t { font-size: 14.5px; }
 
-.cv2-domrow .dn { font-size: 14px; }
-.cv2-domrow .df .fl, .cv2-emptydom { font-size: 12px; }
 .cv2-fam .fh { font-size: 14px; }
 .cv2-fam .fd { font-size: 12.5px; }
 .cv2-dit { font-size: 13px; }
@@ -1564,41 +1555,10 @@ header { position: sticky; top: 0; z-index: 30; }
    section. Le bloc entier porte la couleur, et son contenu s'y adapte — sinon
    on relit un formulaire blanc posé sous un bandeau.
    ══════════════════════════════════════════════════════════════════════════ */
-.cv2-bloc--tech {
-  background: linear-gradient(140deg, var(--pg-accent), var(--pg-accent-deep));
-  border-color: transparent;
-  box-shadow: 0 12px 28px -14px var(--pg-accent-glow);
-}
-.cv2-bloc--tech .cv2-bloc-tete { margin: 0 0 12px; padding: 0; background: none; }
-.cv2-bloc--tech .cv2-bloc-num { background: rgba(255, 255, 255, .22); }
-.cv2-bloc--tech .cv2-bloc-h { color: #fff; }
 
-.cv2-bloc--tech .cv2-domlist {
-  padding: 3px 13px; border-radius: 11px; background: rgba(255, 255, 255, .13);
-}
-.cv2-bloc--tech .cv2-domrow { border-bottom-color: rgba(255, 255, 255, .18); }
-.cv2-bloc--tech .cv2-domrow .dn { color: #fff; }
-.cv2-bloc--tech .cv2-domrow .df .fl { color: rgba(255, 255, 255, .72); }
-.cv2-bloc--tech .cv2-emptydom { padding: 11px 0; color: rgba(255, 255, 255, .8); font-style: italic; }
 /* Les contrôles restent blancs : un champ translucide sur fond bleu ne se lit
    plus dès qu'on y saisit quelque chose. */
-.cv2-bloc--tech .cv2-domsel, .cv2-bloc--tech .cv2-domadd input {
-  background: #fff; border-color: rgba(255, 255, 255, .4); color: var(--ink);
-}
-.cv2-bloc--tech .cv2-domsel:focus, .cv2-bloc--tech .cv2-domadd input:focus {
-  outline: none; border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .28);
-}
-.cv2-bloc--tech .cv2-domadd { margin-top: 13px; }
-.cv2-bloc--tech .cv2-domadd .btn-ghost {
-  background: rgba(255, 255, 255, .18); border-color: rgba(255, 255, 255, .34); color: #fff;
-}
-.cv2-bloc--tech .cv2-domadd .btn-ghost:hover { background: rgba(255, 255, 255, .3); }
-.cv2-bloc--tech .cv2-domadd .btn-primary {
-  background: #fff; color: var(--pg-accent-deep); box-shadow: none;
-}
-.cv2-bloc--tech .cv2-domadd .btn-primary:hover { background: rgba(255, 255, 255, .88); }
 /* Les pastilles d'écart gardent leur sens : elles ne sont pas décoratives. */
-.cv2-bloc--tech .chip { box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); }
 
 /* La bulle est POSITIONNÉE en JS près du point survolé : plus de centrage fixe,
    sinon on survole un point à gauche et l'explication surgit en haut au centre,
@@ -2125,7 +2085,7 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
 .ev-tete, .sq-tete {
   position: relative; overflow: hidden; color: #fff;
   border-radius: 20px;
-  background: linear-gradient(118deg, #1b2a4a 0%, #101a30 58%, #0b1120 100%);
+  background: linear-gradient(118deg, var(--nuit-1) 0%, var(--nuit-2) 100%);
   box-shadow: 0 14px 34px -14px rgba(11, 17, 32, .55);
 }
 .ev-tete::after, .sq-tete::after {
@@ -2642,16 +2602,6 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
   .cv2-bar-l:has(.cv2-bar-req) .cv2-bar-piste { display: none; }}
 
 /* ───────── L'évolution se referme par le BAS ───────── */
-.pal-evo-fin {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: 100%; margin-top: 2px; padding: 9px 0; cursor: pointer;
-  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted);
-  background: var(--card-2); border: none;
-  border-top: 1px solid var(--border);
-  border-radius: 0 0 var(--r-card, 14px) var(--r-card, 14px);
-  transition: .13s;
-}
-.pal-evo-fin:hover { color: var(--pg-accent-deep); background: color-mix(in srgb, var(--pg-accent) 7%, #fff); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE RAIL SE REDRESSE, LA MESURE SE LIT, LES DEUX NOTES SE TIENNENT
@@ -2933,137 +2883,6 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
 .pal-vient i { flex: none; padding-top: 2px; color: var(--cv-g-70); }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   L'AXE PARTAGÉ — une seule échelle pour toute l'activité       (10/11/2026)
-
-   Chaque sortie avait SA carte, et les deux régimes en avaient deux très
-   différentes : « pas encore notée » ne ressemblait en rien à « déjà notée ».
-   C'est ce qui rendait l'écran brouillon. Les deux partagent désormais la
-   même rangée, la même graduation et la même zone attendue — la différence
-   se lit DANS la piste, plus dans la mise en page.
-
-   ⚠️ DES RAMPES, PAS DEUX TEINTES. Une famille n'est pas « un clair et un
-   foncé » : c'est une rampe dont la TEINTE DÉRIVE (le bleu part du ciel et
-   finit en indigo, le vert finit en émeraude). Le niveau tenu monte DANS la
-   rampe, et le grand chiffre porte la même marche que sa barre — c'est ce
-   lien qui donne de la profondeur sans ajouter un seul sens nouveau.
-
-   ⚠️ AUCUNE règle d'ici ne lit `--pg-accent-soft` ni ses trois frères : ils
-   sont déclarés sur `:root`, où `--pg-accent` vaut encore le gris par défaut,
-   et ils rendent donc du GRIS sur toute l'application. Les mélanges sont
-   écrits SUR PLACE.
-   ══════════════════════════════════════════════════════════════════════════ */
- .cv2-histo{
-  --ax-b4: #8ec7fa; --ax-b5: #5aa9f5; --ax-b6: #3b82f6; --ax-b7: #2563eb; --ax-b8: #1d4ed8;
-  --ax-v1: var(--cv-g-02); --ax-v3: var(--cv-g-20); --ax-v4: var(--cv-g-30); --ax-v5: var(--cv-g-40);
-  --ax-v6: var(--cv-g-50); --ax-v7: var(--cv-g-60); --ax-v8: var(--cv-g-70); --ax-v9: var(--cv-g-80);
-  --ax-p2: #ebe4ff; --ax-p3: #d6c9ff; --ax-p5: #8b5cf6; --ax-p6: #7c3aed;
-  --ax-a1: #fffbeb; --ax-a2: #fef3c7; --ax-a3: #fde68a; --ax-a6: #b45309; --ax-ah: #fae6ae;
-  --ax-n2: #eef1f7; --ax-n3: #e1e7f0; --ax-n4: #cbd5e1; --ax-n5: #94a3b8;
-  --ax-n6: #64748b; --ax-n7: #475569; --ax-n8: #334155; --ax-n10: #0f172a;
-  --ax-zone: var(--cv-g-05); --ax-zone-d: var(--cv-g-10);
-  --hi-b: #2563eb; --hi-v: var(--cv-g-60);
-}
-
-/* Le niveau monte DANS la rampe ; `--mo` est un TRIPLET rgb (il sert aux halos). */
-.cv2-lv[data-lv="x"] { --m1: var(--ax-n4); --m2: var(--ax-n5); --mi: var(--ax-n7); --mo: 148,163,184; }
-.cv2-lv[data-lv="0"] { --m1: var(--ax-n5); --m2: var(--ax-n6); --mi: var(--ax-n7); --mo: 100,116,139; }
-.cv2-lv[data-lv="1"] { --m1: var(--ax-b4); --m2: var(--ax-b6); --mi: var(--ax-b7); --mo: 59,130,246; }
-.cv2-lv[data-lv="2"] { --m1: var(--ax-b5); --m2: var(--ax-b8); --mi: var(--ax-b8); --mo: 37,99,235; }
-.cv2-lv[data-lv="3"] { --m1: var(--ax-v4); --m2: var(--ax-v7); --mi: var(--ax-v7); --mo: 22,197,94; }
-.cv2-lv[data-lv="4"] { --m1: var(--ax-v5); --m2: var(--ax-v9); --mi: var(--ax-v9); --mo: 4,120,87; }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   L'HISTORIQUE DES NOTES — une courbe par sortie, plus celle de l'activité
-   ══════════════════════════════════════════════════════════════════════════ */
-.cv2-histo {
-  margin-top: 16px; padding: 14px 16px 16px; border-radius: 14px;
-  background: var(--card); box-shadow: inset 0 0 0 1px var(--ax-n3);
-}
-.hi-h { display: flex; align-items: center; gap: 10px; }
-.hi-h h3 {
-  margin: 0; font-family: var(--pg-font-display); font-size: 17px; font-weight: 600;
-}
-/* ⚠️ PAS de `width:100%` sur le SVG : mis à l'échelle, il rapetisse ses textes
-   avec lui, et la taille CALCULÉE reste celle du repère du viewBox — la
-   mesure ne le voit pas. Le viewBox est donc TAILLÉ sur la place disponible :
-   une unité vaut un pixel. Sous la largeur minimale, c'est la frise qui
-   défile, pas la page. */
-.hi-s { overflow-x: auto; overscroll-behavior-x: contain; margin-top: 8px; }
-.hi-s svg { display: block; height: auto; }
-.hi-vide { margin: 14px 0; font-size: 14px; color: var(--ax-n6); }
-/* ⚠️ Une LÉGENDE, pas un paragraphe : un texte gris sous un graphe ne se lit
-   pas. Quatre séries en réclament une de toute façon, et c'est le bon endroit
-   pour dire ce que la courbe globale veut dire. */
-.hi-lg {
-  display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0 0; padding: 0;
-  list-style: none; font-size: 14.5px; color: var(--ax-n8); font-weight: 500;
-}
-.hi-lg li { display: inline-flex; align-items: center; gap: 8px; }
-.hi-lg b { color: var(--ax-n10); font-weight: 700; }
-.hi-lg .mu { color: var(--ax-n6); }
-.hi-sw { width: 16px; height: 10px; border-radius: 3px; flex: none; }
-.hi-sw--b { background: linear-gradient(168deg, var(--ax-b5), var(--ax-b8)); }
-.hi-sw--v { background: linear-gradient(168deg, var(--ax-v4), var(--ax-v7)); }
-/* l'échantillon de la globale prend la couleur qu'elle porte À L'ÉCRAN : une
-   légende qui ne change pas avec ce qu'elle légende ne légende rien. */
-.hi-sw--glob {
-  height: 9px; border-radius: 5px;
-  background: color-mix(in srgb, var(--solc, var(--hi-b)) 42%, transparent);
-}
-.hi-ax { fill: var(--ax-n5); font: 600 14px var(--pg-font-display); }
-.hi-d { fill: var(--ax-n6); font: 500 14px var(--pg-font); }
-.hi-n { fill: var(--ax-n8); font: 600 14px var(--pg-font); }
-.hi-n--g { font-weight: 700; fill: var(--ax-n10); }
-.hi-g { stroke: var(--ax-n3); stroke-width: 1; }
-.hi-lim { stroke: var(--ax-v6); stroke-width: 1.5; }
-.hi-zg0 { stop-color: var(--ax-zone-d); }
-.hi-zg1 { stop-color: var(--ax-zone); }
-/* LA COURBE GLOBALE — le niveau de l'activité. Un RUBAN large, posé SOUS les
-   courbes : là où il en rejoint une, on voit la plus basse portée par lui.
-   C'est la règle du minimum, dessinée au lieu d'être écrite. */
-.hi-sg0 { stop-color: var(--solc); stop-opacity: .42; }
-.hi-sg1 { stop-color: var(--solc); stop-opacity: .07; }
-.hi-env { fill: url(#hiS); }
-.hi-glob {
-  fill: none; stroke: var(--solc); stroke-width: 9; opacity: .3;
-  stroke-linejoin: round; stroke-linecap: round;
-}
-.hi-gsw { fill: var(--solc); opacity: .42; }
-/* chaque courbe porte l'état de SA sortie — même langage que les barres de
-   l'axe, donc pas un sens de plus à l'écran. */
-.hi-l { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-.hi-l--b { stroke: var(--hi-b); }
-.hi-l--v { stroke: var(--hi-v); }
-.hi-p { fill: #fff; stroke-width: 2.5; }
-.hi-p--b { stroke: var(--hi-b); }
-.hi-p--v { stroke: var(--hi-v); }
-.hi-dot { stroke: #fff; stroke-width: 2; }
-.hi-dot--b { fill: var(--hi-b); }
-.hi-dot--v { fill: var(--hi-v); }
-.hi-num { fill: #fff; font: 700 14px var(--pg-font-display); }
-.hi-hit { fill: transparent; }
-.hi-amen { fill: none; stroke: var(--ax-n4); stroke-width: 1; stroke-dasharray: 3 4; }
-
-/* ⚠️ Les points de bascule s'écrivent en px RÉELS, la mise en page en px CSS :
-   `body.pg` porte `zoom: .8` et les requêtes média IGNORENT ce zoom. */
-@media (max-width: 1180px) {
-  .cv2-rg {
-    grid-template-columns: 128px minmax(0, 1fr) 26px;
-    grid-template-areas: "nom nom plus" "score piste piste"; gap: 10px 12px;
-  }
-  .rg-nom { grid-area: nom; } .rg-sc { grid-area: score; }
-  .rg-z { grid-area: piste; padding: 0 10px; }
-  .rg-plus { grid-area: plus; }
-  .cv2-rg--t .rg-sc { display: none; }
-  /* La pastille fait ~105 px : sur une piste étroite elle recouvre « 2 » et
-     « 4 ». Les crans restent, les chiffres partent — le niveau se lit en
-     toutes lettres dans la colonne de gauche. */
-  .ax-grad > b { display: none; }
-  .ax-grad { height: 32px; }
-  .p-zone { right: -10px; }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
    LE CLASSEUR — la page d'évaluation, quatrième passe       (11/11/2026)
 
    Trois passes avaient été refusées (« hideux », « ça ne m'en met pas plein
@@ -3090,7 +2909,7 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
    sont déclarés sur `:root`, où `--pg-accent` vaut encore le gris par défaut,
    et ils rendent donc du GRIS. Les mélanges sont écrits SUR PLACE.
    ══════════════════════════════════════════════════════════════════════════ */
-.ev-corps, .cv2-crb-win {
+.ev-corps {
   --b2: #dbeafe; --b3: #bfdbfe; --b4: #93c5fd; --b5: #60a5fa;
   --b6: #3b82f6; --b7: #2563eb; --b8: #1d4ed8; --b9: #1e3a8a;
   --v1: var(--cv-g-05); --v2: var(--cv-g-10); --v3: var(--cv-g-20); --v4: var(--cv-g-40);
@@ -3100,12 +2919,11 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
      surfaces sombres de deux bleus différents sur le même écran se lisaient
      comme un défaut d'impression. Si l'une change, l'autre suit — un
      cliquet compare les deux déclarations. */
-  --nuit: linear-gradient(118deg, #1b2a4a 0%, #101a30 58%, #0b1120 100%);
+  --nuit: linear-gradient(118deg, var(--nuit-1) 0%, var(--nuit-2) 100%);
   --cl-f2: #cfd8e6;
+  /* La page est une COLONNE : le classeur et le pied. */
+  display: flex; flex-direction: column; gap: 0;
 }
-
-/* La page est une COLONNE : le rail, le classeur, le pied. */
-.ev-corps { display: flex; flex-direction: column; gap: 0; }
 
 /* ───────── LA NAVIGATION : une flèche de chaque côté ─────────
    ⚠️ Elle remplace le RAIL des activités — une ligne de pastilles au-dessus
@@ -3173,17 +2991,15 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
 .ev-ou {
   position: sticky; top: 96px;
   padding: 18px 20px 20px; border-radius: 18px; color: #fff;
+  /* ⚠️ Les MÊMES bouts que l'ardoise, à l'angle près : c'est un bloc haut,
+     il se traverse en diagonale. */
   background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, .17), transparent 54%),
-    linear-gradient(145deg, #0f1631, #1e3a8a);
+    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, .2), transparent 56%),
+    linear-gradient(145deg, var(--nuit-1), var(--nuit-2));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, .26), inset 0 -2px 0 rgba(0, 0, 0, .32),
     0 1px 1px rgba(15, 22, 49, .22), 0 4px 9px rgba(15, 22, 49, .2),
     0 14px 26px rgba(15, 22, 49, .26), 0 34px 60px rgba(15, 22, 49, .22);
-}
-.ev-ou .ou-lbl {
-  margin: 0 0 7px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em;
-  text-transform: uppercase; color: rgba(255, 255, 255, .8);
 }
 .ou-h { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
 .ou-pousse { flex: 1; }
@@ -3212,13 +3028,13 @@ button.mail:hover { background: rgba(255, 255, 255, .22); border-color: rgba(255
 button.mail:active { transform: translateY(1px); }
 .mail.est-porte > .fa-arrow-up-right-from-square { flex: none; font-size: 10px; opacity: .7; }
 .mail .d { min-width: 0; }
-.mail .k {
-  display: block; font-size: 9px; font-weight: 800; letter-spacing: .08em;
-  text-transform: uppercase; opacity: .8;
-}
-.mail.ici .k { opacity: .58; }
+/* ⚠️ Les ÉTIQUETTES de la chaîne sont tombées. Elles nommaient ce qui se
+   reconnaît sans elles — une personne, un rôle, une activité — et sur huit
+   étiquettes en capitales dans ce bloc, trois étaient ici. Elles survivent
+   dans l'`aria-label` de chaque maillon : elles tombent à l'ŒIL, pas de
+   l'arbre d'accessibilité, où la chaîne ne se lit pas d'un coup d'œil. */
 .mail .z {
-  display: block; max-width: 17ch; font-size: 12.5px; font-weight: 600; line-height: 1.15;
+  display: block; max-width: 22ch; font-size: 13.5px; font-weight: 600; line-height: 1.15;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mail .bd {
@@ -3231,211 +3047,145 @@ button.mail:active { transform: translateY(1px); }
   font-family: var(--pg-font); font-size: 10px; font-weight: 800; letter-spacing: .04em;
 }
 
-/* ── Ce qu'on note, et le niveau tenu ────────────────────────────── */
-.ou-tete { display: flex; gap: 18px; align-items: flex-start; margin-top: 16px; }
-.ou-tete .g { flex: 1; min-width: 0; }
-.ou-tete h1 {
-  margin: 4px 0 0; font-family: var(--pg-font-display); font-size: 29px;
-  font-weight: 700; letter-spacing: -.02em; line-height: 1.06;
+/* ══ LE VERDICT EN TÊTE ═══════════════════════════════════════
+   Le niveau de l'activité et son écart se lisaient DEUX fois : en 48 px
+   au-dessus du bassin, puis 295 px plus bas sur la ligne d'eau. Le bassin
+   lui-même échouait pour une raison mesurée : les NOMS des sorties étaient
+   dedans, et deux libellés anglais de cinquante signes s'y chevauchaient.
+
+   ⚠️ LA CUVE VERTICALE EST ABANDONNÉE, et c'est l'arbitrage de cette passe.
+   On y perd la métaphore de l'eau qui monte ; on y gagne 90 px de hauteur et
+   surtout la LECTURE — la jauge se lit de gauche à droite, comme toutes les
+   autres jauges de l'application. Le niveau et l'écart sont posés côte à
+   côte du nom de l'activité : un seul endroit, en tête, et c'est le premier
+   chiffre qu'on lit en arrivant.
+
+   ⚠️ NULL ≠ 0, ici comme partout : une activité dont une sortie n'est pas
+   notée n'a PAS de niveau, et sa piste est HACHURÉE — pas remplie à zéro.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Le panneau creusé : fond plus sombre que la carte. Un panneau plus CLAIR
+   sur du bleu nuit ne se détache pas — mesuré à l'écran. */
+.bas {
+  position: relative; margin-top: 16px; border-radius: 14px; padding: 14px 16px 13px;
+  background: rgba(0, 0, 0, .22); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1);
 }
-.ou-comp {
-  margin-top: 10px; padding: 9px 13px; border-radius: 10px;
-  font-size: 12.5px; line-height: 1.45; color: rgba(255, 255, 255, .9);
-  background: rgba(0, 0, 0, .26); border-left: 3px solid var(--v4);
+.bas-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.bas-h .g { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 9px; }
+.bas-h .g > div { flex: 1; min-width: 0; }
+.bas-k {
+  margin: 0 0 2px; font-size: 11.5px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: rgba(255, 255, 255, .6);
 }
-.ou-comp em {
-  display: block; font-style: normal; margin-bottom: 3px;
-  font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-  color: rgba(255, 255, 255, .62);
+.bas-h h1 {
+  margin: 0; font-family: var(--pg-font-display); font-size: 24px; font-weight: 700;
+  letter-spacing: -.02em; line-height: 1.12;
 }
+/* ⚠️ Le VERDICT est aligné à droite et ne se replie JAMAIS : « below target
+   · −2 » fait 92 px en anglais contre 70 en français, et sur deux lignes la
+   rangée grandit de 12 px sous le nom de l'activité. */
+.bas-d { flex: none; display: flex; align-items: flex-start; gap: 8px; text-align: right; }
+.bas-d .z { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.bas-v {
+  margin: 0; display: flex; align-items: baseline; gap: 7px; line-height: .9;
+  font-family: var(--pg-font-display); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.bas-v b { font-size: 40px; font-weight: 700; }
+.bas-v i { font-style: normal; font-size: 15px; font-weight: 600; opacity: .55; }
+.bas-d.est-vert .bas-v b { color: var(--cv-g-20); }
+.bas-d.est-vide .bas-v b { color: rgba(255, 255, 255, .58); }
+.bas-e {
+  display: inline-block; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+  font-size: 13px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .26);
+}
+.bas-e:empty { display: none; }
+.bas-e.ko {
+  background: rgba(239, 115, 150, .2); border-color: rgba(239, 115, 150, .45);
+  color: var(--cv-r-20);
+}
+.bas-e.ok {
+  background: rgba(191, 224, 116, .2); border-color: rgba(191, 224, 116, .48);
+  color: var(--cv-g-40);
+}
+
+/* ── LA PISTE : 0 → 4, de gauche à droite ───────────────────── */
+.pst { margin-top: 14px; }
+.pst-v {
+  position: relative; height: 30px; border-radius: 9px; overflow: hidden;
+  background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14);
+}
+/* ⚠️ Sur place, et non en réécrivant la piste : elle S'ÉTEND quand on pose
+   une note, et c'est ce mouvement qui fait comprendre la règle du minimum.
+   Réécrite, elle sauterait d'un niveau à l'autre. */
+.pst-r {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 0;
+  transition: width .5s cubic-bezier(.4, 0, .2, 1);
+}
+/* ⚠️ UN SOCLE de 10 px dès qu'un niveau est POSÉ : à largeur nulle, le
+   niveau 0 se confondrait avec « pas de niveau du tout », c'est-à-dire avec
+   NULL — et les deux absences ne se corrigent pas de la même façon. C'est la
+   décision déjà prise pour les barres du classement. La hachure, elle, n'en a
+   pas : elle dit ce qu'on ne sait pas encore. */
+.pst-r.bleu, .pst-r.vert { min-width: 10px; }
+.pst-r.bleu { background: linear-gradient(90deg, #1d4ed8, #5fb4f7); }
+.pst-r.vert { background: linear-gradient(90deg, var(--cv-g-70), var(--cv-g-40)); }
+.pst-r.hach {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, .2) 0 6px,
+                              rgba(255, 255, 255, .06) 6px 12px);
+}
+/* le trait de l'attendu : l'endroit où le tilleul commence */
+.pst-a {
+  position: absolute; top: 0; bottom: 0; width: 2px; transform: translateX(-1px);
+  background: var(--cv-g-40);
+}
+.pst-g {
+  position: relative; height: 17px; margin-top: 6px;
+  font-family: var(--pg-font-display); font-size: 14px; font-weight: 700;
+  color: rgba(255, 255, 255, .5);
+}
+.pst-g span { position: absolute; top: 0; transform: translateX(-50%); }
+.pst-g span.fort { color: #fff; }
+
+/* ── LES SORTIES, HORS du graphe ──────────────────────────
+   ⚠️ C'est LE correctif du bassin : leurs noms étaient dedans, tronqués et
+   superposés. Une ligne par sortie, le nom en entier, le numéro qui la relie
+   à sa carte de droite, et sa jauge à quatre pas — la convention de toute
+   l'application. C'est ici qu'on VOIT laquelle retient le niveau. */
+.lgs { margin-top: 13px; display: flex; flex-direction: column; gap: 7px; }
+.lgs .s {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 7px 11px; border-radius: 10px; background: rgba(255, 255, 255, .07);
+}
+.lgs .s.est-bas { background: rgba(255, 255, 255, .14); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); }
+.lgs .s > b {
+  flex: none; width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--pg-font-display); font-size: 11.5px; font-weight: 700;
+  background: #fff; color: #0f1631;
+}
+.lgs .s > b.v { background: var(--cv-g-40); color: var(--cv-g-80); }
+.lgs .s .nm {
+  flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.lgs .s .nv { flex: none; display: flex; align-items: center; gap: 8px; }
+.lgs .s .nv u {
+  text-decoration: none; font-family: var(--pg-font-display); font-size: 15px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lgs .s.est-off .nv u { font-family: var(--pg-font); font-size: 12px; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase; color: rgba(255, 255, 255, .6); }
+.jau { display: inline-flex; gap: 2px; }
+.jau i { width: 11px; height: 13px; border-radius: 2px; background: rgba(255, 255, 255, .17); }
+.jau i.on { background: #5fb4f7; }
+.jau i.on.v { background: var(--cv-g-40); }
+.bas-note { margin: 10px 2px 0; font-size: 12px; color: rgba(255, 255, 255, .62); }
+.bas-note:empty { display: none; }
+
 .ev-ou .cv2-i {
   border-color: rgba(255, 255, 255, .4); color: #c5d6f7;
   background: rgba(255, 255, 255, .12);
-}
-
-/* ── LE BASSIN : la règle du minimum se REGARDE ────────────────────────
-   L'eau monte au niveau de l'activité, chaque sortie porte son repère :
-   l'eau s'arrête au repère le plus bas, et il n'y a plus rien à expliquer.
-   ⚠️ Il est CREUSÉ — fond plus sombre que la carte — et non posé en clair :
-   un panneau légèrement plus clair sur du bleu nuit ne se détache pas, et
-   l'eau, elle aussi bleu clair, s'y fondait. Mesuré à l'écran. */
-.bassin {
-  /* ⚠️ Le COULOIR DU VERDICT : une bande réservée à droite où le niveau de
-     l'activité est posé à la hauteur de l'eau. Tout ce qui appartient au
-     bassin s'y arrête — l'eau, les graduations, l'attendu, les repères —
-     SAUF la surface, qui le traverse et va finir sous le chiffre : c'est ce
-     trait qui fait le lien, il ne peut donc pas s'arrêter au bord. */
-  --rail: 176px;
-  position: relative; margin-top: 18px; border-radius: 13px; overflow: hidden;
-  background: rgba(0, 0, 0, .28);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 3px 12px rgba(0, 0, 0, .4);
-}
-/* Le bord du couloir : assez pour qu'on voie où l'eau s'arrête, pas assez
-   pour couper le bassin en deux. La surface passe PAR-DESSUS (elle est un
-   enfant, lui un pseudo-élément de fond). */
-.bassin::before {
-  content: ""; position: absolute; top: 0; bottom: 0; right: 0; width: var(--rail);
-  border-left: 1px solid rgba(255, 255, 255, .16);
-  background: rgba(0, 0, 0, .22); pointer-events: none;
-}
-.bassin::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 13px;
-  background: linear-gradient(102deg, rgba(255, 255, 255, .1) 0 12%, transparent 28%);
-}
-.bassin .eau {
-  position: absolute; left: 0; right: var(--rail); bottom: 0;
-  transition: height .44s cubic-bezier(.4, 0, .2, 1), background .44s ease;
-}
-.bassin .eau.bleu { background: linear-gradient(180deg, #5fb4f7, #1b45c0); }
-.bassin .eau.vert { background: linear-gradient(180deg, var(--cv-g-40), var(--cv-g-70)); }
-/* ⚠️ NULL ≠ 0 : tant qu'une sortie n'est pas notée, l'activité n'a AUCUN
-   niveau. L'eau est alors hachurée — un trait plein dirait un verdict que
-   personne n'a rendu. */
-.bassin .eau.hach {
-  background: repeating-linear-gradient(135deg,
-    rgba(255, 255, 255, .2) 0 5px, rgba(255, 255, 255, .04) 5px 11px);
-}
-.bassin .surf {
-  position: absolute; left: 0; right: 0; height: 3px; border-radius: 3px;
-  transition: bottom .44s cubic-bezier(.4, 0, .2, 1), background .44s ease, opacity .3s;
-}
-.bassin .surf.bleu {
-  background: #cfe9ff;
-  box-shadow: 0 0 22px 3px rgba(125, 211, 252, .8), 0 1px 0 rgba(255, 255, 255, .6);
-}
-.bassin .surf.vert {
-  background: var(--cv-g-20);
-  box-shadow: 0 0 22px 3px rgba(191, 224, 116, .75), 0 1px 0 rgba(255, 255, 255, .6);
-}
-.bassin .att.hors span { top: auto; bottom: 4px; }
-.bassin .gd {
-  position: absolute; left: 0; right: var(--rail); height: 0;
-  border-top: 1px solid rgba(255, 255, 255, .17);
-}
-.bassin .gd b {
-  position: absolute; left: 10px; top: -9px; font-size: 10px; font-weight: 800;
-  color: rgba(255, 255, 255, .55); font-variant-numeric: tabular-nums;
-}
-.bassin .att {
-  position: absolute; left: 0; right: var(--rail); height: 0;
-  border-top: 2px dashed rgba(255, 255, 255, .7);
-}
-/* ⚠️⚠️ Le badge se pose SOUS sa ligne, et la pastille d'un repère AU-DESSUS
-   de la sienne : c'est ce qui les empêche de se croiser quand le niveau de
-   l'activité égale l'attendu — le cas courant. À cheval sur sa ligne
-   (`top: -10px`), le badge recevait la surface de l'eau en travers du texte.
-   Au niveau 0 il n'y a que 16 px sous la ligne : il repasse au-dessus. */
-.bassin .att span {
-  position: absolute; right: 10px; top: 5px; padding: 2px 8px; border-radius: 5px;
-  background: #fff; color: var(--ink); font-size: 9.5px; font-weight: 800;
-  letter-spacing: .06em; text-transform: uppercase;
-}
-/* un repère par sortie. ⚠️ `--k` empile les pastilles de MÊME niveau : deux
-   sorties au même palier tombent sur la même ligne, et c'est justement là
-   qu'on vient lire laquelle retient l'eau. */
-.bassin .mk {
-  position: absolute; left: 0; right: var(--rail); height: 0;
-  display: flex; align-items: center;
-  transition: bottom .44s cubic-bezier(.4, 0, .2, 1);
-}
-.bassin .mk.est-off { display: none; }
-.bassin .mk .bar { flex: 1; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .9); }
-/* ⚠️⚠️ `top` doit être PLUS GRAND que la hauteur de la pastille, sinon elle
-   TOUCHE sa propre ligne — et donc la surface de l'eau, qui déborde d'un
-   pixel au-dessus. Mesuré : à `-33px` pour 33 px de haut, la pastille du
-   repère le plus bas croisait la surface sur quatre activités du banc. Et
-   les deux formes de pastille — avec disque, ou le compte sans disque —
-   partagent la même hauteur, sans quoi l'écart à la ligne dépendrait du
-   nombre de sorties. */
-.bassin .mk .et {
-  position: absolute; left: 26px; top: -37px;
-  display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 44px);
-  min-height: 33px; box-sizing: border-box;
-  padding: 4px 13px 4px 5px; border-radius: 999px; background: #fff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .4), 0 0 0 1px rgba(15, 23, 42, .06);
-}
-/* ⚠️⚠️ UNE pastille par NIVEAU, pas par sortie. Empilées, elles se
-   chevauchaient de 2 px et deux sortaient du bassin ; côte à côte et
-   réduites à leur numéro, elles ne disaient plus rien — « je ne comprends
-   pas les 4 bulles vertes ». À plusieurs sur une ligne, la pastille porte
-   donc le COMPTE, sans disque : un disque y dirait un numéro de carte, et
-   c'est justement ce qu'on ne peut plus désigner. */
-.bassin .mk.est-muet { display: none; }
-.bassin .mk:not(.est-seul) .et { padding: 5px 13px; }
-.bassin .mk:not(.est-seul) .et b { display: none; }
-.bassin .mk .et b {
-  flex: none; width: 25px; height: 25px; border-radius: 999px; color: #fff;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-family: var(--pg-font-display); font-size: 15px; font-weight: 700; line-height: 1;
-  background: var(--b7); transition: background .3s;
-}
-.bassin .mk .et b.v { background: var(--v9); }
-.bassin .mk .et .z {
-  min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* ⚠️ Celle qui RETIENT l'eau porte un anneau : c'est la réponse à la seule
-   question que le bassin pose. */
-.bassin .mk.est-bas .bar { height: 4px; background: #fff; box-shadow: 0 0 16px rgba(255, 255, 255, .65); }
-/* ⚠️ … mais quand l'eau est dessinée, c'est la SURFACE qui porte ce niveau :
-   la ligne du repère la redoublait, au pixel près. Sans niveau (NULL), il n'y
-   a pas de surface et le repère garde sa ligne. */
-.bassin.a-eau .mk.est-bas .bar { display: none; }
-.bassin .mk.est-bas .et { box-shadow: 0 8px 24px rgba(0, 0, 0, .45), 0 0 0 2px var(--b4); }
-.bas-note { margin: 10px 2px 0; font-size: 12px; color: rgba(255, 255, 255, .72); }
-.bas-note:empty { display: none; }
-
-/* ── LE NIVEAU, POSÉ SUR LA LIGNE D'EAU ───────────────────────────────
-   Il vivait en 48 px au-dessus du bassin, à 295 px (mesuré) de la ligne qui
-   dit la même valeur : deux énoncés que rien ne reliait. Il est maintenant
-   dans le couloir, à la hauteur de l'eau, et il monte avec elle — même
-   transition, même couleur que la surface. */
-/* ⚠️⚠️ `margin-bottom` descend le cartouche de la MOITIÉ de son chiffre (19)
-   plus son rembourrage bas et son filet (7) : le JS l'ancre à `basY(niveau)`,
-   et c'est cette marge qui met le CHIFFRE — pas la boîte — à la hauteur
-   exacte de la ligne d'eau, donc du repère le plus bas. Les deux valeurs
-   vivent ici, à côté du rembourrage dont elles dépendent ; `BAS.bas` et
-   `BAS.haut` (competences_v2.js) leur réservent la place. */
-/* ⚠️ `bottom: 0` par défaut : `majBassin` le pose à `basY(niveau)` à chaque
-   rendu, mais sans valeur de départ il vaudrait `auto` — c'est-à-dire le HAUT
-   du bassin, l'exact contraire du fond. */
-.bas-niv {
-  position: absolute; right: 14px; bottom: 0; margin-bottom: -26px;
-  max-width: calc(var(--rail) - 24px);
-  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
-  padding: 6px 12px; border-radius: 13px; box-sizing: border-box;
-  background: rgba(6, 13, 32, .74); border: 1px solid rgba(255, 255, 255, .17);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .5);
-  transition: bottom .44s cubic-bezier(.4, 0, .2, 1), border-color .44s ease;
-}
-.bas-niv .n { display: flex; align-items: center; gap: 7px; height: 38px; }
-.bas-niv .v {
-  font-family: var(--pg-font-display); font-size: 38px; font-weight: 700;
-  line-height: 1; font-variant-numeric: tabular-nums; color: #cfe9ff;
-}
-.bas-niv .v i {
-  margin-left: 1px; font-size: 13px; font-weight: 600; font-style: normal; opacity: .6;
-}
-/* La couleur est celle de la surface — le chiffre et le trait sont une seule
-   chose, et ils changent de teinte ensemble. Le filet du cartouche la reprend :
-   c'est ce qui dit que la ligne entre LÀ. */
-.bas-niv { border-color: rgba(125, 211, 252, .42); }
-.bas-niv.est-vert { border-color: rgba(191, 224, 116, .48); }
-.bas-niv.est-vert .v { color: var(--cv-g-20); }
-.bas-niv.est-vide { border-color: rgba(255, 255, 255, .17); }
-.bas-niv.est-vide .v { color: rgba(255, 255, 255, .58); }
-.bas-niv .e {
-  display: inline-block; padding: 3px 8px; border-radius: 999px;
-  font-size: 9.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
-  text-align: right; line-height: 1.25; white-space: nowrap;
-  background: rgba(255, 255, 255, .14); border: 1px solid rgba(255, 255, 255, .26);
-}
-.bas-niv .e:empty { display: none; }
-.bas-niv .e.ko {
-  background: rgba(239, 115, 150, .2); border-color: rgba(239, 115, 150, .45); color: var(--cv-r-20);
-}
-.bas-niv .e.ok {
-  background: rgba(191, 224, 116, .2); border-color: rgba(191, 224, 116, .48); color: var(--cv-g-40);
 }
 
 /* ── LES RÉGLAGES, en pastilles de VERRE ───────────────────────────────
@@ -3450,31 +3200,61 @@ button.mail:active { transform: translateY(1px); }
    de colonne (mesuré : 544 px de contenu), le flex en laissait trois sur une
    ligne et une toute seule en dessous — ça se lit comme un débordement, pas
    comme une disposition. Deux par deux, c'est une décision. */
+/* ⚠️ TROIS, et non plus quatre : « Les courbes » est parti — le relief des
+   valeurs se lit déjà sur la vue d'ensemble, et la fenêtre à deux onglets
+   doublait un chemin qui existait. La troisième colonne est un peu plus
+   large : « Plan de formation » est le plus long des trois libellés.
+   ⚠️ Et ils ne sont plus écrits en petit au ras du bloc : chacun porte sa
+   pastille d'icône, son nom, et CE QU'IL CONTIENT — c'est la valeur qui dit
+   s'il faut l'ouvrir. */
 .ou-reg {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px; margin-top: 16px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 9px; margin-top: 16px; align-items: stretch;
 }
-.ou-reg .cl-rb { min-width: 0; }
-.ou-reg .cl-rb > span { overflow: hidden; text-overflow: ellipsis; }
+/* ⚠️ Le troisième n'existe que pour le développeur de compétences : un
+   collaborateur n'en voit que deux, et trois colonnes figées lui laissaient un
+   vide à droite qui avait l'air d'un défaut. La bascule se fait sur le NOMBRE
+   d'éléments — `auto-fit` ne sait pas la faire, il compte des pixels. Et la
+   dernière colonne est un peu plus large : « Plan de formation » est le plus
+   long des trois libellés. */
+.ou-reg:has(.cl-rb:nth-child(3)) { grid-template-columns: 1fr 1fr 1.15fr; }
 .cl-rb {
-  display: flex; align-items: center; gap: 9px; white-space: nowrap;
-  padding: 8px 13px 8px 8px; border-radius: 11px; cursor: pointer;
-  font: inherit; font-size: 13px; color: #e3ecfd;
-  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .2);
-  transition: background .14s, border-color .14s;
+  display: flex; align-items: center; gap: 10px; min-width: 0; text-align: left;
+  padding: 10px 13px; border-radius: 13px; cursor: pointer;
+  font: inherit; font-size: 13px; color: #fff;
+  background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .22);
+  transition: background .14s, border-color .14s, transform .14s;
 }
-.cl-rb:hover { background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .34); }
-.cl-rb b { font-weight: 700; color: #fff; }
-/* ⚠️ Et quand il n'y a RIEN à annoncer, la valeur s'efface au lieu de
-   crier : « Technicité **aucun domaine** » se lisait comme un verdict. */
-.cl-rb b:empty { display: none; }
-.cl-rb b.rien { font-weight: 600; color: rgba(227, 236, 253, .55); }
+.cl-rb:hover {
+  background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .38);
+  transform: translateY(-1px);
+}
+.cl-rb .ic {
+  flex: none; width: 30px; height: 30px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 13px;
+  background: rgba(255, 255, 255, .18); color: #fff;
+}
+.cl-rb .tx { min-width: 0; }
+/* ⚠️ Le libellé a le DROIT de passer à la ligne : « Plan de formation » sur
+   une seule, c'était « Plan de forma… ». */
+.cl-rb .tx b { display: block; font-size: 13px; font-weight: 700; line-height: 1.2; color: #fff; }
+/* ⚠️ RENVERSEMENT de la règle d'avant (« rien à annoncer ne s'annonce pas ») :
+   elle venait d'une rangée de QUATRE pastilles où la valeur, posée sur la même
+   ligne que le nom, faisait déborder les 520 px de colonne. Ici la valeur a sa
+   propre ligne et il n'y a plus que trois boutons : « aucun domaine » tient,
+   et il dit quelque chose. */
+.cl-rb .tx .val {
+  display: block; font-size: 11.5px; line-height: 1.3; color: rgba(255, 255, 255, .62);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cl-rb .tx .val:empty { display: none; }
 .cl-rb.amb {
-  background: rgba(253, 230, 138, .16); border-color: rgba(253, 230, 138, .42);
-  color: var(--a3);
+  background: color-mix(in srgb, var(--a3) 20%, transparent);
+  border-color: color-mix(in srgb, var(--a3) 48%, transparent);
 }
-.cl-rb.amb b { color: #fff; }
-.cl-rb.ko b { color: var(--a3); }
+.cl-rb.amb .ic { background: color-mix(in srgb, var(--a3) 34%, transparent); }
+.cl-rb.amb .tx .val { color: var(--a3); }
+.cl-rb.ko .tx .val { color: var(--cv-r-40); }
 
 /* ═══════════ LA CARTE D'UNE SORTIE ══════════════════════════════════════
    ⚠️ Les deux régimes prennent la MÊME forme : un rail de couleur dit
@@ -3599,16 +3379,17 @@ button.mail:active { transform: translateY(1px); }
    ⚠️ Les CRANS n'en sont pas. Ce sont les graduations d'une échelle, pas des
    actions : ils gardent leur rectangle — une règle se lit, elle ne s'actionne
    pas — et ne reçoivent d'ici que le soin, jamais la forme. */
-.ev-retour, .cl-rb, .gb {
+/* ⚠️ `.cl-rb` ne fait plus partie du groupe : ce n'est plus une pilule mais
+   un bouton à deux lignes, et sa pastille est un `.ic`, pas un `> i`. */
+.ev-retour, .gb {
   border-radius: 999px; padding: 6px 15px 6px 6px; gap: 9px;
   transition: background .14s ease, border-color .14s ease, box-shadow .14s ease;
 }
-.ev-retour > i, .cl-rb > i, .gb > i {
+.ev-retour > i, .gb > i {
   width: 26px; height: 26px; flex: none; border-radius: 50%; opacity: 1;
   display: grid; place-items: center; font-size: 11.5px;
   background: rgba(255, 255, 255, .17); color: #fff;
 }
-.cl-rb.amb > i { background: rgba(253, 230, 138, .26); color: #fff; }
 /* l'action pose une pastille PASTEL sur un fond vif — le rapport INVERSÉ du
    réglage, qui pose une pastille vive sur un fond de verre. */
 .gb.prim > i { background: rgba(255, 255, 255, .26); }
@@ -3817,77 +3598,18 @@ button.mail:active { transform: translateY(1px); }
 /* ───────── Le pied : ce qui reste à enregistrer ───────── */
 .ev-corps .ev-pied { margin-top: 15px; }
 
-/* ═══════════ LA FENÊTRE DES COURBES — deux schémas ══════════════════════
-   Les deux courbes vivaient dans la page, l'une sous l'autre : le relief
-   d'une sortie mesurée dans la carte, la frise des niveaux tout en bas. Deux
-   sections de graphes dans l'écran où l'on NOTE. Elles sont ici, ensemble,
-   avec le détail des séances.
-   ⚠️ Large (1060 px) : la frise exige 620 px de viewBox, et un SVG mis à
-   l'échelle rapetisse ses TEXTES avec lui — la mesure ne le voit pas, la
-   taille calculée reste celle du repère du viewBox. */
-.cv2-crb-win {
-  position: fixed; top: 50%; left: 50%; z-index: 51;
-  transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
-  width: min(1060px, 96vw); max-height: 92vh;
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
-  box-shadow: var(--sh-pop);
-  transition: transform .26s cubic-bezier(.34, 1.2, .4, 1), opacity .22s;
-}
-.cv2-crb-win.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
-/* Les deux schémas se choisissent comme les sorties du classeur : des
-   languettes. Une seule grammaire pour « choisir ce qu'on regarde ». */
-/* ⚠️ Le rail est plus SOUTENU que la languette active, sinon on ne voit pas
-   laquelle est ouverte : sur `--card-2` les deux rendaient blanc. */
-.crb-ong {
-  flex: none; display: flex; gap: 10px; padding: 13px 22px 0;
-  background: #eaeef5; border-bottom: 1px solid var(--border);
-}
-.crb-t {
-  font: inherit; cursor: pointer; text-align: left; flex: 1 1 0; min-width: 0;
-  border: 1px solid transparent; border-bottom: none; border-radius: 13px 13px 0 0;
-  padding: 11px 15px 13px; background: transparent; color: var(--ink-2);
-  display: flex; align-items: center; gap: 12px; margin-bottom: -1px;
-}
-.crb-t:hover:not(:disabled) { background: rgba(255, 255, 255, .55); }
-.crb-t:disabled { cursor: default; opacity: .55; }
-.crb-t .ic {
-  width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center;
-  background: #eef1f7; color: var(--muted); font-size: 13px;
-}
-.crb-t .tx { min-width: 0; }
-.crb-t b {
-  display: block; font-family: var(--pg-font-display); font-size: 16px; font-weight: 700;
-  line-height: 1.2;
-}
-.crb-t em {
-  display: block; font-style: normal; margin-top: 2px; font-size: 12.5px; color: var(--muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.crb-t.on {
-  background: var(--card); border-color: var(--border); color: var(--ink);
-  box-shadow: 0 -2px 10px -5px rgba(10, 25, 60, .22);
-}
-.crb-t.on .ic { background: linear-gradient(160deg, var(--b5), var(--b8)); color: #fff; }
-.crb-vide { margin: 0; padding: 34px 0; text-align: center; font-size: 14px; color: var(--muted); }
-/* le sélecteur de sortie n'existe que s'il y a de quoi choisir */
+/* ───── Le choix de la sortie dont on regarde le relief ─────
+   ⚠️ Il a survécu à la fenêtre des courbes : la vue d'ensemble s'en sert
+   pour choisir le relief qu'elle montre. Il n'existe que s'il y a plus
+   d'une sortie mesurée — une rangée d'un seul bouton est un titre
+   déguisé. */
 .crb-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 15px; }
-.crb-pick .k {
-  font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-  font-weight: 700;
-}
 .crb-p {
   font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
   background: var(--card-2); border: 1px solid var(--border); border-radius: 999px;
   padding: 7px 14px; color: var(--ink-2);
 }
 .crb-p.on { background: var(--b2); border-color: var(--b4); color: var(--b9); }
-.crb-relief {
-  background: var(--card-2); border: 1px solid var(--border); border-radius: 14px;
-  padding: 14px 16px;
-}
-.crb-relief .pal-relief svg { width: 100%; height: auto; display: block; }
-.cv2-crb-win .cv2-histo { margin: 0; border: 0; padding: 0; box-shadow: none; background: none; }
 
 /* ───────── Le repli : une colonne, et la lecture à sa place ─────────
    ⚠️ Les points de bascule s'écrivent en px RÉELS, la mise en page en px CSS :
@@ -3915,8 +3637,7 @@ button.mail:active { transform: translateY(1px); }
   .cl-h h1 { font-size: 23px; }
   .cran { height: 62px; font-size: 25px; }
   .gomme { height: 62px; width: 46px; }
-  .crb-ong { padding: 11px 14px 0; }
-  .crb-t em { display: none; }}
+}
 /* ═══════════ LA VUE D'ENSEMBLE : le classement et les marches ═══════════
    Elle ne portait que le radar et la liste des rôles : on y lisait la FORME
    d'un profil, jamais ce qui le retient. Tranchée sur maquette, à l'échelle.
@@ -4567,8 +4288,7 @@ button.mail:active { transform: translateY(1px); }
 /* 2 · Le trait de l'ATTENDU marque l'endroit où le tilleul commence : sur les
    barres du classement comme sur le bassin, il prend donc cette couleur. */
 .esc .st .req { border-top-color: color-mix(in srgb, var(--cv-g-40) 82%, transparent); }
-.bassin .att { border-top-color: color-mix(in srgb, var(--cv-g-40) 85%, transparent); }
-.bassin .att span { background: var(--cv-g-10); color: var(--cv-g-80); }
+.pst-a { background: color-mix(in srgb, var(--cv-g-40) 92%, transparent); }
 
 /* 3 · La jauge de couverture PART du bleu et FINIT en tilleul : pleine, elle
    atteint la couleur de ce qui est tenu. */
@@ -4603,3 +4323,97 @@ button.mail:active { transform: translateY(1px); }
 .cv2-dh .x:hover, .cv2-ph .x:hover, .cv2-ch .x:hover {
   background: color-mix(in srgb, var(--cv-r-40) 46%, transparent);
 }
+
+/* ══ LA FENÊTRE TECHNICITÉ ════════════════════════════════════
+   Un formulaire nu — un nom, deux menus déroulants du système, une pastille.
+   Elle dit d'abord À QUOI ÇA SERT, puis montre chaque domaine avec ses deux
+   échelles, et range l'ajout en bas — là où l'on va quand les domaines
+   existants ne suffisent pas.
+
+   ⚠️ CINQ crans, et non la jauge à quatre pas de la maquette : l'échelle
+   technique distingue le niveau 0 (« aucun ») de l'absence de niveau
+   (NULL, « pas encore regardé ») — c'est la distinction que tout le module
+   tient, et une jauge à quatre pas ne sait pas l'exprimer. Avec la gomme,
+   chaque valeur du modèle est atteignable.
+   ⚠️ Le REQUIS est en creux, le DÉMONTRÉ en plein : une cible se dessine,
+   elle ne se remplit pas. C'est le vocabulaire de la page.
+   ═══════════════════════════════════════════════════════════════════ */
+.tch-exp {
+  display: flex; gap: 12px; padding: 13px 15px; border-radius: 13px; margin-bottom: 18px;
+  background: color-mix(in srgb, var(--cv-g-40) 16%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--cv-g-40) 36%, var(--card));
+}
+.tch-exp > i {
+  flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
+  font-size: 12px; background: var(--cv-g-40); color: var(--cv-g-80);
+}
+.tch-exp p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.tch-exp p strong { color: var(--ink); font-weight: 700; }
+.tch-k {
+  margin: 0 0 9px; font-size: 11px; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.tch-d {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 13px 15px; border-radius: 14px; border: 1px solid var(--border);
+  background: var(--card); margin-bottom: 10px;
+}
+.tch-d .nm { flex: 1 1 150px; min-width: 0; }
+.tch-d .nm b {
+  display: block; font-family: var(--pg-font-display); font-size: 16px; font-weight: 600;
+  line-height: 1.2;
+}
+.tch-e { display: flex; flex-direction: column; gap: 5px; flex: none; }
+.tch-e .k {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted);
+}
+.tch-e .pas { display: flex; gap: 3px; align-items: center; }
+.tch-e .pas button {
+  width: 26px; height: 20px; border-radius: 4px; border: 0; cursor: pointer; padding: 0;
+  font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
+  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
+}
+.tch-e .pas button:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--b5); }
+.tch-e .pas button:disabled { cursor: default; }
+.tch-e .pas button.on { background: var(--b6); color: #fff; box-shadow: none; }
+/* la CIBLE se dessine, elle ne se remplit pas */
+.tch-e.cible .pas button { background: transparent; }
+.tch-e.cible .pas button.on {
+  background: var(--cv-g-05); color: var(--cv-g-70);
+  box-shadow: inset 0 0 0 1.5px var(--cv-g-70);
+}
+/* ⚠️ La gomme est À L'ÉCART des crans : effacer n'est pas un niveau de plus,
+   et NULL (« pas encore regardé ») ne se confond pas avec 0 (« aucun »). */
+.tch-e .pas .gom {
+  width: 22px; margin-left: 5px; color: var(--muted); background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.tch-v {
+  flex: none; padding: 4px 11px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+}
+.tch-v.ko { background: var(--cv-r-05); color: var(--cv-r-60); box-shadow: inset 0 0 0 1px var(--cv-r-20); }
+.tch-v.ok { background: var(--cv-g-05); color: var(--cv-g-70); box-shadow: inset 0 0 0 1px var(--cv-g-20); }
+.tch-vide {
+  padding: 24px 20px; text-align: center; border-radius: 14px;
+  border: 1.5px dashed var(--border); background: var(--card-2);
+  font-size: 13.5px; color: var(--ink-2);
+}
+.tch-add {
+  display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 16px;
+  padding: 15px 16px; border-radius: 14px; background: var(--card-2);
+  border: 1px solid var(--border);
+}
+.tch-add .ch { min-width: 0; }
+.tch-add .ch > span {
+  display: block; margin-bottom: 5px;
+  font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted);
+}
+.tch-add select, .tch-add input {
+  height: 38px; min-width: 190px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 13.5px; padding: 0 12px;
+}
+.tch-add select:focus, .tch-add input:focus { outline: none; border-color: var(--b6); }
+.tch-note { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }

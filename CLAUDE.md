@@ -10374,6 +10374,213 @@ courbes et du plan.
 
 ---
 
+### L'ÉCRAN D'ÉVALUATION, quatrième passe : le verdict en tête (2026-11-24)
+
+« Techniquement parlant c'est bien, mais on se retrouve dans le visuel avec
+trop de texte, trop d'info ; sur le graphe en bas on comprend rien, c'est
+dommage. » Plus : le bleu des deux surfaces sombres, les trois boutons du bas,
+les deux fenêtres, et « les courbes on supprime ».
+
+Tranché sur **prototype cliquable à l'échelle réelle** — trois organisations du
+bloc de gauche, trois densités de bleu, deux formes de boutons, les deux
+fenêtres — avec les données de la capture. Retenu : **organisation 2 (« le
+verdict en tête ») + densité 2**, la bande de données en densité 2 elle aussi,
+« et le même bleu pour les deux, qu'on n'ait pas un bleu un peu décalé ».
+C'est la onzième fois que la méthode évite une journée écrite pour rien.
+
+Mesuré avant de redessiner : le bloc faisait **560 × 761 px** et portait **huit
+étiquettes en capitales** — « OÙ VOUS ÊTES », « LE COLLABORATEUR », « LE RÔLE »,
+« L'ACTIVITÉ », « CE QUE VOUS NOTEZ », « LA COMPÉTENCE PRINCIPALE », « ATTENDU »,
+« EN ÉCART ». Les étiquettes étaient plus nombreuses que ce qu'elles
+étiquetaient, et c'est ça, le « trop de texte ». Après : **448 × 401 px, UNE
+étiquette.**
+
+#### ⚠️⚠️ La cuve verticale est ABANDONNÉE — et le défaut n'était pas la métaphore
+
+Le bassin échouait pour une raison précise, qu'il fallait mesurer pour voir :
+**les NOMS des sorties étaient DANS le graphe**, et deux libellés anglais de
+cinquante signes s'y chevauchaient et s'y tronquaient. C'est ça, « sur le graphe
+en bas on comprend rien » — pas l'eau qui monte.
+
+La piste va donc de gauche à droite, comme toutes les autres jauges de
+l'application, et **les sorties sont SOUS elle** : une ligne chacune, le nom en
+entier, le numéro qui la relie à sa carte de droite, sa jauge à quatre pas.
+On y perd la métaphore de l'eau ; on y gagne 90 px de hauteur, la lecture, et
+le correctif du vrai défaut. C'est l'arbitrage de cette passe.
+
+- ⚠️ **NULL ≠ 0**, ici comme partout : une activité dont une sortie n'est pas
+  notée n'a PAS de niveau — sa piste est **hachurée** jusqu'au plus bas de ce
+  qu'on sait, pas remplie à zéro, qui voudrait dire « non démontré ».
+- ⚠️ **Un socle de 10 px dès qu'un niveau est POSÉ** : à largeur nulle, le
+  niveau 0 se confondrait avec « pas de niveau du tout ». C'est la décision
+  déjà prise pour les barres du classement, et les deux absences ne se
+  corrigent pas de la même façon.
+- ⚠️ **La règle du MINIMUM se voit** : la ligne qui retient le niveau est mise
+  en avant. C'était une phrase derrière un « i ».
+- ⚠️ **Le trait de l'attendu tombe SUR sa graduation.** Posée en
+  `space-between`, la graduation répartit les SPANS, pas leurs centres : le
+  « 3 » tombait à 291 px quand le trait, lui, est à 75 % de la voie, soit 293.
+  Les deux sont posés à la même fraction et centrés dessus. Mesuré après :
+  **0,0 px d'écart**.
+- ⚠️ **Sur place, jamais réécrite** : la piste S'ÉTEND quand on pose une note,
+  et c'est ce mouvement qui fait comprendre la règle.
+
+#### Le verdict en tête, et une seule étiquette
+
+Le niveau de l'activité et son écart se lisaient **deux fois** : en 48 px
+au-dessus du bassin, puis 295 px plus bas sur la ligne d'eau (c'était le
+correctif du 22/11 — il a tenu une journée, et la refonte le remplace par plus
+simple). Ils sont posés **une seule fois**, à côté du nom de l'activité.
+
+- ⚠️ `[data-niv]` garde SON contrat : il porte le chiffre ET le « /4 », parce
+  que `majNiveauTenu` y écrit sans réécrire le bloc de nuit.
+- ⚠️ **L'écart ne se replie JAMAIS** : « below target · −2 » fait 92 px en
+  anglais contre 70 en français, et sur deux lignes la rangée grandit sous le
+  nom de l'activité.
+- ⚠️ **Les trois étiquettes de la chaîne tombent à l'ŒIL et restent dans
+  l'`aria-label`** : elles nommaient ce qui se reconnaît sans elles — une
+  personne, un rôle, une activité — mais un lecteur d'écran, lui, ne lit pas la
+  chaîne d'un coup d'œil.
+- La description de la compétence passe derrière un « i ». C'est le motif de la
+  maison : une phrase passe derrière un « i », elle ne disparaît pas.
+
+#### ⚠️ La typographie se mesure en PIXELS RÉELS — le prototype ne le sait pas
+
+`body.pg` porte `zoom: .8`, et le prototype était écrit dans une page qui ne le
+porte pas : ses valeurs arrivent ici **20 % plus petites**. Relevé au banc avant
+correction — graduation **9,6 px réels**, nom d'une sortie **10,4**, maillon de
+la chaîne **10,0**, écart **8,0**, étiquette **8,4** — quand le plancher de
+l'échelle typographique est **11 px réels**. Ce qu'on LIT y remonte (nom 11,6 ·
+graduation 11,2 · niveau d'une sortie 12) ; les étiquettes en capitales restent
+à la taille des étiquettes de cette page, et il n'en reste qu'UNE.
+ℹ️ Toute la page Compétences tourne sous ce plancher pour son texte secondaire
+(`.cl-rb` 10,4 · `.pal-m` 9,6 · `.ev-retour` 10,4) : c'est un chantier à part,
+comme les quatre dérivés de l'accent.
+
+#### UN SEUL BLEU pour les trois surfaces sombres
+
+« Qu'on n'ait pas un bleu un peu décalé et un effet de con. » Le bloc de
+gauche, la bande de données et l'en-tête d'identité portaient **trois dégradés
+différents**, dont un finissait sur `#0b1120` — presque du noir dans une carte
+blanche. Une seule paire de bouts (`--nuit-1: #1d2c56`, `--nuit-2: #2c58b6`),
+et **seul l'ANGLE change** d'une surface à l'autre : une bande large et un bloc
+haut ne se traversent pas pareil.
+⚠️ Ce sont DEUX déclarations — l'en-tête écrit son dégradé, l'ardoise lit le
+jeton `--nuit` — et un cliquet compare les deux : si l'une change, l'autre doit
+suivre.
+
+#### Les trois boutons, et « Les courbes » qui part
+
+« Les boutons de formation et technicité ne sont pas top, c'est écrit en petit
+et en bas. » Chacun porte désormais sa pastille d'icône, son nom, et **CE QU'IL
+CONTIENT** — c'est la valeur qui dit s'il faut l'ouvrir.
+⚠️ **RENVERSEMENT** de la règle du 11/11 (« rien à annoncer ne s'annonce pas ») :
+elle venait d'une rangée de QUATRE pastilles où la valeur partageait la ligne du
+nom et faisait déborder la colonne. Trois boutons, deux lignes : « aucun
+domaine » tient, et il dit quelque chose — on sait qu'il n'y a rien sans ouvrir.
+⚠️ **Le troisième n'existe que pour le développeur** : un collaborateur n'en voit
+que deux, et trois colonnes figées lui laissaient un vide à droite qui a l'air
+d'un défaut. La bascule se fait sur le NOMBRE d'éléments
+(`:has(.cl-rb:nth-child(3))`) — `auto-fit` ne sait pas la faire, il compte des
+pixels. C'est le cas de `.wp-portes` (fenêtre de bienvenue).
+
+#### ⚠️⚠️ La fenêtre des courbes s'en va, et la frise avec elle
+
+« Elles sont déjà accessibles, donc la pop-up à deux pages des courbes ça
+dégage. » Les deux schémas n'étaient PAS accessibles de la même façon : le
+relief des VALEURS se lit sur la vue d'ensemble, **la frise des NIVEAUX n'avait
+que cette fenêtre**. Elle s'en va avec — ce n'est pas un oubli, c'est le prix de
+la suppression, et il est écrit.
+
+Partis : la fenêtre, `rendreCourbes` / `rendreValeurs` / `rendreOngletsCrb`,
+`friseSvg`, `legendeHistorique`, `dateCourte`, les `.hi-*`, `.cv2-histo`, et
+**34 clés de catalogue** (10 `h_*`, 7 `crb_*`, `cl_courbes`, `ou_titre`…).
+Une clé qu'on retire en même temps que son seul lecteur ne laisse rien derrière
+elle. `GET /mastery/historique/` n'est plus appelé par aucun écran ; la route
+reste (elle est testée, et c'est une lecture légitime de l'API).
+
+⚠️ **Et le retrait a mis au jour 130 lignes de CSS mort** que le CLASSEUR du
+11/11 avait rendues muettes sans le dire : l'axe partagé (`.cv2-rg`, `.rg-*`,
+`.ax-grad`, `.p-zone`, `.cv2-lv` et les jetons `--ax-*`). Mesuré : aucun n'existe
+dans le JS ni dans le gabarit, et rien d'ailleurs ne lit ces jetons. **Supprimer
+une section de feuille, c'est emporter ce qui s'y trouvait pour d'autres** — la
+leçon inverse est écrite plus haut, et les deux valent.
+
+⚠️ `basculerHisto` avait **deux dispositions** : à côté sur la bande de la vue
+d'ensemble, empilée dans la fenêtre. La fenêtre partie, le seul appelant est la
+bande, qui construit toujours son `.pal-evo-duo` : la branche empilée était
+injoignable, et son bouton de fermeture par le bas part avec elle.
+
+#### La fenêtre TECHNICITÉ, refaite
+
+C'était un formulaire nu — un nom, **deux menus déroulants du système**, une
+pastille d'écart. Elle dit maintenant **d'abord à quoi ça sert** (un domaine
+technique, c'est le terrain sur lequel l'activité se joue, et c'est un AXE À
+PART), puis montre chaque domaine en carte, et range l'ajout en bas avec ses
+deux champs **étiquetés** — un `placeholder` disparaît dès qu'on tape.
+
+- ⚠️ **Des CRANS, plus un `<select>`** : c'était le seul endroit de cette page
+  où l'on posait un niveau autrement, et un menu déroulant arrive avec ses
+  styles système au milieu d'un écran qui n'en a aucun.
+- ⚠️ **CINQ crans, et non la jauge à quatre pas de la maquette** : l'échelle
+  technique distingue le niveau 0 (« aucun ») de l'absence de niveau (NULL).
+  C'est la distinction que tout le module tient, et quatre pas ne savent pas
+  l'exprimer. Avec la gomme — **à l'écart des crans**, effacer n'est pas un
+  niveau de plus — chaque valeur du modèle est atteignable.
+- ⚠️ **Le requis en creux, le démontré en plein** : une cible se dessine, elle
+  ne se remplit pas.
+- ⚠️ Le verdict dit ce qu'il EST (« en écart · −2 », « tenu »), pas un nombre
+  nu — et avec le **signe moins** (U+2212), que le reste de la page écrit :
+  deux glyphes pour le même signe sur le même écran donnent l'air d'un défaut
+  d'impression.
+- 32 règles mortes retirées au passage (`.cv2-domrow`, `.cv2-domsel`,
+  `.cv2-bloc--tech`). ⚠️ `.cv2-emptydom` RESTE : la liste des capacités s'en
+  sert encore.
+
+#### La fenêtre PLAN DE FORMATION, aérée
+
+La **structure ne bouge pas** — c'est elle qui rend le plan modulable, et elle
+est juste. Ce qui change, c'est la densité : les trois micro-champs d'une étape
+(objectif, livrable, réussi quand) étaient écrits en 13 px, soit **10,4 px
+réels**, et le panneau de droite n'avait que 258 px pour un verdict qu'on vient
+lire. Fenêtre 940 → **1 000 px**, panneau 258 → **318 px**, champs 14 px,
+chiffres du verdict 15 → 19 px.
+
+⚠️ **« Caler au plus juste » lisait DEUX des quatre dérivés de l'accent** —
+`--pg-accent-border` et `--pg-accent-soft`, déclarés sur `:root` où
+`--pg-accent` vaut encore le gris par défaut : son filet et son survol étaient
+GRIS sur une page bleue. Le mélange s'écrit SUR PLACE. Le correctif de fond
+(déplacer les quatre dérivés dans chaque `.page--*`) **n'est toujours pas
+fait** : ~35 règles de cette feuille les lisent encore, et cela se décide en
+regardant les neuf pages.
+
+#### ⚠️ Trois pièges, et deux d'entre eux pour la énième fois
+
+- ⚠️ **Un cliquet qui cherche une chaîne doit retirer les COMMENTAIRES.** Le
+  contrôle « la fenêtre n'existe plus » s'est attrapé sur le commentaire qui
+  explique le retrait — et ce commentaire NOMME ce qui est retiré. **Neuvième
+  occurrence** dans ce dépôt.
+- ⚠️⚠️ **Un cliquet doit viser l'EMPLOI, pas la présence du nom.** Deux cas
+  sont restés VERTS sur le défaut remis : `est-bas` survivait dans une branche
+  de ternaire morte (`false ? ' est-bas' : ''`), et `aria-label` survivait dans
+  une flèche vidée de son contenu. Ils visent maintenant le fragment exact du
+  gabarit.
+- ⚠️ **`.ev-corps` existait TROIS fois** dans la feuille. Le retrait de
+  `.cv2-crb-win` de son sélecteur a cassé deux ancres de cliquet qui lisaient
+  « la » règle : les deux adjacentes sont fusionnées, et l'ancre vise
+  explicitement la seule écrite sur plusieurs lignes.
+
+Tests : `tests/test_148_technicite_et_plan.py` (12 cas, NEUF), `test_140`
+(deux classes du bassin réécrites en `TestLaPistePorteLaComparaison` et
+`TestLeVerdictEstEnTETE`, plus `TestLesCourbesQuittentLaPage`), `test_109`,
+`test_145`. **14 défauts remis un par un, 14 cliquets tombés** — dont les deux
+qui ne gardaient rien au premier essai. Éprouvé au banc
+(`tools/devrun_competences.py`) à 1600 px dans les deux langues : le bloc, les
+deux fenêtres, un domaine technique créé puis noté, un plan proposé — **zéro
+fuite française sur l'écran anglais** (134 textes relevés, attributs compris ;
+tout ce qui reste en français est une DONNÉE du banc), zéro débordement
+horizontal, zéro erreur console.
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

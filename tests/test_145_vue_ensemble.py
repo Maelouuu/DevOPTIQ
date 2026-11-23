@@ -528,15 +528,21 @@ class TestLEcran:
         for c in ("vo_roles", "vo_acts", "vo_sorties", "ou_n_sorties"):
             assert ("%s_1:" % c) in js and ("%s_n:" % c) in js, c
 
-    def test_une_valeur_ABSENTE_ne_s_annonce_pas(self):
-        """« Technicité **aucun domaine** » se lisait comme un verdict — et
-        ces 75 px de plus faisaient passer la rangée de pastilles sur deux
-        lignes. Une valeur absente dit déjà qu'il n'y a rien."""
+    def test_une_valeur_ABSENTE_s_annonce_de_nouveau(self):
+        """⚠️ RENVERSEMENT de la règle d'avant (« rien à annoncer ne s'annonce
+        pas »). Elle venait d'une rangée de QUATRE pastilles où la valeur
+        partageait la ligne du nom : « Technicité **aucun domaine** » se lisait
+        comme un verdict, et ces 75 px faisaient passer la rangée sur deux
+        lignes. Les boutons ne sont plus que trois, et la valeur a SA ligne :
+        elle tient, et elle dit quelque chose — on sait qu'il n'y a rien sans
+        avoir à ouvrir."""
         js = _lire(JS)
         m = _corps(js, "  function majChipTech() {")
-        assert "T('cl_tech_0')" not in m
+        assert "T('cl_tech_0')" in m
+        assert "c.querySelector('.val')" in m, "la valeur n'est plus le <b>"
         css = _sans_commentaires_css(_lire(CSS))
-        assert "display: none" in _regle(css, "\n.cl-rb b:empty {")
+        # un bouton dont la valeur est vide ne laisse pas une ligne blanche
+        assert "display: none" in _regle(css, "\n.cl-rb .tx .val:empty {")
 
 
 class TestLEspacementDesCartes:
@@ -593,18 +599,21 @@ class TestLEspacementDesCartes:
         corps = _corps(_lire(JS), "  function renderRelief(ap) {")
         assert "z.dataset.evo = ''" in corps
 
-    def test_la_fenetre_des_courbes_reste_EMPILEE(self):
-        """⚠️ Elle fait 1 060 px : partager le relief y ramènerait ses libellés
-        sous 6 px. Une seule fonction, deux présentations — et c'est la
-        PRÉSENCE du couple qui tranche, pas une largeur devinée dans le JS."""
-        corps = _corps(_lire(JS), "  function rendreValeurs(st, box) {")
-        assert "pal-evo-duo" not in corps
-        assert "pal-evo-cote" not in corps
-        # Et le bouton du bas ne sert QUE là : à côté, celui qui a ouvert ne
-        # bouge pas d'un pixel.
-        bascule = _corps(_lire(JS), "  function basculerHisto(card, r) {")
-        avant = bascule.split("} else {", 1)[0]
-        assert "pal-evo-fin" not in avant, "pas de second bouton à côté"
+    def test_le_detail_n_a_plus_qu_UNE_disposition(self):
+        """La seconde, EMPILÉE, n'existait que pour la fenêtre des courbes —
+        1 060 px, où partager le relief ramenait ses libellés sous 6 px. La
+        fenêtre partie, le seul appelant est cette bande, qui construit
+        toujours son couple : la branche était injoignable, et un code mort
+        sous cliquet fige ce que personne ne rend.
+        ⚠️ Son bouton de fermeture par le bas part avec elle : à côté, celui
+        qui a ouvert ne bouge pas d'un pixel."""
+        js = _lire(JS)
+        bascule = _corps(js, "  function basculerHisto(card, r) {")
+        assert "pal-evo-fin" not in bascule, "pas de second bouton à côté"
+        assert "pal-evo-fin" not in _lire(CSS), "la règle part avec son porteur"
+        assert "} else {" not in bascule, "une seule disposition"
+        # …et le repère de repli garde sa garde : `.pal-pied` n'existe plus.
+        assert "card.querySelector('.pal-bilan') || card.lastElementChild" in bascule
 
     def test_un_SEUL_ecart_separe_toutes_les_cartes(self):
         """Il en vivait trois : le `gap` de la grille, la marge basse du

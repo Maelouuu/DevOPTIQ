@@ -569,9 +569,10 @@ class TestEvaluerEstUnePage:
         """Le relief se dessine depuis les paliers que `/mastery/activity`
         porte déjà. `/paliers/historique` n'en rendait qu'un sous-ensemble.
 
-        ⚠️ Depuis le 11/11 l'historique ne se charge QUE dans la fenêtre des
-        courbes, et une seule fois : il ne pèse plus du tout sur l'ouverture
-        d'une activité, où personne ne l'avait demandé.
+        ⚠️ Et depuis la quatrième passe l'écran ne le charge PLUS DU TOUT :
+        la fenêtre des courbes qui le lisait a été retirée (« elles sont déjà
+        accessibles »). Le détail des séances, lui, se lit depuis la bande de
+        la vue d'ensemble, qui a ses propres données.
         """
         js = _lire(JS)
         bloc = js.split("async function ouvrirEvaluation(", 1)[1][:900]
@@ -580,12 +581,9 @@ class TestEvaluerEstUnePage:
         assert "Promise.all" not in bloc
         ecran = _corps(js, "  function renderEval(st) {")
         assert "historique" not in ecran, "l'historique ne s'ouvre plus avec la page"
-        assert js.count("/mastery/historique/") == 1, \
-            "une seule lecture, et c'est la fenêtre des courbes qui la fait"
-        crb = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "if (!crb.histo || crb.cle !== cle) {" in crb, \
-            "une fois par (personne, activité, rôle) — et pas une de plus"
-        assert "box.innerHTML = `<p class=\"crb-vide\">" in crb, "pas de réponse, pas de carte"
+        assert "/mastery/historique/" not in js, \
+            "plus aucun écran ne lit cette route — elle reste côté serveur"
+
     def test_le_tiroir_ne_porte_plus_que_les_dialogues(self):
         js = _lire(JS)
         assert "function ouvrirDialogue(" in js
@@ -1074,12 +1072,11 @@ class TestLesDeuxColonnesSeDistinguent:
         assert "(i + 1) + ' / ' + n" in nav
         ou = _corps(js, "  function remplirOu(st) {")
         assert "a.activity_name" in ou
-        # ⚠️ Le NIVEAU, lui, a quitté l'en-tête : il est posé sur la ligne
-        # d'eau, dans le bassin — voir `TestLeNiveauEstPoseSurLaLigneDEau`
-        # (test_140). Écrit ici ET là, il redirait en 48 px ce que l'eau
-        # montre, à 295 px de distance.
-        assert "data-niv" not in ou
-        assert "data-niv" in _corps(js, "  function bassinHtml(st) {")
+        # ⚠️ Le NIVEAU vit à UN seul endroit — en tête, à côté du nom de
+        # l'activité. Écrit deux fois, il redisait en 48 px ce que la ligne
+        # d'eau montrait 295 px plus bas (voir `TestLeVerdictEstEnTETE`,
+        # test_140).
+        assert ou.count("data-niv") == 1
     def test_le_gabarit_de_la_page_ne_porte_aucun_libelle(self):
         """⚠️ `remplirOu` et `remplirSorties` VIDENT leur zone : un libellé
         écrit dans le squelette serait effacé au premier remplissage."""
@@ -1089,34 +1086,43 @@ class TestLesDeuxColonnesSeDistinguent:
                       'class="ev-sorties" id="ev-sorties"></div>',
                       'class="ev-pied" id="ev-pied"></div>'):
             assert creux in sk, creux
-class TestLEvolutionSeFermeParLeBas:
-    """Une fois l'historique déplié, le bouton qui a OUVERT la section se
-    retrouve en plein milieu : il faut le chercher pour refermer."""
+class TestLEvolutionSeFermeLaOuElleSOuvre:
+    """Le bouton du bas existait parce que, l'historique déplié, celui qui
+    avait OUVERT la section se retrouvait en plein milieu : il fallait le
+    chercher pour refermer. C'était vrai de la disposition EMPILÉE, la seule
+    qu'avait la fenêtre des courbes.
 
-    def test_un_bouton_ferme_la_section_depuis_son_pied(self):
+    ⚠️ La fenêtre est partie (« elles sont déjà accessibles ») et le détail ne
+    s'ouvre plus qu'À CÔTÉ, sur la bande pleine largeur de la vue d'ensemble.
+    Là, le bouton d'ouverture ne bouge pas d'un pixel : un second bouton de
+    fermeture ne ferait que doubler celui qu'on a sous les yeux.
+    """
+
+    def test_il_n_y_a_plus_qu_UNE_disposition(self):
         js = _lire(JS)
         corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
-        assert "pal-evo-fin" in corps
-        assert "fa-chevron-up" in corps
-        # ⚠️ DANS le panneau qu'il ferme, pas en dernier enfant de la carte :
-        # depuis que le détail s'ouvre À CÔTÉ, un « dernier enfant » tomberait
-        # sous le relief, à l'autre bout de l'écran.
-        assert "bloc.appendChild(bas);" in corps
-        assert "card.appendChild(bas);" not in corps
+        assert "} else {" not in corps, "la branche empilée était injoignable"
+        assert "pal-evo-fin" not in corps, "plus de second bouton"
+        assert "pal-evo-fin" not in _lire(CSS), "la règle part avec son porteur"
 
-    def test_il_part_quand_la_section_se_referme(self):
-        """Il vit DANS le panneau : retirer le panneau l'emporte, et rien ne
-        peut rester orphelin au milieu de la carte."""
+    def test_le_libelle_du_bouton_d_ouverture_dit_l_etat(self):
+        """C'est lui qui referme désormais : son libellé devient « masquer ».
+        ⚠️ Le libellé est le PREMIER nœud du lien — la flèche vient après ; un
+        `lastChild` réécrirait l'icône et on perdrait le libellé."""
+        js = _lire(JS)
+        m = js.split("  function majLibelleEvo(card, ouvert) {", 1)[1].split("\n  }", 1)[0]
+        assert "b.firstChild.textContent" in m
+        assert "T('rel_detail_off') : T('rel_detail')" in m
+
+    def test_le_repere_de_repli_garde_sa_garde(self):
+        """⚠️ `.pal-pied` n'existe plus : un `querySelector` qui rend `null`
+        couperait toute la suite sans rien dire — c'est le piège du contrat
+        DOM de l'éditeur de carto."""
         js = _lire(JS)
         corps = js.split("  function basculerHisto(card, r) {", 1)[1].split("\n  }", 1)[0]
-        avant = corps.split("card.dataset.evo = '';", 1)[0]
+        assert "card.querySelector('.pal-bilan') || card.lastElementChild" in corps
+        avant = corps.split("const bloc = blocHistorique(r);", 1)[0]
         assert "ouvert.remove();" in avant, "le repli doit retirer le panneau"
-        pose = corps.split("const bloc = blocHistorique(r);", 1)[1]
-        assert "bloc.appendChild(bas);" in pose
-
-    def test_il_a_son_style(self):
-        css = _lire(CSS)
-        assert ".pal-evo-fin {" in css
 
 
 class TestLesLibellesNeufsExistentDansLesDeuxLangues:
@@ -1412,15 +1418,16 @@ class TestLeRelief:
     suis-je en train de mesurer », pas « comment cela a progressé ».
     """
 
-    def test_le_relief_vit_dans_la_FENETRE_des_courbes(self):
+    def test_le_relief_vit_sur_la_VUE_D_ENSEMBLE(self):
         """⚠️ Il était dans la carte, sous le nom de la sortie, dans l'écran où
-        l'on NOTE : deux sections de graphes mêlées à la notation. La feuille
-        dit l'ÉTAT, la fenêtre dit l'HISTOIRE."""
+        l'on NOTE : deux sections de graphes mêlées à la notation. Il est
+        passé en fenêtre, puis la fenêtre elle-même a été retirée — « elles
+        sont déjà accessibles ». Son lieu est la bande de la vue d'ensemble,
+        et c'était déjà vrai : c'est ce qui rendait la fenêtre superflue."""
         js = _lire(JS)
-        v = _corps(js, "  function rendreValeurs(st, box) {")
-        assert "reliefSvg(r)" in v and "bilanRelief(r.performance)" in v
-        assert "railHtml(" not in v, "le rail ne vit pas dans le relief"
-        # …mais il vit toujours à la séance : c'est une AUTRE question.
+        assert "box.innerHTML = reliefSvg({ name: s.nom, performance: s });" in js
+        assert "bilanRelief(s)" in js
+        # le rail vit toujours à la séance : c'est une AUTRE question.
         assert 'class="sq-rail">${railHtml(' in js
         # et plus une seule courbe dans la feuille
         f = _corps(js, "  function carteSortie(r, st, i) {")
@@ -1547,9 +1554,8 @@ class TestLeRelief:
         sans garde couperait toute la suite — c'est le piège du contrat DOM de
         l'éditeur de carto."""
         js = _lire(JS)
-        v = _corps(js, "  function rendreValeurs(st, box) {")
-        assert "const b = card.querySelector('[data-evol]');" in v
-        assert "if (b) b.onclick = () => basculerHisto(card, r);" in v
+        assert "const b = z.querySelector('[data-evol]');" in js
+        assert "if (b) b.onclick = () => basculerHisto(z, " in js
         assert "function basculerHisto(card, r) {" in js
         assert "function blocGraphe(" not in js, "le relief EST le graphe"
         # ⚠️ `.pal-pied` n'existe plus : un `querySelector` qui rend `null`

@@ -18,11 +18,10 @@ Ce fichier garde ce que la structure promet :
   • le 0 ne se remplit JAMAIS — « non démontré », c'est une jauge vide ;
   • une sortie MESURÉE se lit, elle ne se clique pas : son niveau vient du
     chiffre relevé en séance ;
-  • LES DEUX COURBES ont quitté la page : la frise des niveaux et le relief en
-    unités réelles vivent dans une fenêtre, avec le détail des séances. La
-    feuille dit l'ÉTAT, la fenêtre dit l'HISTOIRE ;
-  • et l'historique ne se charge QUE là, une seule fois : il ne pèse plus sur
-    l'ouverture d'une activité, où personne ne l'avait demandé.
+  • LES COURBES ont quitté la page, puis la fenêtre a suivi : « elles sont
+    déjà accessibles ». Le relief en unités réelles se lit sur la vue
+    d'ensemble ; la frise des niveaux, elle, n'avait que cette fenêtre et
+    s'en va avec — c'est le prix de la suppression, et il est écrit.
 """
 import io
 import os
@@ -125,21 +124,34 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         css = _sans_commentaires_css(_lire(CSS))
         rb = _regle(css, "\n.cl-rb {")
         assert "rgba(255, 255, 255, .12)" in rb, "du verre, pas un bouton blanc"
-        assert "border: 1px solid rgba(255, 255, 255, .2)" in rb
-        assert "color: #e3ecfd" in rb
+        assert "border: 1px solid rgba(255, 255, 255, .22)" in rb
+        assert "color: #fff" in rb
         assert "background" in _regle(css, "\n.cl-rb:hover {")
-        # l'icône garde sa pastille, et elle n'a de sens que sur du sombre
-        assert "rgba(255, 255, 255, .17)" in _regle(css, "\n.ev-retour > i, .cl-rb > i, .gb > i {")
+        # ⚠️ La pastille est désormais un `.ic` et non plus un `> i` : le
+        # bouton porte deux lignes (son nom, puis CE QU'IL CONTIENT), il est
+        # donc sorti du groupe des pilules. Elle n'a de sens que sur du sombre.
+        assert "rgba(255, 255, 255, .18)" in _regle(css, "\n.cl-rb .ic {")
 
-    def test_la_rangee_de_reglages_est_une_GRILLE(self):
+    def test_la_rangee_de_reglages_est_une_GRILLE_de_TROIS(self):
         """⚠️ À quatre pastilles pour 520 px de colonne (mesuré : 544 px de
         contenu), le flex en laissait trois sur une ligne et une toute seule
         en dessous — ça se lit comme un débordement, pas comme une
-        disposition."""
+        disposition. Elles ne sont plus que TROIS : « Les courbes » est parti
+        avec la fenêtre, et la dernière colonne est un peu plus large parce
+        que « Plan de formation » est le plus long des trois libellés."""
         css = _sans_commentaires_css(_lire(CSS))
         r = _regle(css, "\n.ou-reg {")
         assert "display: grid" in r
-        assert "repeat(2, minmax(0, 1fr))" in r
+        assert "grid-template-columns: 1fr 1fr" in r
+        # ⚠️ Le troisième bouton n'existe que pour le développeur : la bascule
+        # se fait sur le NOMBRE d'éléments, comme `.wp-portes`. `auto-fit` ne
+        # sait pas la faire — il compte des pixels, pas des enfants.
+        assert "1fr 1fr 1.15fr" in _regle(
+            css, "\n.ou-reg:has(.cl-rb:nth-child(3)) {")
+        js = _lire(JS)
+        b = _corps(js, "  function reglagesOu(st) {")
+        assert b.count("chip(") == 3, "technicité, séance, plan — et plus les courbes"
+        assert "ouvrirCourbes" not in b
 
     def test_le_bloc_de_nuit_SUIT_le_defilement(self):
         """C'est le bassin qui porte la comparaison entre les sorties : il doit
@@ -179,9 +191,9 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         js = _lire(JS)
         c = _corps(js, "  function carteSortie(r, st, i) {")
         assert 'class="so-n">${i + 1}' in c
-        m = _corps(js, "  function majBassin(st) {")
-        assert "d.textContent = combien[v] === 1 ? String(i + 1) : '';" in m
-        assert "d.textContent = String(v)" not in m, "le numéro, jamais le niveau"
+        m = _corps(js, "  function majPiste(st) {")
+        assert "<b class=\"${tenu ? 'v' : ''}\">${i + 1}</b>" in m, \
+            "la ligne de la piste porte le NUMÉRO de la carte, jamais le niveau"
 
     def test_les_deux_regimes_prennent_la_MEME_forme(self):
         """Un rail de couleur dit lequel, un disque dit le niveau : c'est leur
@@ -196,165 +208,168 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         assert "linear-gradient" in _regle(css, "\n.so.lue::before {")
 
 
-class TestLeBassinPorteLaComparaison:
-    """La règle du minimum se REGARDE au lieu de s'écrire : l'eau monte au
-    niveau de l'activité, chaque sortie porte son repère, et l'eau s'arrête au
-    repère le plus bas."""
+class TestLaPistePorteLaComparaison:
+    """⚠️ LA CUVE VERTICALE EST ABANDONNÉE — c'est l'arbitrage de la quatrième
+    passe, tranché sur prototype à l'échelle réelle. On y perd la métaphore de
+    l'eau qui monte ; on y gagne 90 px de hauteur et surtout la LECTURE : la
+    jauge va de gauche à droite, comme toutes les autres jauges de l'app.
 
-    def test_un_repere_par_sortie_a_la_hauteur_de_son_niveau(self):
-        js = _lire(JS)
-        b = _corps(js, "  function bassinHtml(st) {")
-        assert '(st.results || []).forEach(r => {' in b
-        assert 'data-mk=' in b
-        # ⚠️ Le gabarit ne porte AUCUN libellé : la pastille est remplie par
-        # `majBassin`, parce que son contenu dépend de ce que les AUTRES
-        # sorties font, pas d'elle seule.
-        assert '<span class="z"></span>' in b
-        m = _corps(js, "  function majBassin(st) {")
-        assert "m.style.bottom = basY(v) + 'px';" in m
+    ⚠️ Et c'est ce qui CORRIGE le bassin. Son défaut n'était pas la métaphore
+    mais les NOMS DES SORTIES, qui étaient DEDANS : deux libellés anglais de
+    cinquante signes s'y chevauchaient et s'y tronquaient — « sur le graphe en
+    bas on comprend rien ». Ils sont désormais SOUS la piste, une ligne
+    chacun, en entier.
+    """
 
-    def test_une_sortie_NON_NOTEE_n_a_pas_de_repere_a_zero(self):
-        """⚠️ NULL ≠ 0, et c'est la distinction que tout le module tient. Elle
-        n'a pas de repère du tout — et l'eau devient HACHURÉE, parce que
-        l'activité n'a alors aucun niveau : un trait plein dirait un verdict
-        que personne n'a rendu."""
+    def test_la_cuve_verticale_n_existe_plus(self):
+        js, css = _lire(JS), _lire(CSS)
+        nu = _sans_commentaires_js(js)
+        for mort in ("bassinHtml", "majBassin", "basY", "basPas", "data-basniv"):
+            assert mort not in nu, "js : " + mort
+        for mort in (".bassin", ".bas-niv", ".ou-tete", ".ou-comp"):
+            assert mort not in _sans_commentaires_css(css), "css : " + mort
+
+    def test_les_NOMS_des_sorties_sont_HORS_du_graphe(self):
+        """C'est LE correctif. Dans la piste il n'y a que des chiffres ; les
+        noms vivent dans la liste du dessous, avec le numéro qui relie chaque
+        sortie à sa carte de droite."""
         js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
-        assert "m.classList.toggle('est-off', estNul(v));" in m
-        assert "if (estNul(v)) return;" in m
+        p = _corps(js, "  function pisteHtml(st) {")
+        assert "r.name" not in p and "results" not in p, "la piste ne porte aucun nom"
+        m = _corps(js, "  function majPiste(st) {")
+        assert "esc(x.name)" in m and "class=\"nm\"" in m
+        assert "${i + 1}" in m, "le numéro relie la ligne à sa carte"
+
+    def test_NULL_n_est_PAS_zero(self):
+        """Une activité dont une sortie n'est pas notée n'a PAS de niveau : sa
+        piste est HACHURÉE jusqu'au plus bas de ce qu'on sait, pas remplie à
+        zéro — qui voudrait dire « non démontré »."""
+        js = _lire(JS)
+        m = _corps(js, "  function majPiste(st) {")
         assert "estNul(niv) ? 'hach'" in m
+        assert "PST(estNul(niv) ? bas : niv)" in m
         css = _sans_commentaires_css(_lire(CSS))
-        assert "display: none" in _regle(css, "\n.bassin .mk.est-off {")
-        assert "repeating-linear-gradient" in _regle(css, "\n.bassin .eau.hach {")
+        assert "repeating-linear-gradient" in _regle(css, "\n.pst-r.hach {")
+        # ⚠️ Et un SOCLE dès qu'un niveau est posé : à largeur nulle, le
+        # niveau 0 se confondrait avec « pas de niveau du tout ».
+        assert "min-width: 10px" in _regle(css, "\n.pst-r.bleu, .pst-r.vert {")
 
-    def test_celle_qui_RETIENT_l_eau_porte_un_anneau(self):
-        """C'est la réponse à la seule question que le bassin pose."""
+    def test_la_regle_du_MINIMUM_se_VOIT(self):
+        """Celle qui retient le niveau est mise en avant : c'est ici que la
+        règle se regarde au lieu de s'expliquer."""
         js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
-        assert "m.classList.toggle('est-bas'" in m
+        m = _corps(js, "  function majPiste(st) {")
+        assert "const porte = !nu && v === (estNul(niv) ? bas : niv);" in m
+        # ⚠️ On vérifie l'EMPLOI, pas la présence du nom : remplacé par un
+        # `false ? ' est-bas'`, le cliquet restait vert sur la branche morte.
+        assert "${porte ? ' est-bas' : ''}" in m
         css = _sans_commentaires_css(_lire(CSS))
-        assert "box-shadow" in _regle(css, "\n.bassin .mk.est-bas .et {")
+        assert "box-shadow" in _regle(css, "\n.lgs .s.est-bas {")
 
-    def test_UNE_pastille_par_NIVEAU_et_pas_par_sortie(self):
-        """⚠️⚠️ Deux tentatives ont échoué avant celle-ci, et les deux pour la
-        même raison — on ne regarde pas un bassin pour y lire une liste.
-
-        EMPILÉES vers le haut, les pastilles se chevauchaient de 2 px et deux
-        d'entre elles sortaient du bassin (mesuré à quatre sorties au même
-        niveau). CÔTE À CÔTE et réduites à leur numéro, elles ne disaient plus
-        rien du tout — « je ne comprends pas les 4 bulles vertes ».
-
-        Seule à son niveau, une sortie porte son NOM avec son numéro : c'est
-        le cas courant, et c'est ce que la maquette montrait. À plusieurs, la
-        ligne porte le COMPTE, et le détail est sur les cartes de droite.
-        """
+    def test_le_trait_de_l_ATTENDU_tombe_SUR_sa_graduation(self):
+        """⚠️ Mesuré : en `space-between`, ce sont les SPANS qui sont répartis,
+        pas leurs centres — le « 3 » tombait à 291 px quand le trait, lui, est
+        à 75 % de la voie, soit 293. Les deux sont posés à la même fraction et
+        centrés sur ce point."""
         js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
-        assert "const porte = premier[v].r.data_id === r.data_id;" in m
-        assert "m.classList.toggle('est-muet', !porte);" in m
-        assert "m.classList.toggle('est-seul', combien[v] === 1);" in m
-        assert "z.textContent = combien[v] === 1 ? r.name : nf('ou_n_sorties', combien[v]);" in m
+        p = _corps(js, "  function pisteHtml(st) {")
+        assert "left:${PST(req)}%" in p and 'style="left:${PST(i)}%"' in p
         css = _sans_commentaires_css(_lire(CSS))
-        et = _regle(css, "\n.bassin .mk .et {")
-        assert re.search(r"top: -\d+px", et), \
-            "une seule rangée, toutes AU-DESSUS de leur ligne"
-        # ⚠️ Le repère muet ne laisse RIEN — pas même sa ligne : quatre traits
-        # identiques au même pixel, c'est ce qui « se marchait dessus ».
-        assert "display: none" in _regle(css, "\n.bassin .mk.est-muet {")
-        # ⚠️ Et pas de DISQUE sur la pastille de groupe : il y dirait un
-        # numéro de carte, et c'est justement ce qu'on ne peut plus désigner.
-        assert "display: none" in _regle(css, "\n.bassin .mk:not(.est-seul) .et b {")
+        assert "translateX(-1px)" in _regle(css, "\n.pst-a {")
+        assert "translateX(-50%)" in _regle(css, "\n.pst-g span {")
+        assert "space-between" not in _regle(css, "\n.pst-g {")
 
-    def test_le_badge_de_l_ATTENDU_ne_croise_pas_la_surface(self):
-        """⚠⚠ Posé à cheval sur sa ligne (`top: -10px`), le badge recevait la
-        surface de l'eau en travers du texte dès que le niveau de l'activité
-        égalait l'attendu — le cas le plus courant, et celui qu'on vient
-        vérifier. Le badge se pose SOUS sa ligne, la pastille d'un repère
-        au-dessus de la sienne : c'est ce qui les empêche de se croiser,
-        quelle que soit la langue et quelle que soit la largeur."""
+    def test_la_piste_se_met_a_jour_SUR_PLACE(self):
+        """Elle S'ÉTEND quand on pose une note, et c'est ce mouvement qui fait
+        comprendre la règle. Réécrite, elle sauterait d'un niveau à l'autre."""
+        js = _lire(JS)
+        m = _corps(js, "  function majPiste(st) {")
+        assert "r.style.width" in m
         css = _sans_commentaires_css(_lire(CSS))
-        a = _regle(css, "\n.bassin .att span {")
-        assert "top: 5px" in a and "top: -10px" not in a
-        # Au niveau 0 il n'y a que 16 px sous la ligne : il repasse au-dessus.
-        assert "bottom: 4px" in _regle(css, "\n.bassin .att.hors span {")
-        js = _lire(JS)
-        b = _corps(js, "  function bassinHtml(st) {")
-        assert "req === 0 ? ' hors' : ''" in b
+        assert "transition: width" in _regle(css, "\n.pst-r {")
 
-    def test_la_pastille_du_niveau_4_TIENT_dans_le_bassin(self):
-        """⚠⚠ `basY(4)` vaut `h - haut` quelle que soit la hauteur du
-        bassin : avec un fond et un ciel égaux à 20 px, la pastille du niveau
-        4 — posée 33 px au-dessus de sa ligne — débordait TOUJOURS de 13 px,
-        rognée par l'`overflow: hidden`. Le ciel doit valoir la hauteur d'une
-        pastille."""
-        js = _sans_commentaires_js(_lire(JS))
-        m = re.search(r"const BAS = \{ h: (\d+), bas: (\d+), haut: (\d+) \};", js)
-        assert m, "les trois mesures du bassin"
-        h, bas, haut = (int(x) for x in m.groups())
-        assert "const basY = n => BAS.bas + basPas() * n;" in js
-        assert "(BAS.h - BAS.bas - BAS.haut) / 4" in js
-        css = _sans_commentaires_css(_lire(CSS))
-        et = _regle(css, "\n.bassin .mk .et {")
-        dessus = int(re.search(r"top: -(\d+)px", et).group(1))
-        assert haut >= dessus, "la pastille du niveau 4 déborde de %d px" % (dessus - haut)
-        assert bas > 0, "le niveau 0 n'est pas le fond : l'eau s'y voit encore"
-        # ⚠⚠ Et elle ne doit pas TOUCHER sa propre ligne : la surface de l'eau
-        # déborde d'un pixel au-dessus, et la pastille du repère le plus bas la
-        # croisait — mesuré sur quatre activités du banc. Les deux formes de
-        # pastille partagent donc une hauteur, et `top` la dépasse.
-        pastille = int(re.search(r"min-height: (\d+)px", et).group(1))
-        assert dessus > pastille, "la pastille touche sa ligne"
-
-    def test_l_eau_porte_son_niveau_le_repere_n_y_remet_pas_sa_ligne(self):
-        """⚠⚠ Trois traits pleine largeur tombaient sur le même pixel — la
-        surface de l'eau, la ligne du repère le plus bas, l'attendu. Quand
-        l'eau est dessinée, c'est ELLE qui porte ce niveau ; sans niveau
-        (NULL) il n'y a pas de surface, et le repère garde sa ligne."""
+    def test_ce_qui_reste_a_noter_se_dit_SOUS_la_piste(self):
         js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
-        assert "b.classList.toggle('a-eau', !estNul(niv));" in m
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "display: none" in _regle(css, "\n.bassin.a-eau .mk.est-bas .bar {")
-        assert "background: #fff" in _regle(css, "\n.bassin .mk.est-bas .bar {")
-
-    def test_les_noms_SURVIVENT_a_la_pastille_de_groupe(self):
-        """Une pastille qui ne dit plus que « 4 sorties » ne doit pas effacer
-        l'information pour qui lit l'écran autrement."""
-        js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
-        assert ".map(x => x.name).join(', ');" in m
-        assert "setAttribute('aria-label', noms)" in m
-        assert ".title = noms;" in m
-
-    def test_le_niveau_affiche_est_un_APERCU_pas_une_seconde_regle(self):
-        """⚠️ Le serveur reste la source — l'écran se recharge après
-        l'enregistrement. Mais il ne connaît pas la note qu'on vient de poser,
-        et c'est justement elle qu'on veut voir bouger l'eau."""
-        js = _lire(JS)
-        n = _corps(js, "  function niveauActivite(st) {")
-        assert "if (!v.length || v.some(estNul)) return null;" in n, "NULL ≠ 0"
-        assert "Math.min.apply(null, v)" in n, "le MINIMUM, jamais la moyenne"
-        s = js.split("  async function saveEvaluation() {", 1)[1][:1400]
-        assert "await refreshDashboard();" in s and "await ouvrirEvaluation(" in s
-
-    def test_le_bassin_se_met_a_jour_SUR_PLACE(self):
-        """⚠️ L'eau MONTE quand on pose une note, et c'est ce mouvement qui
-        fait comprendre la règle. Réécrit, le bassin sauterait d'un niveau à
-        l'autre."""
-        js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
-        assert "innerHTML" not in m, "on déplace, on ne réécrit pas"
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "transition: height" in _regle(css, "\n.bassin .eau {")
-        assert "transition: bottom" in _regle(css, "\n.bassin .mk {")
-
-    def test_ce_qui_reste_a_noter_se_dit_SOUS_le_bassin(self):
-        """La bande du classeur le portait ; c'est la seule chose actionnable
-        de ce bloc, elle suit le bassin qu'elle explique."""
-        js = _lire(JS)
-        m = _corps(js, "  function majBassin(st) {")
+        m = _corps(js, "  function majPiste(st) {")
         assert "nf('ou_manque', manque)" in m
-        assert "note.classList.toggle('hidden', !manque);" in m
+        b = _corps(js, "  function remplirOu(st) {")
+        assert b.index("data-bnote") > b.index("ev-lgs")
+
+
+class TestLeVerdictEstEnTETE:
+    """Le niveau de l'activité et son écart se lisaient DEUX fois : en 48 px
+    au-dessus du bassin, puis 295 px plus bas sur la ligne d'eau. Ils sont
+    posés une seule fois, à côté du nom de l'activité — en tête, et c'est le
+    premier chiffre qu'on lit en arrivant."""
+
+    def test_le_niveau_vit_a_UN_seul_endroit(self):
+        js = _lire(JS)
+        b = _corps(js, "  function remplirOu(st) {")
+        assert b.count("data-niv") == 1
+        # ⚠️ `[data-niv]` garde SON contrat : il porte le chiffre ET le « /4 »,
+        # parce que `majNiveauTenu` y écrit sans réécrire le bloc de nuit.
+        assert "<b data-niv>" in b
+        m = _corps(js, "  function majNiveauTenu(st) {")
+        assert "'<i>/4</i>'" in m
+
+    def test_le_verdict_est_a_cote_du_nom_de_l_activite(self):
+        js = _lire(JS)
+        b = _corps(js, "  function remplirOu(st) {")
+        tete = b.split('class="bas-h"', 1)[1].split("</div>\n        </div>", 1)[0]
+        assert "a.activity_name" in tete and "data-niv" in tete and "data-ecart" in tete
+
+    def test_la_pastille_d_ecart_ne_passe_JAMAIS_a_la_ligne(self):
+        """« below target · −2 » fait 92 px en anglais contre 70 en français :
+        sur deux lignes, la rangée grandit sous le nom de l'activité."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "white-space: nowrap" in _regle(css, "\n.bas-e {")
+        assert "flex: none" in _regle(css, "\n.bas-d {")
+
+    def test_le_chiffre_prend_la_couleur_du_VERDICT(self):
+        """Tilleul quand le niveau est tenu, estompé quand il n'y a pas de
+        niveau : le chiffre et la piste disent la même chose."""
+        js = _lire(JS)
+        m = _corps(js, "  function majPiste(st) {")
+        assert "d.classList.toggle('est-vert', vert)" in m
+        assert "d.classList.toggle('est-vide', estNul(niv))" in m
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "var(--cv-g-20)" in _regle(css, "\n.bas-d.est-vert .bas-v b {")
+
+    def test_le_bloc_ne_lit_aucun_DERIVE_de_l_accent(self):
+        """⚠️ `--pg-accent-soft` et ses trois frères sont déclarés sur `:root`,
+        où `--pg-accent` vaut encore le gris par défaut : ils rendent du GRIS.
+        Les mélanges s'écrivent SUR PLACE."""
+        css = _sans_commentaires_css(_lire(CSS))
+        bloc = css.split("\n   LE VERDICT EN T", 1)[1].split("\n/* ", 1)[0] \
+            if "\n   LE VERDICT EN T" in css else ""
+        for v in ("--pg-accent-soft", "--pg-accent-softer",
+                  "--pg-accent-border", "--pg-accent-glow"):
+            assert v not in _regle(css, "\n.bas-e {"), v
+            assert v not in _regle(css, "\n.pst-r {"), v
+
+    def test_UNE_seule_etiquette_en_capitales_dans_tout_le_bloc(self):
+        """Il en portait HUIT, plus nombreuses que ce qu'elles étiquetaient.
+        ⚠️ Les trois de la chaîne tombent à l'ŒIL et restent dans
+        l'`aria-label` : un lecteur d'écran ne la lit pas d'un coup d'œil."""
+        js = _lire(JS)
+        b = _corps(js, "  function remplirOu(st) {")
+        assert b.count("bas-k") == 1
+        assert "ou-lbl" not in b and "ou_titre" not in b
+        c = _corps(js, "  function chaineHtml(st, nivAct) {")
+        assert 'class="k"' not in c, "les étiquettes de la chaîne sont tombées"
+        # ⚠️ L'étiquette doit Être DANS l'`aria-label`, pas seulement exister :
+        # vidée de son contenu, la flèche laissait le cliquet vert.
+        assert "`aria-label=\"${esc(T(cle) + ' : ' + nom)}\"`" in js, \
+            "…et elles restent pour un lecteur d'écran"
+
+    def test_la_competence_passe_derriere_un_i(self):
+        """Elle occupait un paragraphe de trois lignes avec sa propre
+        étiquette : c'est le motif de la maison — une phrase passe derrière un
+        « i », elle ne disparaît pas."""
+        js = _lire(JS)
+        b = _corps(js, "  function remplirOu(st) {")
+        assert "boutonInfo(T('ou_comp'), a.competence)" in b
+        assert "ou-comp" not in b
 
 
 class TestLesDeuxNotes:
@@ -566,7 +581,7 @@ class TestLesDeuxNotes:
         p = _corps(js, "  function poserNote(r, niveau, st) {")
         assert "state.saisie[r.data_id] = Object.assign({}, avant, { niveau: niveau });" in p
         assert "majNota(z, r, st)" in p and "majDisque(carte, r, st);" in p
-        assert "majBassin(st);" in p and "majNiveauTenu(st);" in p
+        assert "majPiste(st);" in p and "majNiveauTenu(st);" in p
         assert "innerHTML" not in p, "on bascule des classes, on ne réécrit pas"
 
     def test_l_enregistrement_lit_l_etat_et_pas_le_DOM(self):
@@ -591,7 +606,7 @@ class TestCeQuiEtaitDIT_DEUX_FOIS:
         b = _corps(js, "  function remplirOu(st) {")
         assert "nf('cl_min'" not in b
         assert "levelName(niv)" not in b, "le grand chiffre suffit"
-        m = _corps(js, "  function majBassin(st) {")
+        m = _corps(js, "  function majPiste(st) {")
         assert "ou_manque" in m, "ce qui reste à noter est la seule chose actionnable"
 
     def test_le_verdict_ne_redit_plus_la_piste_verte(self):
@@ -617,6 +632,55 @@ class TestCeQuiEtaitDIT_DEUX_FOIS:
 
 
 class TestLesCourbesQuittentLaPage:
+    """« Les courbes on supprime, elles sont déjà accessibles, donc la pop-up
+    à deux pages des courbes ça dégage. »
+
+    ⚠️ Les deux schémas n'étaient PAS accessibles de la même façon : le relief
+    des VALEURS se lit sur la vue d'ensemble, la frise des NIVEAUX n'existait
+    QUE là. Elle s'en va donc avec la fenêtre — ce n'est pas un oubli, c'est
+    le prix de la suppression, et il est écrit.
+    """
+
+    def test_la_fenetre_n_existe_plus_nulle_part(self):
+        html, js, css = _lire(GABARIT), _lire(JS), _lire(CSS)
+        for mort in ("cv2-crb-win", "crb-ong", "crb-vide", "crb-relief"):
+            assert mort not in html, "gabarit : " + mort
+            assert mort not in css, "css : " + mort
+        # ⚠️ Sur le JS SANS COMMENTAIRES : le commentaire qui explique le
+        # retrait NOMME ce qui est retiré, et le cliquet s'attrapait sur sa
+        # propre explication — c'est la neuvième fois dans ce dépôt.
+        nu = _sans_commentaires_js(js)
+        for mort in ("ouvrirCourbes", "fermerCourbes", "rendreCourbes",
+                     "rendreValeurs", "rendreOngletsCrb", "rendreNiveaux"):
+            assert mort not in nu, "js : " + mort
+
+    def test_la_frise_des_niveaux_part_AVEC_elle(self):
+        """Elle n'avait qu'un lieu. Son code, ses styles et ses dix clés
+        partent ensemble : une clé qu'on retire en même temps que son seul
+        lecteur ne laisse rien derrière elle, et une clé absente s'affiche
+        TELLE QUELLE sans rien lever."""
+        js, css = _lire(JS), _lire(CSS)
+        nu = _sans_commentaires_js(js)
+        for mort in ("friseSvg", "legendeHistorique", "dateCourte", "FR_MINI"):
+            assert mort not in nu, "js : " + mort
+        for mort in (".hi-", ".cv2-histo"):
+            assert mort not in css, "css : " + mort
+        fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
+        for mort in ("h_titre", "h_glob", "h_sous", "crb_titre", "crb_niveaux",
+                     "cl_courbes"):
+            assert (mort + ":") not in fr, "catalogue : " + mort
+
+    def test_le_relief_reste_sur_la_vue_d_ensemble(self):
+        """Ce que la suppression ne doit PAS emporter : le relief en unités
+        réelles, son sélecteur de sortie et le détail des séances vivent dans
+        la bande de la vue d'ensemble — c'est de là qu'ils étaient « déjà
+        accessibles », et c'est ce qui rend la fenêtre superflue."""
+        js, css = _lire(JS), _lire(CSS)
+        assert "box.innerHTML = reliefSvg({ name: s.nom, performance: s });" in js
+        assert "pick.className = 'crb-pick';" in js
+        assert ".crb-pick" in css and ".crb-p {" in css
+        # ⚠️ Une rangée d'un seul bouton est un titre déguisé.
+        assert "if (mes.length > 1) {" in js
 
     def test_aucune_courbe_dans_la_feuille(self):
         js = _lire(JS)
@@ -625,87 +689,14 @@ class TestLesCourbesQuittentLaPage:
         for mort in ("reliefSvg", "friseSvg", "cv2-histo", "pal-relief"):
             assert mort not in f and mort not in a, mort
 
-    def test_la_fenetre_porte_DEUX_schemas_et_un_seul_est_actif(self):
-        """Les données ne se lisent pas de la même façon : une échelle commune
-        pour COMPARER les sorties, l'unité réelle pour suivre UNE sortie."""
+    def test_le_detail_des_seances_survit_et_reste_cable(self):
+        """⚠️ Il avait déjà été rendu et CÂBLÉ NULLE PART une fois — mesuré au
+        banc, `b.onclick === null`. Le retrait de la fenêtre ne doit pas le
+        débrancher une seconde fois.
+        ⚠️ Et `.pal-pied` n'existe plus : un `querySelector` qui rend `null`
+        couperait toute la suite sans rien dire."""
         js = _lire(JS)
-        o = _corps(js, "  function rendreOngletsCrb(st) {")
-        assert "['niveaux'," in o and "['valeurs'," in o
-        assert "T('crb_niveaux')" in o and "T('crb_valeurs')" in o
-        # ⚠️ Sans sortie mesurée il n'y a pas de valeur à tracer : la
-        # languette le DIT au lieu d'ouvrir un écran vide.
-        assert "mes.length > 0" in o and "T('crb_sans_mes')" in o
-        assert "b.disabled = !actif;" in o
-
-    def test_les_niveaux_portent_la_frise_les_valeurs_le_relief(self):
-        js = _lire(JS)
-        c = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "friseSvg(h, req, c.querySelector('.hi-s'))" in c
-        v = _corps(js, "  function rendreValeurs(st, box) {")
-        assert "reliefSvg(r)" in v and "bilanRelief(r.performance)" in v
-
-    def test_le_selecteur_n_existe_que_s_il_y_a_de_quoi_choisir(self):
-        """Une rangée d'un seul bouton est un titre déguisé."""
-        js = _lire(JS)
-        v = _corps(js, "  function rendreValeurs(st, box) {")
-        assert "if (mes.length > 1) {" in v
-
-    def test_l_historique_ne_se_charge_QUE_la_et_une_fois(self):
-        js = _lire(JS)
-        assert js.count("/mastery/historique/") == 1
-        c = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "if (!crb.histo || crb.cle !== cle) {" in c
-        ouvrir = js.split("async function ouvrirEvaluation(", 1)[1][:900]
-        assert "/paliers/historique/" not in ouvrir and "/mastery/historique" not in ouvrir
-
-    def test_le_cache_porte_une_CLE_et_pas_le_dernier_venu(self):
-        """⚠⚠ Mesuré au banc : `crb.histo` ne portait aucune clé. Ouvert une
-        fois, il restait affiché pour TOUTE autre personne et toute autre
-        activité — Lina et Theo lisaient la frise de Noe. Et là où le premier
-        historique était vide, tout le reste l'était aussi : c'est le
-        « aucune note posée pour le moment » signalé, vu de l'autre côté.
-        """
-        js = _lire(JS)
-        assert "histo: null, cle: null" in js
-        c = js.split("  async function rendreCourbes(st) {", 1)[1].split("\n  }", 1)[0]
-        assert "const cle = `${state.cible}/${st.activity_id}/${state.roleId}`;" in c
-        assert "crb.cle = cle;" in c
-        # la sortie retenue pour le relief appartient elle aussi à UNE activité
-        o = _corps(js, "  function ouvrirCourbes(vue, dataId) {")
-        assert "crb.sortie = null;" in o
-    def test_la_fenetre_est_declaree_et_se_ferme(self):
-        html = _lire(GABARIT)
-        assert 'id="cv2-crb-win"' in html and 'id="cv2-crb-ong"' in html
-        assert 'id="cv2-crb-body"' in html and 'id="cv2-crb-close"' in html
-        js = _lire(JS)
-        assert "$('#cv2-crb-close').onclick = fermerCourbes;" in js
-        assert "if ($('#cv2-crb-win').classList.contains('open')) fermerCourbes();" in js
-        # ⚠️ Le voile est partagé par les TROIS fenêtres : le retirer dès
-        # qu'une se ferme laisserait les deux autres posées sans voile.
-        f = _corps(js, "  function fermerCourbes() {")
-        assert "'#cv2-plan-win'" in f and "'#cv2-drawer'" in f
-        d = _corps(js, "  function closeDrawer() {")
-        assert "'#cv2-crb-win'" in d
-
-    def test_UNE_seule_porte_vers_les_courbes(self):
-        """⚠️ Relevé sur capture : le bouton s'affichait des DEUX côtés sur une
-        sortie mesurée — sur la bande ET sur l'ardoise. Deux portes pour un
-        seul sujet."""
-        js = _lire(JS)
-        assert js.count("ouvrirCourbes(") == 2, \
-            "la déclaration, la pastille de la bande, et rien d'autre"
-        a = _corps(js, "  function ardoiseSortie(r, st, form) {")
-        assert "ouvrirCourbes" not in a
-        b = _corps(js, "  function reglagesOu(st) {")
-        assert "T('cl_courbes')" in b
-
-    def test_le_detail_des_seances_accompagne_les_courbes(self):
-        js = _lire(JS)
-        v = _corps(js, "  function rendreValeurs(st, box) {")
-        assert "const b = card.querySelector('[data-evol]');" in v
-        assert "if (b) b.onclick = () => basculerHisto(card, r);" in v
-        # ⚠️ `.pal-pied` n'existe plus : un `querySelector` qui rend `null`
-        # aurait coupé toute la suite sans rien dire.
+        assert "basculerHisto(z, { name: s.nom, performance: s })" in js
         h = _corps(js, "  function basculerHisto(card, r) {")
         assert "card.querySelector('.pal-bilan') || card.lastElementChild" in h
 
@@ -786,7 +777,7 @@ class TestLaNavigationParFleches:
         # ⚠️ Elle vit en TÊTE du bloc de nuit, à droite du retour : c'est
         # la ligne qui dit où l'on est, pas celle qui dit ce qu'on note.
         assert b.index('class="ou-h"') < b.index('id="ev-nav"')
-        assert b.index('id="ev-nav"') < b.index('class="ou-tete"')
+        assert b.index('id="ev-nav"') < b.index('class="fil"')
         assert "majNav();" in b
         css = _sans_commentaires_css(_lire(CSS))
         assert "border-left" in _regle(css, "\n.cl-nav {")
@@ -851,35 +842,6 @@ class TestLArdoise:
         assert "quotes:" in _regle(css, "\n.grav .v q {")
 
 
-class TestLaCourbeGlobale:
-
-    def test_elle_se_dessine_SOUS_les_courbes_de_sortie(self):
-        """Là où elle en rejoint une, on voit la plus basse portée par un
-        large ruban : la règle du minimum se regarde au lieu de s'écrire."""
-        js = _lire(JS)
-        f = js.split("  function friseSvg(h, req, hote) {", 1)[1].split("\n  }\n", 1)[0]
-        assert f.index("class=\"hi-glob\"") < f.index("class=\"hi-l hi-l--")
-
-    def test_un_SEGMENT_porte_l_etat_de_son_point_d_arrivee(self):
-        """Une courbe qui passe de 1 à 3 change de famille en chemin, là où
-        elle franchit l'attendu."""
-        js = _lire(JS)
-        f = js.split("  function friseSvg(h, req, hote) {", 1)[1].split("\n  }\n", 1)[0]
-        assert "hi-l--${fam(p[k].niveau)}" in f
-
-    def test_le_numero_relie_la_frise_aux_languettes(self):
-        js = _lire(JS)
-        f = js.split("  function friseSvg(h, req, hote) {", 1)[1].split("\n  }\n", 1)[0]
-        assert "class=\"hi-num\"" in f and "text-anchor=\"middle\">${o.num}" in f
-
-    def test_la_frise_porte_une_date_COURTE(self):
-        js = _lire(JS)
-        assert "function dateCourte(iso)" in js
-        f = js.split("  function friseSvg(h, req, hote) {", 1)[1].split("\n  }\n", 1)[0]
-        assert "dateCourte(j)" in f
-        assert "fmtDate(h.dates[q.t])" in f, "l'info-bulle garde la date entière"
-
-
 class TestLesReglesDeStyle:
 
     def test_aucune_regle_neuve_ne_lit_l_accent_doux_de_la_racine(self):
@@ -887,19 +849,10 @@ class TestLesReglesDeStyle:
         où `--pg-accent` vaut encore le gris par défaut : ils rendent du GRIS.
         Les mélanges s'écrivent SUR PLACE."""
         css = _sans_commentaires_css(_lire(CSS))
-        bloc = css.split("\n.ev-corps, .cv2-crb-win {", 1)[1]
+        bloc = css.split("\n.ev-corps {\n", 1)[1]
         for v in ("--pg-accent-soft", "--pg-accent-softer",
                   "--pg-accent-border", "--pg-accent-glow"):
             assert v not in bloc, v
-
-    def test_la_frise_ne_met_pas_son_SVG_a_l_echelle(self):
-        """⚠️ Un SVG en `width:100%` rapetisse ses TEXTES avec lui, et la
-        taille calculée reste celle du repère du viewBox."""
-        js = _lire(JS)
-        f = js.split("  function friseSvg(h, req, hote) {", 1)[1].split("\n  }\n", 1)[0]
-        assert "Math.max(Math.round(hote ? hote.clientWidth : 0) || FR_MINI, FR_MINI)" in f
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "overflow-x: auto" in _regle(css, "\n.hi-s {")
 
     def test_les_points_de_bascule_sont_en_px_REELS(self):
         """⚠️ `body.pg` porte `zoom: .8` et les requêtes média IGNORENT ce
@@ -919,8 +872,8 @@ class TestLesLibellesSontDansLesDeuxLangues:
         js = _lire(JS)
         fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
         en = js.split("    en: {", 1)[1].split("\n    },", 1)[0]
-        cles = ["cl_courbes", "cl_seance",
-                "ou_titre", "ou_notez", "ou_comp", "ou_collab", "ou_role",
+        cles = ["cl_seance",
+                "ou_notez", "ou_comp", "ou_collab", "ou_role",
                 "ou_act", "ou_attendu", "ou_manque_1", "ou_manque_n",
                 "ou_ecart", "ou_au_niveau", "ou_au_dessus",
                 "so_main", "so_mesuree",
@@ -930,10 +883,7 @@ class TestLesLibellesSontDansLesDeuxLangues:
                 "cl_tech_ecart_1", "cl_tech_ecart_n",
                 "grv_mesure", "cl_prec", "cl_suiv",
                 "nota_zero", "nota_mes_ko", "pr_k", "pr_vide",
-                "crb_titre", "crb_niveaux", "crb_niveaux_d", "crb_valeurs",
-                "crb_valeurs_d", "crb_sans_mes", "crb_choisir",
-                "h_titre", "h_vide", "h_glob", "h_glob_d", "h_sous", "h_au",
-                "h_sans_glob", "h_jamais", "h_une_note", "h_une_note_d"]
+                "cl_tech_0"]
         for k in cles:
             assert (k + ":") in fr, "FR " + k
             assert (k + ":") in en, "EN " + k
@@ -957,11 +907,6 @@ class TestLesLibellesSontDansLesDeuxLangues:
                      "cl_rien:", "ev_nb_act", "ev_suivi_par", "ev_niv_role"):
             assert mort not in js, mort
 
-    def test_la_fenetre_porte_son_titre_traduit(self):
-        html = _lire(GABARIT)
-        bloc = html.split('id="cv2-crb-win"', 1)[1].split("</aside>", 1)[0]
-        assert 'data-i18n="crb_titre"' in bloc
-
 
 class TestLArdoisePorteLeFondDeLEnTete:
 
@@ -972,7 +917,7 @@ class TestLArdoisePorteLeFondDeLEnTete:
         suivre, et c'est ce cliquet qui le dit."""
         css = _sans_commentaires_css(_lire(CSS))
         tete = _regle(css, "\n.ev-tete, .sq-tete {")
-        lignes = [l for l in _regle(css, "\n.ev-corps, .cv2-crb-win {").splitlines()
+        lignes = [l for l in _regle(css, "\n.ev-corps {\n").splitlines()
                   if "--nuit:" in l]
         assert lignes, "le jeton --nuit porte le fond de l'en-tête"
         deg = lignes[0].split("--nuit:", 1)[1].strip().rstrip(";")
@@ -1041,10 +986,14 @@ class TestUnSeulVocabulaireDeBoutons:
         (l'en-tête, les formulaires), des rectangles arrondis à icône nue (la
         bande, l'ardoise), et le bouton de retour."""
         css = _sans_commentaires_css(_lire(CSS))
-        r = _regle(css, "\n.ev-retour, .cl-rb, .gb {")
+        r = _regle(css, "\n.ev-retour, .gb {")
         assert "border-radius: 999px" in r
-        i = _regle(css, "\n.ev-retour > i, .cl-rb > i, .gb > i {")
+        i = _regle(css, "\n.ev-retour > i, .gb > i {")
         assert "border-radius: 50%" in i and "width: 26px" in i
+        # ⚠️ `.cl-rb` est sorti du groupe : ce n'est plus une pilule mais un
+        # bouton à deux lignes, et sa pastille est un `.ic`. Le laisser dedans
+        # lui aurait donné un rayon de 999 px pour un contenu de deux lignes.
+        assert ".cl-rb" not in r
         # sans libellé, le bouton EST le disque : les flèches de navigation
         assert "border-radius: 50%" in _regle(css, "\n.cl-nav-b {")
 
@@ -1110,111 +1059,3 @@ class TestLaPorteDuRole:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-class TestLeNiveauEstPoseSurLaLigneDEau:
-    """⚠️⚠️ « Le lien entre l'activité et ses résultats doit être plus marqué. »
-
-    Il l'était mal, et c'était mesurable : le niveau de l'activité s'écrivait
-    en 48 px au-dessus du bassin, et la ligne d'eau — 295 px plus bas, relevée
-    à l'écran — disait EXACTEMENT la même valeur. Deux énoncés d'une seule
-    chose, que rien ne reliait.
-
-    Le chiffre est maintenant posé SUR la surface, dans un couloir réservé à
-    droite du bassin, et la ligne d'eau traverse ce couloir pour venir finir
-    sous lui. Poser une note déplace le repère le plus bas, donc l'eau, donc
-    le chiffre : le découlement se REGARDE, et il ne reste qu'un seul endroit
-    où lire le niveau.
-    """
-
-    def test_le_niveau_vit_dans_le_BASSIN_et_plus_dans_l_en_tete(self):
-        """⚠️ Écrit aux deux endroits, il redirait en grand ce que l'eau
-        montre — le doublon d'origine."""
-        js = _lire(JS)
-        ou = _corps(js, "  function remplirOu(st) {")
-        bas = _corps(js, "  function bassinHtml(st) {")
-        assert "data-niv" not in ou, "le niveau est resté dans l'en-tête"
-        assert "data-basniv" in bas and "data-niv" in bas
-        # Et le bloc qui le portait n'existe plus nulle part.
-        assert "ou-niv" not in js and "ou-niv" not in _lire(CSS)
-
-    def test_le_chiffre_suit_la_MEME_hauteur_que_l_eau(self):
-        """C'est ce qui en fait une conséquence et non un doublon : une
-        seconde expression dériverait de la première au premier correctif."""
-        m = _corps(_lire(JS), "  function majBassin(st) {")
-        hauteur = "basY(estNul(niv) ? bas : niv)"
-        assert m.count(hauteur) >= 3, "l'eau, la surface et le chiffre"
-        assert "pl.style.bottom = " + hauteur + " + 'px';" in m
-
-    def test_la_SURFACE_traverse_le_couloir_que_tout_le_reste_respecte(self):
-        """⚠️ C'est le TRAIT qui fait le lien : il ne peut pas s'arrêter au
-        bord du couloir. Tout le reste du bassin, lui, s'y arrête — sinon
-        l'eau passerait sous le chiffre et il n'y aurait plus de couloir."""
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "--rail:" in _regle(css, "\n.bassin {")
-        for sel in ("\n.bassin .eau {", "\n.bassin .gd {",
-                    "\n.bassin .att {", "\n.bassin .mk {"):
-            assert "right: var(--rail)" in _regle(css, sel), sel
-        surf = _regle(css, "\n.bassin .surf {")
-        assert "right: 0" in surf and "var(--rail)" not in surf
-
-    def test_le_cartouche_du_niveau_TIENT_aux_deux_bouts(self):
-        """⚠️⚠️ `basY(0)` vaut `bas` et `basY(4)` vaut `h - haut` : centré sur
-        la ligne, le cartouche déborde par le FOND au niveau 0 et par le CIEL
-        au niveau 4 si les deux bords ne lui réservent pas sa moitié.
-        Mesuré au banc : 26 px passent sous la ligne, 52 restent au-dessus
-        (le chiffre, la pastille d'écart qui s'y empile, les rembourrages) —
-        il reste 6 px de marge en bas et 9 en haut, aux cinq niveaux."""
-        js = _sans_commentaires_js(_lire(JS))
-        h, bas, haut = (int(x) for x in re.search(
-            r"const BAS = \{ h: (\d+), bas: (\d+), haut: (\d+) \};", js).groups())
-        css = _sans_commentaires_css(_lire(CSS))
-        marge = int(re.search(r"margin-bottom: -(\d+)px",
-                              _regle(css, "\n.bas-niv {")).group(1))
-        assert bas > marge, "la moitié basse du chiffre est rognée par le fond"
-        assert haut >= 52, "le cartouche du niveau 4 sort du bassin"
-
-    def test_le_cartouche_part_du_FOND_et_pas_du_HAUT(self):
-        """⚠️ `majBassin` lui pose son `bottom` à chaque rendu — mais sans
-        valeur de départ il vaudrait `auto`, c'est-à-dire le HAUT du bassin,
-        l'exact contraire du fond. Relevé à l'écran."""
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "bottom: 0" in _regle(css, "\n.bas-niv {")
-
-    def test_la_pastille_d_ecart_ne_passe_JAMAIS_a_la_ligne(self):
-        """⚠️ Deux lignes et le cartouche grandit de 12 px : au niveau 4 il
-        sort du bassin. En anglais « below target · −3 » est le libellé le
-        plus large (92 px mesurés) — c'est lui qui décide."""
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "white-space: nowrap" in _regle(css, "\n.bas-niv .e {")
-        # … et elle s'empile AU-DESSUS du chiffre, jamais en dessous, où le
-        # fond du bassin la rognerait au niveau 0.
-        bas = _corps(_lire(JS), "  function bassinHtml(st) {")
-        bloc = bas.split('class="bas-niv"', 1)[1]
-        assert bloc.index("data-ecart") < bloc.index("data-niv")
-
-    def test_le_chiffre_prend_la_couleur_de_la_SURFACE(self):
-        """Le chiffre et le trait sont une seule chose : ils changent de
-        teinte ensemble, sinon le lien ne tient que par la position."""
-        css = _sans_commentaires_css(_lire(CSS))
-        # ⚠️ Une teinte s'écrit en dur OU par un jeton : depuis la bascule
-        # prune & tilleul, la surface verte lit `var(--cv-g-20)`. Le cliquet
-        # porte sur l'ÉGALITÉ des deux côtés, pas sur la forme de la valeur.
-        TON = r"(#[0-9a-f]{6}|var\(--[a-z0-9-]+\))"
-        vert = re.search(TON, _regle(css, "\n.bassin .surf.vert {")).group(0)
-        bleu = re.search(TON, _regle(css, "\n.bassin .surf.bleu {")).group(0)
-        assert vert in _regle(css, "\n.bas-niv.est-vert .v {")
-        assert bleu in _regle(css, "\n.bas-niv .v {")
-        m = _corps(_lire(JS), "  function majBassin(st) {")
-        assert "pl.classList.toggle('est-vert', vert);" in m
-        assert "pl.classList.toggle('est-vide', estNul(niv));" in m
-
-    def test_le_cartouche_ne_lit_aucun_DERIVE_de_l_accent(self):
-        """`--pg-accent-soft` et ses frères sont déclarés sur `:root`, où
-        `--pg-accent` vaut encore le gris par défaut : ils rendent du GRIS."""
-        # ⚠️ Bornée : un fichier de 3 500 lignes contient presque toujours un
-        # homonyme de ce qu'on croit garder.
-        zone = _sans_commentaires_css(_lire(CSS))
-        zone = zone[zone.index(".bas-niv {"):]
-        zone = zone[:zone.index(".bas-niv .e.ok {") + 200]
-        for derive in ("--pg-accent-soft", "--pg-accent-softer",
-                       "--pg-accent-border", "--pg-accent-glow"):
-            assert derive not in zone, derive
