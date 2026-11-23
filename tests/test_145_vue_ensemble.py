@@ -409,8 +409,9 @@ class TestLEcran:
         assert "railHtml(s)" in m
         css = _sans_commentaires_css(_lire(CSS))
         assert "color: #fff" in _regle(css, "\n.mpan .pal-pas .pal-v {")
-        assert "#6ee7b7" in _regle(css, "\n.mpan .pal-pas--atteint .pal-v, "
-                                        ".mpan .pal-pas--atteint .pal-s {")
+        # l'encre « tenu » telle qu'elle se pose sur un fond sombre
+        assert "var(--cv-g-40)" in _regle(css, "\n.mpan .pal-pas--atteint .pal-v, "
+                                               ".mpan .pal-pas--atteint .pal-s {")
 
     def test_cliquer_une_activite_change_les_marches(self):
         js = _lire(JS)

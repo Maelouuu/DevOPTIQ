@@ -1195,8 +1195,12 @@ class TestLeNiveauEstPoseSurLaLigneDEau:
         """Le chiffre et le trait sont une seule chose : ils changent de
         teinte ensemble, sinon le lien ne tient que par la position."""
         css = _sans_commentaires_css(_lire(CSS))
-        vert = re.search(r"#[0-9a-f]{6}", _regle(css, "\n.bassin .surf.vert {")).group(0)
-        bleu = re.search(r"#[0-9a-f]{6}", _regle(css, "\n.bassin .surf.bleu {")).group(0)
+        # ⚠️ Une teinte s'écrit en dur OU par un jeton : depuis la bascule
+        # prune & tilleul, la surface verte lit `var(--cv-g-20)`. Le cliquet
+        # porte sur l'ÉGALITÉ des deux côtés, pas sur la forme de la valeur.
+        TON = r"(#[0-9a-f]{6}|var\(--[a-z0-9-]+\))"
+        vert = re.search(TON, _regle(css, "\n.bassin .surf.vert {")).group(0)
+        bleu = re.search(TON, _regle(css, "\n.bassin .surf.bleu {")).group(0)
         assert vert in _regle(css, "\n.bas-niv.est-vert .v {")
         assert bleu in _regle(css, "\n.bas-niv .v {")
         m = _corps(_lire(JS), "  function majBassin(st) {")

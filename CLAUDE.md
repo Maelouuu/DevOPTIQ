@@ -10298,6 +10298,80 @@ trois cliquets qui affirmaient l'ancienne structure sont RÉÉCRITS sur la
 nouvelle, pas supprimés) ; `test_112` voit son cliquet du rail réécrit sur le
 groupement. Éprouvé au banc dans les deux langues.
 
+
+### PRUNE & TILLEUL : la page Compétences change de feux (2026-11-23)
+
+« Aucun des verts et des rouges n'est sympa. » Le reproche portait sur les
+couleurs SÉMANTIQUES — rouge « autonomie non démontrée », ambre « écart au
+requis », vert « niveau tenu » — et il était juste pour une raison qu'on ne
+voit qu'en les posant sur la carte de nuit de la vue d'ensemble : **elles ont
+été choisies pour du papier blanc.** Sur un bleu saturé, le rouge se ternit
+et le vert vire à l'acide.
+
+⚠️ **Quatre premières propositions ont toutes été refusées, et c'était le même
+défaut quatre fois** : je ne déplaçais que la TEINTE — quatre rouges, quatre
+verts, le même principe à chaque fois. Les six suivantes changeaient de
+PRINCIPE (une sans aucun vert, où le niveau tenu est de la lumière ; une
+entièrement désaturée ; une sombre et dense…), et chacune était montrée **sur
+le fond de nuit, en barres du classement** — une couleur ne se juge ni sur du
+blanc ni sur une pastille de 12 px. Retenue : **prune & tilleul**, qui déplace
+les deux familles loin du rouge et du vert canoniques.
+
+**Les jetons, et rien d'autre.** `static/competences.css` déclare deux échelles
+de neuf tons (`--cv-g-02` … `--cv-g-80` pour le tilleul, `--cv-r-05` … `--cv-r-80`
+pour la prune) et tout en dérive : `--cv-green` / `--cv-red`, les quatre
+`--pal-vert-*`, les quatre `--pal-rouge-*`, la rampe du radar et celle de la
+bande des notes. **154 valeurs écrites en dur** ont été remplacées dans la
+feuille et dans le JS ; un balayage par teinte vérifie qu'il n'en reste aucune.
+
+⚠️ **Le relief est dessiné en SVG par le JS** : ses couleurs sont des
+ATTRIBUTS, pas des règles, donc aucun jeton CSS ne les atteint. Elles sont
+posées à la main dans `competences_v2.js` — c'est le seul endroit du module où
+une valeur se répète, et il faut y penser à chaque retouche de palette.
+
+⚠️ **L'ambre a dû bouger, lui aussi.** Le tilleul est un jaune-vert : sur le
+fond de nuit, l'or vif de l'ambre s'en rapprochait trop. Deux jetons dédiés
+(`--cv-a-40` / `--cv-a-70`) le posent plus sourd et plus chaud — mais SEULEMENT
+là, sur fond sombre ; sur les écrans clairs `--pal-ambre` ne bouge pas.
+
+⚠️ **Une rampe doit rester MONOTONE.** La table de correspondance avait fait
+tomber trois paliers du radar sur le même jeton (`--ax-v5`, `-v6` et `-v8`
+devenus identiques) : le dégradé s'aplatissait au milieu sans que rien ne le
+signale. Les deux rampes sont réécrites palier par palier.
+
+⚠️ **Le contraste se vérifie, il ne se devine pas.** Les deux encres de texte
+sont choisies pour tenir sur du blanc : `--cv-g-70` (#557c18) à 4,8:1 et
+`--cv-r-60` (#b02a58) à 6,0:1. Un tilleul plus clair est plus joli et illisible.
+
+**Les touches.** Le BLEU reste la couleur de la page : les deux nouvelles
+familles n'y sont que des ponctuations, et chacune est posée là où la couleur
+DIT quelque chose —
+- le **trait de l'attendu** (barres du classement, ligne du bassin) passe au
+  tilleul : c'est l'endroit où le tilleul commence ;
+- la **jauge de couverture** part du bleu et FINIT en tilleul : pleine, elle
+  atteint la couleur de ce qui est tenu ;
+- la **sélection de texte**, sur toute la page ;
+- **fermer une fenêtre** passe par la prune — le seul geste de ces en-têtes
+  qui défait quelque chose ;
+- le **« i »** et sa carte. ⚠️ Au passage : ce bouton lisait les dérivés doux
+  de l'accent, donc il était **GRIS** partout (le piège des quatre dérivés
+  déclarés sur `:root`, écrit plus haut). Il est tilleul.
+
+⚠️ **Le cliquet qui interdit ces dérivés lit AUSSI les commentaires** : il
+s'est attrapé sur l'explication ci-dessus, écrite dans la feuille. Huitième
+occurrence de ce piège — ne jamais écrire la forme interdite dans un
+commentaire, pas même pour expliquer qu'on l'évite.
+
+⚠️ **Deux cliquets épinglaient une couleur EN DUR** (`#6ee7b7` dans le rail du
+panneau des marches, un `#[0-9a-f]{6}` lu dans la surface du bassin) : réécrits
+sur l'INTENTION — la même teinte des deux côtés — en acceptant un jeton aussi
+bien qu'un hexadécimal. Un cliquet qui épingle une valeur tombe à la première
+palette ; un cliquet qui épingle une égalité survit.
+
+Éprouvé à l'écran dans les deux langues sur `tools/devrun_competences.py` :
+galerie, vue d'ensemble, écran d'évaluation, séance, calendrier, fenêtres des
+courbes et du plan.
+
 ---
 
 ## Notes importantes (suite)

@@ -1430,7 +1430,11 @@
   // que lui seul porte — la valeur et son sens (« ≤ 10 j »).
   // La teinte d'une activité, la MÊME des deux côtés : c'est elle qui dit
   // que le panneau de droite décrit la barre de gauche.
-  const TEINTE = { g: '#4fd6a3', a: '#fbbf24', r: '#f87171', b: '#7cb3fb' };
+  // ⚠️ Chaque valeur est le HAUT du dégradé de SA barre
+  // (`--cv-g-40`, `--cv-a-40`, `--cv-r-40`, et le bleu de `.bar.b`) : le liseré du
+  // panneau doit tomber sur la même teinte que la barre choisie, sinon il ne la
+  // désigne plus. Si l'une bouge, l'autre suit.
+  const TEINTE = { g: '#bfe074', a: '#ecc45f', r: '#ef7396', b: '#7cb3fb' };
   const teinteDe = a => (estNul(a.demonstrated_level) ? 'rgba(255,255,255,.45)'
     : (TEINTE[{ green: 'g', orange: 'a', red: 'r' }[a.color]] || TEINTE.b));
 
@@ -3804,7 +3808,7 @@
     // ── La zone tenue, et la trame ──
     if (yN !== null && yN > RL.YT + 4) {
       fond.push('<rect x="' + G.X0 + '" y="' + RL.YT + '" width="' + (RL.X1 - G.X0)
-        + '" height="' + (yN - RL.YT).toFixed(1) + '" fill="#11835e" fill-opacity=".038"></rect>');
+        + '" height="' + (yN - RL.YT).toFixed(1) + '" fill="#557c18" fill-opacity=".038"></rect>');
     }
 
     // ── Les mesures : le tracé plein, et sa masse neutre ──
@@ -3839,8 +3843,8 @@
       stops = '<stop offset="0" stop-color="#a9bbd4"></stop>'
         + '<stop offset="' + (o * 0.55).toFixed(3) + '" stop-color="#7aa7e8"></stop>'
         + '<stop offset="' + (o - 0.012).toFixed(3) + '" stop-color="#2f6fd0"></stop>'
-        + '<stop offset="' + o.toFixed(3) + '" stop-color="#11835e"></stop>'
-        + '<stop offset="1" stop-color="#11835e"></stop>';
+        + '<stop offset="' + o.toFixed(3) + '" stop-color="#557c18"></stop>'
+        + '<stop offset="1" stop-color="#557c18"></stop>';
     }
     const defs = '<defs>'
       + '<linearGradient id="' + gid + '" gradientUnits="userSpaceOnUse" x1="'
@@ -3867,7 +3871,7 @@
       if (suite > 0) {
         trace.push('<path d="M ' + co[co.length - 1][0].toFixed(1) + ' '
           + co[co.length - 1][1].toFixed(1) + ' L ' + xs[suite].toFixed(1) + ' '
-          + y(rail[suite].cible).toFixed(1) + '" fill="none" stroke="#0a5540"'
+          + y(rail[suite].cible).toFixed(1) + '" fill="none" stroke="#3a5511"'
           + ' stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round" opacity=".5"></path>');
       }
     }
@@ -3884,14 +3888,14 @@
         // le contraire de la pastille « qualifié · avancé » juste au-dessus.
         const franchi = s.statut === 'atteint';
         marques.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1)
-          + '" r="6" fill="' + (franchi ? '#11835e' : '#fff') + '" stroke="#0a5540"'
+          + '" r="6" fill="' + (franchi ? '#557c18' : '#fff') + '" stroke="#3a5511"'
           + ' stroke-width="2"' + (franchi ? '' : ' stroke-dasharray="2.6 2.4"')
           + '></circle>');
         return;
       }
       const atteintNorme = yN !== null && mieux(s.mesure, n.valeur, sens);
-      const col = s.statut === 'manque' ? '#a5192f'
-        : (atteintNorme ? '#11835e' : (i === mes[0] ? '#a9bbd4' : '#7aa7e8'));
+      const col = s.statut === 'manque' ? '#b02a58'
+        : (atteintNorme ? '#557c18' : (i === mes[0] ? '#a9bbd4' : '#7aa7e8'));
       const creux = s.statut !== 'manque' && !atteintNorme && i === mes[0];
       if (i === dernierMes) {
         marques.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1)
@@ -3947,10 +3951,10 @@
       if (!o) return;
       const s = rail[i];
       const atteintNorme = yN !== null && mieux(s.mesure, n.valeur, sens);
-      const col = s.statut === 'manque' ? '#a5192f'
-        : (atteintNorme ? '#11835e' : (i === mes[0] ? '#475467' : '#2f6fd0'));
-      const colU = s.statut === 'manque' ? '#c08490'
-        : (atteintNorme ? '#6e9b8b' : (i === mes[0] ? '#98a2b3' : '#8aa6cf'));
+      const col = s.statut === 'manque' ? '#b02a58'
+        : (atteintNorme ? '#557c18' : (i === mes[0] ? '#475467' : '#2f6fd0'));
+      const colU = s.statut === 'manque' ? '#c98fa6'
+        : (atteintNorme ? '#97a86f' : (i === mes[0] ? '#98a2b3' : '#8aa6cf'));
       const m = /^(.*?)(\s+\S+)$/.exec(o.t);
       const nb = m ? m[1] : o.t, un = m ? m[2].trim() : '';
       P.forcer(o.b);
@@ -4001,7 +4005,7 @@
       // un passage : c'est la marche qui le porte, et elle seule.
       const vert = s.statut === 'atteint' && yN !== null && s.estNorme;
       txt.push('<text x="' + (xs[i] + dx).toFixed(1) + '" y="' + yb + '" text-anchor="middle"'
-        + ' font-size="11.5"' + (vert ? ' font-weight="600" fill="#11835e"' : ' fill="#667085"')
+        + ' font-size="11.5"' + (vert ? ' font-weight="600" fill="#557c18"' : ' fill="#667085"')
         + '>' + esc(t) + '</text>');
       if (vert && !mode.deux && mode.bas === 'plein') {
         const t2 = T('rel_franchie');
@@ -4028,9 +4032,9 @@
         const cx = xs[ec] + dx, tard = j !== null && j < 0;
         marques.push('<rect x="' + (cx - w / 2).toFixed(1) + '" y="' + (yb - 14)
           + '" width="' + w.toFixed(1) + '" height="20" rx="10" fill="'
-          + (tard ? '#fdf1f2' : '#fdf4e3') + '"></rect>');
+          + (tard ? '#fdf1f5' : '#fdf4e3') + '"></rect>');
         txt.push('<text x="' + cx.toFixed(1) + '" y="' + yb + '" text-anchor="middle"'
-          + ' font-size="11" font-weight="600" fill="' + (tard ? '#a5192f' : '#93571a')
+          + ' font-size="11" font-weight="600" fill="' + (tard ? '#b02a58' : '#93571a')
           + '">' + esc(t) + '</text>');
         return true;
       });
@@ -4045,7 +4049,7 @@
       if (yb - 8 >= RL.YT - 12 && P.poser(b)) {
         txt.push('<text x="' + xs[ia].toFixed(1) + '" y="' + yb.toFixed(1)
           + '" text-anchor="middle" font-size="9" font-weight="700"'
-          + ' letter-spacing="1.2" fill="#0a5540">' + esc(t) + '</text>');
+          + ' letter-spacing="1.2" fill="#3a5511">' + esc(t) + '</text>');
       }
     }
 
@@ -4110,7 +4114,7 @@
       if (P.poser(b)) {
         txt.push('<text x="' + (RL.X1 - 6) + '" y="' + (RL.YT + 13)
           + '" text-anchor="end" font-size="9" font-weight="700" letter-spacing="1.2"'
-          + ' fill="#11835e" opacity=".75">' + esc(t) + '</text>');
+          + ' fill="#557c18" opacity=".75">' + esc(t) + '</text>');
       }
     }
 

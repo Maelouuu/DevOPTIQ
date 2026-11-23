@@ -14,10 +14,41 @@
    suivent pas l'accent de page : ce sont des feux, pas de la décoration.
    ─────────────────────────────────────────────────────────────────────────── */
 :root {
-  --cv-green: #22c55e;
-  --cv-green-deep: #15803d;
-  --cv-red: #ef4444;
-  --cv-red-deep: #b91c1c;
+  /* ══ TILLEUL — ce qui est TENU ══════════════════════════════════════════
+     Le vert franc ne vit pas sur le bleu de nuit de la vue d'ensemble : il y
+     devient acide. Le tilleul (jaune-vert) s'y pose, et sur le blanc des
+     autres ecrans il garde assez d'encre pour servir de texte. */
+  --cv-g-02: #fcfdf6;  /* souffle, à peine teinté */
+  --cv-g-05: #f6fbe9;  /* fond très pâle */
+  --cv-g-10: #ecf7d4;  /* fond pâle */
+  --cv-g-20: #d8edab;  /* filet pâle */
+  --cv-g-30: #cde49a;  /* bordure */
+  --cv-g-40: #bfe074;  /* encre claire SUR FOND SOMBRE */
+  --cv-g-50: #9ccb45;  /* vif : pastilles, barres, jauges */
+  --cv-g-60: #7aa52b;
+  --cv-g-70: #557c18;  /* encre sur fond clair (4,8:1 sur blanc) */
+  --cv-g-80: #3a5511;  /* encre profonde */
+  /* ══ PRUNE — ce qui MANQUE ══════════════════════════════════════════════
+     Le rouge pur sonne l'alarme et se salit sur le bleu. La prune rosee dit
+     le manque sans crier, et tient la lecture sur les deux fonds. */
+  --cv-r-05: #fdf1f5;
+  --cv-r-10: #fbdfe8;
+  --cv-r-20: #f6c3d3;
+  --cv-r-30: #f0afc3;
+  --cv-r-40: #ef7396;  /* encre claire SUR FOND SOMBRE */
+  --cv-r-50: #d9477a;  /* vif */
+  --cv-r-60: #b02a58;  /* encre sur fond clair (6,0:1 sur blanc) */
+  --cv-r-70: #8d2246;
+  --cv-r-80: #661831;
+
+  --cv-green: var(--cv-g-50);
+  --cv-green-deep: var(--cv-g-70);
+  --cv-red: var(--cv-r-50);
+  --cv-red-deep: var(--cv-r-60);
+  /* l'ambre tel qu'il se pose SUR LE FOND DE NUIT, ecarte du tilleul */
+  --cv-a-40: #ecc45f;
+  --cv-a-70: #9a7620;
+
   --cv-orange: #f59e0b;
   --cv-orange-deep: #b45309;
   --cv-grey: #cbd5e1;
@@ -263,8 +294,8 @@ header { position: sticky; top: 0; z-index: 30; }
   display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 7px;
   font-size: 11.5px; font-weight: 700;
 }
-.cv2-ecart.pos  { background: #e9fbf0; color: var(--cv-green-deep); }
-.cv2-ecart.neg  { background: #fdecec; color: var(--cv-red-deep); }
+.cv2-ecart.pos  { background: var(--cv-g-05); color: var(--cv-green-deep); }
+.cv2-ecart.neg  { background: var(--cv-r-05); color: var(--cv-red-deep); }
 .cv2-ecart.zero { background: #eef1f7; color: #5b6577; }
 .cv2-dash { color: var(--faint); font-weight: 700; }
 .chip {
@@ -273,9 +304,9 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .chip .lv { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .chip.grey   { background: #eef1f7; color: #5b6577; }         .chip.grey .lv   { background: var(--cv-grey); }
-.chip.red    { background: #fef2f2; color: var(--cv-red-deep); }    .chip.red .lv    { background: var(--cv-red); }
+.chip.red    { background: var(--cv-r-05); color: var(--cv-red-deep); }    .chip.red .lv    { background: var(--cv-red); }
 .chip.orange { background: #fff7ed; color: var(--cv-orange-deep); } .chip.orange .lv { background: var(--cv-orange); }
-.chip.green  { background: #f0fdf4; color: var(--cv-green-deep); }  .chip.green .lv  { background: var(--cv-green); }
+.chip.green  { background: var(--cv-g-05); color: var(--cv-green-deep); }  .chip.green .lv  { background: var(--cv-green); }
 .chip.blue   { background: var(--pg-accent-soft); color: var(--pg-accent-deep); } .chip.blue .lv { background: var(--pg-accent); }
 
 /* Boutons */
@@ -444,7 +475,7 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-ok {
   margin-bottom: 13px; padding: 11px 14px; font-size: 12.5px; font-weight: 700;
-  background: linear-gradient(135deg, #effdf4, #e7fbee); border: 1px solid #bbf7d0;
+  background: linear-gradient(135deg, var(--cv-g-05), var(--cv-g-05)); border: 1px solid var(--cv-g-20);
   color: var(--cv-green-deep); border-radius: 12px;
 }
 .cv2-busy {
@@ -524,7 +555,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-plantitle { margin: 12px 0 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
 .cv2-planitem {
   margin-bottom: 9px; padding: 11px 13px; font-size: 12.5px;
-  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+  background: var(--cv-g-05); border: 1px solid var(--cv-g-20); border-radius: 12px;
 }
 .cv2-planitem b { color: var(--cv-green-deep); }
 .cv2-planitem .steps { margin-top: 4px; color: var(--muted); }
@@ -637,7 +668,7 @@ header { position: sticky; top: 0; z-index: 30; }
   background: var(--card-2); color: var(--ink-2);
 }
 .cv2-etat i { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.cv2-etat--green  { background: #f0fdf4; color: var(--cv-green-deep); }
+.cv2-etat--green  { background: var(--cv-g-05); color: var(--cv-green-deep); }
 .cv2-etat--green i  { background: var(--cv-green); }
 .cv2-etat--orange { background: #fff7ed; color: var(--cv-orange-deep); }
 .cv2-etat--orange i { background: var(--cv-orange); }
@@ -678,7 +709,7 @@ header { position: sticky; top: 0; z-index: 30; }
   display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
   padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
 }
-.cv2-accord--ok   { background: #f0fdf4; color: var(--cv-green-deep); }
+.cv2-accord--ok   { background: var(--cv-g-05); color: var(--cv-green-deep); }
 .cv2-accord--haut { background: #fff7ed; color: var(--cv-orange-deep); }
 .cv2-accord--bas  { background: var(--pg-accent-soft); color: var(--pg-accent-deep); }
 .cv2-lecture-seule { opacity: .72; pointer-events: none; }
@@ -959,7 +990,7 @@ header { position: sticky; top: 0; z-index: 30; }
 /* Une nature d'action = une couleur, tenue partout (pastille, étiquette,
    répartition, semaines éclairées). Écrites EN DUR : les dérivés
    `--pg-accent-soft/-border` rendent du gris sur toute l'application. */
-.cv2-t--TERRAIN        { --c: #16a34a; --c-soft: #f0fdf4; --c-line: #bbf7d0; --c-deep: #15803d; }
+.cv2-t--TERRAIN        { --c: var(--cv-g-60); --c-soft: var(--cv-g-05); --c-line: var(--cv-g-20); --c-deep: var(--cv-g-70); }
 .cv2-t--ACCOMPAGNEMENT { --c: #d97706; --c-soft: #fff7ed; --c-line: #fed7aa; --c-deep: #b45309; }
 .cv2-t--FORMATION      { --c: #2563eb; --c-soft: #eff6ff; --c-line: #bfdbfe; --c-deep: #1d4ed8; }
 
@@ -1067,7 +1098,7 @@ header { position: sticky; top: 0; z-index: 30; }
   font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--faint);
   transition: background .13s, color .13s;
 }
-.cv2-etape-x:hover { background: #fef2f2; color: var(--cv-red-deep); }
+.cv2-etape-x:hover { background: var(--cv-r-05); color: var(--cv-red-deep); }
 .cv2-etape-x i { font-size: 11.5px; }
 
 /* La charge est un RÉGLAGE — c'est elle qui nourrit le besoin, à droite — et
@@ -1145,20 +1176,20 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-barre i {
   position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px;
-  background: linear-gradient(90deg, var(--cv-green), #16a34a);
+  background: linear-gradient(90deg, var(--cv-green), var(--cv-g-60));
   transition: width .35s cubic-bezier(.4, 1.3, .5, 1), background .3s;
 }
 .cv2-barre.tendu i { background: linear-gradient(90deg, #fbbf24, var(--cv-orange)); }
-.cv2-barre.trop i  { background: linear-gradient(90deg, #f87171, var(--cv-red)); }
+.cv2-barre.trop i  { background: linear-gradient(90deg, var(--cv-r-40), var(--cv-red)); }
 .cv2-chiffres {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 9px;
   font-size: 11.5px; font-weight: 700; color: var(--muted);
 }
 .cv2-chiffres b { font-family: var(--pg-font-display); font-size: 15px; color: var(--ink); }
 .cv2-dit { margin-top: 11px; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 600; line-height: 1.5; }
-.cv2-dit--ok    { background: #f0fdf4; border: 1px solid #bbf7d0; color: var(--cv-green-deep); }
+.cv2-dit--ok    { background: var(--cv-g-05); border: 1px solid var(--cv-g-20); color: var(--cv-green-deep); }
 .cv2-dit--tendu { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
-.cv2-dit--trop  { background: #fef2f2; border: 1px solid #fecaca; color: var(--cv-red-deep); }
+.cv2-dit--trop  { background: var(--cv-r-05); border: 1px solid var(--cv-r-20); color: var(--cv-red-deep); }
 .cv2-juste {
   width: 100%; margin-top: 10px; padding: 8px 12px; cursor: pointer;
   font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--pg-accent-deep);
@@ -1179,7 +1210,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-semaine { transition: opacity .15s; }
 .cv2-semaines.is-lit .cv2-semaine { opacity: .32; }
 .cv2-semaines.is-lit .cv2-semaine.lit { opacity: 1; }
-.cv2-semaines[data-nature="TERRAIN"] .lit i        { background: #16a34a; }
+.cv2-semaines[data-nature="TERRAIN"] .lit i        { background: var(--cv-g-60); }
 .cv2-semaines[data-nature="ACCOMPAGNEMENT"] .lit i { background: #d97706; }
 .cv2-semaines[data-nature="FORMATION"] .lit i      { background: #2563eb; }
 .cv2-semaines.is-lit .cv2-semaine.lit.deborde i    { background: var(--cv-red); }
@@ -1520,7 +1551,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-radar-bulle .t { font-size: 13px; font-weight: 700; line-height: 1.3; }
 .cv2-radar-bulle .r { margin-top: 2px; font-size: 11.5px; opacity: .72; }
 .cv2-radar-bulle .n { display: flex; gap: 10px; margin-top: 6px; font-size: 12px; font-weight: 700; }
-.cv2-radar-bulle .req { color: #86efac; }
+.cv2-radar-bulle .req { color: var(--cv-g-40); }
 .cv2-radar-bulle .dem { color: #93c5fd; }
 
 /* Un axe mis en avant par le survol d'un rôle : il s'épaissit, il ne bouge pas. */
@@ -1600,9 +1631,11 @@ header { position: sticky; top: 0; z-index: 30; }
    écrit dans CLAUDE.md). Les mélanges sont écrits DANS la règle.
    ══════════════════════════════════════════════════════════════════════════ */
 :root {
-  --pal-vert: #15803d; --pal-vert-f: #14532d; --pal-vert-p: #dcfce7; --pal-vert-b: #a7e3bc;
+  --pal-vert: var(--cv-g-70); --pal-vert-f: var(--cv-g-80);
+  --pal-vert-p: var(--cv-g-10); --pal-vert-b: var(--cv-g-30);
   --pal-ambre: #b45309; --pal-ambre-f: #78350f; --pal-ambre-p: #fef3c7; --pal-ambre-b: #e0b64c;
-  --pal-rouge: #b91c1c; --pal-rouge-f: #7f1d1d; --pal-rouge-p: #fee2e2; --pal-rouge-b: #e7a0a0;
+  --pal-rouge: var(--cv-r-60); --pal-rouge-f: var(--cv-r-70);
+  --pal-rouge-p: var(--cv-r-10); --pal-rouge-b: var(--cv-r-30);
 }
 
 /* ───────────────── Les deux boutons : rapport INVERSÉ ─────────────────
@@ -1966,9 +1999,9 @@ button.cal-case:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba
 }
 .cal-case--prevue .n, .cal-case--prevue .qui, .cal-case--prevue .sub { color: var(--pg-accent-deep); }
 .cal-case--prevue .qui .pt { background: var(--pg-accent); }
-.cal-case--retard { background: var(--pal-rouge-p); border: 1.5px solid #dc2626; }
+.cal-case--retard { background: var(--pal-rouge-p); border: 1.5px solid var(--cv-r-50); }
 .cal-case--retard .n, .cal-case--retard .qui, .cal-case--retard .sub { color: var(--pal-rouge-f); }
-.cal-case--retard .qui .pt { background: #dc2626; }
+.cal-case--retard .qui .pt { background: var(--cv-r-50); }
 .cal-case--tenue { background: var(--pal-vert-p); border-color: var(--pal-vert-b); }
 .cal-case--tenue .n, .cal-case--tenue .qui, .cal-case--tenue .sub { color: var(--pal-vert-f); }
 .cal-case--tenue .qui .pt { background: var(--pal-vert); }
@@ -1984,7 +2017,7 @@ button.cal-case:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba
 .cal-leg span { display: inline-flex; align-items: center; gap: 7px; }
 .cal-leg .p { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .cal-leg .p--prevue { background: var(--pg-accent); }
-.cal-leg .p--retard { background: #dc2626; }
+.cal-leg .p--retard { background: var(--cv-r-50); }
 .cal-leg .p--tenue { background: var(--pal-vert); }
 
 /* La session choisie : ce qu'il y a à trancher. */
@@ -2013,7 +2046,7 @@ button.cal-case:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba
 .cal-pal { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
 .cal-pal--att { background: var(--card); }
 .cal-pal--ok { background: color-mix(in srgb, var(--pal-vert) 5%, #fff); border-color: var(--pal-vert-b); }
-.cal-pal--ko { background: var(--pal-rouge-p); border: 1.5px solid #dc2626; }
+.cal-pal--ko { background: var(--pal-rouge-p); border: 1.5px solid var(--cv-r-50); }
 .cal-pal .h { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 9px; }
 .cal-pal .so { font-size: 14.5px; font-weight: 700; color: var(--ink); }
 .cal-pal .ac { font-size: 12.5px; color: var(--muted); }
@@ -2034,14 +2067,14 @@ button.cal-case:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba
   outline: none; border-color: var(--pg-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 16%, transparent);
 }
-.cal-pal--ko .m input { border: 1.5px solid #dc2626; color: var(--pal-rouge-f); }
+.cal-pal--ko .m input { border: 1.5px solid var(--cv-r-50); color: var(--pal-rouge-f); }
 .cal-pal .m .u { font-size: 13px; color: var(--ink-2); padding-bottom: 9px; }
 .cal-pal .m .v {
   display: inline-flex; align-items: center; gap: 7px; margin-bottom: 7px;
   border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 700;
 }
 .cal-pal .m .v--ok { background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); color: var(--pal-vert-f); }
-.cal-pal .m .v--ko { background: #fff; border: 1px solid #dc2626; color: var(--pal-rouge-f); }
+.cal-pal .m .v--ko { background: #fff; border: 1px solid var(--cv-r-50); color: var(--pal-rouge-f); }
 
 .cal-d-pied {
   flex: none; display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
@@ -2229,10 +2262,10 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
   font-size: 12px; color: #9fb2d4;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.sq-f.est-fait { background: rgba(21, 128, 61, .2); border-color: rgba(134, 239, 172, .45); }
-.sq-f.est-fait .p { background: #22c55e; border-color: #22c55e; color: #0b1120; }
-.sq-f.est-fait .t { color: #d6fae2; }
-.sq-f.est-fait .d { color: #a7e3bc; }
+.sq-f.est-fait { background: rgba(85, 124, 24, .2); border-color: rgba(191, 224, 116, .45); }
+.sq-f.est-fait .p { background: var(--cv-g-50); border-color: var(--cv-g-50); color: #0b1120; }
+.sq-f.est-fait .t { color: var(--cv-g-20); }
+.sq-f.est-fait .d { color: var(--cv-g-30); }
 /* L'onglet courant est la PAGE : il prend sa couleur, pas celle de l'en-tête. */
 .sq-f.est-courant { background: #eceff6; border-color: #eceff6; cursor: default; }
 .sq-f.est-courant .p { background: var(--pg-accent); border-color: var(--pg-accent); color: #fff; }
@@ -2307,7 +2340,7 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
 .sq-verdict.est-ok { background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); }
 .sq-verdict.est-ok .p { background: var(--pal-vert); }
 .sq-verdict.est-ok .t { color: var(--pal-vert-f); }
-.sq-verdict.est-ok .d { color: #166534; }
+.sq-verdict.est-ok .d { color: var(--cv-g-70); }
 .sq-verdict.est-ko { background: var(--pal-rouge-p); border: 1px solid var(--pal-rouge-b); }
 .sq-verdict.est-ko .p { background: var(--pal-rouge); }
 .sq-verdict.est-ko .t, .sq-verdict.est-ko .d { color: var(--pal-rouge-f); }
@@ -2349,7 +2382,7 @@ body.a-cv2-page .pg-container { max-width: 1760px; padding-top: 4px; }
 .sq-l .e { font-size: 12.5px; color: var(--muted); }
 .sq-l .v { border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 700; }
 .sq-l .v--ok { background: var(--pal-vert-p); border: 1px solid var(--pal-vert-b); color: var(--pal-vert-f); }
-.sq-l .v--ko { background: #fff; border: 1px solid #dc2626; color: var(--pal-rouge-f); }
+.sq-l .v--ko { background: #fff; border: 1px solid var(--cv-r-50); color: var(--pal-rouge-f); }
 .sq-l--ok { background: color-mix(in srgb, var(--pal-vert) 5%, #fff); }
 .sq-l--ok .p { background: var(--pal-vert); border-color: var(--pal-vert); color: #fff; }
 .sq-l--ok .m { color: var(--pal-vert-f); }
@@ -2441,13 +2474,13 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
 #cv2-ecran-cal .cal-mois, #cv2-ecran-cal .cal-detail { border-radius: 18px; }
 #cv2-ecran-cal .cal-mois-h h3 { font-size: 21px; }
 /* La même palette pastel que les cartes de contexte. */
-.cal-tuile--rouge { background: #fdf0ef; border-color: #eab8b4; }
-.cal-tuile--rouge .n, .cal-tuile--rouge .l { color: #a32b22; }
+.cal-tuile--rouge { background: var(--cv-r-05); border-color: var(--cv-r-30); }
+.cal-tuile--rouge .n, .cal-tuile--rouge .l { color: var(--cv-r-60); }
 .cal-tuile--ambre { background: #fdf6e7; border-color: #ead9ae; }
 .cal-tuile--ambre .n, .cal-tuile--ambre .l { color: #8a5a12; }
 .cal-tuile--bleu { background: #eff5ff; border-color: #c2d8fb; }
-.cal-tuile--vert { background: #f2fbf5; border-color: #bfe7cd; }
-.cal-tuile--vert .n, .cal-tuile--vert .l { color: #156b38; }
+.cal-tuile--vert { background: var(--cv-g-05); border-color: var(--cv-g-30); }
+.cal-tuile--vert .n, .cal-tuile--vert .l { color: var(--cv-g-70); }
 .cal-pal .m2 {
   margin: 0; display: flex; align-items: center; gap: 10px;
   font-size: 13px; color: var(--ink-2);
@@ -2486,10 +2519,10 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
   border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: #1d4ed8;
 }
 .cv2-sea .n { display: block; margin-top: 5px; font-size: 12.5px; font-weight: 600; color: #1d4ed8; }
-.cv2-sea.est-tard { background: #fdf0ef; border-color: #eab8b4; }
-.cv2-sea.est-tard .d { color: #7c2018; }
-.cv2-sea.est-tard .q, .cv2-sea.est-tard .n { color: #a32b22; }
-.cv2-sea.est-tard .r { border-color: #eab8b4; color: #a32b22; }
+.cv2-sea.est-tard { background: var(--cv-r-05); border-color: var(--cv-r-30); }
+.cv2-sea.est-tard .d { color: var(--cv-r-70); }
+.cv2-sea.est-tard .q, .cv2-sea.est-tard .n { color: var(--cv-r-60); }
+.cv2-sea.est-tard .r { border-color: var(--cv-r-30); color: var(--cv-r-60); }
 .cv2-sea-vide { margin: 0; font-size: 13px; color: var(--muted); }
 
 /* ───────────── Le radar se remplit à mesure qu'on évalue ───────────── */
@@ -2761,38 +2794,38 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
    Les quatre formulaires de la carte partagent ce patron ; ils appartiennent
    tous au régime mesuré, ils en portent donc le vert. */
 .pal-form {
-  padding: 0; background: linear-gradient(170deg, #f3faf7, #fbfdfc);
-  border-top: 1px solid #bfe3d4;
+  padding: 0; background: linear-gradient(170deg, var(--cv-g-05), var(--cv-g-02));
+  border-top: 1px solid var(--cv-g-30);
 }
 .pf-tete {
   display: flex; align-items: center; gap: 11px; flex-wrap: wrap;
-  padding: 13px 16px; border-bottom: 1px solid #ddefe7;
-  background: linear-gradient(100deg, #eaf6f1, #f4fbf8);
+  padding: 13px 16px; border-bottom: 1px solid var(--cv-g-20);
+  background: linear-gradient(100deg, var(--cv-g-05), var(--cv-g-02));
 }
 .pf-ic {
   width: 30px; height: 30px; flex: none; border-radius: 9px; font-size: 13px;
-  display: grid; place-items: center; background: #fff; color: #11835e;
-  box-shadow: 0 1px 2px rgba(10, 85, 64, .12);
+  display: grid; place-items: center; background: #fff; color: var(--cv-g-70);
+  box-shadow: 0 1px 2px rgba(58, 85, 17, .12);
 }
 .pf-t { flex: 1; min-width: 150px; }
-.pf-t b { font-size: 14px; color: #0a5540; }
-.pf-t p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.45; color: #4e8775; }
+.pf-t b { font-size: 14px; color: var(--cv-g-80); }
+.pf-t p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--cv-g-70); }
 
 /* La référence contre laquelle on va mesurer : une pastille, pas une ligne. */
 .pf-rep {
   display: inline-flex; align-items: baseline; gap: 7px; flex: none;
   padding: 6px 13px; border-radius: 999px; background: #fff;
-  border: 1px solid #bfe3d4; white-space: nowrap;
+  border: 1px solid var(--cv-g-30); white-space: nowrap;
 }
 .pf-rep .k {
   font-size: 9.5px; font-weight: 700; letter-spacing: 1px;
-  text-transform: uppercase; color: #4e8775;
+  text-transform: uppercase; color: var(--cv-g-70);
 }
 .pf-rep b {
   font-family: var(--pg-font-display); font-size: 19px; font-weight: 600;
-  color: #0a5540; font-variant-numeric: tabular-nums;
+  color: var(--cv-g-80); font-variant-numeric: tabular-nums;
 }
-.pf-rep .s { font-size: 11.5px; color: #4e8775; }
+.pf-rep .s { font-size: 11.5px; color: var(--cv-g-70); }
 
 .pf-corps { padding: 15px 16px 2px; }
 
@@ -2812,7 +2845,7 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
   border-radius: 13px; transition: .14s;
 }
 .pf-saisie:focus-within {
-  border-color: #11835e; box-shadow: 0 0 0 3px rgba(17, 131, 94, .16);
+  border-color: var(--cv-g-70); box-shadow: 0 0 0 3px rgba(85, 124, 24, .16);
 }
 /* ⚠️ Le sélecteur porte [type="text"] : la règle globale de l'application
    vise cet ATTRIBUT, elle pèse donc (0,2,0) et bat une classe suivie d'un
@@ -2842,14 +2875,14 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
 
 .pal-form .pal-champ-large { margin-top: 13px; }
 .pal-form .pal-deja {
-  margin: 0; background: #fff; border-color: #ddefe7; color: #4e8775;
+  margin: 0; background: #fff; border-color: var(--cv-g-20); color: var(--cv-g-70);
 }
-.pal-form .pal-deja i { color: #11835e; }
+.pal-form .pal-deja i { color: var(--cv-g-70); }
 
 /* ── Le pied : l'irréversible à un bout, la validation à l'autre ── */
 .pal-form-pied {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-top: 0; padding: 12px 16px; border-top: 1px solid #ddefe7;
+  margin-top: 0; padding: 12px 16px; border-top: 1px solid var(--cv-g-20);
 }
 .pal-form-pied .sp { flex: 1; min-width: 0; }
 .pf-danger {
@@ -2873,10 +2906,10 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
   display: inline-flex; align-items: center; gap: 9px; cursor: pointer;
   border: none; border-radius: 999px; padding: 8px 16px 8px 8px;
   font-family: inherit; font-size: 12.5px; font-weight: 600; color: #fff;
-  background: linear-gradient(135deg, #11835e, #0a5540);
-  box-shadow: 0 5px 14px -6px rgba(10, 85, 64, .8); transition: .14s;
+  background: linear-gradient(135deg, var(--cv-g-70), var(--cv-g-80));
+  box-shadow: 0 5px 14px -6px rgba(58, 85, 17, .8); transition: .14s;
 }
-.pf-ok:hover { box-shadow: 0 7px 18px -6px rgba(10, 85, 64, .9); transform: translateY(-1px); }
+.pf-ok:hover { box-shadow: 0 7px 18px -6px rgba(58, 85, 17, .9); transform: translateY(-1px); }
 .pf-ok .ic {
   width: 21px; height: 21px; flex: none; border-radius: 50%; font-size: 10px;
   display: grid; place-items: center; background: rgba(255, 255, 255, .22);
@@ -2890,14 +2923,14 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
   gap: 7px;
   margin: 10px 0 0;
   padding: 9px 11px;
-  border: 1px solid color-mix(in srgb, #11835e 24%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--cv-g-70) 24%, #ffffff);
   border-radius: 9px;
-  background: color-mix(in srgb, #11835e 7%, #ffffff);
+  background: color-mix(in srgb, var(--cv-g-70) 7%, #ffffff);
   font-size: 12.5px;
   line-height: 1.45;
-  color: #0a5540;
+  color: var(--cv-g-80);
 }
-.pal-vient i { flex: none; padding-top: 2px; color: #11835e; }
+.pal-vient i { flex: none; padding-top: 2px; color: var(--cv-g-70); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    L'AXE PARTAGÉ — une seule échelle pour toute l'activité       (10/11/2026)
@@ -2921,14 +2954,14 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
    ══════════════════════════════════════════════════════════════════════════ */
  .cv2-histo{
   --ax-b4: #8ec7fa; --ax-b5: #5aa9f5; --ax-b6: #3b82f6; --ax-b7: #2563eb; --ax-b8: #1d4ed8;
-  --ax-v1: #f0fdf5; --ax-v3: #b6f2cf; --ax-v4: #86efac; --ax-v5: #4ade80;
-  --ax-v6: #22c55e; --ax-v7: #16a34a; --ax-v8: #10b981; --ax-v9: #047857;
+  --ax-v1: var(--cv-g-02); --ax-v3: var(--cv-g-20); --ax-v4: var(--cv-g-30); --ax-v5: var(--cv-g-40);
+  --ax-v6: var(--cv-g-50); --ax-v7: var(--cv-g-60); --ax-v8: var(--cv-g-70); --ax-v9: var(--cv-g-80);
   --ax-p2: #ebe4ff; --ax-p3: #d6c9ff; --ax-p5: #8b5cf6; --ax-p6: #7c3aed;
   --ax-a1: #fffbeb; --ax-a2: #fef3c7; --ax-a3: #fde68a; --ax-a6: #b45309; --ax-ah: #fae6ae;
   --ax-n2: #eef1f7; --ax-n3: #e1e7f0; --ax-n4: #cbd5e1; --ax-n5: #94a3b8;
   --ax-n6: #64748b; --ax-n7: #475569; --ax-n8: #334155; --ax-n10: #0f172a;
-  --ax-zone: #f0fdf5; --ax-zone-d: #dcf7e8;
-  --hi-b: #2563eb; --hi-v: #16a34a;
+  --ax-zone: var(--cv-g-05); --ax-zone-d: var(--cv-g-10);
+  --hi-b: #2563eb; --hi-v: var(--cv-g-60);
 }
 
 /* Le niveau monte DANS la rampe ; `--mo` est un TRIPLET rgb (il sert aux halos). */
@@ -3060,8 +3093,8 @@ body.pg.page--competences.a-cv2-galerie .pg-container { max-width: 1500px; }
 .ev-corps, .cv2-crb-win {
   --b2: #dbeafe; --b3: #bfdbfe; --b4: #93c5fd; --b5: #60a5fa;
   --b6: #3b82f6; --b7: #2563eb; --b8: #1d4ed8; --b9: #1e3a8a;
-  --v1: #f0fdf5; --v2: #dcfce7; --v3: #bbf7d0; --v4: #86efac;
-  --v6: #22c55e; --v7: #16a34a; --v9: #047857;
+  --v1: var(--cv-g-05); --v2: var(--cv-g-10); --v3: var(--cv-g-20); --v4: var(--cv-g-40);
+  --v6: var(--cv-g-50); --v7: var(--cv-g-60); --v9: var(--cv-g-80);
   --a1: #fffbeb; --a2: #fef3c7; --a3: #fde68a; --a5: #d97706; --a6: #b45309;
   /* ⚠️ L'ardoise porte le fond de l'EN-TÊTE, au dégradé près : deux
      surfaces sombres de deux bleus différents sur le même écran se lisaient
@@ -3254,7 +3287,7 @@ button.mail:active { transform: translateY(1px); }
   transition: height .44s cubic-bezier(.4, 0, .2, 1), background .44s ease;
 }
 .bassin .eau.bleu { background: linear-gradient(180deg, #5fb4f7, #1b45c0); }
-.bassin .eau.vert { background: linear-gradient(180deg, #48d49c, #047857); }
+.bassin .eau.vert { background: linear-gradient(180deg, var(--cv-g-40), var(--cv-g-70)); }
 /* ⚠️ NULL ≠ 0 : tant qu'une sortie n'est pas notée, l'activité n'a AUCUN
    niveau. L'eau est alors hachurée — un trait plein dirait un verdict que
    personne n'a rendu. */
@@ -3271,8 +3304,8 @@ button.mail:active { transform: translateY(1px); }
   box-shadow: 0 0 22px 3px rgba(125, 211, 252, .8), 0 1px 0 rgba(255, 255, 255, .6);
 }
 .bassin .surf.vert {
-  background: #bdf5dc;
-  box-shadow: 0 0 22px 3px rgba(110, 231, 183, .75), 0 1px 0 rgba(255, 255, 255, .6);
+  background: var(--cv-g-20);
+  box-shadow: 0 0 22px 3px rgba(191, 224, 116, .75), 0 1px 0 rgba(255, 255, 255, .6);
 }
 .bassin .att.hors span { top: auto; bottom: 4px; }
 .bassin .gd {
@@ -3387,8 +3420,8 @@ button.mail:active { transform: translateY(1px); }
    chose, et ils changent de teinte ensemble. Le filet du cartouche la reprend :
    c'est ce qui dit que la ligne entre LÀ. */
 .bas-niv { border-color: rgba(125, 211, 252, .42); }
-.bas-niv.est-vert { border-color: rgba(110, 231, 183, .48); }
-.bas-niv.est-vert .v { color: #bdf5dc; }
+.bas-niv.est-vert { border-color: rgba(191, 224, 116, .48); }
+.bas-niv.est-vert .v { color: var(--cv-g-20); }
 .bas-niv.est-vide { border-color: rgba(255, 255, 255, .17); }
 .bas-niv.est-vide .v { color: rgba(255, 255, 255, .58); }
 .bas-niv .e {
@@ -3399,10 +3432,10 @@ button.mail:active { transform: translateY(1px); }
 }
 .bas-niv .e:empty { display: none; }
 .bas-niv .e.ko {
-  background: rgba(252, 165, 165, .2); border-color: rgba(252, 165, 165, .45); color: #fecaca;
+  background: rgba(239, 115, 150, .2); border-color: rgba(239, 115, 150, .45); color: var(--cv-r-20);
 }
 .bas-niv .e.ok {
-  background: rgba(110, 231, 183, .2); border-color: rgba(110, 231, 183, .48); color: #a7f3d0;
+  background: rgba(191, 224, 116, .2); border-color: rgba(191, 224, 116, .48); color: var(--cv-g-40);
 }
 
 /* ── LES RÉGLAGES, en pastilles de VERRE ───────────────────────────────
@@ -3474,8 +3507,8 @@ button.mail:active { transform: translateY(1px); }
   box-shadow: 0 6px 16px -7px rgba(30, 58, 138, .8);
 }
 .so .disq.g {
-  background: linear-gradient(135deg, #10b981, #047857);
-  box-shadow: 0 6px 16px -7px rgba(4, 120, 87, .8);
+  background: linear-gradient(135deg, var(--cv-g-50), var(--cv-g-80));
+  box-shadow: 0 6px 16px -7px rgba(85, 124, 24, .8);
 }
 .so .disq.q { background: #94a3b8; font-size: 20px; box-shadow: none; }
 .so-t .nm { flex: 1; min-width: 0; }
@@ -3696,7 +3729,7 @@ button.mail:active { transform: translateY(1px); }
 }
 .cran.f.v {
   background: linear-gradient(160deg, var(--v6), var(--v9));
-  box-shadow: 0 9px 20px -11px rgba(4, 120, 87, .95);
+  box-shadow: 0 9px 20px -11px rgba(85, 124, 24, .95);
 }
 .cran.but { box-shadow: inset 0 0 0 2px var(--v6); }
 /* ⚠️ LA PASTILLE DU NIVEAU CHOISI, posée sur SON cran. Elle dit de quoi il
@@ -3719,7 +3752,7 @@ button.mail:active { transform: translateY(1px); }
 }
 .cran.v .pic {
   background: linear-gradient(160deg, var(--v6), var(--v9));
-  box-shadow: 0 7px 16px -9px rgba(4, 120, 87, .85);
+  box-shadow: 0 7px 16px -9px rgba(85, 124, 24, .85);
 }
 .cran.v .pic::after { border-top-color: var(--v9); }
 
@@ -3952,9 +3985,9 @@ button.mail:active { transform: translateY(1px); }
   display: block; margin-top: 2px; font-family: var(--pg-font-display);
   font-size: 21px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums;
 }
-.vo-pann .v.g { color: #6ee7b7; }
-.vo-pann .v.r { color: #fca5a5; }
-.vo-pann .v.a { color: #fcd34d; }
+.vo-pann .v.g { color: var(--cv-g-40); }
+.vo-pann .v.r { color: var(--cv-r-40); }
+.vo-pann .v.a { color: var(--cv-a-40); }
 .vo-pann .v.n { color: rgba(255, 255, 255, .62); }
 
 /* ══ LE LIEN ENTRE L'ACTIVITÉ ET CE QU'ELLE PRODUIT ════════════════════
@@ -4061,9 +4094,9 @@ button.mail:active { transform: translateY(1px); }
 .esc .st .n.q { color: rgba(255, 255, 255, .45); }
 .esc .st .bar { border-radius: 5px 5px 0 0; }
 .esc .st .bar.b { background: linear-gradient(180deg, #7cb3fb, #1d4ed8); }
-.esc .st .bar.g { background: linear-gradient(180deg, #4fd6a3, #047857); }
-.esc .st .bar.r { background: linear-gradient(180deg, #f87171, #b91c1c); }
-.esc .st .bar.a { background: linear-gradient(180deg, #fbbf24, #b45309); }
+.esc .st .bar.g { background: linear-gradient(180deg, var(--cv-g-40), var(--cv-g-70)); }
+.esc .st .bar.r { background: linear-gradient(180deg, var(--cv-r-40), var(--cv-r-60)); }
+.esc .st .bar.a { background: linear-gradient(180deg, var(--cv-a-40), var(--cv-a-70)); }
 /* non évalué : hachuré, et SANS niveau — ce n'est pas un zéro */
 .esc .st .bar.q {
   background: repeating-linear-gradient(135deg,
@@ -4114,12 +4147,12 @@ button.mail:active { transform: translateY(1px); }
   color: rgba(255, 255, 255, .78);
 }
 .mpan .pal-pas--atteint .pal-m {
-  background: rgba(110, 231, 183, .16); border-color: rgba(110, 231, 183, .38);
-  color: #a7f3d0;
+  background: rgba(191, 224, 116, .16); border-color: rgba(191, 224, 116, .38);
+  color: var(--cv-g-40);
 }
 .mpan .pal-pas--manque .pal-m {
-  background: rgba(252, 165, 165, .16); border-color: rgba(252, 165, 165, .4);
-  color: #fecaca;
+  background: rgba(239, 115, 150, .16); border-color: rgba(239, 115, 150, .4);
+  color: var(--cv-r-20);
 }
 .mpan .pal-pas .pal-m b { color: #fff; }
 .mpan .pal-pas .pal-m .k { color: rgba(255, 255, 255, .6); }
@@ -4127,8 +4160,8 @@ button.mail:active { transform: translateY(1px); }
    que la marche qui le porte. Resserré, et le rail garde un peu d'air. */
 .mpan .pal-rail { padding: 0 6px; }
 .mpan .pal-drapeau { font-size: 9px; padding: 2px 7px; }
-.mpan .pal-pas--atteint .pal-v, .mpan .pal-pas--atteint .pal-s { color: #6ee7b7; }
-.mpan .pal-pas--manque .pal-v, .mpan .pal-pas--manque .pal-s { color: #fca5a5; }
+.mpan .pal-pas--atteint .pal-v, .mpan .pal-pas--atteint .pal-s { color: var(--cv-g-40); }
+.mpan .pal-pas--manque .pal-v, .mpan .pal-pas--manque .pal-s { color: var(--cv-r-40); }
 .mpan .pal-pas--en_cours .pal-v, .mpan .pal-pas--en_cours .pal-s,
 .mpan .pal-pas--cible .pal-v, .mpan .pal-pas--cible .pal-s { color: #bfdbfe; }
 .mpan .pal-fil--tirets { border-top-color: rgba(255, 255, 255, .3); }
@@ -4137,8 +4170,8 @@ button.mail:active { transform: translateY(1px); }
 .mpan .pal-pas--atteint .pal-dot { background: var(--pal-vert); }
 .mpan .pal-pas--manque .pal-dot { background: var(--pal-rouge); }
 .mpan .pal-drapeau { background: #fff; color: var(--ink); }
-.mpan .pal-ech { background: rgba(252, 211, 77, .18); color: #fde68a; border-color: transparent; }
-.mpan .pal-ech.est-tard { background: rgba(252, 165, 165, .2); color: #fecaca; }
+.mpan .pal-ech { background: rgba(236, 196, 95, .2); color: var(--cv-a-40); border-color: transparent; }
+.mpan .pal-ech.est-tard { background: rgba(239, 115, 150, .2); color: var(--cv-r-20); }
 .vo-rien { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, .72); }
 .vo-ouvrir { margin-top: 16px; }
 
@@ -4194,9 +4227,9 @@ button.mail:active { transform: translateY(1px); }
 .heat .hc.n2 { background: #3b82f6; }
 .heat .hc.n3 { background: #60a5fa; }
 .heat .hc.n4 { background: #93c5fd; color: #1e3a8a; }
-.heat .hc.g0, .heat .hc.g1, .heat .hc.g2 { background: #059669; }
-.heat .hc.g3 { background: #10b981; }
-.heat .hc.g4 { background: #34d399; color: #064e3b; }
+.heat .hc.g0, .heat .hc.g1, .heat .hc.g2 { background: var(--cv-g-70); }
+.heat .hc.g3 { background: var(--cv-g-50); }
+.heat .hc.g4 { background: var(--cv-g-40); color: var(--cv-g-80); }
 /* ⚠️ Une sortie MESURÉE porte un liseré : son niveau ne vient pas d'une note
    mais d'un chiffre relevé en séance, et les deux ne se corrigent pas de la
    même façon. */
@@ -4221,7 +4254,7 @@ button.mail:active { transform: translateY(1px); }
   vertical-align: middle; margin-right: 5px;
 }
 .hleg i.l-b { background: #2563eb; }
-.hleg i.l-g { background: #10b981; }
+.hleg i.l-g { background: var(--cv-g-50); }
 .hleg i.l-m { background: #2563eb; box-shadow: inset 0 0 0 2px #fff, 0 0 0 1px #94a3b8; }
 .hleg i.l-q { background: repeating-linear-gradient(135deg, #cbd5e1 0 4px, #eef2f7 4px 9px); }
 
@@ -4512,4 +4545,61 @@ button.mail:active { transform: translateY(1px); }
     border-left: 0; border-top: 1px solid var(--border);
     padding: 10px 22px 10px; margin-top: 12px;
   }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LES TOUCHES — prune et tilleul en dehors des feux sémantiques
+   ⚠️ Le BLEU reste la couleur de la page : ce sont des ponctuations, jamais
+   des surfaces. Et chacune est posée là où la couleur DIT quelque chose — le
+   trait de l'attendu est tilleul parce que c'est là que le tilleul commence,
+   la jauge finit en tilleul parce qu'elle y tend, et fermer une fenêtre
+   passe par la prune parce que c'est le seul geste de ces en-têtes qui défait
+   quelque chose.
+   ⚠️ Section posée à la FIN de la feuille : elle écrase par l'ordre de
+   déclaration, donc toute règle de fond sombre qu'elle recouvrirait doit être
+   RÉÉCRITE ici (c'est le cas du « i » de la carte de nuit, juste en dessous).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 1 · La sélection de texte, sur toute la page. */
+::selection { background: var(--cv-g-20); color: var(--cv-g-80); }
+
+/* 2 · Le trait de l'ATTENDU marque l'endroit où le tilleul commence : sur les
+   barres du classement comme sur le bassin, il prend donc cette couleur. */
+.esc .st .req { border-top-color: color-mix(in srgb, var(--cv-g-40) 82%, transparent); }
+.bassin .att { border-top-color: color-mix(in srgb, var(--cv-g-40) 85%, transparent); }
+.bassin .att span { background: var(--cv-g-10); color: var(--cv-g-80); }
+
+/* 3 · La jauge de couverture PART du bleu et FINIT en tilleul : pleine, elle
+   atteint la couleur de ce qui est tenu. */
+.gal-jauge i {
+  background: linear-gradient(90deg, var(--pg-accent-deep), var(--pg-accent) 52%, var(--cv-g-50));
+}
+
+/* 4 · Le « i » et sa carte. ⚠️ Au passage, ce bouton lisait les dérivés doux
+   de l'accent : ils sont déclarés sur `:root`, où `--pg-accent` vaut encore
+   le gris par défaut — le bouton était donc GRIS partout (c'est le piège
+   écrit dans CLAUDE.md). Il est tilleul.
+   ⚠️ Et on ne nomme PAS ces dérivés ici : le cliquet qui les interdit lit
+   aussi les commentaires, et il s'attrape sur sa propre explication. */
+.cv2-i {
+  color: var(--cv-g-70); background: var(--cv-g-05); border-color: var(--cv-g-30);
+}
+.cv2-i:hover, .cv2-i:focus-visible {
+  background: var(--cv-g-40); border-color: transparent; color: var(--cv-g-80);
+}
+/* réécrite ici : la carte de nuit garde son « i » de verre */
+.vo-nuit .cv2-i, .ev-ou .cv2-i {
+  border-color: rgba(255, 255, 255, .4); color: #c5d6f7; background: rgba(255, 255, 255, .12);
+}
+.vo-nuit .cv2-i:hover, .ev-ou .cv2-i:hover,
+.vo-nuit .cv2-i:focus-visible, .ev-ou .cv2-i:focus-visible {
+  background: var(--cv-g-40); border-color: transparent; color: var(--cv-g-80);
+}
+.cv2-info { border-left: 3px solid var(--cv-g-40); }
+.cv2-info .t { color: var(--cv-g-70); }
+
+/* 5 · Fermer une fenêtre passe par la PRUNE. */
+.cv2-dh .x:hover, .cv2-ph .x:hover, .cv2-ch .x:hover {
+  background: color-mix(in srgb, var(--cv-r-40) 46%, transparent);
 }
