@@ -2,21 +2,21 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "19/11/2026",
+    "updated_at": "23/11/2026",
     "steps": [
       {
         "id": "coverage",
         "title": "Couverture des pages Flask",
         "status": "in_progress",
         "progress": 98,
-        "note": "Ce run : scripts/extract_visio.py 12 % → 98 %. Restent app.py (81 %) et models.py (94 %)."
+        "note": "Ce run : activities_map.py 96 % → ~100 % ; socle_activites, gestion_compte à 100 %. Restent competences, import_hub, app.py."
       },
       {
         "id": "green",
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
         "progress": 100,
-        "note": "Suite complète verte : 4666 réussis, 1 sauté, 0 échec."
+        "note": "Suite complète verte : 4982 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
@@ -49,6 +49,24 @@
     ]
   },
   "entries": [
+    {
+      "at": "2026-11-23T03:40:53",
+      "date": "23/11/2026 · 03:40",
+      "author": "routine",
+      "title": "Carte des activités et branches rares : 45 tests, 0 patch",
+      "summary": "Suite verte au départ (4937 réussis, 0 échec) : tout le temps est allé à la couverture (98,1 % global, 306 lignes manquantes). Cible principale : Code/routes/activities_map.py, 60 lignes manquantes → 1. Puis les branches rares de socle_activites, gestion_compte, paliers_routes, competences et import_hub.",
+      "new_tests": 45,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "activities_map",
+      "highlights": [
+        "activities_map.py : 59 des 60 lignes manquantes désormais couvertes (SVG disque/base, entités legacy, suppression avec rôle orphelin et rollback, partage, liaisons inter-cartos)",
+        "Constat : /activities/update-cartography d activities_map est MASQUÉE par activities_bp (enregistré avant) — code mort, documenté par un test",
+        "socle_activites et gestion_compte : 100 % des lignes ciblées ; paliers_routes 5/6 ; import_hub crée le rôle manquant à l import",
+        "Suite complète : 4982 réussis, 1 sauté, 0 échec"
+      ],
+      "next": "Restent : competences.py (dates en chaîne, conflit d insertion), import_hub (_appeler_ia), app.py (8 lignes), bienvenue.py (rollback défensifs)."
+    },
     {
       "at": "2026-11-22T03:33:56",
       "date": "22/11/2026 · 03:33",
