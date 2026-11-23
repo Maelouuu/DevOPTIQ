@@ -10174,6 +10174,132 @@ dans les deux langues ; ce n'est pas le sujet de cette passe.
 
 ---
 
+### LA FENÊTRE DU PALIER, REPRISE — et le compte qui se lisait à l'envers (2026-11-23)
+
+« J'aime le style, techniquement ça a l'air de marcher, mais l'agencement à
+l'intérieur des sections n'est pas idéal. La première section ne fait aucun
+distingo visuel, ne propose aucun filtre : comme tout a la même tronche, ce
+n'est pas agréable d'aller chercher là-dedans. La deuxième prend de la place,
+plein de petit texte, et surtout elle ne sert à rien : elle me dit 1 truc
+manquant alors que j'ai rempli 30 % des activités. Et sur mon portable la
+pop-up ne s'affiche pas en entier. »
+
+Tout a été **mesuré avant d'être touché**, sur un portable 1366×768, carto de
+36 activités, brouillon de 27 gestes :
+
+| | avant | après |
+|---|---|---|
+| hauteur utilisée par la fenêtre | **676** des 960 px CSS | 920 |
+| contenu à dérouler | **3191 px** pour 544 visibles | 1897 pour 545 |
+| hauteur d'une ligne de geste | 86 px | **57** |
+| le pied (Abandonner / Envoyer) | **dans** le défilement | hors |
+| le panneau du palier | un pavé de **551 px** au milieu | une bande de 140 |
+
+#### ⚠️⚠️ « 1 truc manquant » : le serveur avait raison, l'écran lisait faux
+
+Relevé au banc : `manque = {garant: 0, outil: 26, tache: 26}` sur 36 activités.
+Le compte était juste. Mais l'écran n'affichait **qu'une pastille PAR
+FAMILLE** : quand une famille est déjà complète partout — et le garant l'est,
+il vient de l'import carto — il n'en reste qu'**UNE**. On lisait « une chose
+manque » là où **vingt-six activités** sont incomplètes.
+
+Le chiffre de tête compte donc des **ACTIVITÉS** (`socle_restent`, total −
+prêtes), avec une jauge ; les familles passent dans un détail **replié**, où
+chacune dit sur combien d'activités elle manque.
+
+⚠️ **Et la liste devient un plan de travail** : chaque nom ouvre son activité
+(la fenêtre se ferme, la page défile jusqu'à la fiche, l'ouvre et la désigne
+1,6 s). Sans cela elle restait un rapport — elle disait ce qui manque et ne
+permettait pas d'aller le remplir. `NOMMEES` passe de 15 à **60** : on en
+nommait 15 sur 26, « et 11 autres » sans dire lesquelles. La borne reste, elle :
+une carto du pilote porte 601 activités.
+
+⚠️ Les deux paragraphes de règle (pourquoi d'un bloc, et que rien n'est perdu)
+passent derrière un « i » — ils occupaient 160 px de la hauteur utile, et
+c'est le motif de la maison.
+
+#### ⚠️⚠️ La fenêtre perdait 30 % de sa hauteur — `vh` passe par le zoom
+
+`max-height: 88vh` sur `.acp-boite`. `body.pg` porte `zoom: .8` (ui-theme), et
+les unités de fenêtre passent elles aussi par ce zoom : la fenêtre se bornait
+à **676 des 960 px CSS** disponibles. C'est exactement le piège déjà écrit
+pour la fenêtre de bienvenue — « pas de `vh` ici ». On se mesure sur le VOILE
+(`.acp` en `inset: 0`, passé en flex avec un padding), et la boîte prend
+`max-height: 100%`.
+
+#### TROIS zones fixes, une seule qui défile
+
+Le pied vivait DANS le corps : il fallait dérouler 3191 px de liste pour
+atteindre « Envoyer ». Le gabarit porte désormais quatre zones sœurs — socle,
+filtres, corps, pied — et seul le corps défile (`flex: none` sur les trois
+autres, tenu par un cliquet).
+
+- **Le pied tient sur UNE ligne** : le mot pour l'auteur en invite, puis les
+  deux boutons. Le libellé au-dessus d'un champ d'une ligne coûtait 30 px.
+  167 px → **73**.
+- Resserrés en même temps : en-tête 130 → 114, filtres → 49 (une ligne, qui
+  défile latéralement plutôt que d'en prendre une seconde).
+
+#### La liste : groupée, distinguée, filtrable
+
+- **Groupée par FAMILLE** — « les tâches avec les tâches, les savoir-faire
+  avec les savoir-faire ». ⚠️ L'ordre affiché n'est donc plus celui du rejeu,
+  et ce n'est pas une perte : **le numéro de chaque ligne reste son RANG
+  RÉEL**, celui que `data-retirer` porte et que le serveur rejoue. Grouper ne
+  change que la lecture — un cliquet le tient.
+- **Un pictogramme et une couleur par famille**, et la couleur est celle de la
+  PAGE où la donnée vit (Activités violet, Outils orange, Rôles vert,
+  Compétences bleu). C'est la convention de la fenêtre d'import : elle veut
+  dire quelque chose, ce n'est pas un arc-en-ciel.
+- **Un filtre** : une pastille par famille PRÉSENTE (jamais les dix — on ne
+  propose pas de filtrer sur rien), plus une recherche sur le nom de l'objet
+  et sur l'activité.
+  ⚠️ `input`, jamais `change` : sur `change` le filtre n'agirait qu'à la perte
+  du focus, sans la moindre erreur pour le dire.
+  ⚠️ Et on ne re-rend **que la liste** : réécrire la barre à chaque frappe
+  ferait perdre le curseur du champ qu'on tape — le piège déjà payé sur les
+  cartes du plan de formation et sur l'autre sens de l'import.
+- **La ligne se resserre** : le verbe passe en méta à côté de l'activité,
+  l'objet garde seul la police d'affichage. 86 px → 57.
+- ⚠️ **Les familles se nomment au PLURIEL, sans article** (`acp.g_*`). Les
+  `f_*` portent le leur — ils se composent en « Ajouter **la tâche** » — et un
+  en-tête qui les reprend affichait « LA TÂCHE 8 », qui se lit comme un compte
+  de la même tâche.
+
+#### Et dans la fiche de l'activité
+
+Les cartes en attente sont **groupées par famille** elles aussi, chacune sous
+son en-tête, et la pastille de chaque carte porte le pictogramme et la couleur
+de sa famille. À plat, une fiche qui porte six gestes de quatre natures se
+lisait comme un tas. ⚠️ Les outils rattachés à une tâche en attente restent
+NICHÉS sous elle : le groupement ne vaut que pour les gestes de tête.
+
+#### Trois pièges, tous déjà connus
+
+- ⚠️ **Le `gap` d'une boîte flex ne s'applique qu'entre ÉLÉMENTS** : le nom de
+  l'activité, laissé en nœud de texte nu, donnait « AddManage Commercial
+  Offer ». Troisième occurrence.
+- ⚠️ **Un cliquet qui cherche une chaîne doit retirer les COMMENTAIRES** :
+  celui qui interdit `change` dans le filtre s'est pris sur l'explication
+  écrite juste au-dessus. Septième occurrence.
+- ⚠️ **Le banc ne recharge pas les gabarits** : une zone ajoutée au gabarit
+  n'existait pas dans le DOM tant que `devrun_partage.py` n'avait pas
+  redémarré, et la mesure disait « socle: 0 » sans que rien ne soit cassé.
+
+ℹ️ Deux fausses pistes écartées en chemin, et les deux venaient du banc, pas
+de l'application : `/savoirs/add` attend `description` et non `name`, et les
+contraintes vivent sous `/constraints/<id>/add` et non `/activities/
+constraints/`. Dans les deux cas la porte a fait exactement ce qu'elle devait —
+le second a d'ailleurs montré que le socle SAIT dire « l'étape n° 3 ne
+s'applique plus ».
+
+Tests : `tests/test_159_palier_soumission.py` passe de 58 à **70 cas** (les
+trois cliquets qui affirmaient l'ancienne structure sont RÉÉCRITS sur la
+nouvelle, pas supprimés) ; `test_112` voit son cliquet du rail réécrit sur le
+groupement. Éprouvé au banc dans les deux langues.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

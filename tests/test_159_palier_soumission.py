@@ -25,6 +25,7 @@ commun fait échouer un fichier qui ne parle pas du même sujet.
 import io
 import json
 import os
+import re
 
 import pytest
 from sqlalchemy import event
@@ -42,6 +43,26 @@ _N = [0]
 
 def _lire(p):
     return io.open(p, encoding="utf-8").read()
+
+
+def _corps(js, ancre):
+    """Le corps d'une fonction, borné sur sa propre accolade fermante.
+
+    ⚠️ Jamais une longueur fixe : des cliquets de ce dépôt ont déjà rougi
+    pour avoir découpé n signes après une ancre, simplement parce qu'un
+    commentaire s'était glissé dedans."""
+    i = js.index(ancre)
+    j = js.index("{", i)
+    niveau, k = 0, j
+    while k < len(js):
+        if js[k] == "{":
+            niveau += 1
+        elif js[k] == "}":
+            niveau -= 1
+            if niveau == 0:
+                return js[j:k + 1]
+        k += 1
+    raise AssertionError("corps non borné pour %r" % ancre)
 
 
 @pytest.fixture
@@ -511,14 +532,43 @@ class TestLeCout:
 # ══════════════════════════════════════════════════════════════════════════
 class TestLEcran:
 
-    def test_le_panneau_se_lit_AVANT_le_message_et_le_bouton(self):
-        """C'est lui qui décide si l'envoi est possible : le lire après avoir
-        cliqué serait le découvrir trop tard."""
+    def test_le_panneau_et_le_pied_SORTENT_du_defilement(self):
+        """⚠️ Le panneau décide si l'envoi est possible et le pied le déclenche :
+        les deux doivent rester sous les yeux. Mesuré avant correctif sur un
+        portable 1366×768 — 3191 px de contenu pour 544 px visibles, et le
+        bouton « Envoyer » tout en bas du défilement."""
+        gab = _lire(GABARIT)
+        # Trois zones sœurs du corps, pas trois blocs écrits DANS le corps.
+        for ident in ('id="acp-socle-z"', 'id="acp-filtres"',
+                      'id="acp-corps"', 'id="acp-pied-z"'):
+            assert ident in gab, ident
+        assert gab.index('id="acp-socle-z"') < gab.index('id="acp-corps"')
+        assert gab.index('id="acp-corps"') < gab.index('id="acp-pied-z"')
+
         js = _lire(JS)
-        d = js.index("z.innerHTML = '<p class=\"acp-ordre\">")
-        bloc = js[d:js.index("</button></div>';", d)]
-        assert bloc.index("blocSocle(S.socle)") < bloc.index("acp-msg")
-        assert bloc.index("acp-msg") < bloc.index("data-envoyer")
+        # Le socle et le pied écrivent dans LEUR zone, jamais dans le corps.
+        assert "getElementById('acp-socle-z')" in js
+        assert "getElementById('acp-pied-z')" in js
+        corps = _corps(js, "function rendreListe()")
+        assert "data-envoyer" not in corps and "acp-msg" not in corps
+
+        css = _lire(CSS)
+        # Seul le corps défile ; les trois autres zones ne se laissent pas
+        # écraser (`flex: none`).
+        for cls in (".acp-socle-z", ".acp-filtres", ".acp-pied-z"):
+            i = css.index(cls + " {")
+            assert "flex: none" in css[i:css.index("}", i)], cls
+
+    def test_la_fenetre_ne_se_borne_PAS_en_vh(self):
+        """⚠️⚠️ `body.pg` porte `zoom: .8`, et les unités de fenêtre passent
+        par ce zoom : `max-height: 88vh` bornait la fenêtre à 676 des 960 px
+        CSS disponibles. On se mesure sur le VOILE, dont le `inset: 0` couvre
+        bien l'écran. Même piège que la fenêtre de bienvenue."""
+        css = _lire(CSS)
+        i = css.index(".acp-boite {")
+        boite = css[i:css.index("}", i)]
+        assert "vh" not in boite, boite
+        assert "max-height: 100%" in boite
 
     def test_le_bouton_est_eteint_mais_le_SERVEUR_tranche(self, app, carto):
         """⚠️ Le masquage n'est jamais une sécurité. Le bouton s'éteint ici, et
@@ -551,14 +601,14 @@ class TestLEcran:
     def test_le_socle_n_est_PAS_relu_a_chaque_geste(self):
         """Il coûte un rejeu simulé : le recalculer au rendu de chaque page —
         ou à chaque geste détourné — paierait un rejeu par frappe."""
-        js = _lire(JS)
-        d = js.index("async function charger(")
-        bloc = js[d:js.index("function majBandeau", d)] if "function majBandeau" in js[d:] \
-            else js[d:d + 900]
-        assert "chargerSocle" not in bloc, bloc
+        # ⚠️ Le corps de la fonction, borné sur sa propre accolade : le
+        # découpage « 900 signes après l'ancre » avalait `ouvrir()`, qui
+        # appelle légitimement `chargerSocle` — le cliquet rougissait sur du
+        # code juste. C'est le piège documenté, et il a remordu ici.
+        assert "chargerSocle" not in _corps(_lire(JS), "async function charger(")
 
     @pytest.mark.parametrize("cle", [
-        "socle_titre", "socle_pourquoi", "socle_exige", "socle_pretes",
+        "socle_titre", "socle_pourquoi", "socle_exige", "socle_barre",
         "socle_manque", "socle_liste", "socle_ok", "socle_garde",
         "socle_rejeu", "socle_c_garant", "socle_c_tache", "socle_c_outil",
         "socle_vide"])
@@ -569,7 +619,7 @@ class TestLEcran:
             assert v and v.strip(), (lg, cle)
 
     @pytest.mark.parametrize("cle", [
-        "socle_titre", "socle_pourquoi", "socle_exige", "socle_pretes",
+        "socle_titre", "socle_pourquoi", "socle_exige", "socle_barre",
         "socle_manque", "socle_liste", "socle_ok", "socle_garde",
         "socle_rejeu", "socle_c_garant", "socle_c_tache", "socle_c_outil",
         "socle_vide"])
@@ -586,15 +636,47 @@ class TestLEcran:
         « Prêtes : n sur t » se lit pareil à tous les comptes."""
         from Code.translations import TRANSLATIONS
         for lg in ("fr", "en"):
-            v = TRANSLATIONS[lg]["acp.socle_pretes"]
+            v = TRANSLATIONS[lg]["acp.socle_barre"]
             assert "[[n]]" in v and "[[t]]" in v, (lg, v)
             assert "(s)" not in v
 
     def test_le_panneau_a_sa_feuille_de_style(self):
         css = _lire(CSS)
-        for regle in (".acp-socle", ".acp-socle--ok", ".acp-ex", ".acp-sa",
+        for regle in (".acp-sb", ".acp-sb--ok", ".acp-ex", ".acp-sa",
                       ".acp-ok[disabled]"):
             assert regle in css, regle
+
+    def test_le_chiffre_de_tete_compte_des_ACTIVITES(self):
+        """⚠️⚠️ Le défaut relevé à l'usage : « ça me dit 1 truc manquant alors
+        que j'ai rempli 30 % des activités ». Le serveur rendait le bon compte
+        — mesuré `{garant: 0, outil: 26, tache: 26}` sur 36 activités — mais
+        l'écran n'affichait qu'une pastille PAR FAMILLE. Quand une famille est
+        complète partout (le garant vient de l'import carto), il n'en restait
+        qu'UNE : on lisait « une chose manque » pour 26 activités."""
+        js = _lire(JS)
+        corps = _corps(js, "function rendreSocle()")
+        # Le gros chiffre vient de (total − prêtes), pas d'un compte de familles.
+        assert "nf('socle_restent', reste)" in corps
+        assert "(s.total || 0) - (s.pretes || 0)" in corps
+        # Les familles passent DANS le détail replié, pas en tête.
+        assert "detailManque" in corps
+        assert corps.index("socle_restent") < corps.index("detailManque")
+
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            for cle in ("acp.socle_restent_1", "acp.socle_restent_n"):
+                v = TRANSLATIONS[lg][cle]
+                assert "[[n]]" in v, (lg, cle)
+            assert TRANSLATIONS["en"][cle] != TRANSLATIONS["fr"][cle]
+
+    def test_chaque_activite_a_completer_S_OUVRE(self):
+        """Sans cela la liste est un rapport : elle dit ce qui manque et ne
+        permet pas d'aller le remplir."""
+        js = _lire(JS)
+        assert "data-aller=" in _corps(js, "function rendreSocle()")
+        aller = _corps(js, "function allerA(activityId)")
+        assert "data-acp-act" in aller and "scrollIntoView" in aller
+        assert "fermer()" in aller
 
     def test_aucune_regle_neuve_ne_lit_l_accent_doux_de_la_RACINE(self):
         """⚠️ `--pg-accent-soft` et ses trois frères sont déclarés sur `:root`,
@@ -613,3 +695,109 @@ class TestLEcran:
         for jeton in ("--pg-accent-soft", "--pg-accent-softer",
                       "--pg-accent-border", "--pg-accent-glow"):
             assert jeton not in propre, jeton
+
+
+# ══════════════════════════════════════════════════════════════════════════
+class TestLaFenetreSeParcourt:
+    """« La première section ne fait aucun distingo visuel, ne propose aucun
+    filtre, donc comme tout a la même tronche c'est pas très agréable d'aller
+    chercher là-dedans. »
+
+    Mesuré avant correctif, portable 1366×768, brouillon de 27 gestes :
+    27 lignes identiques de 86 px, 2361 px de liste pour 544 px visibles."""
+
+    def test_les_gestes_sont_GROUPES_par_famille(self):
+        js = _lire(JS)
+        corps = _corps(js, "function rendreListe()")
+        assert "paquets" in corps and "famDe(e.g)" in corps
+        assert "rangFam" in corps, "l'ordre des familles est celui du remplissage"
+        assert 'class="acp-grp"' in corps and 'class="acp-gh"' in corps
+
+    def test_chaque_famille_a_son_pictogramme_et_sa_couleur(self):
+        """La couleur est celle de la PAGE où la donnée vit — Activités
+        violet, Outils orange, Rôles vert — comme la fenêtre d'import. Ce
+        n'est pas un arc-en-ciel décoratif."""
+        js = _lire(JS)
+        fam = _corps(js, "var FAM = ")
+        for code in ("task", "tool", "savoir", "savoirfaire", "hsc",
+                     "contrainte", "garant"):
+            assert code + ":" in fam, code
+        assert "#7c3aed" in fam and "#ea580c" in fam and "#059669" in fam
+
+    def test_le_filtre_existe_et_ne_RE_REND_que_la_liste(self):
+        """⚠️ Réécrire la barre à chaque frappe ferait perdre le curseur du
+        champ qu'on tape — le piège déjà payé sur les cartes du plan de
+        formation et sur l'autre sens de l'import."""
+        js = _lire(JS)
+        filtres = _corps(js, "function rendreFiltres()")
+        assert "data-fam=" in filtres and "acp-rech" in filtres
+        # `input`, jamais `change` : sur `change` le filtre n'agirait qu'à la
+        # perte du focus, sans la moindre erreur pour le dire.
+        assert "addEventListener('input'" in filtres
+        # ⚠️ Les commentaires d'abord : celui qui explique la règle CITE le mot
+        # interdit, et le cliquet se prenait lui-même. Septième occurrence de
+        # ce piège dans ce dépôt.
+        nu = re.sub(r"/\*.*?\*/", "", filtres, flags=re.S)
+        nu = re.sub(r"(?m)^\s*//.*$", "", nu)
+        assert "change" not in nu
+        assert "rendreListe()" in nu and "rendreFiltres()" not in nu
+
+    def test_le_filtre_retient_sur_l_objet_ET_l_activite(self):
+        corps = _corps(_lire(JS), "function retenus()")
+        assert "e.g.objet" in corps and "e.g.activite" in corps
+        assert "toLowerCase()" in corps, "une recherche ne doit pas tenir à la casse"
+
+    def test_les_familles_se_nomment_au_PLURIEL_sans_article(self):
+        """⚠️ Les `f_*` portent leur article : ils se composent en « Ajouter
+        la tâche ». Un en-tête de groupe qui les reprend affiche « LA TÂCHE 8 »,
+        qui se lit comme un compte de la même tâche."""
+        from Code.translations import TRANSLATIONS
+        js = _lire(JS)
+        assert "T('f_' + f)" not in js, "un en-tête de famille lit `g_`, pas `f_`"
+        assert js.count("T('g_' + f)") >= 3
+        for code in ("task", "tool", "savoir", "savoirfaire", "hsc",
+                     "contrainte", "garant", "skill", "aptitude", "donnee"):
+            cle = "acp.g_" + code
+            assert cle in TRANSLATIONS["fr"] and cle in TRANSLATIONS["en"], cle
+            fr, en = TRANSLATIONS["fr"][cle], TRANSLATIONS["en"][cle]
+            for v in (fr, en):
+                assert not v.lower().startswith(("la ", "le ", "l'", "the ")), v
+
+    def test_les_libelles_neufs_sont_INJECTES(self):
+        """`T()` rend la CLÉ quand elle manque : une clé oubliée s'afficherait
+        telle quelle, sans la moindre erreur."""
+        gab = _lire(GABARIT)
+        js = _lire(JS)
+        lues = set(re.findall(r"T\('((?:socle_|filtre_|g_)[a-z_0-9]+)'\)", js))
+        lues |= set(re.findall(r"nf\('(socle_[a-z_]+)'", js))
+        assert lues
+        for cle in lues:
+            if cle.endswith("_"):          # une clé construite : voir ci-dessous
+                continue
+            if cle.startswith("socle_restent"):
+                cle = cle + "_1"
+            assert re.search(r"\b%s:" % cle, gab), cle
+
+    def test_le_pluriel_suit_la_LANGUE(self):
+        """⚠️ Le singulier ne couvre pas les mêmes nombres : « 0 activité » en
+        français, « 0 activities » en anglais."""
+        corps = _corps(_lire(JS), "function nf(cle, n)")
+        assert "L.lang === 'en'" in corps
+        assert "(n === 1)" in corps and "(n < 2)" in corps
+
+    def test_la_ligne_s_est_RESSERREE(self):
+        """86 px par geste pour un verbe, un objet et une activité : la liste
+        faisait 2361 px. Le verbe passe en méta à côté de l'activité."""
+        js = _lire(JS)
+        corps = _corps(js, "function rendreListe()")
+        assert 'class="acp-verbe"' not in corps, "le verbe n'a plus sa ligne"
+        css = _lire(CSS)
+        i = css.index(".acp-grp .acp-l {")
+        assert "padding: 6px 0" in css[i:css.index("}", i)]
+
+    def test_le_nom_de_l_activite_n_est_pas_un_noeud_de_TEXTE_NU(self):
+        """⚠️ Le `gap` d'une boîte flex ne s'applique qu'entre ÉLÉMENTS :
+        relevé à l'écran, « AddManage Commercial Offer » collé."""
+        corps = _corps(_lire(JS), "function rendreListe()")
+        i = corps.index('class="acp-ou"')
+        assert "<span>' + ou + '</span>" in corps[i:i + 220], corps[i:i + 220]

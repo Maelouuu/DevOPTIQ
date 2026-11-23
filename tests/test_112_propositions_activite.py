@@ -625,19 +625,27 @@ class TestLeStyleDesPropositions:
         assert "background: #fff" in repos and "linear-gradient" not in repos
         assert "linear-gradient" in vif and "#fff" in vif
 
-    def test_les_gestes_sont_un_RAIL_NUMEROTE(self, app):
-        """⚠️ L'ordre affiché EST celui du rejeu : une liste non ordonnée le
-        dirait moins, et c'est la seule chose que le coordinateur doit lire
-        avant d'appliquer."""
+    def test_les_gestes_sont_un_RAIL_NUMEROTE_PAR_FAMILLE(self, app):
+        """⚠️ Les gestes sont GROUPÉS par famille depuis le 23/11 — « les
+        tâches avec les tâches, les savoir-faire avec les savoir-faire » : à
+        plat, vingt-sept lignes identiques ne se parcourent pas.
+
+        L'ordre affiché n'est donc plus celui du rejeu, et ce n'est pas une
+        perte : le numéro de chaque ligne reste son RANG RÉEL, celui que
+        `data-retirer` porte et que le serveur rejoue. C'est ce que ce cas
+        tient."""
         js = _lire(JS_ECRAN)
-        rendre = js.split("function rendre()", 1)[1].split("\n  }", 1)[0]
-        assert "<ol class=\"acp-liste\">" in rendre, "ordonnée, pas <ul>"
-        assert "T('ordre')" in rendre
-        # Le verbe en capitales AU-DESSUS, l'objet en police d'affichage.
-        assert 'class="acp-verbe"' in rendre and 'class="acp-objet"' in rendre
+        rendre = js.split("function rendreListe()", 1)[1].split("\n  }", 1)[0]
+        assert 'class="acp-grp"' in rendre and 'class="acp-gh"' in rendre
+        # Un rail PAR groupe, et le badge porte le vrai rang.
+        assert '<ul class="acp-liste">' in rendre
+        assert "(e.rang + 1)" in rendre
+        assert 'data-retirer="\' + e.rang + \'"' in rendre
+        # L'objet garde seul la police d'affichage ; le verbe passe en méta.
+        assert 'class="acp-objet"' in rendre and 'class="acp-ou"' in rendre
         css = _lire(CSS_ECRAN)
         objet = css.split("\n.acp-objet {", 1)[1].split("}", 1)[0]
-        assert "var(--pg-font-display)" in objet and "18px" in objet
+        assert "var(--pg-font-display)" in objet
 
     def test_les_DEUX_ecrans_parlent_la_meme_langue(self, app):
         """Le champion et le coordinateur regardent le même objet : deux
@@ -680,7 +688,7 @@ class TestLeStyleDesPropositions:
 
     def test_les_libelles_du_style_sont_dans_les_deux_langues(self, app):
         from Code.translations import TRANSLATIONS as T
-        for cle in ("acp.ordre", "acp.et_autres", "acp.sur_n_fiches",
+        for cle in ("acp.et_autres", "acp.sur_n_fiches",
                     "acp.rien_ecrit"):
             assert cle in T["fr"] and cle in T["en"], cle
         # ⚠️ Lues par `activite_propositions.js`, donc convention [[n]].

@@ -774,7 +774,6 @@ TRANSLATIONS = {
         'acp.mes_titre': 'Mes propositions',
         'acp.mes_vide': "Vous n'avez encore rien proposé sur cette carto.",
         'acp.et_autres': 'et [[n]] de plus',
-        'acp.ordre': "Elles seront appliquées dans cet ordre",
         'acp.sur_n_fiches': 'sur [[n]] fiches',
         'acp.rien_ecrit': "Rien n'est encore écrit",
         'acp.mes_1': '1 modification',
@@ -800,6 +799,20 @@ TRANSLATIONS = {
         'acp.f_contrainte': 'la contrainte',
         'acp.f_donnee': 'la donnée',
         'acp.f_garant': 'le rôle garant',
+        # ⚠️ Les `f_*` portent leur ARTICLE : ils se composent en « Ajouter la
+        # tâche ». Un en-tête de groupe et une pastille de filtre nomment la
+        # famille, au pluriel et sans article — « LA TÂCHE 8 » se lisait comme
+        # un compte de la même tâche.
+        'acp.g_task': 'Tâches',
+        'acp.g_tool': 'Outils',
+        'acp.g_skill': 'Compétences',
+        'acp.g_savoir': 'Savoirs',
+        'acp.g_savoirfaire': 'Savoir-faire',
+        'acp.g_aptitude': 'Aptitudes',
+        'acp.g_hsc': 'HSC',
+        'acp.g_contrainte': 'Contraintes',
+        'acp.g_donnee': 'Données',
+        'acp.g_garant': 'Garants',
         # ── LE PALIER DE SOUMISSION ────────────────────────────────────
         # ⚠️ Aucune phrase ne fait accorder un adjectif sur un nombre :
         # « 1 activité prête sur 42 » et « 3 activités prêtes sur 42 »
@@ -810,7 +823,18 @@ TRANSLATIONS = {
                               'coordinateur reçoit autant de demandes que de lignes saisies.',
         'acp.socle_exige': 'Chaque activité porte un garant, au moins une tâche et au '
                            'moins un outil.',
-        'acp.socle_pretes': 'Prêtes : [[n]] sur [[t]]',
+        # ⚠️ LE chiffre de tête compte des ACTIVITÉS, pas des familles : avec
+        # une pastille par famille, une carto dont le garant est partout
+        # affichait « 1 chose manque » là où 26 activités sont incomplètes.
+        'acp.socle_restent_1': '[[n]] activité à compléter',
+        'acp.socle_restent_n': '[[n]] activités à compléter',
+        'acp.socle_barre': '[[n]] sur [[t]] sont prêtes',
+        'acp.socle_voir': 'Voir lesquelles',
+        'acp.socle_cacher': 'Masquer',
+        'acp.socle_introuvable': "Cette activité n'est pas affichée sur cette page.",
+        'acp.filtre_tout': 'Tout',
+        'acp.filtre_ph': 'Chercher un nom, une activité…',
+        'acp.filtre_rien': 'Rien ne correspond à cette recherche.',
         'acp.socle_manque': 'Ce qui manque encore',
         'acp.socle_liste': 'Les activités à compléter',
         'acp.socle_ok': 'La carto est complète : la proposition peut partir.',
@@ -3165,7 +3189,6 @@ TRANSLATIONS = {
         'acp.mes_titre': 'My proposals',
         'acp.mes_vide': "You haven't proposed anything on this map yet.",
         'acp.et_autres': 'and [[n]] more',
-        'acp.ordre': 'They will be applied in this order',
         'acp.sur_n_fiches': 'across [[n]] activities',
         'acp.rien_ecrit': 'Nothing is written yet',
         'acp.mes_1': '1 change',
@@ -3191,12 +3214,30 @@ TRANSLATIONS = {
         'acp.f_contrainte': 'the constraint',
         'acp.f_donnee': 'the data item',
         'acp.f_garant': 'the guarantor role',
+        'acp.g_task': 'Tasks',
+        'acp.g_tool': 'Tools',
+        'acp.g_skill': 'Competencies',
+        'acp.g_savoir': 'Knowledge',
+        'acp.g_savoirfaire': 'Know-how',
+        'acp.g_aptitude': 'Aptitudes',
+        'acp.g_hsc': 'Soft skills',
+        'acp.g_contrainte': 'Constraints',
+        'acp.g_donnee': 'Data',
+        'acp.g_garant': 'Guarantors',
         'acp.socle_titre': 'The map must be complete before it goes for review',
         'acp.socle_pourquoi': 'A first version is submitted in one go: otherwise the '
                               'coordinator gets as many requests as there are entries.',
         'acp.socle_exige': 'Every activity needs a guarantor, at least one task and at '
                            'least one tool.',
-        'acp.socle_pretes': 'Ready: [[n]] of [[t]]',
+        'acp.socle_restent_1': '[[n]] activity still to complete',
+        'acp.socle_restent_n': '[[n]] activities still to complete',
+        'acp.socle_barre': '[[n]] of [[t]] are ready',
+        'acp.socle_voir': 'See which',
+        'acp.socle_cacher': 'Hide',
+        'acp.socle_introuvable': 'That activity is not shown on this page.',
+        'acp.filtre_tout': 'All',
+        'acp.filtre_ph': 'Search a name, an activity…',
+        'acp.filtre_rien': 'Nothing matches that search.',
         'acp.socle_manque': 'Still missing',
         'acp.socle_liste': 'Activities left to complete',
         'acp.socle_ok': 'The map is complete: the proposal can be sent.',

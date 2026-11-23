@@ -90,9 +90,17 @@
 .acp { position: fixed; inset: 0; z-index: 3000; }
 .acp[hidden] { display: none; }
 .acp-fond { position: absolute; inset: 0; background: rgba(23, 16, 6, .5); }
+/* ⚠️⚠️ PAS de `vh` ICI. `body.pg` porte `zoom: .8` (ui-theme), et les unités
+   de fenêtre passent elles aussi par ce zoom : `max-height: 88vh` bornait la
+   fenêtre à 676 des 960 px CSS disponibles — 30 % de hauteur perdue, et
+   c'est le « la pop-up ne s'affiche pas en entier sur le portable » relevé à
+   l'usage. On se mesure sur le VOILE, dont le `inset: 0` couvre bien l'écran
+   entier. Même correctif que la fenêtre de bienvenue, pour la même cause. */
+.acp { display: flex; align-items: flex-start; justify-content: center;
+       padding: 20px 16px; }
 .acp-boite {
-  position: relative; margin: 5vh auto 0; width: min(680px, 94vw);
-  max-height: 88vh; display: flex; flex-direction: column;
+  position: relative; width: min(880px, 94vw);
+  max-height: 100%; display: flex; flex-direction: column;
   background: #fff; border-radius: 22px; overflow: hidden;
   box-shadow: 0 28px 64px -26px rgba(45, 27, 6, .66);
 }
@@ -132,11 +140,10 @@
 
 .acp-corps { flex: 1; overflow: auto; padding: 20px 24px 24px; }
 
-/* ── Le rail : l'ordre affiché EST l'ordre du rejeu ──────────────────── */
-.acp-ordre {
-  margin: 0 0 11px; font-family: var(--pg-font-display); font-style: italic;
-  font-size: 13.5px; color: var(--acp-sur);
-}
+/* ── Le rail d'une famille ────────────────────────────────────────────
+   ⚠️ La liste est GROUPÉE depuis le 23/11 : l'ordre affiché n'est plus
+   celui du rejeu, et la phrase qui l'annonçait (`acp.ordre`) a quitté le
+   catalogue avec son dernier lecteur. Le NUMÉRO, lui, reste le rang réel. */
 .acp-liste {
   list-style: none; margin: 0 0 20px; padding: 0 0 0 26px;
   position: relative;
@@ -279,112 +286,6 @@
 .acp-toast i { font-size: 14px; color: var(--acp-or); }
 @media (prefers-reduced-motion: reduce) { .acp-toast { transition: none; } }
 
-/* ══ LE PALIER DE SOUMISSION ══════════════════════════════════════════════
-   Une carto ne part a l'examen que complete : chaque activite porte un
-   garant, au moins une tache et au moins un outil. Le panneau se lit AVANT
-   le message et le bouton — c'est lui qui decide si l'envoi est possible.
-
-   Il reste dans la famille AMBRE de la fenetre : c'est de gouvernance qu'il
-   parle, pas d'une erreur de saisie. Seuls deux elements en sortent, et pour
-   une raison : le verdict « complete » prend le VERT semantique de
-   l'application, et le geste qui ne se rejoue plus prend le ROUGE.
-
-   ⚠️ Aucune regle ici ne lit `--pg-accent-soft` ni ses trois freres : ils
-   sont declares sur `:root`, ou `--pg-accent` vaut encore le gris par
-   defaut, et rendraient du GRIS. Les melanges sont ecrits sur place. */
-.acp-socle {
-  margin: 4px 0 18px;
-  padding: 15px 17px 14px;
-  border: 1px solid #ecd9b2;
-  border-left: 4px solid var(--acp-or);
-  border-radius: 13px;
-  background: linear-gradient(180deg, #fffaef, #fffdf8);
-}
-.acp-socle-h { display: flex; align-items: flex-start; gap: 12px; }
-.acp-socle-ic {
-  width: 32px; height: 32px; flex: none; border-radius: 50%;
-  display: grid; place-items: center; font-size: 14px;
-  color: #fff; background: linear-gradient(135deg, var(--acp-or), var(--acp-or-f));
-}
-.acp-socle-h > div { flex: 1; min-width: 0; }
-.acp-socle-h strong {
-  display: block; font-family: var(--pg-font-display);
-  font-size: 16px; font-weight: 600; color: var(--acp-nuit);
-}
-.acp-socle-h p { margin: 2px 0 0; font-size: 13px; color: var(--acp-encre2); }
-/* La jauge chiffree : « Prêtes : 3 sur 42 ». Aucune phrase n'accorde un
-   adjectif sur un nombre — deux cles par langue, et l'anglais n'accorde pas
-   au meme seuil. */
-.acp-socle-j {
-  flex: none; align-self: center;
-  padding: 5px 12px; border-radius: 999px;
-  font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
-  color: var(--acp-or-f); background: #fdf0d8; border: 1px solid #f2dcb4;
-}
-.acp-socle-l {
-  margin: 14px 0 7px; font-size: 11.5px; font-weight: 700;
-  letter-spacing: .07em; text-transform: uppercase; color: var(--acp-sur);
-}
-.acp-exs { display: flex; flex-wrap: wrap; gap: 8px; }
-.acp-ex {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 5px 5px 5px 12px; border-radius: 999px;
-  background: #fff; border: 1px solid #ecd9b2;
-  font-size: 13px; color: var(--acp-encre);
-}
-.acp-ex b { font-weight: 600; }
-.acp-ex i {
-  font-style: normal; font-weight: 700; font-variant-numeric: tabular-nums;
-  min-width: 24px; padding: 2px 7px; border-radius: 999px; text-align: center;
-  color: #fff; background: var(--acp-or-f); font-size: 12px;
-}
-/* ⚠️ La liste DEFILE au-dela de quelques lignes : quinze activites nommees
-   pousseraient le message et le bouton hors de la fenetre, et le bouton est
-   justement ce qu'on vient chercher. */
-.acp-sa {
-  list-style: none; margin: 0; padding: 0;
-  max-height: 168px; overflow: auto;
-  border: 1px solid #f0e3c8; border-radius: 10px; background: #fff;
-}
-.acp-sa li {
-  display: flex; align-items: center; gap: 8px;
-  padding: 7px 11px; font-size: 13px; color: var(--acp-encre);
-  border-bottom: 1px solid #faf3e5;
-}
-.acp-sa li:last-child { border-bottom: none; }
-.acp-sa-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acp-sa li em {
-  flex: none; font-style: normal; font-size: 11px; font-weight: 600;
-  padding: 2px 8px; border-radius: 999px;
-  color: var(--acp-or-f); background: #fdf0d8; border: 1px solid #f2dcb4;
-}
-.acp-sa-plus { color: var(--acp-encre2); font-style: italic; }
-.acp-socle-p { margin: 13px 0 0; font-size: 12.5px; color: var(--acp-encre2); }
-/* « Rien n'est perdu » : la seule chose du panneau qui RASSURE, et elle ne
-   doit pas se lire comme un reproche de plus. Hors de l'ambre, donc. */
-.acp-socle-g {
-  display: flex; align-items: flex-start; gap: 9px;
-  margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
-  font-size: 12.5px; line-height: 1.45;
-  color: #334155; background: #f4f6fa; border: 1px solid #e2e8f0;
-}
-.acp-socle-g i { margin-top: 2px; color: #64748b; }
-/* Le geste qui ne se rejoue plus : rouge, et il passe AVANT ce qui manque —
-   tant qu'il est la, rien ne partira. */
-.acp-socle-r {
-  margin: 12px 0 0; padding: 9px 12px; border-radius: 10px;
-  font-size: 13px; font-weight: 600;
-  color: #9f1239; background: #fff1f2; border: 1px solid #fecdd3;
-}
-/* Le verdict : complete. Vert SEMANTIQUE, celui des verdicts de l'app. */
-.acp-socle--ok {
-  display: flex; align-items: center; gap: 10px;
-  border-left-color: #10b981;
-  background: linear-gradient(180deg, #f2fbf6, #fbfffd);
-  border-color: #c7ecd9;
-  font-size: 14px; font-weight: 600; color: #0f6848;
-}
-.acp-socle--ok i { font-size: 16px; color: #10b981; }
 
 /* Le bouton eteint. ⚠️ Ce n'est PAS la securite : `/envoyer` refuse aussi,
    avec le code `socle` et l'etat — et c'est lui qui a le dernier mot. */
@@ -534,4 +435,268 @@
 @media (max-width: 620px) {
   .acp-of-pied { justify-content: stretch; }
   .acp-of-ko, .acp-of-ok { flex: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   LA FENÊTRE REPRISE (2026-11-23) — trois zones fixes, une qui défile.
+
+   ⚠️ Mesuré sur un portable 1366×768, carto de 36 activités, brouillon de
+   27 gestes : 3191 px de contenu pour 544 px visibles, le PIED (Envoyer)
+   tout en bas du défilement, et un pavé « socle » de 551 px au milieu. On ne
+   voyait ni ce qui bloque l'envoi, ni le bouton.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── La bande du palier : ce qui décide de l'envoi reste sous les yeux ── */
+.acp-socle-z { flex: none; padding: 14px 24px 0; }
+.acp-socle-z[hidden] { display: none; }
+.acp-sb {
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 14px; border-radius: 13px;
+  background: #fffaf0; border: 1px solid #ecd9b2;
+  border-left: 4px solid var(--acp-or);
+}
+.acp-sb-ic {
+  flex: none; width: 32px; height: 32px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 13px;
+  background: color-mix(in srgb, #e8a84c 20%, #fff); color: var(--acp-or-f);
+}
+.acp-sb-t { flex: 1; min-width: 0; }
+/* LE chiffre : des ACTIVITÉS, jamais un compte de familles. */
+.acp-sb-t strong {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--pg-font-display); font-size: 17px; font-weight: 600;
+  color: var(--acp-encre);
+}
+.acp-sb-j {
+  display: block; height: 5px; margin: 6px 0 4px; border-radius: 999px;
+  background: #efe3cc; overflow: hidden;
+}
+.acp-sb-j i {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--acp-or), var(--acp-or-f));
+}
+.acp-sb-p { font-size: 12px; color: var(--acp-sur); }
+.acp-sb-v {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  padding: 6px 13px; border-radius: 999px; font: inherit; font-size: 12.5px;
+  font-weight: 600; color: var(--acp-or-f);
+  background: #fff; border: 1px solid var(--acp-or-p);
+}
+.acp-sb-v:hover { background: color-mix(in srgb, #e8a84c 12%, #fff); }
+.acp-sb-v i { font-size: 10px; }
+.acp-sb--ok { background: #ecfdf5; border-color: #a7f3d0; border-left-color: #10b981; }
+.acp-sb--ok .acp-sb-ic { background: #d1fae5; color: #047857; }
+.acp-sb--ok .acp-sb-t { font-size: 14px; color: #065f46; margin: 0; }
+.acp-sb-r {
+  margin: 8px 0 0; padding: 9px 12px; border-radius: 11px; font-size: 12.5px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+}
+/* Le détail, replié : il n'occupe la hauteur que si on le demande. */
+.acp-sb-d { margin-top: 10px; }
+.acp-sb-l {
+  margin: 0 0 7px; font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--acp-encre2);
+}
+.acp-sa + .acp-sb-l { margin-top: 13px; }
+.acp-exs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 13px; }
+.acp-ex {
+  display: inline-flex; align-items: center; gap: 7px; padding: 4px 5px 4px 11px;
+  border-radius: 999px; font-size: 12.5px;
+  background: #fff; border: 1px solid #ecd9b2; color: var(--acp-encre);
+}
+.acp-ex i {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 21px; height: 21px; padding: 0 6px; border-radius: 999px;
+  background: color-mix(in srgb, #e8a84c 22%, #fff); color: var(--acp-or-f);
+  font-style: normal; font-size: 11.5px; font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+/* ⚠️ La liste est une LISTE DE TRAVAIL : chaque nom ouvre son activité, et
+   elle défile dans sa propre boîte au lieu de pousser le reste. */
+.acp-sa {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 184px; overflow-y: auto;
+  border: 1px solid #ecd9b2; border-radius: 11px; background: #fff;
+}
+.acp-sa li { border-bottom: 1px solid #f4ead7; }
+.acp-sa li:last-child { border-bottom: none; }
+.acp-sa-b {
+  display: flex; align-items: center; gap: 9px; width: 100%; cursor: pointer;
+  padding: 8px 12px; border: 0; background: none; font: inherit;
+  font-size: 13px; color: var(--acp-encre); text-align: left;
+}
+.acp-sa-b:hover { background: #fffaf0; }
+.acp-sa-n { flex: 1; min-width: 0; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap; }
+.acp-sa-b em {
+  flex: none; font-style: normal; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px;
+  background: #fef3e2; color: var(--acp-or-f);
+}
+.acp-sa-b > i { flex: none; font-size: 11px; color: var(--acp-sur); }
+.acp-sa-plus { padding: 8px 12px; font-size: 12.5px; font-style: italic;
+               color: var(--acp-encre2); }
+
+/* Le « i » qui porte les deux paragraphes de règle. */
+.acp-i {
+  flex: none; width: 17px; height: 17px; border-radius: 50%; cursor: help;
+  display: grid; place-items: center; padding: 0; font-size: 10px;
+  background: #f3e8d2; border: 1px solid #e3cfa6; color: var(--acp-sur);
+}
+
+/* ── Le filtre ────────────────────────────────────────────────────── */
+.acp-filtres {
+  flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 24px 0;
+}
+.acp-filtres[hidden] { display: none; }
+.acp-pfs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.acp-pf {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  padding: 5px 6px 5px 11px; border-radius: 999px; font: inherit;
+  font-size: 12.5px; font-weight: 600; color: var(--acp-encre2);
+  background: #fff; border: 1px solid var(--acp-trait); transition: .14s;
+}
+.acp-pf i { font-size: 11px; color: var(--fc, var(--acp-sur)); }
+.acp-pf b {
+  min-width: 19px; height: 19px; padding: 0 5px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #f1f1f4; color: var(--acp-encre2); font-size: 11px;
+  font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.acp-pf:hover { border-color: var(--fc, var(--acp-or)); }
+.acp-pf[aria-pressed="true"] {
+  color: #fff; border-color: transparent; background: var(--fc, var(--acp-or-f));
+}
+.acp-pf[aria-pressed="true"] i { color: rgba(255, 255, 255, .85); }
+.acp-pf[aria-pressed="true"] b { background: rgba(255, 255, 255, .25); color: #fff; }
+.acp-pf--tout { padding-left: 13px; }
+.acp-rech {
+  display: flex; align-items: center; gap: 7px; flex: none; width: 220px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--acp-voile); border: 1px solid var(--acp-trait);
+}
+.acp-rech i { font-size: 11px; color: var(--acp-sur); }
+.acp-rech input {
+  flex: 1; min-width: 0; border: 0; background: none; font: inherit;
+  font-size: 13px; color: var(--acp-encre); outline: none;
+}
+
+/* ── La liste, groupée par famille ─────────────────────────────────── */
+.acp-corps { padding-top: 14px; }
+.acp-grp { margin-bottom: 18px; }
+.acp-grp:last-child { margin-bottom: 0; }
+.acp-gh {
+  display: flex; align-items: center; gap: 9px; margin: 0 0 7px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--fc, var(--acp-encre2));
+}
+.acp-gi {
+  width: 23px; height: 23px; border-radius: 7px; flex: none;
+  display: grid; place-items: center; font-size: 11px;
+  background: color-mix(in srgb, var(--fc, #8a6a3a) 14%, #fff);
+  color: var(--fc, var(--acp-sur));
+}
+.acp-gh b {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--fc, #8a6a3a) 13%, #fff);
+  font-size: 11px; font-weight: 800; letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+/* ⚠️ Un rail PAR FAMILLE, et non plus un rail unique pour toute la liste :
+   chaque groupe est une suite, l'ensemble n'en est plus une. */
+.acp-grp .acp-liste { margin: 0; }
+.acp-grp .acp-liste::before { background: color-mix(in srgb, var(--fc, #e8a84c) 32%, #fff); }
+.acp-grp .acp-n { border-color: var(--fc, var(--acp-or)); color: var(--fc, var(--acp-or-f)); }
+/* La ligne se resserre : le verbe passe en méta avec l'activité, et l'objet
+   garde seul la police d'affichage. Mesuré : 86 px → 54 px par ligne. */
+.acp-grp .acp-l { padding: 6px 0; }
+.acp-grp .acp-objet { font-size: 16px; }
+.acp-grp .acp-ou { display: flex; align-items: center; gap: 7px; }
+.acp-grp .acp-ou em {
+  flex: none; font-style: normal; font-size: 10px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--fc, #8a6a3a) 12%, #fff);
+  color: var(--fc, var(--acp-or-f));
+}
+
+/* ── Le pied, hors du défilement ───────────────────────────────────── */
+.acp-pied-z {
+  flex: none; padding: 12px 24px 16px;
+  border-top: 1px solid var(--acp-trait); background: var(--acp-voile);
+}
+.acp-pied-z[hidden] { display: none; }
+.acp-pied-z .acp-msg textarea { min-height: 40px; }
+.acp-pied-z .acp-pied { margin-top: 10px; }
+
+/* ── L'activité qu'on vient d'ouvrir depuis la liste du palier ─────── */
+.activity-container.est-pointee {
+  box-shadow: 0 0 0 3px color-mix(in srgb, #e8a84c 60%, transparent);
+  border-radius: 13px;
+}
+
+/* ── Les familles, dans la fiche de l'activité ─────────────────────── */
+.acp-pf-h {
+  display: flex; align-items: center; gap: 7px; margin: 9px 0 2px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--fc, var(--acp-encre2));
+}
+.acp-pose-l > .acp-pf-h:first-child { margin-top: 0; }
+.acp-pc .acp-pc-ic {
+  background: color-mix(in srgb, var(--fc, #e8a84c) 16%, #fff);
+  color: var(--fc, var(--acp-or-f));
+}
+
+@media (max-width: 760px) {
+  .acp-rech { width: 100%; }
+  .acp-sb { flex-wrap: wrap; }
+  .acp-sb-v { width: 100%; justify-content: center; }
+}
+
+/* ── La hauteur, reprise au cordeau ────────────────────────────────────
+   ⚠️ Les trois zones fixes mangeaient 402 des 920 px CSS de la fenêtre :
+   il ne restait que 386 px à la LISTE, qui est pourtant ce qu'on vient
+   lire. Mesuré puis resserré : en-tête 130 → 104, filtres 84 → 48 (une
+   ligne), pied 167 → 72 (tout sur une ligne). */
+.acp-tete { padding: 16px 24px; gap: 14px; }
+.acp-tete h3 { font-size: 23px; }
+.acp-tic { width: 38px; height: 38px; font-size: 16px; }
+
+.acp-socle-z { padding: 12px 24px 0; }
+.acp-sb { padding: 9px 13px; gap: 11px; }
+.acp-sb-ic { width: 28px; height: 28px; font-size: 12px; }
+.acp-sb-t strong { font-size: 15.5px; }
+.acp-sb-j { height: 4px; margin: 5px 0 3px; }
+
+/* Les familles tiennent sur une ligne : au-delà, la rangée défile plutôt
+   que de prendre une deuxième ligne à la liste. */
+.acp-filtres { padding: 12px 24px 0; gap: 10px; flex-wrap: nowrap; }
+.acp-pfs { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+.acp-pfs::-webkit-scrollbar { height: 0; }
+.acp-pf { white-space: nowrap; flex: none; }
+.acp-rech { width: 190px; }
+
+.acp-pied-z { padding: 10px 24px 12px; }
+.acp-pied-z .acp-pied { margin: 0; align-items: stretch; }
+/* Le mot pour l'auteur : une ligne, qui grandit si on en écrit plus. */
+.acp-msg1 {
+  flex: 1; min-width: 0; resize: none; font-family: inherit; font-size: 13.5px;
+  padding: 9px 13px; border: 1px solid var(--acp-trait); border-radius: 999px;
+  background: #fff; color: var(--ink, #0f172a);
+}
+.acp-msg1:focus {
+  outline: none; border-color: var(--acp-or);
+  box-shadow: 0 0 0 3px rgba(232, 168, 76, .22);
+}
+.acp-pied-z .acp-danger { flex: none; }
+
+@media (max-width: 760px) {
+  .acp-filtres { flex-wrap: wrap; }
+  .acp-rech { width: 100%; }
+  .acp-pied-z .acp-pied { flex-wrap: wrap; }
+  .acp-msg1 { flex: 1 1 100%; }
+  .acp-pied-z .acp-danger span { display: none; }
 }

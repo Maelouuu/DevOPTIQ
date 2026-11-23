@@ -40,6 +40,29 @@
     pose_annuler:   {{ t('acp.pose_annuler') | tojson }},
     pose_aucun_outil: {{ t('acp.pose_aucun_outil') | tojson }},
     pose_rien_choisi: {{ t('acp.pose_rien_choisi') | tojson }},
+    socle_restent_1:  {{ t('acp.socle_restent_1') | tojson }},
+    socle_restent_n:  {{ t('acp.socle_restent_n') | tojson }},
+    socle_barre:      {{ t('acp.socle_barre') | tojson }},
+    socle_voir:       {{ t('acp.socle_voir') | tojson }},
+    socle_cacher:     {{ t('acp.socle_cacher') | tojson }},
+    socle_introuvable: {{ t('acp.socle_introuvable') | tojson }},
+    {# Les familles au PLURIEL, pour les en-têtes de groupe et les pastilles
+       de filtre : `f_*` porte un article et se compose en « Ajouter la
+       tâche ». ⚠️ Écrites en toutes lettres — `test_78` relève une clé
+       construite comme la clé « acp.g_ ». #}
+    g_task:           {{ t('acp.g_task') | tojson }},
+    g_tool:           {{ t('acp.g_tool') | tojson }},
+    g_skill:          {{ t('acp.g_skill') | tojson }},
+    g_savoir:         {{ t('acp.g_savoir') | tojson }},
+    g_savoirfaire:    {{ t('acp.g_savoirfaire') | tojson }},
+    g_aptitude:       {{ t('acp.g_aptitude') | tojson }},
+    g_hsc:            {{ t('acp.g_hsc') | tojson }},
+    g_contrainte:     {{ t('acp.g_contrainte') | tojson }},
+    g_donnee:         {{ t('acp.g_donnee') | tojson }},
+    g_garant:         {{ t('acp.g_garant') | tojson }},
+    filtre_tout:      {{ t('acp.filtre_tout') | tojson }},
+    filtre_ph:        {{ t('acp.filtre_ph') | tojson }},
+    filtre_rien:      {{ t('acp.filtre_rien') | tojson }},
     abandonner:     {{ t('acp.abandonner') | tojson }},
     abandon_sur:    {{ t('acp.abandon_sur') | tojson }},
     message:        {{ t('acp.message') | tojson }},
@@ -51,7 +74,6 @@
     err:            {{ t('acp.err') | tojson }},
     mes_titre:      {{ t('acp.mes_titre') | tojson }},
     mes_vide:       {{ t('acp.mes_vide') | tojson }},
-    ordre:          {{ t('acp.ordre') | tojson }},
     sur_n_fiches:   {{ t('acp.sur_n_fiches') | tojson }},
     rien_ecrit:     {{ t('acp.rien_ecrit') | tojson }},
     et_autres:      {{ t('acp.et_autres') | tojson }},
@@ -81,7 +103,6 @@
     socle_titre:    {{ t('acp.socle_titre') | tojson }},
     socle_pourquoi: {{ t('acp.socle_pourquoi') | tojson }},
     socle_exige:    {{ t('acp.socle_exige') | tojson }},
-    socle_pretes:   {{ t('acp.socle_pretes') | tojson }},
     socle_manque:   {{ t('acp.socle_manque') | tojson }},
     socle_liste:    {{ t('acp.socle_liste') | tojson }},
     socle_ok:       {{ t('acp.socle_ok') | tojson }},
@@ -123,7 +144,15 @@
         <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
+    {# ⚠️ TROIS zones, et une seule défile. Mesuré sur un portable 1366×768 :
+       le pied vivait DANS le corps, donc il fallait dérouler 3191 px de liste
+       pour atteindre « Envoyer ». Le socle (ce qui décide si l'envoi est
+       possible) et le pied (l'envoi) restent sous les yeux ; seule la liste
+       défile. #}
+    <div class="acp-socle-z" id="acp-socle-z"></div>
+    <div class="acp-filtres" id="acp-filtres"></div>
     <div class="acp-corps" id="acp-corps"></div>
+    <div class="acp-pied-z" id="acp-pied-z"></div>
   </div>
 </div>
 {% endif %}

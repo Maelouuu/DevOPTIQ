@@ -46,7 +46,13 @@ page, mais à la demande : quand on ouvre la fenêtre, et à l'envoi.
 from Code.extensions import db
 
 # Au-delà, « et n autres » : on ouvre une liste de travail, pas un rapport.
-NOMMEES = 15
+# ⚠️ 15 était trop court : sur une carto d'une quarantaine d'activités dont
+# un tiers est rempli, on en nommait 15 sur 26 — la liste disait « et 11
+# autres » sans dire lesquelles, et on ne pouvait pas finir le travail
+# depuis l'écran. Elle défile désormais dans sa propre boîte, et chaque nom
+# ouvre son activité : 60 est la taille d'un plan de travail, pas d'un
+# rapport. La borne reste, elle : une carto du pilote porte 601 activités.
+NOMMEES = 60
 
 # L'ordre est celui dans lequel on les annonce — et celui dans lequel on les
 # remplit : désigner le garant, écrire les tâches, puis outiller les tâches.

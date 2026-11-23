@@ -30,7 +30,41 @@
       .replace(/"/g, '&quot;');
   }
 
-  var S = { n: 0, gestes: [], id: null, ouvert: false, socle: null };
+  /* ⚠️ Le singulier ne couvre pas les mêmes nombres d'une langue à l'autre :
+     « 0 activité » en français, « 0 activities » en anglais. */
+  function nf(cle, n) {
+    var un = (L.lang === 'en') ? (n === 1) : (n < 2);
+    return F(cle + (un ? '_1' : '_n'), { n: n });
+  }
+
+  /* ── Les familles : un pictogramme et la couleur de la PAGE où la donnée
+     vit (Activités violet, Outils orange, Rôles vert, Compétences bleu).
+     C'est la convention de la fenêtre d'import, et elle veut dire quelque
+     chose — ce n'est pas un arc-en-ciel décoratif. */
+  var FAM = {
+    garant:      { ic: 'fa-user-shield', c: '#059669' },
+    task:        { ic: 'fa-list-check',  c: '#7c3aed' },
+    tool:        { ic: 'fa-wrench',      c: '#ea580c' },
+    skill:       { ic: 'fa-certificate', c: '#2563eb' },
+    savoir:      { ic: 'fa-book',        c: '#2563eb' },
+    savoirfaire: { ic: 'fa-screwdriver-wrench', c: '#0e7490' },
+    aptitude:    { ic: 'fa-seedling',    c: '#0e7490' },
+    hsc:         { ic: 'fa-comments',    c: '#6d28d9' },
+    contrainte:  { ic: 'fa-triangle-exclamation', c: '#b91c1c' },
+    donnee:      { ic: 'fa-file-lines',  c: '#475569' }
+  };
+  /* L'ordre dans lequel on REMPLIT une activité : le garant, les tâches,
+     les outils, puis ce qu'il faut savoir, puis les contraintes. */
+  var ORDRE = ['garant', 'task', 'tool', 'skill', 'savoir', 'savoirfaire',
+               'aptitude', 'hsc', 'contrainte', 'donnee'];
+  function famDe(g) { return String(g.op || '').split('.')[0] || 'task'; }
+  function rangFam(f) {
+    var i = ORDRE.indexOf(f);
+    return i < 0 ? ORDRE.length : i;
+  }
+
+  var S = { n: 0, gestes: [], id: null, ouvert: false, socle: null,
+            socleOuvert: false, fam: null, texte: '' };
 
   /* ══ LE PALIER DE SOUMISSION ════════════════════════════════════════
      Une carto ne part à l'examen que complète : chaque activité porte un
@@ -52,51 +86,98 @@
     if (S.ouvert) rendre();
   }
 
-  function chip(code, n) {
-    return '<span class="acp-ex"><b>' + esc(T('socle_c_' + code)) + '</b>'
-      + '<i>' + n + '</i></span>';
+  /* ⚠️⚠️ **Le défaut que l'usage a relevé : « ça me dit 1 truc manquant alors
+     que j'ai rempli 30 % des activités ».** Le serveur rendait le bon compte
+     — mesuré, `{garant: 0, outil: 26, tache: 26}` sur 36 activités — mais
+     l'écran n'affichait qu'une PASTILLE PAR FAMILLE. Quand une famille est
+     déjà complète partout (le garant vient de l'import carto), il n'en reste
+     qu'UNE : on lisait « une chose manque » là où VINGT-SIX activités sont
+     incomplètes.
+
+     Le chiffre de tête est donc le nombre d'ACTIVITÉS à compléter. Les
+     familles passent dessous, en détail, et chacune dit sur combien
+     d'activités elle manque. */
+  function detailManque(manque) {
+    return ['garant', 'tache', 'outil'].filter(function (c) {
+      return manque[c] > 0;
+    }).map(function (c) {
+      return '<span class="acp-ex"><b>' + esc(T('socle_c_' + c)) + '</b>'
+        + '<i>' + manque[c] + '</i></span>';
+    }).join('');
   }
 
-  function blocSocle(s) {
-    if (!s) return '';
-    if (s.complet) {
-      return '<p class="acp-socle acp-socle--ok">'
-        + '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>'
-        + esc(T(s.total ? 'socle_ok' : 'socle_vide')) + '</p>';
-    }
-    var manque = s.manque || {};
-    var chips = ['garant', 'tache', 'outil'].filter(function (c) {
-      return manque[c] > 0;
-    }).map(function (c) { return chip(c, manque[c]); }).join('');
+  /* ⚠️ Le socle n'est plus un pavé DANS le défilement : c'est la bande qui
+     décide si l'envoi est possible, elle reste sous les yeux. Les deux
+     paragraphes d'explication sont passés derrière un « i » — c'est le motif
+     de la maison, et ils occupaient 160 px de la hauteur utile. */
+  function rendreSocle() {
+    var z = document.getElementById('acp-socle-z');
+    if (!z) return;
+    var s = S.socle;
+    if (!s || !S.gestes.length) { z.innerHTML = ''; z.hidden = true; return; }
+    z.hidden = false;
 
+    if (s.complet) {
+      z.innerHTML = '<div class="acp-sb acp-sb--ok">'
+        + '<span class="acp-sb-ic"><i class="fa-solid fa-circle-check"></i></span>'
+        + '<p class="acp-sb-t">' + esc(T(s.total ? 'socle_ok' : 'socle_vide')) + '</p>'
+        + '</div>';
+      return;
+    }
+
+    var reste = Math.max(0, (s.total || 0) - (s.pretes || 0));
+    var part = s.total ? Math.round((s.pretes / s.total) * 100) : 0;
     var noms = (s.activites || []).map(function (a) {
-      return '<li><span class="acp-sa-n">' + esc(a.nom || '—') + '</span>'
+      return '<li><button type="button" class="acp-sa-b" data-aller="' + a.id + '">'
+        + '<span class="acp-sa-n">' + esc(a.nom || '—') + '</span>'
         + (a.manque || []).map(function (c) {
           return '<em>' + esc(T('socle_c_' + c)) + '</em>';
-        }).join('') + '</li>';
+        }).join('')
+        + '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></li>';
     }).join('');
     if (s.reste > 0) {
       noms += '<li class="acp-sa-plus">' + esc(F('et_autres', { n: s.reste })) + '</li>';
     }
 
-    return '<div class="acp-socle">'
-      + '<div class="acp-socle-h">'
-      + '<span class="acp-socle-ic"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span>'
-      + '<div><strong>' + esc(T('socle_titre')) + '</strong>'
-      + '<p>' + esc(T('socle_exige')) + '</p></div>'
-      + '<span class="acp-socle-j">'
-      + esc(F('socle_pretes', { n: s.pretes, t: s.total })) + '</span></div>'
+    z.innerHTML = '<div class="acp-sb">'
+      + '<span class="acp-sb-ic"><i class="fa-solid fa-layer-group"></i></span>'
+      + '<div class="acp-sb-t">'
+      /* LE chiffre : des ACTIVITÉS, pas des familles. */
+      + '<strong>' + esc(nf('socle_restent', reste)) + '</strong>'
+      + '<span class="acp-sb-j"><i style="width:' + part + '%"></i></span>'
+      + '<span class="acp-sb-p">' + esc(F('socle_barre', { n: s.pretes, t: s.total }))
+      + '</span></div>'
+      + '<button type="button" class="acp-sb-v" data-socle-voir aria-expanded="'
+      + (S.socleOuvert ? 'true' : 'false') + '">'
+      + esc(T(S.socleOuvert ? 'socle_cacher' : 'socle_voir'))
+      + '<i class="fa-solid fa-chevron-' + (S.socleOuvert ? 'up' : 'down') + '"></i></button>'
+      + '</div>'
       + (s.rejeu
-         ? '<p class="acp-socle-r">' + esc(F('socle_rejeu', { n: s.rejeu.rang })) + '</p>'
+         ? '<p class="acp-sb-r">' + esc(F('socle_rejeu', { n: s.rejeu.rang })) + '</p>'
          : '')
-      + (chips ? '<p class="acp-socle-l">' + esc(T('socle_manque')) + '</p>'
-                 + '<div class="acp-exs">' + chips + '</div>' : '')
-      + (noms ? '<p class="acp-socle-l">' + esc(T('socle_liste')) + '</p>'
-                + '<ul class="acp-sa">' + noms + '</ul>' : '')
-      + '<p class="acp-socle-p">' + esc(T('socle_pourquoi')) + '</p>'
-      + '<p class="acp-socle-g"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>'
-      + esc(T('socle_garde')) + '</p>'
-      + '</div>';
+      + (S.socleOuvert
+         ? '<div class="acp-sb-d">'
+           + '<p class="acp-sb-l">' + esc(T('socle_manque')) + '</p>'
+           + '<div class="acp-exs">' + detailManque(s.manque || {}) + '</div>'
+           + (noms ? '<p class="acp-sb-l">' + esc(T('socle_liste')) + '</p>'
+                     + '<ul class="acp-sa">' + noms + '</ul>' : '')
+           + '</div>'
+         : '');
+    var h = z.querySelector('.acp-sb-t strong');
+    if (h) h.appendChild(boutonSocleInfo());
+  }
+
+  /* Les deux paragraphes qui expliquaient la règle — pourquoi d'un bloc, et
+     que rien n'est perdu — tiennent derrière un « i ». */
+  function boutonSocleInfo() {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'acp-i';
+    b.setAttribute('aria-label', T('socle_titre'));
+    b.title = T('socle_titre') + ' — ' + T('socle_exige') + ' ' + T('socle_pourquoi')
+      + ' ' + T('socle_garde');
+    b.innerHTML = '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>';
+    return b;
   }
 
   /* ── Le libellé d'un geste, composé dans la langue de CELUI QUI LIT ──
@@ -162,20 +243,30 @@
     if (!w) return;
     w.hidden = false;
     S.ouvert = true;
-    // Le titre DIT ce qu'on soumet ; la phrase « rien n'est appliqué tant
-    // que… » devient une pastille d'état à côté, et non une ligne à lire.
-    document.getElementById('acp-h').textContent =
-      S.n === 1 ? T('mes_1') : F('mes_n', { n: S.n || 0 });
-    var ou = document.getElementById('acp-tsous');
+    // On rouvre sur TOUT : un filtre gardé d'une fois sur l'autre ferait
+    // croire qu'il manque des gestes.
+    S.fam = null; S.texte = ''; S.socleOuvert = false;
+    rendre();
+    chargerSocle();
+  }
+
+  /* Le titre DIT ce qu'on soumet ; la phrase « rien n'est appliqué tant
+     que… » est une pastille d'état à côté, et non une ligne à lire.
+     ⚠️ Il se refait à chaque rendu, pas seulement à l'ouverture : retirer un
+     geste laissait « 27 modifications » au-dessus d'une liste qui en montre
+     25. */
+  function majTitre() {
+    var h = document.getElementById('acp-h');
+    if (!h) return;
+    h.textContent = S.n === 1 ? T('mes_1') : F('mes_n', { n: S.n || 0 });
     var noms = [];
     S.gestes.forEach(function (g) {
       var nom = g.activite || T('hors_activite');
       if (noms.indexOf(nom) < 0) noms.push(nom);
     });
-    ou.textContent = noms.length === 1 ? noms[0]
-      : (noms.length ? F('sur_n_fiches', { n: noms.length }) : T('sous'));
-    rendre();
-    chargerSocle();
+    document.getElementById('acp-tsous').textContent =
+      noms.length === 1 ? noms[0]
+        : (noms.length ? F('sur_n_fiches', { n: noms.length }) : T('sous'));
   }
 
   function fermer() {
@@ -184,51 +275,164 @@
     S.ouvert = false;
   }
 
-  function rendre() {
+  /* ── Le filtre ────────────────────────────────────────────────────
+     ⚠️ « Tout a la même tronche, pas de filtre, c'est pas agréable d'aller
+     chercher là-dedans » — mesuré : 27 gestes de 86 px, 2361 px de liste
+     pour 544 px visibles. Une pastille par famille PRÉSENTE (jamais les dix
+     : on ne propose pas de filtrer sur rien), plus une recherche sur le nom
+     de l'objet et sur l'activité. */
+  function rendreFiltres() {
+    var z = document.getElementById('acp-filtres');
+    if (!z) return;
+    if (S.gestes.length < 6) { z.innerHTML = ''; z.hidden = true; return; }
+    z.hidden = false;
+    var compte = {};
+    S.gestes.forEach(function (g) {
+      var f = famDe(g);
+      compte[f] = (compte[f] || 0) + 1;
+    });
+    var fams = Object.keys(compte).sort(function (a, b) {
+      return rangFam(a) - rangFam(b);
+    });
+    var puces = fams.map(function (f) {
+      var d = FAM[f] || FAM.donnee;
+      return '<button type="button" class="acp-pf" data-fam="' + f + '"'
+        + ' aria-pressed="' + (S.fam === f) + '" style="--fc:' + d.c + '">'
+        + '<i class="fa-solid ' + d.ic + '" aria-hidden="true"></i>'
+        + esc(T('g_' + f)) + '<b>' + compte[f] + '</b></button>';
+    }).join('');
+    z.innerHTML = '<div class="acp-pfs">'
+      + '<button type="button" class="acp-pf acp-pf--tout" data-fam=""'
+      + ' aria-pressed="' + (S.fam === null) + '">'
+      + esc(T('filtre_tout')) + '<b>' + S.gestes.length + '</b></button>'
+      + puces + '</div>'
+      + '<label class="acp-rech"><i class="fa-solid fa-magnifying-glass"></i>'
+      + '<input type="search" id="acp-rech" placeholder="' + esc(T('filtre_ph'))
+      + '" aria-label="' + esc(T('filtre_ph')) + '"></label>';
+    var champ = document.getElementById('acp-rech');
+    if (champ) {
+      champ.value = S.texte;
+      /* ⚠️ `input`, pas `change` : sur `change` le filtre n'agirait qu'à la
+         perte du focus, sans la moindre erreur pour le dire. Et on ne
+         re-rend QUE la liste — réécrire la barre ferait perdre le curseur
+         du champ qu'on tape. */
+      champ.addEventListener('input', function () {
+        S.texte = champ.value;
+        rendreListe();
+      });
+    }
+  }
+
+  function retenus() {
+    var txt = S.texte.trim().toLowerCase();
+    return S.gestes.map(function (g, i) { return { g: g, rang: i }; })
+      .filter(function (e) {
+        if (S.fam && famDe(e.g) !== S.fam) return false;
+        if (!txt) return true;
+        return ((e.g.objet || '') + ' ' + (e.g.activite || ''))
+          .toLowerCase().indexOf(txt) >= 0;
+      });
+  }
+
+  /* ── La liste, GROUPÉE PAR FAMILLE ────────────────────────────────
+     ⚠️ L'ordre affiché n'est donc plus celui du rejeu. Ce n'est pas une
+     perte : le numéro de chaque ligne reste son RANG réel — c'est lui que
+     `data-retirer` porte, et c'est lui que le serveur rejoue. Grouper ne
+     change que la lecture. */
+  function rendreListe() {
     var z = document.getElementById('acp-corps');
     if (!z) return;
     if (!S.gestes.length) { rendreMiennes(z); return; }
 
-    /* ⚠️ Un RAIL numéroté, pas une liste de réglages : l'ordre affiché est
-       exactement celui du rejeu à l'application. Le verbe passe en capitales
-       au-dessus, et c'est l'OBJET qu'on vient lire — c'est lui qui porte la
-       police d'affichage. */
-    var lignes = S.gestes.map(function (g, i) {
-      var bouts = String(g.op || '').split('.');
-      // ⚠️ Un outil n'appartient à aucune activité : c'est le catalogue de la
-      // carto. Le dire, plutôt que de laisser une ligne muette.
-      var ou = g.activite ? esc(g.activite) : esc(T('hors_activite'));
-      return '<li class="acp-l">'
-        + '<span class="acp-n">' + (i + 1) + '</span>'
-        + '<div class="acp-l-t">'
-        + '<p class="acp-verbe">' + esc(T('v_' + (bouts[1] || 'update'))) + ' '
-        + esc(T('f_' + (bouts[0] || 'task'))) + '</p>'
-        + '<p class="acp-objet">' + esc(g.objet || '—') + '</p>'
-        + '<p class="acp-ou">' + ou + '</p></div>'
-        + '<button type="button" class="acp-del" data-retirer="' + i + '" '
-        + 'aria-label="' + esc(T('retirer')) + '" title="' + esc(T('retirer')) + '">'
-        + '<i class="fa-solid fa-xmark"></i></button></li>';
+    var liste = retenus();
+    if (!liste.length) {
+      z.innerHTML = '<p class="acp-vide">' + esc(T('filtre_rien')) + '</p>';
+      return;
+    }
+    var paquets = {};
+    liste.forEach(function (e) {
+      var f = famDe(e.g);
+      (paquets[f] = paquets[f] || []).push(e);
+    });
+
+    z.innerHTML = Object.keys(paquets).sort(function (a, b) {
+      return rangFam(a) - rangFam(b);
+    }).map(function (f) {
+      var d = FAM[f] || FAM.donnee;
+      var lignes = paquets[f].map(function (e) {
+        var verbe = String(e.g.op || '').split('.')[1] || 'update';
+        // ⚠️ Un outil n'appartient à aucune activité : c'est le catalogue de
+        // la carto. Le dire, plutôt que de laisser une ligne muette.
+        var ou = e.g.activite ? esc(e.g.activite) : esc(T('hors_activite'));
+        return '<li class="acp-l">'
+          + '<span class="acp-n">' + (e.rang + 1) + '</span>'
+          + '<div class="acp-l-t">'
+          + '<p class="acp-objet">' + esc(e.g.objet || '—') + '</p>'
+          /* ⚠️ Le nom de l'activité est dans un <span> : le `gap` d'une boîte
+             flex ne s'applique qu'entre ÉLÉMENTS, jamais autour d'un nœud de
+             texte nu — relevé à l'écran, « AddManage Commercial Offer ». */
+          + '<p class="acp-ou"><em>' + esc(T('v_' + verbe)) + '</em>'
+          + '<span>' + ou + '</span></p>'
+          + '</div>'
+          + '<button type="button" class="acp-del" data-retirer="' + e.rang + '" '
+          + 'aria-label="' + esc(T('retirer')) + '" title="' + esc(T('retirer')) + '">'
+          + '<i class="fa-solid fa-xmark"></i></button></li>';
+      }).join('');
+      return '<section class="acp-grp" style="--fc:' + d.c + '">'
+        + '<h4 class="acp-gh"><span class="acp-gi"><i class="fa-solid ' + d.ic
+        + '" aria-hidden="true"></i></span>' + esc(T('g_' + f))
+        + '<b>' + paquets[f].length + '</b></h4>'
+        + '<ul class="acp-liste">' + lignes + '</ul></section>';
     }).join('');
+  }
 
-    // ⚠️ Le palier se lit AVANT le message et le bouton : c'est ce qui
-    // décide si l'envoi est possible, et le lire après avoir cliqué serait
-    // le découvrir trop tard.
+  /* ── Le pied : il ne défile plus ───────────────────────────────────
+     ⚠️ Il vivait DANS le corps : sur un portable, il fallait dérouler
+     3191 px de liste pour atteindre « Envoyer ». */
+  function rendrePied() {
+    var z = document.getElementById('acp-pied-z');
+    if (!z) return;
+    if (!S.gestes.length) { z.innerHTML = ''; z.hidden = true; return; }
+    z.hidden = false;
+    // Le palier se lit AVANT le bouton : le découvrir après avoir cliqué
+    // serait le découvrir trop tard.
     var bloque = !!(S.socle && !S.socle.complet);
-
-    z.innerHTML = '<p class="acp-ordre">' + esc(T('ordre')) + '</p>'
-      + '<ol class="acp-liste">' + lignes + '</ol>'
-      + blocSocle(S.socle)
-      + '<label class="acp-msg"><span>' + esc(T('message')) + '</span>'
-      + '<textarea id="acp-message" rows="2" placeholder="'
-      + esc(T('message_ph')) + '"></textarea></label>'
-      + '<div class="acp-pied">'
-      + '<button type="button" class="acp-danger" data-abandonner>'
-      + '<i class="fa-solid fa-trash-can"></i>' + esc(T('abandonner')) + '</button>'
-      + '<span class="sp"></span>'
+    /* ⚠️ Le pied ne se RECONSTRUIT pas s'il est déjà là : le socle arrive en
+       différé et un retrait re-rend tout — réécrire le champ ferait perdre le
+       mot qu'on est en train d'écrire, et le curseur avec. Seul l'état du
+       bouton change. */
+    var deja = document.getElementById('acp-message');
+    if (deja) {
+      var b = z.querySelector('[data-envoyer]');
+      if (b) {
+        b.disabled = bloque;
+        b.setAttribute('aria-disabled', bloque ? 'true' : 'false');
+      }
+      return;
+    }
+    /* ⚠️ Tout sur UNE ligne : le mot pour l'auteur, puis les deux boutons.
+       Le libellé au-dessus d'un champ d'une ligne coûtait 30 px de la
+       hauteur que la liste n'a pas — il passe en invite, et la fenêtre dit
+       déjà à qui ce mot s'adresse. */
+    z.innerHTML = '<div class="acp-pied">'
+      + '<textarea id="acp-message" rows="1" class="acp-msg1" placeholder="'
+      + esc(T('message_ph')) + '" aria-label="' + esc(T('message')) + '"></textarea>'
+      + '<button type="button" class="acp-danger" data-abandonner'
+      + ' title="' + esc(T('abandonner')) + '">'
+      + '<i class="fa-solid fa-trash-can"></i>'
+      + '<span>' + esc(T('abandonner')) + '</span></button>'
       + '<button type="button" class="acp-ok" data-envoyer'
       + (bloque ? ' disabled aria-disabled="true"' : '') + '>'
       + '<span class="ic"><i class="fa-solid fa-paper-plane"></i></span>'
       + esc(T('envoyer')) + '</button></div>';
+  }
+
+  function rendre() {
+    majTitre();
+    rendreSocle();
+    rendreFiltres();
+    rendreListe();
+    rendrePied();
   }
 
   async function rendreMiennes(z) {
@@ -291,8 +495,9 @@
     // Seule une tâche AJOUTÉE s'outille : on ne propose pas d'accrocher un
     // outil à une suppression, ni à un savoir.
     var outillable = e.g.op === 'task.add';
-    return '<li class="acp-pc" data-rang="' + e.rang + '">'
-      + '<span class="acp-pc-ic"><i class="fa-solid fa-hourglass-half"></i></span>'
+    var d = FAM[famDe(e.g)] || FAM.donnee;
+    return '<li class="acp-pc" data-rang="' + e.rang + '" style="--fc:' + d.c + '">'
+      + '<span class="acp-pc-ic"><i class="fa-solid ' + d.ic + '"></i></span>'
       + '<div class="acp-pc-t">'
       + '<p class="acp-pc-v">' + esc(T('v_' + (bouts[1] || 'update'))) + ' '
       + esc(T('f_' + (bouts[0] || 'task'))) + '</p>'
@@ -321,12 +526,30 @@
 
       var liste = par[id];
       var racines = liste.filter(function (e) { return !(e.g.vise || []).length; });
+      /* ⚠️ Groupées PAR FAMILLE : les tâches avec les tâches, les
+         savoir-faire avec les savoir-faire. À plat, une fiche qui porte six
+         gestes de quatre natures se lisait comme un tas. Le rang réel reste
+         sur chaque carte — c'est lui que `data-retirer` porte. */
+      racines.sort(function (x, y) {
+        var d = rangFam(famDe(x.g)) - rangFam(famDe(y.g));
+        return d !== 0 ? d : x.rang - y.rang;
+      });
 
+      var fam = null;
       var html = racines.map(function (e) {
         var enfants = liste.filter(function (f) {
           return (f.g.vise || []).indexOf(e.rang) >= 0;
         });
-        return carteGeste(e, enfants);
+        var f = famDe(e.g);
+        var tete = '';
+        if (f !== fam) {
+          fam = f;
+          var d = FAM[f] || FAM.donnee;
+          tete = '<li class="acp-pf-h" style="--fc:' + d.c + '">'
+            + '<i class="fa-solid ' + d.ic + '" aria-hidden="true"></i>'
+            + esc(T('g_' + f)) + '</li>';
+        }
+        return tete + carteGeste(e, enfants);
       }).join('');
       // Un geste dont la cible n'est pas sur cette fiche reste visible seul :
       // mieux vaut une carte orpheline qu'un geste invisible.
@@ -494,6 +717,13 @@
     S.ouvert = false;
     await charger();
     S.ouvert = true;
+    // ⚠️ Les trois zones FIXES se vident aussi : laissées en place, l'écran
+    // de fin s'afficherait sous une bande de palier et au-dessus d'un bouton
+    // « Envoyer » qui n'a plus rien à envoyer.
+    ['acp-socle-z', 'acp-filtres', 'acp-pied-z'].forEach(function (id) {
+      var n = document.getElementById(id);
+      if (n) { n.innerHTML = ''; n.hidden = true; }
+    });
     var z = document.getElementById('acp-corps');
     if (z) {
       z.innerHTML = '<div class="acp-fini">'
@@ -501,6 +731,24 @@
         + '<b>' + esc(T('envoye')) + '</b>'
         + '<p>' + esc(T('envoye_d')) + '</p></div>';
     }
+  }
+
+  /* Ouvrir l'activité à compléter, depuis la liste du palier : la fenêtre se
+     ferme, la page défile jusqu'à sa fiche et l'ouvre. C'est ce qui fait de
+     cette liste un plan de travail plutôt qu'un rapport. */
+  function allerA(activityId) {
+    fermer();
+    var hote = document.querySelector('.tasks-section-modern[data-acp-act="'
+                                      + activityId + '"]');
+    var carte = hote ? hote.closest('.activity-container') : null;
+    if (!carte) { signaler(T('socle_introuvable')); return; }
+    var tete = carte.querySelector('.activity-header');
+    // ⚠️ On n'ouvre que si la fiche est FERMÉE : un second clic la
+    // refermerait juste après l'avoir montrée.
+    if (tete && !hote.offsetParent) tete.click();
+    carte.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    carte.classList.add('est-pointee');
+    setTimeout(function () { carte.classList.remove('est-pointee'); }, 1600);
   }
 
   /* ⚠️ Un TOAST, pas une modale. Corriger une fiche, c'est cinq ou six
@@ -562,6 +810,12 @@
     if (ok) { validerOutils(parseInt(ok.dataset.outilsOk, 10)); return; }
     var ko = e.target.closest ? e.target.closest('[data-outils-annuler]') : null;
     if (ko) { ouvrirOutils(parseInt(ko.dataset.outilsAnnuler, 10)); return; }
+    var pf = e.target.closest ? e.target.closest('[data-fam]') : null;
+    if (pf) { S.fam = pf.dataset.fam || null; rendreFiltres(); rendreListe(); return; }
+    var sv = e.target.closest ? e.target.closest('[data-socle-voir]') : null;
+    if (sv) { S.socleOuvert = !S.socleOuvert; rendreSocle(); return; }
+    var al = e.target.closest ? e.target.closest('[data-aller]') : null;
+    if (al) { allerA(parseInt(al.dataset.aller, 10)); return; }
     var r = e.target.closest ? e.target.closest('[data-retirer]') : null;
     if (r) { retirer(parseInt(r.dataset.retirer, 10)); return; }
     if (e.target.closest && e.target.closest('[data-abandonner]')) { abandonner(); return; }
