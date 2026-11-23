@@ -424,6 +424,18 @@
   async function sendWeakness(save=false, discret=false){
     const modeEl = $$('input[name="fw-mode"]:checked')[0];
     if (!modeEl) { if (!discret) showFwFeedback(false, tl('error', 'Erreur')); return; }
+    /* ⚠️ Sans activité choisie, il n'y a rien à calculer NI à enregistrer :
+       `discret` (le calcul en direct) sort en silence — on ne reproche pas
+       un choix qu'on n'a pas encore eu le temps de faire — tandis que
+       « Enregistrer » le dit. */
+    if (!$('#fw-activity')?.value) {
+      // Et le panneau revient à son état vide : un bilan laissé à l'écran
+      // décrirait l'analyse précédente, pas celle qu'on commence.
+      document.getElementById('fw-results-section')?.classList.add('hidden');
+      document.getElementById('fw-results-empty')?.classList.remove('hidden');
+      if (!discret && save) showFwFeedback(false, tl('err_sans_activite', ''));
+      return;
+    }
     const mode = modeEl.value;
 
     const payload = {
@@ -567,6 +579,9 @@
 
     async function prefillDefaults(){
       const id = act.value;
+      // ⚠️ Rien n'est choisi au départ : interroger `/activity_defaults/`
+      // sans identifiant rend une 404 que personne ne lit.
+      if (!id) { recalc(); return; }
       const r = await fetch(`/temps/api/activity_defaults/${id}`);
       const j = await r.json();
       const cDur = tr.querySelector('.cell-dur'), cDel = tr.querySelector('.cell-del');
@@ -786,6 +801,12 @@
 
   addLineBtn?.addEventListener('click', ()=> addProjectRow());
   saveProjBtn?.addEventListener('click', async ()=>{
+    // ⚠️ Une ligne de projet dont l'activité n'est pas choisie n'a pas de
+    // sujet : enregistrée, elle comptait pour la première activité de la
+    // carto. On NOMME la ligne fautive plutôt que de refuser en bloc.
+    if ($$('#project-rows tr').some(tr => !tr.querySelector('.cell-act select').value)) {
+      return flashFeedback('proj-feedback', false, tl('err_ligne_sans_activite', ''));
+    }
     const rows = $$('#project-rows tr').map(tr=>({
       activity_id: parseInt(tr.querySelector('.cell-act select').value, 10),
       duration: parseFloat(tr.querySelector('.cell-dur').value || '0'),
@@ -820,7 +841,9 @@
   // =====================================================
   async function refreshActivityDefaults() {
     const act = $('#act-activity')?.value;
-    if (!act) return;
+    // Aucune activité choisie : le total repart à zéro. Laissé tel quel, il
+    // affichait la charge de l'analyse précédente sous un formulaire vide.
+    if (!act) { $('#act-total').textContent = fmtH(0); return; }
     const r = await fetch(`/temps/api/activity_defaults/${act}`);
     const j = await r.json();
     if (intact($('#act-duration'))) {
@@ -857,6 +880,14 @@
     });
 
   $('#btn-act-save')?.addEventListener('click', async ()=>{
+    /* ⚠️ Rien n'est choisi tant que rien n'est choisi. La liste s'ouvrait
+       sur la PREMIÈRE activité de la carto : on enregistrait une charge sur
+       une activité que personne n'avait désignée, et l'écran annonçait
+       « enregistré ». Le serveur refuse aussi — le masquage n'est pas une
+       garde. */
+    if (!v('#act-activity')) {
+      return flashFeedback('act-feedback', false, tl('err_sans_activite', ''));
+    }
     const payload = {
       activity_id: parseInt(v('#act-activity'),10),
       duration: n('#act-duration'),
@@ -1017,6 +1048,9 @@
 
   async function loadRoleActivities(roleId){
     roleBody.innerHTML = '';
+    // Aucun rôle choisi : la table reste vide, et c'est juste — il n'y a
+    // aucune activité à montrer tant qu'on n'a pas dit de qui on parle.
+    if (!roleId) { roleActivitiesOptions = []; return; }
     const ok = await chargerOptionsRole(roleId);
     if (!ok) { roleBody.innerHTML = `<tr><td colspan="6" class="muted">${tl('load_error', 'Erreur de chargement')}</td></tr>`; return; }
     if (!roleActivitiesOptions.length) {
@@ -1033,6 +1067,10 @@
   $('#role-select')?.addEventListener('change', (e)=> loadRoleActivities(e.target.value));
 
   $('#btn-role-save')?.addEventListener('click', async ()=>{
+    if (!$('#role-select')?.value) {
+      flashFeedback('role-feedback', false, tl('err_sans_role', ''));
+      return;
+    }
     const lines = $$('#role-rows tr').filter(tr=>tr.querySelector('.r-rec select')).map(tr=>({
       activity_id: parseInt(tr.dataset.activityId || '0', 10),
       duration: parseFloat(tr.querySelector('.r-dur').value || '0'),
@@ -1083,16 +1121,24 @@
       if (projectBody) projectBody.innerHTML = '';
       addProjectRow(); recalcProjectTotals();
     }
+    /* ⚠️ Le SÉLECTEUR aussi : c'est lui qu'on oubliait. Un `<select>` sans
+       option vide s'ouvre sur sa première ligne, et le navigateur garde en
+       plus le choix précédent d'une page à l'autre — on repartait donc d'une
+       activité qui n'avait rien à voir avec ce qu'on venait créer. */
     if (type === 'activite') {
       ['#act-duration'].forEach(x => { const c = $(x); if (c) delete c.dataset.saisi; });
+      $('#act-activity').value = '';
+      $('#act-duration').value = '';
       $('#act-frequency').value = 1; $('#act-people').value = 1;
       refreshActivityDefaults();
     }
     if (type === 'role') {
       $('#role-name').value = '';
-      if ($('#role-select')?.value) loadRoleActivities($('#role-select').value);
+      if ($('#role-select')) $('#role-select').value = '';
+      loadRoleActivities('');
     }
     if (type === 'faiblesse') {
+      if ($('#fw-activity')) $('#fw-activity').value = '';
       $('#fw-k').value = '';
       ['#fw-l', '#fw-m'].forEach(x => { const c = $(x); if (c) c.value = ''; });
       $('#fw-n').value = 1; $('#fw-freq').value = 1;

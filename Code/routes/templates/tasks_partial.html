@@ -35,7 +35,15 @@
   });
 </script>
 {# Code/routes/templates/tasks_partial.html - Version compacte moderne #}
-<div class="tasks-section-modern">
+{# ⚠️ `data-acp-act` est l'ancre des gestes EN ATTENTE : sur une carto
+   commune, ce qu'un champion saisit part dans sa proposition et n'atteint
+   jamais la base — la tâche ne s'affichait donc nulle part, et il fallait
+   ouvrir la fenêtre du haut de page pour relire ce qu'on venait d'écrire.
+   `activite_propositions.js` vient y poser les cartes « en attente ».
+   ⚠️ L'attribut est sur CE conteneur et pas sur `#tasks-list-<id>` : ce
+   dernier n'est rendu QUE si l'activité porte déjà une tâche, c'est-à-dire
+   jamais dans le cas qui nous occupe. #}
+<div class="tasks-section-modern" data-acp-act="{{ activity.id }}">
 
   {% if tasks and tasks|length > 0 %}
     <ul class="tasks-list-compact" id="tasks-list-{{ activity.id }}">

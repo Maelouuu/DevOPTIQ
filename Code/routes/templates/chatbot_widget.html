@@ -34,6 +34,15 @@
     lbl_create:       {{ t('chat.lbl_create') | tojson }},
     loaded:           {{ t('chat.loaded') | tojson }},
     inject:           {{ t('chat.inject') | tojson }},
+    {# ⚠️ Ces six-là manquaient, et `_clearDraft()` RÉÉCRIVAIT le bouton du
+       gabarit avec du français en dur — le même piège que la modale
+       « Traduire les soft skills ». C'est ce que le pilote voyait. #}
+    inject_sub:       {{ t('chat.inject_sub') | tojson }},
+    inject_sub_prop:  {{ t('chat.inject_sub_prop') | tojson }},
+    injecting:        {{ t('chat.injecting') | tojson }},
+    injected:         {{ t('chat.injected') | tojson }},
+    inject_err:       {{ t('chat.inject_err') | tojson }},
+    proposed:         {{ t('chat.proposed') | tojson }},
     st_wait:          {{ t('chat.st_wait') | tojson }},
     st_wait_d:        {{ t('chat.st_wait_d') | tojson }},
     st_ready:         {{ t('chat.st_ready') | tojson }},
@@ -41,6 +50,10 @@
     st_done:          {{ t('chat.st_done') | tojson }},
     st_done_d:        {{ t('chat.st_done_d') | tojson }}
   });
+  {# Sur une carto commune, un champion PROPOSE : l'assistant doit le dire
+     AVANT d'injecter, pas seulement après. Le drapeau vient du processeur de
+     contexte, le même qui décide d'afficher le bandeau des propositions. #}
+  window.CHAT_PROPOSE = {{ (propose_activites | default(false)) | tojson }};
 </script>
 
 <!-- Overlay + Modal -->
@@ -127,7 +140,9 @@
             <i class="fa-solid fa-wand-magic-sparkles"></i>
             <span id="chatbot-inject-label">{{ t('chat.inject').replace('[[n]]', '0') }}</span>
           </span>
-          <span class="inject-subtitle">{{ t('chat.inject_sub') }}</span>
+          {# Qui PROPOSE ne voit pas sa tâche arriver dans la fiche : le
+             sous-titre doit le dire avant le clic, pas après. #}
+          <span class="inject-subtitle">{{ t('chat.inject_sub_prop' if propose_activites else 'chat.inject_sub') }}</span>
         </button>
 
       </div><!-- /#chatbot-draft -->

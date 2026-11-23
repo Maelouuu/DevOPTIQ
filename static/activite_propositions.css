@@ -393,3 +393,145 @@
   background: #ece4d6; color: var(--acp-encre2); box-shadow: none;
 }
 .acp-ok[disabled]:hover { transform: none; box-shadow: none; }
+
+/* ══ CE QU'ON A ÉCRIT, POSÉ DANS SON ACTIVITÉ ═══════════════════════════
+   ⚠️ Le défaut de fond du palier, relevé à l'usage : la tâche qu'un champion
+   vient d'écrire part dans son brouillon et n'atteint jamais la base — la
+   fiche restait donc muette, et il fallait remonter en haut de page pour
+   relire ce qu'on venait de saisir. Sur cent cinquante activités, c'est
+   intenable.
+
+   ⚠️ Ces lignes ne se CONFONDENT jamais avec les vraies : fond ambre,
+   hachure, pointillé. Elles ne sont pas dans l'activité — elles y seront si
+   le coordinateur les applique, et c'est tout ce que la couleur doit dire.
+   Même ambre que le bandeau et la fenêtre : c'est la couleur de la
+   gouvernance, pas celle de la page. */
+.acp-pose {
+  margin: 10px 0 14px;
+  padding: 12px 14px 13px;
+  border: 1px dashed var(--acp-or);
+  border-radius: 13px;
+  background:
+    repeating-linear-gradient(135deg,
+      rgba(232, 168, 76, .055) 0 7px, transparent 7px 15px),
+    #fffbf3;
+}
+
+.acp-pose-h {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 3px;
+  font-size: 12.5px; font-weight: 800; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--acp-or-f);
+}
+.acp-pose-h i { font-size: 11.5px; }
+.acp-pose-n {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: var(--acp-or-f); color: #fff;
+  font-size: 11.5px; font-weight: 800; letter-spacing: 0;
+}
+.acp-pose-d {
+  margin: 0 0 10px; font-size: 12px; line-height: 1.45;
+  color: var(--acp-sur);
+}
+
+.acp-pose-l { list-style: none; margin: 0; padding: 0;
+              display: flex; flex-direction: column; gap: 8px; }
+
+.acp-pc {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 10px; border-radius: 11px;
+  background: #fff; border: 1px solid var(--acp-trait);
+}
+.acp-pc-ic {
+  flex: none; width: 26px; height: 26px; border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, #e8a84c 18%, #fff);
+  color: var(--acp-or-f); font-size: 11.5px;
+}
+.acp-pc-t { flex: 1; min-width: 0; }
+.acp-pc-v {
+  margin: 0; font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--acp-encre2);
+}
+/* L'OBJET est ce qu'on vient lire — c'est lui qui porte la police
+   d'affichage, comme dans la fenêtre d'examen. */
+.acp-pc-o {
+  margin: 1px 0 0; font-family: var(--pg-font-display, inherit);
+  font-size: 15px; font-weight: 600; color: var(--acp-encre);
+  overflow-wrap: anywhere;
+}
+.acp-pc-chips { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 5px; }
+.acp-pc-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 4px 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, #e8a84c 13%, #fff);
+  border: 1px solid var(--acp-or-p);
+  font-size: 11.5px; color: var(--acp-encre);
+}
+.acp-pc-chip i { font-size: 10px; color: var(--acp-or-f); }
+.acp-pc-chipx {
+  border: 0; background: none; cursor: pointer; padding: 0 2px;
+  color: var(--acp-sur); font-size: 10px; line-height: 1;
+}
+.acp-pc-chipx:hover { color: #b91c1c; }
+
+.acp-pc-plus {
+  margin-top: 7px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--acp-or-p); background: #fff;
+  font-size: 12px; font-weight: 600; color: var(--acp-or-f);
+}
+.acp-pc-plus:hover { background: color-mix(in srgb, #e8a84c 10%, #fff); }
+
+.acp-pc-x {
+  flex: none; border: 0; background: none; cursor: pointer;
+  width: 24px; height: 24px; border-radius: 7px;
+  color: var(--acp-encre2); font-size: 12px;
+}
+.acp-pc-x:hover { background: #fee2e2; color: #b91c1c; }
+
+/* ── Le choix des outils, DANS la carte ────────────────────────────────
+   ⚠️ Pas une fenêtre : on en ouvre une par tâche, et une modale par-dessus
+   la fiche cacherait justement la tâche qu'on outille. */
+.acp-pc-form[hidden] { display: none; }
+.acp-of { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--acp-trait); }
+.acp-of-att, .acp-of-vide { margin: 0 0 6px; font-size: 12px; color: var(--acp-sur); }
+.acp-of-l {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  max-height: 148px; overflow-y: auto; margin-bottom: 8px;
+}
+.acp-of-p {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--acp-trait); background: #fff; font-size: 12px;
+}
+.acp-of-p:hover { border-color: var(--acp-or); }
+.acp-of-p i { font-size: 10px; color: var(--acp-sur); }
+.acp-of-n { display: block; }
+.acp-of-n span {
+  display: block; margin-bottom: 3px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--acp-encre2);
+}
+.acp-of-n input {
+  width: 100%; box-sizing: border-box; padding: 6px 9px;
+  border: 1px solid var(--acp-trait); border-radius: 9px; font-size: 13px;
+}
+.acp-of-err { margin: 6px 0 0; font-size: 12px; color: #b91c1c; }
+.acp-of-err[hidden] { display: none; }
+.acp-of-pied { display: flex; gap: 8px; justify-content: flex-end; margin-top: 9px; }
+.acp-of-ko, .acp-of-ok {
+  padding: 5px 13px; border-radius: 999px; cursor: pointer;
+  font-size: 12.5px; font-weight: 600;
+}
+.acp-of-ko { border: 1px solid var(--acp-trait); background: #fff; color: var(--acp-encre2); }
+.acp-of-ok {
+  border: 0; color: #fff;
+  background: linear-gradient(135deg, var(--acp-or), var(--acp-or-f));
+}
+
+@media (max-width: 620px) {
+  .acp-of-pied { justify-content: stretch; }
+  .acp-of-ko, .acp-of-ok { flex: 1; }
+}

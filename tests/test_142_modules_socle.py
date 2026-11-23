@@ -756,7 +756,14 @@ class TestEcritureRefus:
         with app.test_request_context("/tasks/add", method="POST",
                                       headers={"Accept": "text/html"}):
             corps, statut = _refus("lecture_seule")
-            assert statut == 403 and corps.get_json()["error"] == "lecture seule"
+            # ⚠️ Le motif est une CLÉ depuis le 23/11 : le comparer à une
+            # phrase française reviendrait à exiger que le refus sorte en
+            # français sur une interface anglaise — exactement ce qui a été
+            # signalé dans le chatbot du pilote.
+            from Code.translations import t
+            assert statut == 403
+            assert corps.get_json()["error"] == t("porte.lecture_seule")
+            assert corps.get_json()["code"] == "lecture_seule"
 
 
 class TestEcritureDroits:
@@ -791,7 +798,12 @@ class TestEcritureDroits:
 
     def test_geste_non_rejouable_est_refuse(self, app, monkeypatch):
         from Code import ecriture, propositions_activite
-        monkeypatch.setattr(propositions_activite, "lire_geste", lambda *a: None)
+        # ⚠️ `**k` : `lire_geste` reçoit `deja` depuis le 23/11 — les gestes
+        # déjà rangés, dont celui-ci tire son activité quand il vise une tâche
+        # encore en attente. Un faux qui ne l'accepte pas lève une TypeError
+        # et le cas n'éprouve plus rien de ce qu'il dit éprouver.
+        monkeypatch.setattr(propositions_activite, "lire_geste",
+                            lambda *a, **k: None)
         with app.test_request_context("/tasks/add", method="POST", json={}):
             corps, statut = ecriture._detourner()
             assert statut == 403 and corps.get_json()["code"] == "lecture_seule"

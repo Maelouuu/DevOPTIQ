@@ -31,10 +31,85 @@ afficherait « Ajouter la tâche… » à un anglophone. C'est la leçon déjà 
 sur le journal d'activité récente (`changelog._libelle_evenement`).
 """
 import json
+import re
 
 from flask import current_app, session
 
 from Code.extensions import db
+
+
+# ── Désigner ce qui n'existe pas encore ───────────────────────────────────
+#
+# ⚠️⚠️ Le palier de soumission exige au moins un OUTIL par activité, et un
+# outil se rattache à une TÂCHE. Sur une activité vierge, le champion crée
+# donc la tâche (geste 0) puis veut l'outiller — mais la tâche n'existe pas en
+# base : elle n'a aucun identifiant. Le palier était **infranchissable**, et
+# c'est ce que l'usage a montré (« comment j'associe un outil à une tâche si
+# elle n'apparaît pas »).
+#
+# ⚠️ Et on ne peut PAS écrire l'identifiant que la simulation vient de
+# produire : il naît d'un `flush` annulé juste après, et le vrai rejeu, à
+# l'approbation, en donnera un autre. Un geste qui le porterait viserait une
+# ligne au hasard.
+#
+# Un geste désigne donc le RANG du geste qui crée l'objet — `b:0` — et le
+# rejeu le résout par ce qu'il vient réellement d'écrire.
+REF = re.compile(r"^b:(\d+)$")
+
+
+def rang_de_la_ref(valeur):
+    """Le rang visé par une référence locale, ou None si ce n'en est pas une."""
+    if not isinstance(valeur, str):
+        return None
+    m = REF.match(valeur.strip())
+    return int(m.group(1)) if m else None
+
+
+def ref_vers(rang):
+    return "b:%d" % rang
+
+
+def refs_du_corps(corps):
+    """Les rangs référencés par ce corps, quelle que soit la clé."""
+    rangs = set()
+    if not isinstance(corps, dict):
+        return rangs
+    for valeur in corps.values():
+        if isinstance(valeur, list):
+            for element in valeur:
+                rang = rang_de_la_ref(element)
+                if rang is not None:
+                    rangs.add(rang)
+            continue
+        rang = rang_de_la_ref(valeur)
+        if rang is not None:
+            rangs.add(rang)
+    return rangs
+
+
+def _reecrire_refs(corps, decaler):
+    """Rend une copie du corps dont chaque référence passe par `decaler`.
+
+    `decaler(rang)` rend le nouveau rang, ou None pour laisser la valeur
+    telle quelle.
+    """
+    if not isinstance(corps, dict):
+        return corps
+    neuf = {}
+    for cle, valeur in corps.items():
+        if isinstance(valeur, list):
+            neuf[cle] = [_une_ref(v, decaler) for v in valeur]
+        else:
+            neuf[cle] = _une_ref(valeur, decaler)
+    return neuf
+
+
+def _une_ref(valeur, decaler):
+    rang = rang_de_la_ref(valeur)
+    if rang is None:
+        return valeur
+    neuf = decaler(rang)
+    return valeur if neuf is None else ref_vers(neuf)
 
 
 # ── Ce qui se propose, et ce qui reste refusé ─────────────────────────────
@@ -109,6 +184,13 @@ def chemin_propasable(chemin):
     # liste, et le retour « Unable to set the garentor » du pilote.
     if chemin.startswith("/roles/garant/activity/"):
         return True
+    # ⚠️ L'assistant IA crée des TÂCHES — avec leurs outils et parfois un lien
+    # sortant. C'est donc une écriture de données d'activité comme une autre,
+    # et elle se propose. Sans cette ligne, un champion se voyait répondre
+    # « lecture seule » par le chatbot (relevé chez le pilote), alors qu'il a
+    # le droit de proposer la même tâche à la main.
+    if chemin == "/api/chatbot/inject":
+        return True
     # Deux formulaires de la fiche activité vivent sous /activities.
     return chemin.startswith(("/activities/constraints/", "/activities/data/"))
 
@@ -126,11 +208,17 @@ def _nom_activite(activity_id):
     return a.name if a else None
 
 
-def lire_geste(chemin, methode, corps):
+def lire_geste(chemin, methode, corps, deja=None):
     """Décrit le geste : quelle opération, sur quel objet, dans quelle activité.
 
     Rend `None` quand le chemin n'est pas de ceux qu'on propose — la porte
     refuse alors comme avant.
+
+    `deja` est la liste des gestes DÉJÀ rangés dans le brouillon : elle sert à
+    retrouver l'activité d'un geste qui vise un objet encore en attente
+    (« outiller la tâche du geste 0 »). Sans elle, ce geste n'aurait aucune
+    activité et se rangerait « hors activité » — là où le champion ne le
+    retrouverait pas.
     """
     if not chemin_propasable(chemin):
         return None
@@ -150,6 +238,12 @@ def lire_geste(chemin, methode, corps):
     garant = bouts[:2] == ["roles", "garant"]
     if garant:
         famille = "garant"
+    # ⚠️ L'assistant IA injecte des TÂCHES : son chemin commence par « api »,
+    # donc `_SEGMENTS` ne le reconnaît pas et la famille retombait sur
+    # « donnee » — le coordinateur aurait lu « Ajouter la donnée » pour une
+    # fournée de tâches.
+    if chemin == "/api/chatbot/inject":
+        famille = "task"
 
     verbe = {"POST": "add", "PUT": "update", "PATCH": "update",
              "DELETE": "delete"}.get(methode, "update")
@@ -181,6 +275,8 @@ def lire_geste(chemin, methode, corps):
         activity_id = _entier(corps.get("activity_id"))
     if activity_id is None:
         activity_id = _activite_du_chemin(famille, bouts)
+    if activity_id is None:
+        activity_id = _activite_dun_geste_vise(corps, deja)
 
     return {
         "op": "%s.%s" % (famille, verbe),
@@ -191,6 +287,23 @@ def lire_geste(chemin, methode, corps):
         "activite": _nom_activite(activity_id),
         "objet": _nom_objet(famille, bouts, corps),
     }
+
+
+def _activite_dun_geste_vise(corps, deja):
+    """L'activité du geste que celui-ci référence, s'il en vise un.
+
+    Outiller une tâche encore en attente, c'est travailler sur l'activité de
+    cette tâche : le geste doit se relire sous la MÊME fiche, sinon il part
+    « hors activité » et le champion ne le retrouve nulle part.
+    """
+    if not deja:
+        return None
+    for rang in sorted(refs_du_corps(corps)):
+        if 0 <= rang < len(deja):
+            vise = deja[rang].get("activity_id")
+            if vise:
+                return vise
+    return None
 
 
 def _activite_de_la_tache(task_id):
@@ -237,6 +350,18 @@ def _nom_objet(famille, bouts, corps):
         from Code.models.models import Role
         role = db.session.get(Role, _entier(corps.get("role_id")))
         return role.name if role else None
+    # ⚠️ L'assistant IA injecte une FOURNÉE : ses libellés sont dans
+    # `tasks[].label`, et aucun `name` ne traîne à la racine du corps. Sans ce
+    # cas la proposition se lisait « Ajouter la tâche — », et le coordinateur
+    # devait ouvrir le JSON pour savoir laquelle.
+    fournee = corps.get("tasks")
+    if isinstance(fournee, list) and fournee:
+        libelles = [str(t.get("label") or "").strip()
+                    for t in fournee if isinstance(t, dict)]
+        libelles = [n for n in libelles if n]
+        if libelles:
+            return (libelles[0][:200] if len(libelles) == 1
+                    else "%s +%d" % (libelles[0][:180], len(libelles) - 1))
     for cle in ("name", "description", "nom"):
         valeur = (corps.get(cle) or "").strip() if isinstance(corps.get(cle), str) else ""
         if valeur:
@@ -343,16 +468,48 @@ def ajouter_geste(user, entity, geste):
 
 
 def retirer_geste(cr, rang):
-    """Retire un geste du brouillon. Le brouillon vidé est supprimé."""
+    """Retire un geste du brouillon. Le brouillon vidé est supprimé.
+
+    ⚠️⚠️ Un geste peut en VISER un autre par son rang (`b:0`) : retirer la
+    tâche emporte donc les outils qu'on lui avait rattachés — ils ont perdu
+    leur sujet, et le rejeu buterait dessus à l'approbation. Et les rangs de
+    ce qui RESTE se décalent : sans renumérotation, « outiller la tâche du
+    geste 3 » se mettrait à désigner le geste 2, c'est-à-dire n'importe quoi.
+    """
     liste = gestes(cr)
     if rang < 0 or rang >= len(liste):
         return False
-    liste.pop(rang)
-    if not liste:
+
+    # Ce qui tombe : le geste visé, et de proche en proche tout ce qui le
+    # référence (un outil posé sur une tâche posée sur…).
+    condamnes = {rang}
+    change = True
+    while change:
+        change = False
+        for i, geste in enumerate(liste):
+            if i in condamnes:
+                continue
+            if refs_du_corps(geste.get("corps")) & condamnes:
+                condamnes.add(i)
+                change = True
+
+    restants = [g for i, g in enumerate(liste) if i not in condamnes]
+    if not restants:
         db.session.delete(cr)
         db.session.commit()
         return True
-    cr.actions = json.dumps(liste, ensure_ascii=False)
+
+    # Les rangs se resserrent : on écrit la table ancien → nouveau une fois,
+    # et chaque référence la suit.
+    nouveau = {}
+    for i in range(len(liste)):
+        if i not in condamnes:
+            nouveau[i] = len(nouveau)
+    for geste in restants:
+        geste["corps"] = _reecrire_refs(geste.get("corps"),
+                                        lambda r: nouveau.get(r))
+
+    cr.actions = json.dumps(restants, ensure_ascii=False)
     db.session.commit()
     return True
 
@@ -399,10 +556,15 @@ def _appliquer_gestes(liste):
     app = current_app._get_current_object()
     adaptateur = app.url_map.bind("localhost")
     memoire = dict(session)
+    # ⚠️ Ce que CE rejeu vient d'écrire, rang par rang. Les identifiants ne
+    # survivent pas d'un rejeu à l'autre (la simulation annule tout) : une
+    # référence `b:0` ne peut se résoudre qu'ici, et seulement ici.
+    nes = {}
     for rang, geste in enumerate(liste):
         chemin = geste.get("chemin") or ""
         methode = (geste.get("methode") or "POST").upper()
         corps = geste.get("corps") if isinstance(geste.get("corps"), dict) else {}
+        corps = _resoudre_refs(corps, nes, rang, geste)
         try:
             point, args = adaptateur.match(chemin, method=methode)
         except Exception as exc:
@@ -418,9 +580,12 @@ def _appliquer_gestes(liste):
                 reponse = vue(**args)
             except Exception as exc:
                 raise EchecDeRejeu(rang, geste, str(exc))
+            ne = _id_cree(reponse)
         statut = _statut(reponse)
         if statut >= 400:
             raise EchecDeRejeu(rang, geste, "HTTP %s" % statut)
+        if ne is not None:
+            nes[rang] = ne
 
 
 def rejouer(cr, acteur):
@@ -478,6 +643,51 @@ def simuler(cr, mesurer):
     finally:
         db.session.commit = vrai_commit
         db.session.rollback()
+
+
+def _resoudre_refs(corps, nes, rang, geste):
+    """Remplace les `b:N` du corps par ce que le geste N vient d'écrire.
+
+    ⚠️ Un rang qui n'a RIEN produit lève : laisser passer la chaîne « b:0 »
+    la ferait arriver jusqu'à `int()` dans la route visée, et le rejeu
+    s'arrêterait sur une pile Python au lieu d'un motif lisible. Un geste qui
+    vise un objet jamais créé ne s'applique pas, et il faut le dire.
+    """
+    rangs = refs_du_corps(corps)
+    if not rangs:
+        return corps
+    for vise in rangs:
+        if vise not in nes:
+            raise EchecDeRejeu(rang, geste, "ref: b:%d" % vise)
+    return _reecrire_refs_valeurs(corps, nes)
+
+
+def _reecrire_refs_valeurs(corps, nes):
+    neuf = {}
+    for cle, valeur in corps.items():
+        if isinstance(valeur, list):
+            neuf[cle] = [_valeur_resolue(v, nes) for v in valeur]
+        else:
+            neuf[cle] = _valeur_resolue(valeur, nes)
+    return neuf
+
+
+def _valeur_resolue(valeur, nes):
+    rang = rang_de_la_ref(valeur)
+    return valeur if rang is None else nes[rang]
+
+
+def _id_cree(reponse):
+    """L'identifiant que cette réponse annonce avoir créé, ou None."""
+    corps = reponse[0] if isinstance(reponse, tuple) else reponse
+    try:
+        donnees = corps.get_json(silent=True)
+    except Exception:
+        return None
+    if not isinstance(donnees, dict):
+        return None
+    valeur = donnees.get("id")
+    return valeur if isinstance(valeur, int) else None
 
 
 def _statut(reponse):

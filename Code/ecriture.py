@@ -62,6 +62,22 @@ TOUT_COMPTE = (
     # Chacun choisit sa langue et son mot de passe.
     "/parametres/set_language",
     "/parametres/change_password",
+    # ⚠️ « J'ai vu la fenêtre de bienvenue » — aucune donnée métier : une ligne
+    # dans `welcome_seen`, qui dit seulement que CE compte a lu CES nouveautés.
+    # Refusée, elle n'était jamais écrite, et la fenêtre revenait à CHAQUE page
+    # pour tout compte sans droit d'écriture : c'est le défaut signalé sur
+    # staging (403 sur `/api/bienvenue/vue` dans la console). La route porte sa
+    # propre garde (401 sans compte) et calcule la signature elle-même — le
+    # navigateur ne décide de rien.
+    "/api/bienvenue/vue",
+    # ⚠️ Le chatbot CONVERSE : `/api/chatbot/chat` n'écrit pas une ligne, il
+    # appelle l'IA et rend du texte. Il est en POST parce qu'il porte un
+    # historique, pas parce qu'il modifie quoi que ce soit. Refusé, il répondait
+    # « lecture seule » à un champion qui a pourtant le droit de PROPOSER des
+    # tâches — et c'est précisément ce que l'assistant sert à préparer.
+    # ⚠️ `/api/chatbot/inject`, lui, écrit : il reste sous la porte, et se
+    # propose comme n'importe quel ajout de tâche (voir `_SEGMENTS`).
+    "/api/chatbot/chat",
     # Paramètres : les sections d'administration ont leur propre garde
     # (`parametres_admin`), et elle est PLUS stricte que celle-ci.
     "/parametres",
@@ -114,9 +130,14 @@ def _hors_compte(chemin):
     return chemin.startswith(SANS_COMPTE)
 
 
+# ⚠️ Le motif est une CLÉ, pas une phrase. Le texte part tel quel dans la
+# réponse, et plusieurs écrans l'affichent sans le relire — le chatbot en tête
+# (`_appendBotMessage('❌ ' + data.error)`). Écrit en dur, il montrait « lecture
+# seule » en plein milieu d'une interface anglaise, et c'est ce que le pilote a
+# relevé. Le code, lui, ne change pas : c'est lui que le JS teste.
 MOTIF = {
-    "non_connecte": ("non connecté", 401),
-    "lecture_seule": ("lecture seule", 403),
+    "non_connecte": ("porte.non_connecte", 401),
+    "lecture_seule": ("porte.lecture_seule", 403),
 }
 
 # ⚠️ Un verdict qui n'est PAS un refus : le geste est détourné vers une
@@ -128,7 +149,9 @@ def _refus(code):
     """Un refus LISIBLE — en JSON pour une API, par la page de connexion pour
     une navigation. ⚠️ Rendre du HTML à un `fetch()` ne lui apprend rien : le
     JS afficherait « erreur inattendue » au lieu du motif."""
-    texte, statut = MOTIF[code]
+    from Code.translations import t
+    cle, statut = MOTIF[code]
+    texte = t(cle)
     navigation = (request.accept_mimetypes.accept_html
                   and not request.is_json
                   and request.headers.get("X-Requested-With") != "XMLHttpRequest"
@@ -236,13 +259,21 @@ def _detourner():
     dire que c'est parti à l'examen.
     """
     from Code.models.models import Entity
-    from Code.propositions_activite import ajouter_geste, lire_geste
+    from Code.propositions_activite import (ajouter_geste, brouillon, gestes,
+                                            lire_geste)
 
+    user, entite = current_user(), Entity.get_active()
+    # ⚠️ Les gestes DÉJÀ rangés servent à lire celui-ci : outiller une tâche
+    # encore en attente (`task_id: "b:0"`) n'a de sens que rapporté au geste
+    # qui crée cette tâche — c'est de lui que le nouveau geste tient son
+    # activité, et donc la fiche sous laquelle on viendra le relire.
+    en_cours = brouillon(user, entite)
     geste = lire_geste(request.path, request.method,
-                       request.get_json(silent=True))
+                       request.get_json(silent=True),
+                       deja=gestes(en_cours) if en_cours is not None else None)
     if geste is None:                       # on ne sait pas rejouer : on refuse
         return _refus("lecture_seule")
-    cr, n = ajouter_geste(current_user(), Entity.get_active(), geste)
+    cr, n = ajouter_geste(user, entite, geste)
     return jsonify({
         "code": "proposition",
         "proposition_id": cr.id,

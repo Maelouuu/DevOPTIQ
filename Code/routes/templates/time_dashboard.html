@@ -31,6 +31,9 @@
                        load_error:    {{ t('time.load_error')|tojson }},
                        role_no_activity: {{ t('time.role_no_activity')|tojson }},
                        role_sans_ligne: {{ t('time.role_sans_ligne')|tojson }},
+                       err_sans_activite: {{ t('time.err_sans_activite')|tojson }},
+                       err_sans_role:     {{ t('time.err_sans_role')|tojson }},
+                       err_ligne_sans_activite: {{ t('time.err_ligne_sans_activite')|tojson }},
                        role_saved:    {{ t('time.role_saved')|tojson }},
                        role_analysis_defaut: {{ t('time.role_analysis_defaut')|tojson }},
                        saved_project: {{ t('time.saved_project')|tojson }},
@@ -490,7 +493,14 @@
 
             <div class="form-grid">
               <label>{{ t('time.form_activity') }}</label>
+              {# ⚠️ Une option VIDE en tête, et sélectionnée au départ. Sans
+                 elle le navigateur retient la PREMIÈRE activité de la liste :
+                 on enregistrait une analyse sur une activité que personne
+                 n'avait choisie, et rien à l'écran ne le disait. Le bouton
+                 reste éteint tant qu'on n'a pas tranché, et le serveur refuse
+                 de son côté — le masquage n'est pas une garde. #}
               <select id="act-activity" class="input">
+                <option value="">{{ t('time.choisir_activite') }}</option>
                 {% for a in activities %}
                   <option value="{{ a.id }}">{{ a.name }}</option>
                 {% endfor %}
@@ -538,6 +548,7 @@
               <div class="sc-field">
                 <label for="role-select">{{ t('time.role_label') }}</label>
                 <select id="role-select" class="input w-320">
+                  <option value="">{{ t('time.choisir_role') }}</option>
                   {% for r in roles %}
                     <option value="{{ r.id }}">{{ r.name }}</option>
                   {% endfor %}
@@ -610,6 +621,7 @@
             <div class="tm-fw-tete">
               <label for="fw-activity">{{ t('time.fw_activity_label') }}</label>
               <select id="fw-activity" class="input">
+                <option value="">{{ t('time.choisir_activite') }}</option>
                 {% for a in activities %}
                   <option value="{{ a.id }}">{{ a.name }}</option>
                 {% endfor %}

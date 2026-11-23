@@ -17,8 +17,9 @@ from flask import Blueprint, jsonify, request, session
 from Code.carto_access import can_review
 from Code.extensions import db
 from Code.models.models import ActivityChangeRequest, Entity, User
-from Code.propositions_activite import (EchecDeRejeu, brouillon, gestes,
-                                        rejouer, retirer_geste)
+from Code.propositions_activite import (EchecDeRejeu, refs_du_corps,
+                                        brouillon, gestes, rejouer,
+                                        retirer_geste)
 from Code.socle_activites import etat as socle_etat
 
 acp_bp = Blueprint("activite_propositions", __name__, url_prefix="/api/propositions")
@@ -58,9 +59,13 @@ def _en_json(cr, user, avec_gestes=False):
         # ⚠️ On ne renvoie PAS le corps de la requête : il porte des
         # identifiants et des chemins qui ne disent rien à un lecteur, et le
         # libellé se compose à l'écran, dans SA langue.
+        # ⚠️ `vise` porte les RANGS que ce geste référence, pas des
+        # identifiants : c'est ce qui permet à l'écran de ranger « outiller »
+        # sous la tâche en attente qu'il outille, plutôt qu'en vrac.
         out["gestes"] = [{"op": g.get("op"), "objet": g.get("objet"),
                           "activite": g.get("activite"),
-                          "activity_id": g.get("activity_id")}
+                          "activity_id": g.get("activity_id"),
+                          "vise": sorted(refs_du_corps(g.get("corps")))}
                          for g in gestes(cr)]
     return out
 

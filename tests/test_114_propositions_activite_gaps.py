@@ -149,7 +149,14 @@ class TestBrouillon:
         b = j["brouillon"]
         assert b["status"] == "draft" and b["is_mine"] is True
         assert len(b["gestes"]) == 2
-        assert set(b["gestes"][0]) == {"op", "objet", "activite", "activity_id"}
+        # ⚠️ `vise` s'ajoute depuis le 23/11 : ce sont les RANGS que le geste
+        # référence (« outiller la tâche du geste 0 »), et c'est ce qui permet
+        # à l'écran de ranger l'outil sous sa tâche en attente. Des rangs, pas
+        # des identifiants — le corps, lui, ne sort toujours pas.
+        assert set(b["gestes"][0]) == {"op", "objet", "activite", "activity_id",
+                                       "vise"}
+        assert "corps" not in b["gestes"][0] and "chemin" not in b["gestes"][0]
+        assert all(isinstance(r, int) for r in b["gestes"][0]["vise"])
 
     def test_retirer_un_geste_hors_borne_rend_404(self, app, decor):
         _proposer(app, decor)

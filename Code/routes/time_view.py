@@ -14,6 +14,27 @@ time_bp = Blueprint('time_view', __name__, url_prefix='/temps')
 
 # ---------- Helpers ----------
 UNIT_TO_MIN = {'minutes': 1, 'heures': 60, 'jours': 1440}
+
+
+def sujet_choisi(valeur):
+    """L'identifiant du sujet d'une analyse — activité ou rôle — ou None.
+
+    ⚠️ Les quatre formulaires s'ouvraient sur la PREMIÈRE activité de la
+    carto, faute d'option vide : on enregistrait une charge sur une activité
+    que personne n'avait désignée, et l'écran annonçait « enregistré ». Les
+    listes portent désormais un choix vide, et les routes le refusent — le
+    masquage n'est jamais une garde.
+
+    ⚠️ Et la valeur arrivait jusqu'à `int('')`, c'est-à-dire un **500** : un
+    refus se dit, il ne tombe pas.
+    """
+    if valeur is None or (isinstance(valeur, str) and not valeur.strip()):
+        return None
+    try:
+        ident = int(valeur)
+    except (TypeError, ValueError):
+        return None
+    return ident if ident > 0 else None
 def to_minutes(qty, unit):
     return float(qty or 0) * UNIT_TO_MIN.get((unit or 'minutes').lower(), 1)
 
@@ -366,6 +387,11 @@ def api_project_create():
     name = (data.get('name') or 'Projet sans titre').strip()
     lines = data.get('lines') or []
 
+    # Une ligne sans activité n'a pas de sujet : écrite, elle comptait pour
+    # la première activité de la carto.
+    if any(sujet_choisi(ln.get('activity_id')) is None for ln in lines):
+        return jsonify({"ok": False, "code": "ligne_sans_activite"}), 400
+
     # MODIFIÉ: Associer le projet à l'entité active
     active_entity_id = Entity.get_active_id()
     proj = TimeProject(name=name, created_at=datetime.utcnow(), entity_id=active_entity_id)
@@ -451,6 +477,9 @@ def api_project_update(project_id):
         proj.name = nom
 
     lignes = d.get('lines')
+    if lignes is not None and any(
+            sujet_choisi(ln.get('activity_id')) is None for ln in lignes):
+        return jsonify({"ok": False, "code": "ligne_sans_activite"}), 400
     if lignes is not None:
         # ⚠️ Objet par objet, PAS `delete(synchronize_session=False)` : ce
         # dernier laisse les lignes supprimées vivantes dans la session, et
@@ -576,9 +605,12 @@ def _workload_json(x):
 @time_bp.route('/api/activity_workload', methods=['POST'])
 def api_activity_workload():
     d = request.get_json(force=True) or {}
+    activity_id = sujet_choisi(d.get('activity_id'))
+    if activity_id is None:
+        return jsonify({"ok": False, "code": "sans_activite"}), 400
     ta = TimeAnalysis(
         type='activity',
-        activity_id=int(d['activity_id']),
+        activity_id=activity_id,
         duration=int(round(to_minutes(d.get('duration', 0), d.get('duration_unit')))),
         recurrence=(d.get('recurrence') or 'journalier').strip().lower(),
         frequency=int(d.get('frequency') or 1),
@@ -683,7 +715,9 @@ def _duree_ligne_role(ln):
 def api_role_analysis_create():
     ensure_time_role_schema()
     d = request.get_json(force=True) or {}
-    role_id = int(d.get('role_id'))
+    role_id = sujet_choisi(d.get('role_id'))
+    if role_id is None:
+        return jsonify({"ok": False, "code": "sans_role"}), 400
     name = (d.get('name') or 'Analyse rôle').strip()
     lines = d.get('lines') or []
 
@@ -759,6 +793,9 @@ def api_role_analysis_read_patch_delete(rid):
         # pretend mettre a jour.
         if lignes is not None and not lignes:
             return jsonify({"ok": False, "code": "aucune_ligne"}), 400
+        if lignes is not None and any(
+                sujet_choisi(ln.get('activity_id')) is None for ln in lignes):
+            return jsonify({"ok": False, "code": "ligne_sans_activite"}), 400
         if lignes is not None:
             for ancienne in TimeRoleLine.query.filter_by(role_analysis_id=R.id).all():
                 db.session.delete(ancienne)
@@ -835,7 +872,9 @@ def api_role_line_delete(line_id):
 def api_weakness():
     d = request.get_json(force=True) or {}
     mode = (d.get('mode') or 'activity').strip().lower()
-    activity_id = int(d.get('activity_id'))
+    activity_id = sujet_choisi(d.get('activity_id'))
+    if activity_id is None:
+        return jsonify({"ok": False, "code": "sans_activite"}), 400
     rec = (d.get('recurrence') or 'journalier').strip().lower()
     freq = int(d.get('frequency') or 1)
     weakness_txt = (d.get('weakness') or '').strip()

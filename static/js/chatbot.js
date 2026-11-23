@@ -218,7 +218,7 @@
 
     const btn = injectBtn();
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Injection en cours…';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + _esc(CL('injecting'));
 
     const validTasks = lastDraftTasks
       .filter(t => !t.flags?.out_of_scope)
@@ -240,14 +240,20 @@
     })
       .then(r => r.json().then(data => ({ ok: r.ok, data })))
       .then(({ ok, data }) => {
-        if (!ok) throw new Error(data.error || 'Échec de l\'injection');
-        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${data.count} tâche(s) ajoutée(s) !`;
+        if (!ok) throw new Error(data.error || CL('inject_err'));
+        // ⚠️ Sur une carto commune, le geste est DÉTOURNÉ vers la proposition
+        // (202, `code: "proposition"`) : rien n'est en base. Annoncer « n
+        // tâches ajoutées » puis recharger la fiche montrerait une liste
+        // inchangée — on croirait avoir perdu sa saisie.
+        const propose = data.code === 'proposition';
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> ' + _esc(
+          propose ? CL('proposed') : CF('injected', { n: data.count }));
         btn.style.background = 'linear-gradient(135deg, #667eea, #8b5cf6)';
 
         setTimeout(() => {
           if (typeof loadTasksForActivity === 'function') {
             loadTasksForActivity(currentActId);
-          } else {
+          } else if (!propose) {
             location.reload();
           }
         }, 800);
@@ -433,10 +439,14 @@
         hintHtml = `<div class="cb-task-hint">💡 ${_esc(task.rewrite_suggestion)}</div>`;
       }
 
+      // ⚠️ Un RAIL numéroté, comme la fenêtre des propositions : l'ordre
+      // affiché est celui de l'injection. Le numéro a sa pastille — collé au
+      // libellé (« T1. Peser »), il se lisait comme un bout du texte.
       li.innerHTML = `
+        <span class="cb-task-n">${i + 1}</span>
         <i class="fa-solid ${iconSymbol} cb-task-icon ${iconCls}"></i>
         <div style="flex:1; min-width:0;">
-          <div class="cb-task-label">T${i + 1}. ${_esc(task.label)}</div>
+          <div class="cb-task-label">${_esc(task.label)}</div>
           ${toolsHtml}${linkHtml}${hintHtml}
         </div>
       `;
@@ -554,7 +564,7 @@
     const ids = ['cb-draft-tasks-body', 'cb-draft-status-body', 'cb-draft-branches-body'];
     ids.forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.innerHTML = '<p class="cb-empty-hint">En attente de la conversation…</p>';
+      if (el) el.innerHTML = '<p class="cb-empty-hint">' + _esc(CL('waiting')) + '</p>';
     });
     const branchSection = document.getElementById('cb-draft-branches-section');
     if (branchSection) branchSection.style.display = 'none';
@@ -562,10 +572,20 @@
     if (btn) {
       btn.classList.remove('visible');
       btn.disabled = false;
-      btn.innerHTML = `
-        <span><i class="fa-solid fa-wand-magic-sparkles"></i> Injecter <span id="chatbot-inject-count">0</span> tâche(s) dans l'activité</span>
-        <span class="inject-subtitle">Les tâches validées seront ajoutées immédiatement</span>
-      `;
+      // ⚠️ Cette réécriture ÉCRASE le gabarit, qui était pourtant traduit :
+      // c'est ici que le français en dur revenait, dès l'ouverture de
+      // l'assistant. Le sous-titre suit en plus le régime d'écriture — on ne
+      // promet pas un ajout immédiat à qui va déposer une proposition.
+      // ⚠️ L'id `chatbot-inject-label` DOIT survivre : c'est lui que
+      // `_updateInjectBtn` réécrit pour poser le compte. Sans lui, le bouton
+      // reste à « 0 tâche » quoi que l'assistant propose.
+      btn.innerHTML =
+        '<span><i class="fa-solid fa-wand-magic-sparkles"></i> '
+        + '<span id="chatbot-inject-label">' + _esc(CF('inject', { n: 0 }))
+        + '</span></span>'
+        + '<span class="inject-subtitle">'
+        + _esc(CL(window.CHAT_PROPOSE ? 'inject_sub_prop' : 'inject_sub'))
+        + '</span>';
       btn.style.background = '';
     }
   }

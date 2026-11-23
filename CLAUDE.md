@@ -9972,6 +9972,208 @@ niveau). Éprouvé au banc (`tools/devrun_competences.py`) dans les deux langues
 aux cinq niveaux plus le cas NULL : 0 px d'écart chiffre/ligne, 0 débordement,
 0 croisement avec les pastilles de repère, 0 erreur console.
 
+### LE BROUILLON SE VOIT, ET IL S'OUTILLE (2026-11-23)
+
+Suite immédiate du palier du 22/11. Il marchait comme demandé — et c'est en
+s'en servant que le défaut est apparu : « on crée une tâche, elle ne s'affiche
+pas dans l'activité mais se rajoute à la proposition… on ne peut consulter ce
+que l'on a fait qu'à partir du truc en haut de page ; si on a 150 activités,
+cela va être trop chiant. De plus, comment j'associe un outil à une tâche si
+elle n'apparaît pas dans l'interface ? »
+
+#### ⚠️⚠️ Le palier était INFRANCHISSABLE, et personne ne pouvait le voir
+
+La seconde question n'était pas une gêne d'ergonomie, c'était un mur. Le
+palier exige **au moins un outil par activité** ; un outil se rattache à une
+**TÂCHE** (`task_tools`) ; et sur une activité vierge la tâche que le champion
+vient d'écrire n'existe **pas en base** — elle est dans son brouillon, elle
+n'a aucun identifiant à viser. Sur toute activité sans tâche préexistante, le
+palier ne pouvait donc **jamais** se franchir.
+
+⚠️ **Et on ne peut PAS écrire l'identifiant que la simulation vient de
+produire** : il naît d'un `flush` annulé juste après (`simuler` rejoue puis
+annule dans un `finally`), et le vrai rejeu, à l'approbation, en donnera un
+autre. Un geste qui le porterait viserait une ligne au hasard.
+
+**Les références locales** (`Code/propositions_activite.py`) : un geste désigne
+le **RANG** du geste qui crée l'objet — `b:0` — et le rejeu le résout par ce
+qu'il vient réellement d'écrire (`_resoudre_refs`, `_id_cree` lit le `id` que
+la vue renvoie). Trois gardes, toutes éprouvées :
+
+- ⚠️ **Une référence vers un rang qui n'a RIEN produit lève** (`EchecDeRejeu`,
+  motif `ref: b:N`). Laisser passer la chaîne « b:0 » la ferait arriver
+  jusqu'à `int()` dans la route visée : le rejeu s'arrêterait sur une pile
+  Python au lieu d'un motif lisible.
+- ⚠️⚠️ **Retirer un geste emporte ce qui le visait, et RENUMÉROTE le reste.**
+  `retirer_geste` enlève par index : sans cascade, l'outil posé sur la tâche
+  qu'on vient d'enlever a perdu son sujet et le rejeu buterait dessus à
+  l'approbation ; sans renumérotation, « outiller la tâche du geste 2 » se
+  mettrait à désigner le geste 1, c'est-à-dire n'importe quoi.
+- ⚠️ `lire_geste` reçoit `deja` (les gestes déjà rangés) : c'est de là que le
+  geste d'outillage tire son **activité**, donc la fiche sous laquelle on
+  viendra le relire. Sans elle il partait « hors activité ».
+
+Mesuré au banc, carto commune de 36 activités : une tâche et un outil déposés
+depuis l'écran → `/api/propositions/socle` rend **1 activité prête sur 36**.
+C'est la preuve de bout en bout : le brouillon compte, et un champion peut
+désormais satisfaire le palier sans qu'un coordinateur intervienne.
+
+#### Ce qu'on a écrit se voit LÀ OÙ on l'a écrit
+
+Un bloc ambre « En attente d'envoi » se pose dans la fiche de chaque activité
+concernée : une carte par geste, le verbe, l'objet en Fraunces, et une croix
+pour le retirer sans remonter en haut de page.
+
+- ⚠️ **L'ancre est `data-acp-act` sur `.tasks-section-modern`, PAS sur
+  `#tasks-list-<id>`** : ce dernier n'est rendu que si l'activité porte déjà
+  une tâche — c'est-à-dire jamais dans le cas qui nous occupe.
+- ⚠️ **Les cartes ne se confondent jamais avec les vraies lignes** : fond
+  ambre hachuré, bordure en pointillé, et la phrase qui dit qu'elles ne sont
+  pas encore dans l'activité. Ambre comme le bandeau et la fenêtre — c'est la
+  couleur de la gouvernance, pas celle de la page.
+- **Une tâche en attente s'OUTILLE** : un bouton ouvre, DANS la carte, la liste
+  des outils de la carto plus un champ pour en nommer de nouveaux.
+  ⚠️ **Un seul geste** (`/tools/add` avec `new_tools`) : passer d'abord par
+  `/gestion_outils/api/tools` pour créer l'outil — ce que fait le formulaire
+  des tâches existantes — donnerait un second geste détourné dont on ne
+  pourrait pas lire l'identifiant.
+  ⚠️ Pas une fenêtre : on en ouvrirait une par tâche, et une modale cacherait
+  justement la tâche qu'on outille.
+- Un geste qui en VISE un autre se range **sous** lui (pastilles d'outil sous
+  leur tâche) : à plat, on ne saurait pas quel outil va sur quelle tâche.
+  `/api/propositions/brouillon` renvoie pour cela `vise` — des **RANGS**, pas
+  des identifiants ; le corps de la requête ne sort toujours pas.
+
+⚠️⚠️ **L'observateur se mordait la queue.** La liste des activités arrive par
+lots de 20, donc un `MutationObserver` sur `#main-activities-list` replace les
+cartes. Mais les cartes posées vivent DANS ce sous-arbre : ouvrir le choix des
+outils était une mutation de plus, `placer()` repartait de zéro 60 ms plus
+tard, et le formulaire disparaissait sous le pointeur. Mesuré au banc. On ne
+replace donc que si la **liste des fiches** a changé (signature des
+`data-acp-act`), jamais sur une mutation quelconque.
+
+#### ⚠️⚠️ La fenêtre de bienvenue revenait à CHAQUE page — un 403
+
+« Avec le compte de Noe Berthier, à chaque fois que je vais sur une nouvelle
+page j'ai la pop-up de bienvenue. » La console le disait :
+`POST /api/bienvenue/vue → 403`. La route n'était pas dans les exemptions de
+la porte d'écriture : pour tout compte sans droit d'écriture, la signature
+n'était **jamais** écrite, et la fenêtre revenait indéfiniment. Elle n'écrit
+aucune donnée métier (une ligne dans `welcome_seen`), porte sa propre garde
+(401 sans compte) et calcule la signature elle-même — elle rejoint la première
+famille d'exemptions, celle de `/parametres/set_language`.
+
+#### ⚠️⚠️ Le chatbot : refusé, et refusé EN FRANÇAIS
+
+Deux défauts dans le même écran, tous deux visibles sur la capture du pilote.
+
+1. **`/api/chatbot/chat` était refusé par la porte.** Il n'écrit pas une
+   ligne : il appelle l'IA et rend du texte. Il est en POST parce qu'il porte
+   un historique. Exempté. ⚠️ `/api/chatbot/inject`, lui, écrit : il reste
+   sous la porte, et **se propose** désormais comme n'importe quel ajout de
+   tâche (famille `task`, objet = les libellés de la fournée). Sans cette
+   ligne un champion recevait `lecture_seule` — le motif réservé à `user` —
+   pour un geste qu'il peut faire à la main. Même famille que l'oubli du
+   garant (05/11) et de `/tools/add` (22/11).
+2. ⚠️ **Le motif du refus était une PHRASE FRANÇAISE en dur.** `MOTIF` porte
+   désormais des CLÉS (`porte.lecture_seule`, `porte.non_connecte`), résolues
+   par `t()` à la réponse. Le texte part tel quel dans le JSON et plusieurs
+   écrans l'affichent sans le relire — le chatbot en tête
+   (`_appendBotMessage('❌ ' + data.error)`) : « lecture seule » s'écrivait en
+   plein milieu d'une interface anglaise. Le CODE, lui, ne change pas : c'est
+   lui que le JS teste.
+
+⚠️ **Et cinq phrases restaient en dur dans `chatbot.js`**, dont trois que
+`_clearDraft()` **réécrivait par-dessus le gabarit pourtant traduit** — c'est
+là que le français revenait, dès l'ouverture de l'assistant. Exactement le
+piège de la modale « Traduire les soft skills ». Six clés neuves, et le
+sous-titre du bouton suit désormais le **régime d'écriture** : on ne promet
+pas un ajout immédiat à qui va déposer une proposition.
+⚠️ L'id `chatbot-inject-label` doit survivre à cette réécriture : c'est lui que
+`_updateInjectBtn` remplit, et sans lui le bouton reste à « 0 tâche ».
+⚠️ Une injection DÉTOURNÉE (202) ne recharge plus la fiche : annoncer « n
+tâches ajoutées » puis recharger montrerait une liste inchangée.
+
+**La peau** reprend le vocabulaire des propositions — en **VIOLET** (« on garde
+le violet, je veux pas de orange ») : en-tête sur un fond de nuit avec son
+halo, Fraunces sur les libellés de tâche, **rail numéroté** (le numéro a sa
+pastille ; collé au libellé, « T1. Peser » se lisait comme un bout du texte),
+et le rapport INVERSÉ du bouton d'action — pastille pastel sur fond vif, avec
+l'éclat au survol. Le vert a disparu : la famille de cet écran est le violet.
+L'ambre ne reste qu'aux signaux SÉMANTIQUES (une tâche douteuse).
+⚠️ Les tailles passent en **pixels** : `rem` ignore le `zoom: .8` de `body.pg`,
+et un « 0.76rem » était rendu à 9,7 px réels — sous le plancher de 11.
+
+#### Page Temps : rien n'est choisi tant que rien n'est choisi
+
+« Cela présélectionne la première activité de la liste. » Trois `<select>`
+sans option vide : le navigateur retenait la première activité de la carto, on
+enregistrait une charge sur une activité que personne n'avait désignée, et
+l'écran annonçait « enregistré ».
+
+- Une option vide en tête des trois listes, `viderSaisie` les remet à vide (un
+  `<select>` garde en plus le choix précédent d'une page à l'autre), et les
+  quatre boutons refusent avec un message **sous le champ**, jamais un `alert`.
+- ⚠️ **Le serveur refuse aussi** (`sujet_choisi`, 400 `sans_activite` /
+  `sans_role` / `ligne_sans_activite`) : le masquage n'est pas une garde. Et
+  la valeur arrivait jusqu'à `int('')`, c'est-à-dire un **500** — un refus se
+  dit, il ne tombe pas.
+- Les trois pré-remplissages n'interrogent plus `/activity_defaults/` sans
+  identifiant, et le total comme le bilan de faiblesse reviennent à vide :
+  laissés tels quels, ils décrivaient l'analyse précédente sous un formulaire
+  neuf.
+
+#### Le lien entre l'activité et CE QU'ELLE PRODUIT (vue d'ensemble)
+
+« Rien ne fait le lien entre les deux. » On cliquait une barre à gauche, un
+panneau changeait à droite, sous un titre — « SES marches de performance » —
+dont le « ses » ne désignait rien.
+
+Trois attaches, et **aucune ne demande de géométrie calculée en JS**, donc
+rien à recalculer au redimensionnement :
+
+1. la **TEINTE** : `--vo-c` est posée sur le DUO (pas sur le panneau — la
+   barre choisie et le panneau vivent dans deux colonnes sœurs et doivent lire
+   la même), et la barre, la flèche, le liseré du panneau et la pastille du
+   sujet la lisent toutes ;
+2. le **NOM** : le panneau nomme l'activité qu'il décrit (« Ce que produit · 
+   *Valider le prototype* »), avec sa pastille de couleur ;
+3. la **FLÈCHE**, posée dans la **gouttière** de la grille — les barres
+   reposent toutes sur la même ligne de fond et `.esc` a une hauteur fixe,
+   d'où un décalage constant. ⚠️ `top: 82px` est **mesuré à l'écran** (milieu
+   des barres à 89 px du haut du panneau, flèche de 14 px) : relevé après
+   correctif, **0 px d'écart**. Sous 1100 px réels les blocs s'empilent et la
+   flèche regarde vers le bas.
+
+⚠️ Pas de trait tiré de la barre jusqu'au panneau : il faudrait mesurer la
+position de la colonne choisie à chaque rendu ET à chaque redimensionnement —
+et dans ce volet, une mesure de mise en page n'est pas fiable.
+
+#### Deux pièges déjà connus, revus ici
+
+- ⚠️ **Un cliquet qui cherche une chaîne doit borner sa zone.** `#chatbot-inject-btn {`
+  existe DEUX fois dans la feuille (la règle d'origine et la neuve) : `index`
+  lisait la première, et le cas restait vert sur le défaut. `rindex`.
+- ⚠️ **Et il doit lire la BALISE, pas une fenêtre de n signes.** Le contrôle
+  de l'ancre `data-acp-act` cherchait `tasks-section-modern` dans les 120
+  signes précédents — le commentaire qui l'explique s'est glissé entre les
+  deux, et le cliquet est tombé sur sa propre explication. Septième
+  occurrence de cette famille.
+- ⚠️ `test_142` monkeypatchait `lire_geste` par un `lambda *a` : la signature
+  prend désormais `deja`, et un faux qui ne l'accepte pas lève une TypeError —
+  le cas n'éprouvait plus rien de ce qu'il dit éprouver.
+
+Tests : `tests/test_162_brouillon_visible.py` (53 cas) ; **20 gardes retirées
+une par une, 20 cliquets tombés**. `test_114` voit son cas sur la forme du
+brouillon renforcé (`vise` s'ajoute, le corps ne sort toujours pas).
+
+**Reste, et c'est un point à part** : les quatre lignes de « Ce qui vous
+attend » (fenêtre de bienvenue) sont écrites au pluriel seul — « 1
+modifications prêtes à envoyer ». Chacune demande sa paire singulier/pluriel
+dans les deux langues ; ce n'est pas le sujet de cette passe.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

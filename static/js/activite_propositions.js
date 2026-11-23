@@ -152,6 +152,7 @@
       S.id = j.brouillon ? j.brouillon.id : null;
     } catch (e) { /* le bandeau reste à sa dernière valeur connue */ }
     majBandeau();
+    placer();
     if (S.ouvert) rendre();
   }
 
@@ -253,6 +254,194 @@
             + '</li>';
         }).join('') + '</ul>';
     } catch (e) { /* on garde l'état vide */ }
+  }
+
+  /* ══ CE QU'ON A ÉCRIT, LÀ OÙ ON L'A ÉCRIT ═══════════════════════════
+     ⚠️ Le défaut de fond du palier, relevé à l'usage : « on écrit la tâche,
+     elle n'apparaît pas dans l'activité, on ne peut consulter ce que l'on a
+     fait qu'en haut de page — sur 150 activités, c'est intenable ». Le geste
+     est détourné vers le brouillon et n'atteint jamais la base : la fiche
+     restait donc muette, et on saisissait à l'aveugle.
+
+     Les gestes reviennent se poser DANS leur activité, marqués en attente.
+     Ils ne se mêlent pas aux vraies lignes — ils n'y sont pas encore — mais
+     ils sont là où on vient les relire.
+
+     ⚠️ Un geste qui en VISE un autre (outiller une tâche en attente) se range
+     SOUS lui : à plat, on ne saurait pas quel outil va sur quelle tâche. */
+  function groupeParActivite() {
+    var par = {};
+    S.gestes.forEach(function (g, i) {
+      if (!g.activity_id) return;      // le catalogue d'outils n'a pas de fiche
+      var cle = String(g.activity_id);
+      (par[cle] = par[cle] || []).push({ g: g, rang: i });
+    });
+    return par;
+  }
+
+  function carteGeste(e, enfants) {
+    var bouts = String(e.g.op || '').split('.');
+    var fils = (enfants || []).map(function (f) {
+      return '<span class="acp-pc-chip">'
+        + '<i class="fa-solid fa-wrench"></i>' + esc(f.g.objet || '—')
+        + '<button type="button" class="acp-pc-chipx" data-retirer="' + f.rang + '" '
+        + 'aria-label="' + esc(T('retirer')) + '" title="' + esc(T('retirer')) + '">'
+        + '<i class="fa-solid fa-xmark"></i></button></span>';
+    }).join('');
+    // Seule une tâche AJOUTÉE s'outille : on ne propose pas d'accrocher un
+    // outil à une suppression, ni à un savoir.
+    var outillable = e.g.op === 'task.add';
+    return '<li class="acp-pc" data-rang="' + e.rang + '">'
+      + '<span class="acp-pc-ic"><i class="fa-solid fa-hourglass-half"></i></span>'
+      + '<div class="acp-pc-t">'
+      + '<p class="acp-pc-v">' + esc(T('v_' + (bouts[1] || 'update'))) + ' '
+      + esc(T('f_' + (bouts[0] || 'task'))) + '</p>'
+      + '<p class="acp-pc-o">' + esc(e.g.objet || '—') + '</p>'
+      + (fils ? '<p class="acp-pc-chips">' + fils + '</p>' : '')
+      + (outillable
+         ? '<button type="button" class="acp-pc-plus" data-outiller="' + e.rang + '">'
+           + '<i class="fa-solid fa-wrench"></i>' + esc(T('pose_outiller')) + '</button>'
+         : '')
+      + '<div class="acp-pc-form" data-form="' + e.rang + '" hidden></div>'
+      + '</div>'
+      + '<button type="button" class="acp-pc-x" data-retirer="' + e.rang + '" '
+      + 'aria-label="' + esc(T('retirer')) + '" title="' + esc(T('retirer')) + '">'
+      + '<i class="fa-solid fa-xmark"></i></button></li>';
+  }
+
+  function placer() {
+    // On repart de zéro : un geste retiré doit disparaître de la fiche.
+    var anciens = document.querySelectorAll('[data-acp-pose]');
+    Array.prototype.forEach.call(anciens, function (n) { n.remove(); });
+
+    var par = groupeParActivite();
+    Object.keys(par).forEach(function (id) {
+      var hote = document.querySelector('.tasks-section-modern[data-acp-act="' + id + '"]');
+      if (!hote) return;                 // la fiche n'est pas (encore) à l'écran
+
+      var liste = par[id];
+      var racines = liste.filter(function (e) { return !(e.g.vise || []).length; });
+
+      var html = racines.map(function (e) {
+        var enfants = liste.filter(function (f) {
+          return (f.g.vise || []).indexOf(e.rang) >= 0;
+        });
+        return carteGeste(e, enfants);
+      }).join('');
+      // Un geste dont la cible n'est pas sur cette fiche reste visible seul :
+      // mieux vaut une carte orpheline qu'un geste invisible.
+      html += liste.filter(function (e) {
+        return (e.g.vise || []).length
+          && !racines.some(function (r) { return (e.g.vise || []).indexOf(r.rang) >= 0; });
+      }).map(function (e) { return carteGeste(e, []); }).join('');
+
+      var bloc = document.createElement('div');
+      bloc.className = 'acp-pose';
+      bloc.setAttribute('data-acp-pose', id);
+      bloc.innerHTML = '<p class="acp-pose-h">'
+        + '<i class="fa-solid fa-paper-plane"></i>' + esc(T('pose_titre'))
+        + '<span class="acp-pose-n">' + liste.length + '</span></p>'
+        + '<p class="acp-pose-d">' + esc(T('pose_d')) + '</p>'
+        + '<ul class="acp-pose-l">' + html + '</ul>';
+      var avant = hote.querySelector('.add-item-section');
+      if (avant) hote.insertBefore(bloc, avant); else hote.appendChild(bloc);
+    });
+  }
+
+  /* ── Outiller une tâche qui n'existe pas encore ────────────────────
+     ⚠️ Le geste ne peut PAS porter l'identifiant de la tâche : elle n'en a
+     pas. Il porte le RANG du geste qui la crée (`b:0`), et le rejeu le
+     résout par ce qu'il vient d'écrire. Sans cela le palier — un outil par
+     activité — était infranchissable sur toute activité vierge. */
+  async function ouvrirOutils(rang) {
+    var z = document.querySelector('[data-form="' + rang + '"]');
+    if (!z) return;
+    if (!z.hidden) { z.hidden = true; z.innerHTML = ''; return; }
+    z.hidden = false;
+    z.innerHTML = '<p class="acp-of-att">…</p>';
+    var outils = [];
+    try {
+      var r = await window.__acpFetch('/tools/all');
+      outils = (await r.json()) || [];
+    } catch (_) { outils = []; }
+    outils.sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''),
+                                                undefined, { sensitivity: 'base' });
+    });
+    z.innerHTML = '<div class="acp-of">'
+      + (outils.length
+         ? '<div class="acp-of-l">' + outils.map(function (o) {
+             return '<label class="acp-of-p"><input type="checkbox" value="' + o.id + '">'
+               + '<i class="fa-solid fa-wrench"></i><span>' + esc(o.name || '') + '</span></label>';
+           }).join('') + '</div>'
+         : '<p class="acp-of-vide">' + esc(T('pose_aucun_outil')) + '</p>')
+      + '<label class="acp-of-n"><span>' + esc(T('pose_nouv')) + '</span>'
+      + '<input type="text" class="acp-of-new" placeholder="' + esc(T('pose_nouv_ph')) + '"></label>'
+      + '<p class="acp-of-err" hidden></p>'
+      + '<div class="acp-of-pied">'
+      + '<button type="button" class="acp-of-ko" data-outils-annuler="' + rang + '">'
+      + esc(T('pose_annuler')) + '</button>'
+      + '<button type="button" class="acp-of-ok" data-outils-ok="' + rang + '">'
+      + esc(T('pose_valider')) + '</button></div></div>';
+  }
+
+  async function validerOutils(rang) {
+    var z = document.querySelector('[data-form="' + rang + '"]');
+    if (!z) return;
+    var ids = Array.prototype.slice
+      .call(z.querySelectorAll('input[type=checkbox]'))
+      .filter(function (c) { return c.checked; })
+      .map(function (c) { return parseInt(c.value, 10); });
+    var champ = z.querySelector('.acp-of-new');
+    var noms = (champ ? champ.value : '').split(',')
+      .map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length; });
+    if (!ids.length && !noms.length) {
+      var err = z.querySelector('.acp-of-err');
+      if (err) { err.hidden = false; err.textContent = T('pose_rien_choisi'); }
+      return;
+    }
+    // ⚠️ UN seul geste : `new_tools` crée-ou-rattache par nom. Passer d'abord
+    // par `/gestion_outils/api/tools` pour créer l'outil, comme le fait le
+    // formulaire des tâches existantes, donnerait un second geste détourné
+    // dont on ne pourrait pas lire l'identifiant.
+    await window.fetch('/tools/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task_id: 'b:' + rang,
+                             existing_tool_ids: ids, new_tools: noms })
+    });
+    await charger();
+  }
+
+  /* ⚠️ La liste des activités arrive par lots de 20 : une fiche affichée
+     plus tard n'aurait jamais reçu ses gestes. On replace à chaque fois que
+     le conteneur change, une seule fois par salve. */
+  var attente = null, signature = '';
+
+  function fiches() {
+    return Array.prototype.map
+      .call(document.querySelectorAll('[data-acp-act]'),
+            function (n) { return n.getAttribute('data-acp-act'); })
+      .join(',');
+  }
+
+  function observer() {
+    var hote = document.getElementById('main-activities-list');
+    if (!hote || !window.MutationObserver) return;
+    signature = fiches();
+    new MutationObserver(function () {
+      /* ⚠️⚠️ On ne replace QUE si la liste des fiches a changé. L'observateur
+         surveille tout le sous-arbre, et les cartes posées y vivent : ouvrir
+         le choix des outils était une mutation de plus, `placer()` repartait
+         de zéro 60 ms plus tard et le formulaire disparaissait sous le
+         pointeur. Mesuré au banc — la boucle se referme sur elle-même. */
+      var s = fiches();
+      if (s === signature) return;
+      signature = s;
+      clearTimeout(attente);
+      attente = setTimeout(placer, 60);
+    }).observe(hote, { childList: true, subtree: true });
   }
 
   /* ── Les actions ──────────────────────────────────────────────────── */
@@ -367,6 +556,12 @@
     if (o) { ouvrir(); return; }
     var f = e.target.closest ? e.target.closest('[data-acp="fermer"]') : null;
     if (f) { fermer(); return; }
+    var ou = e.target.closest ? e.target.closest('[data-outiller]') : null;
+    if (ou) { ouvrirOutils(parseInt(ou.dataset.outiller, 10)); return; }
+    var ok = e.target.closest ? e.target.closest('[data-outils-ok]') : null;
+    if (ok) { validerOutils(parseInt(ok.dataset.outilsOk, 10)); return; }
+    var ko = e.target.closest ? e.target.closest('[data-outils-annuler]') : null;
+    if (ko) { ouvrirOutils(parseInt(ko.dataset.outilsAnnuler, 10)); return; }
     var r = e.target.closest ? e.target.closest('[data-retirer]') : null;
     if (r) { retirer(parseInt(r.dataset.retirer, 10)); return; }
     if (e.target.closest && e.target.closest('[data-abandonner]')) { abandonner(); return; }
@@ -377,9 +572,11 @@
     if (e.key === 'Escape' && S.ouvert) fermer();
   });
 
+  function demarrer() { observer(); charger(); }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', charger);
+    document.addEventListener('DOMContentLoaded', demarrer);
   } else {
-    charger();
+    demarrer();
   }
 })();

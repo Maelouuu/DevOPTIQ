@@ -64,6 +64,7 @@
       vo_sorties_1: 'sortie', vo_sorties_n: 'sorties',
       vo_tout_en_bas: 'Ce qui tient tout en bas',
       vo_classement: 'Le classement — cliquez une activité',
+      vo_produit: 'Ce que produit',
       vo_marches: 'Ses marches de performance',
       vo_sortie_suiv: 'Sortie suivante', vo_sortie_prec: 'Sortie précédente',
       vo_ouvrir: 'Ouvrir cette activité',
@@ -495,6 +496,7 @@
       vo_sorties_1: 'output', vo_sorties_n: 'outputs',
       vo_tout_en_bas: 'What sits lowest',
       vo_classement: 'The ranking — click an activity',
+      vo_produit: 'What this produces',
       vo_marches: 'Its performance steps',
       vo_sortie_suiv: 'Next output', vo_sortie_prec: 'Previous output',
       vo_ouvrir: 'Open this activity',
@@ -1350,11 +1352,19 @@
           <div class="esc" id="vo-esc"></div>
           <div class="escn" id="vo-escn"></div>
         </div>
-        <div class="vo-mp">
+        ${/* ⚠️ Rien ne reliait les deux colonnes : on cliquait une barre à
+              gauche et un panneau changeait à droite, sous un titre (« SES
+              marches ») dont le « ses » ne désignait rien. Trois attaches,
+              toutes sans géométrie calculée : le panneau NOMME l'activité
+              qu'il décrit, il prend SA couleur (liseré gauche, pastille,
+              flèche posée dans la gouttière), et la barre choisie pointe
+              vers lui. */''}
+        <div class="vo-mp" id="vo-mp">
           <div class="vo-dth">
-            <p class="vo-dt">${esc(T('vo_marches'))}</p>
+            <p class="vo-dt">${esc(T('vo_produit'))}</p>
             <div class="cl-nav hidden" id="vo-mnav"></div>
           </div>
+          <p class="vo-sujet" id="vo-sujet"></p>
           <div class="mpan" id="vo-mpan"></div>
         </div>
       </div>`;
@@ -1418,10 +1428,27 @@
   // ⚠️ La pastille de norme ne redit plus « NORME DE L'ENTREPRISE » : le
   // drapeau du rail le dit déjà, deux lignes plus bas. Elle ne garde que ce
   // que lui seul porte — la valeur et son sens (« ≤ 10 j »).
+  // La teinte d'une activité, la MÊME des deux côtés : c'est elle qui dit
+  // que le panneau de droite décrit la barre de gauche.
+  const TEINTE = { g: '#4fd6a3', a: '#fbbf24', r: '#f87171', b: '#7cb3fb' };
+  const teinteDe = a => (estNul(a.demonstrated_level) ? 'rgba(255,255,255,.45)'
+    : (TEINTE[{ green: 'g', orange: 'a', red: 'r' }[a.color]] || TEINTE.b));
+
   function marches(ap) {
     const z = $('#vo-mpan'), nav = $('#vo-mnav');
     if (!z) return;
     const a = ap.activites.find(x => x.activity_id === state.voAct);
+    // ⚠️ Le sujet se nomme AVANT les marches : « ses marches » ne désignait
+    // rien, et on ne savait pas de quelle barre ce panneau parlait.
+    // ⚠️ La teinte se pose sur le DUO, pas sur le panneau : la barre choisie
+    // et le panneau doivent lire la même, et elles vivent dans deux colonnes
+    // sœurs.
+    const duo = document.querySelector('#vo-nuit .vo-duo'), suj = $('#vo-sujet');
+    if (duo) duo.style.setProperty('--vo-c', a ? teinteDe(a) : 'rgba(255,255,255,.3)');
+    if (suj) {
+      suj.innerHTML = a
+        ? `<i class="vo-pt"></i><b>${esc(a.activity_name)}</b>` : '';
+    }
     z.innerHTML = '';
     if (nav) { nav.innerHTML = ''; nav.classList.add('hidden'); }
     if (!a) return;

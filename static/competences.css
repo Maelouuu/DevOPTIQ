@@ -3957,9 +3957,77 @@ button.mail:active { transform: translateY(1px); }
 .vo-pann .v.a { color: #fcd34d; }
 .vo-pann .v.n { color: rgba(255, 255, 255, .62); }
 
+/* ══ LE LIEN ENTRE L'ACTIVITÉ ET CE QU'ELLE PRODUIT ════════════════════
+   ⚠️ Les deux colonnes ne se parlaient PAS : on cliquait une barre à gauche,
+   un panneau changeait à droite, et son titre disait « SES marches » — un
+   « ses » qui ne désignait rien. Trois attaches, et aucune ne demande de
+   géométrie calculée en JS (donc rien à recalculer au redimensionnement) :
+
+   1. la TEINTE. `--vo-c` est posée sur le duo par `marches()` : la barre
+      choisie, la flèche de la gouttière, le liseré du panneau et la pastille
+      du sujet la lisent toutes. Une seule couleur pour une seule chose.
+   2. le NOM. Le panneau nomme l'activité qu'il décrit, sous son libellé.
+   3. la FLÈCHE, posée DANS la gouttière de la grille — à hauteur des barres,
+      qui reposent toutes sur la même ligne de fond, d'où un décalage fixe.
+
+   ⚠️ Pas de trait tiré de la barre jusqu'au panneau : il faudrait mesurer la
+   position de la colonne choisie à chaque rendu ET à chaque redimensionnement
+   — et dans ce volet, une mesure de mise en page n'est pas fiable. */
 .vo-duo {
   display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px;
   align-items: start; margin-top: 22px;
+  position: relative; --vo-c: rgba(255, 255, 255, .3);
+}
+
+/* La flèche vit dans la gouttière : 20 px de large, et on la centre dessus. */
+.vo-duo .vo-mp::before {
+  /* 82 px : le milieu de la bande des barres est à 89 px du haut du panneau
+     — MESURÉ à l'écran, pas déduit — et la flèche fait 14 px de haut. Le
+     titre du classement et `.esc` ont des hauteurs fixes, le repère ne bouge
+     donc ni au redimensionnement ni d'une activité à l'autre. */
+  content: ""; position: absolute; left: -21px; top: 82px;
+  width: 0; height: 0; border-style: solid; border-width: 7px 0 7px 9px;
+  border-color: transparent transparent transparent var(--vo-c);
+  opacity: .9; transition: border-color .2s;
+}
+.vo-mp { position: relative; }
+/* Le liseré gauche du panneau reprend la teinte : le panneau APPARTIENT à
+   la barre choisie, il ne flotte pas à côté. */
+.vo-mp .mpan {
+  border-left: 3px solid var(--vo-c);
+  border-top-left-radius: 5px; border-bottom-left-radius: 5px;
+}
+.vo-sujet {
+  display: flex; align-items: center; gap: 8px; margin: -4px 0 10px;
+  min-width: 0;
+}
+.vo-sujet b {
+  font-family: var(--pg-font-display); font-size: 17px; font-weight: 600;
+  color: #fff; line-height: 1.2; overflow-wrap: anywhere;
+}
+.vo-pt {
+  flex: none; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--vo-c); box-shadow: 0 0 0 3px rgba(255, 255, 255, .1);
+}
+
+/* La barre choisie POINTE vers le panneau, et prend la teinte du lien. */
+.esc .st.on::after {
+  content: ""; position: absolute; right: -6px; bottom: 0;
+  width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 6px;
+  border-color: transparent transparent transparent var(--vo-c);
+}
+.esc .st.on { box-shadow: inset 0 0 0 1px var(--vo-c); }
+.escn span.on { color: var(--vo-c); }
+
+@media (max-width: 1100px) {
+  /* En colonne, la flèche ne pointe plus vers rien : elle descend sous le
+     classement et regarde vers le bas. */
+  .vo-duo .vo-mp::before {
+    left: 50%; top: -17px; transform: translateX(-50%);
+    border-width: 9px 7px 0 7px;
+    border-color: var(--vo-c) transparent transparent transparent;
+  }
+  .esc .st.on::after { display: none; }
 }
 .vo-dt {
   margin: 0 0 11px; font-size: 11.5px; font-weight: 800; letter-spacing: .08em;
