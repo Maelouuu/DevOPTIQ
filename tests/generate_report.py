@@ -46,6 +46,8 @@ PAGE_LABELS = {
     "test_159_palier_soumission": "Palier de soumission — Carto complète avant examen (garant, tâche, outil), brouillon compté",
     "test_160_activities_map_branches": "Carte des activités — Branches rares (SVG, entités legacy, partage, liaisons inter-cartos, routes masquées)",
     "test_161_modules_branches_rares": "Branches rares — Socle, comptes, paliers/calendrier, import de comptes avec rôle créé",
+    "test_162_brouillon_visible": "Brouillon visible — Références locales du brouillon, outil sur tâche en attente, bienvenue, chatbot, page Temps",
+    "test_163_socle_lignes_residuelles": "Socle — Branches défensives résiduelles (pragmas SQLite, clé IA, HSC hors requête, licence, droits, cadence, télémétrie, propositions IA)",
     "test_91_noms_uniques_et_historique": "Cartographie — Noms uniques et historique",
     "test_94_page_carte_scene": "Page Carte — Tuiles, dessin et liste",
     "test_102_porte_ecriture": "Sécurité — Porte d'écriture (contrôle d'accès des écritures)",
