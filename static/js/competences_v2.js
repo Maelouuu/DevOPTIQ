@@ -1327,11 +1327,17 @@
         </div>
         ${/* ⚠️ Rien ne reliait les deux colonnes : on cliquait une barre à
               gauche et un panneau changeait à droite, sous un titre (« SES
-              marches ») dont le « ses » ne désignait rien. Trois attaches,
-              toutes sans géométrie calculée : le panneau NOMME l'activité
-              qu'il décrit, il prend SA couleur (liseré gauche, pastille,
-              flèche posée dans la gouttière), et la barre choisie pointe
-              vers lui. */''}
+              marches ») dont le « ses » ne désignait rien. Trois attaches : le
+              panneau NOMME l'activité qu'il décrit, il prend SA couleur
+              (liseré gauche, pastille, lien), et LE LIEN se trace du niveau
+              de la barre choisie jusqu'à la pastille du panneau.
+
+              ⚠️ La gouttière est une COLONNE de la grille, pas un `gap` : le
+              lien doit avoir une boîte à lui pour s'y dessiner. Elle coûte
+              36 px à la colonne du classement (le `gap` de 20 px disparaît,
+              la colonne du lien en prend 56) — mesuré, et c'est le prix du
+              trait. */''}
+        <div class="vo-lane" id="vo-lane" aria-hidden="true"></div>
         <div class="vo-mp" id="vo-mp">
           <div class="vo-dth">
             <p class="vo-dt">${esc(T('vo_produit'))}</p>
@@ -1428,7 +1434,7 @@
     }
     z.innerHTML = '';
     if (nav) { nav.innerHTML = ''; nav.classList.add('hidden'); }
-    if (!a) return;
+    if (!a) { poserLien(); return; }
     const mes = a.sorties.filter(s => s.mesurable && s.norme);
     if (!mes.length) {
       z.innerHTML = `<p class="vo-rien">${esc(T(a.sorties.length ? 'vo_sans_marche' : 'vo_sans_sortie'))}</p>`;
@@ -1468,7 +1474,111 @@
       + esc(T('vo_ouvrir'));
     b.onclick = () => ouvrirDepuisApercu(a);
     z.appendChild(b);
+    // ⚠️ APRÈS le panneau : le lien arrive sur la pastille du sujet, et on ne
+    // mesure pas la position de quelque chose qui n'est pas encore écrit.
+    poserLien();
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // LE LIEN — du NIVEAU de la barre choisie jusqu'au panneau
+  //
+  // Tranché sur maquette (« L'entre-deux », cinq mouvements comparés à
+  // l'échelle réelle) : le trait se tire, une lueur le parcourt une fois, et
+  // la pointe se pose. C'est ce passage qui fait que quelque chose a CIRCULÉ
+  // entre les deux colonnes, et pas seulement poussé.
+  //
+  // ⚠️ La version d'avant n'en gardait que la POINTE — un triangle de
+  // bordure posé à un `top` fixe, sans tige : rien ne partait de la barre,
+  // donc rien ne bougeait quand on en changeait. Et la pointe de la barre
+  // choisie partait de son BAS, qui ne dit rien ; le lien part de son HAUT,
+  // c'est-à-dire de son NIVEAU, qui est tout le propos de cette colonne.
+  // ══════════════════════════════════════════════════════════════════════
+
+  // DEUX points relevés sur la carte, et deux seulement : le haut de la barre
+  // choisie, la pastille du panneau.
+  // ⚠️⚠️ `getBoundingClientRect()` rend des pixels d'ÉCRAN, et `body.pg` porte
+  // `zoom: .8` : la différence de deux rects est donc en px d'écran, alors
+  // qu'on l'ÉCRIT dans le repère de la page. On divise à l'écriture, et on ne
+  // multiplie nulle part — même correctif que la bulle du « i ». Sans lui le
+  // tracé arrive 20 % trop haut.
+  function geoLien() {
+    const lane = $('#vo-lane');
+    const bar = document.querySelector('#vo-esc .st.on .bar');
+    if (!lane || !bar) return null;
+    const L = lane.getBoundingClientRect();
+    const z = parseFloat(getComputedStyle(document.body).zoom) || 1;
+    const h = L.height / z;
+    // ⚠️ Un volet replié, un onglet jamais peint, un parent masqué : tout rend
+    // des rects NULS. On ne dessine alors RIEN plutôt qu'un tracé à des
+    // coordonnées non finies — c'est le piège payé sur `fitView` de l'éditeur,
+    // où un facteur nul avait fini en `<rect x="Infinity">`.
+    if (!(h > 40) || !isFinite(h)) return null;
+    const b = bar.getBoundingClientRect();
+    const pt = document.querySelector('#vo-sujet .vo-pt');
+    const r = pt && pt.getBoundingClientRect();
+    const borne = v => Math.max(4, Math.min(h - 4, v));
+    const y1 = borne((b.top - L.top) / z);
+    const y2 = borne(r ? (r.top + r.height / 2 - L.top) / z : h / 2);
+    if (!isFinite(y1) || !isFinite(y2)) return null;
+    return { h: h, y1: y1, y2: y2 };
+  }
+
+  // ⚠️ La courbe part HORIZONTALEMENT de la barre et arrive HORIZONTALEMENT
+  // sur la pastille (les deux poignées de la bézier sont posées à plat) :
+  // c'est ce qui la fait sortir de la barre et entrer dans le panneau au lieu
+  // de couper la gouttière en diagonale.
+  function lienHtml(g) {
+    const H = Math.round(g.h), y1 = Math.round(g.y1), y2 = Math.round(g.y2);
+    const d = `M 1 ${y1} C 30 ${y1}, 20 ${y2}, 45 ${y2}`;
+    return `<svg width="56" height="${H}" viewBox="0 0 56 ${H}">
+        <path class="ln-halo" d="${d}" stroke="var(--vo-c)" stroke-width="11" opacity=".13"/>
+        <path class="ln-trace" d="${d}" stroke="var(--vo-c)" stroke-width="1.9"/>
+        <path class="ln-glint" d="${d}" stroke="#fff" stroke-width="2.4" opacity=".9"/>
+      </svg>
+      <i class="ln-src" style="top:${y1}px"></i>
+      <i class="ln-tete" style="left:38px;top:${y2}px"></i>`;
+  }
+
+  function poserLien() {
+    const lane = $('#vo-lane');
+    if (!lane) return;
+    const g = geoLien();
+    if (!g) { lane.innerHTML = ''; return; }
+    // ⚠️ On RECONSTRUIT le nœud : une animation CSS ne se rejoue pas sur un
+    // élément qu'on laisse en place, et c'est à chaque changement d'activité
+    // qu'on veut la revoir. Rien à remettre à zéro à la main.
+    lane.innerHTML = lienHtml(g);
+    // ⚠️ Un tracé se dessine par son POINTILLÉ, et seul le navigateur connaît
+    // la longueur réelle du chemin : `--len` la lui demande.
+    lane.querySelectorAll('.ln-halo, .ln-trace').forEach(p => {
+      const l = Math.ceil(p.getTotalLength());
+      p.style.setProperty('--len', l);
+      p.style.strokeDasharray = l;
+    });
+    // ⚠️ La lueur garde SON pointillé — un éclat court qui défile : on ne lui
+    // pose que la longueur, jamais le `stroke-dasharray` du tracé.
+    lane.querySelectorAll('.ln-glint').forEach(p =>
+      p.style.setProperty('--len', Math.ceil(p.getTotalLength())));
+    surveillerLien(lane.parentElement);
+  }
+
+  // ⚠️ DEUX déclencheurs, et ils ne couvrent pas la même chose : `resize` dit
+  // que la FENÊTRE a changé, l'observateur dit que la GRILLE a changé sans
+  // elle — le détail des séances qui s'ouvre, le relief qui bascule, une
+  // police qui arrive et déplace la pastille du panneau.
+  // ⚠️ Il est GARDÉ dans une variable : sans référence vive, le navigateur
+  // peut le ramasser, et le lien resterait au cadrage du premier rendu.
+  const OBS_LIEN = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(() => poserLien()) : null;
+  function surveillerLien(duo) {
+    // Le duo est reconstruit à chaque rendu du profil : on ne l'observe
+    // qu'une fois, et l'ancien nœud détaché ne coûte rien.
+    if (!duo || !OBS_LIEN || duo.dataset.lienObs) return;
+    duo.dataset.lienObs = '1';
+    OBS_LIEN.observe(duo);
+  }
+  window.addEventListener('resize', poserLien);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(poserLien);
 
   // ⚠️ L'écran d'évaluation se cadre TOUJOURS sur un rôle : le niveau attendu
   // vient du rôle, pas de l'activité. On prend le premier qui la porte — et

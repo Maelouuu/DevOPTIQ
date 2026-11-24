@@ -10581,6 +10581,130 @@ fuite française sur l'écran anglais** (134 textes relevés, attributs compris 
 tout ce qui reste en français est une DONNÉE du banc), zéro débordement
 horizontal, zéro erreur console.
 
+### LE LIEN : la flèche n'avait que sa pointe (2026-11-24)
+
+« Dans le rendu de la flèche on a que la pointe dans l'app, c'est dommage ; on
+perd donc aussi l'animation qui faisait son charme. » Le reproche était exact,
+et il visait une décision écrite ici même.
+
+La maquette **« L'entre-deux »** comparait **cinq mouvements** à l'échelle
+réelle pour relier le classement au panneau des marches, et le n° 1 — **« Le
+lien »** — avait été retenu : *« il se trace du niveau de la barre jusqu'au
+panneau, puis la pointe se pose »*. Ce qui a été livré, c'est **la pointe
+seule** : un triangle de bordure (`border-width: 7px 0 7px 9px`) posé à un
+`top: 82px` fixe. Sans tige, rien ne part de la barre, donc rien ne bouge
+quand on en change — et l'animation n'avait plus de support.
+
+#### ⚠️⚠️ Le prétexte était faux, et il confondait deux choses
+
+La note d'alors disait : *« Pas de trait tiré de la barre jusqu'au panneau :
+il faudrait mesurer la position de la colonne choisie à chaque rendu ET à
+chaque redimensionnement — et dans ce volet, une mesure de mise en page n'est
+pas fiable. »*
+
+Elle mélangeait **ce que l'application sait faire** et **ce que je sais
+vérifier**. Mesurer une grille au rendu est le pain quotidien de cette page
+(la bulle du « i » le fait déjà) ; et la seconde moitié était fausse aussi :
+le volet mesure très bien **dès qu'on lui pose une taille**. Les rects à 0×0
+qui m'avaient fait écrire cela venaient d'un volet **replié**, sans viewport —
+`window.innerWidth` valait **0**. Avec `resize_window`, les mêmes mesures
+sortent justes au dixième de pixel.
+
+⚠️ Règle qui en découle : *un volet replié rend TOUT à zéro.* Avant de
+conclure qu'une mesure est impossible, poser une taille et relire.
+
+#### Ce que le lien demande, et ce qu'il coûte
+
+- **DEUX points relevés sur la carte**, et deux seulement : le **haut de la
+  barre choisie** — c'est-à-dire son NIVEAU — et la **pastille du panneau**.
+  Une bézier aux poignées posées à plat (`M 1 y1 C 30 y1, 20 y2, 45 y2`) les
+  relie : elle sort de la barre à l'horizontale et entre dans le panneau de
+  même, au lieu de couper la gouttière en diagonale.
+- ⚠️⚠️ **La mesure se DIVISE par le zoom.** `getBoundingClientRect()` rend des
+  pixels d'ÉCRAN — le `zoom: .8` de `body.pg` y est appliqué — et l'écart de
+  deux rects est donc en px d'écran, alors qu'on l'ÉCRIT dans le repère de la
+  page. On divise à l'écriture, on ne multiplie nulle part. **Septième fois**
+  que ce piège se présente dans cette application.
+- ⚠️ **Une gouttière sans hauteur ne dessine RIEN** : volet replié, onglet
+  jamais peint, parent masqué — tout rend des rects nuls, et un tracé à des
+  coordonnées non finies, c'est le `<rect x="Infinity">` de `fitView`.
+- **La gouttière devient une COLONNE** de la grille (`56px`, `gap: 0`) : un
+  `gap` n'est pas une boîte, et le lien a besoin d'une boîte. Mesuré, le
+  classement y perd **36 px** — le `gap` de 20 disparaît, la colonne en prend
+  56. C'est le prix du trait, il est écrit.
+- ⚠️ **Le nœud est RECONSTRUIT à chaque changement d'activité** : une
+  animation CSS ne se rejoue pas sur un élément qu'on laisse en place. Rien à
+  remettre à zéro à la main.
+- ⚠️ **Un tracé se dessine par son POINTILLÉ**, et seul le navigateur connaît
+  la longueur réelle d'une bézier : `--len` la lui demande
+  (`getTotalLength()`). **La lueur garde SON pointillé** — un éclat court qui
+  défile : on ne lui pose que la longueur, jamais le `stroke-dasharray` du
+  tracé, qui la ferait courir sur tout le chemin d'un coup.
+- ⚠️ **`animation-fill-mode: both` est NÉCESSAIRE** sur les deux retards :
+  sans lui la pointe serait posée pendant que le trait se tire encore. Le
+  garde-fou qui veut qu'on retire une classe d'animation vise un CONTENEUR —
+  un élément transformé devient le repère de ses descendants
+  `position: fixed` ; ici ce sont deux feuilles dans une boîte en
+  `pointer-events: none`.
+- ⚠️ **La barre choisie ne porte plus SA pointe.** La sienne partait de son
+  BAS, qui ne dit rien ; le lien part de son HAUT. Deux pointes à 160 px
+  l'une de l'autre, toutes deux « vers le panneau », ne désignaient plus rien.
+- ⚠️ **Sous `prefers-reduced-motion` le lien RESTE** — c'est lui qui relie les
+  deux colonnes ; seul son mouvement s'arrête. La lueur, qui n'est QUE du
+  mouvement, ne se dessine pas.
+- ⚠️ **Sous 1100 px RÉELS** (les requêtes média ignorent le zoom du corps) les
+  colonnes s'empilent : la gouttière n'est plus entre elles, et un trait tiré
+  de gauche à droite ne relierait plus rien. Le lien s'efface, et la pointe
+  d'avant — qui garde son sens dans ce sens-là — regarde vers le bas.
+
+#### ⚠️ `var()` dans un attribut de présentation SVG : oui, il se résout
+
+`stroke="var(--vo-c)"` fonctionne — mesuré, le tracé sort en `rgb(239, 115,
+150)`, la prune de la palette. ⚠️ Ce qui ne fonctionne pas, c'est l'inverse,
+et c'est déjà écrit : une règle d'AUTEUR l'emporte sur un attribut de
+présentation. D'où `fill` neutralisé dans la feuille et `stroke` porté par
+chaque tracé.
+
+#### ⚠️⚠️ TROIS cliquets bornés à côté, le même jour
+
+Un cliquet qui cherche une chaîne doit borner sa zone — et l'homonyme peut
+être un bloc qui existait déjà :
+
+- `@media (prefers-reduced-motion: reduce)` et `@media (max-width: 1100px)`
+  ouvrent **plusieurs blocs** dans `competences.css` (**cinq** pour le
+  second !), et `split(…, 1)[1]` prend le PREMIER. Deux cas lisaient donc un
+  bloc qui ne parle pas du lien. L'aide `_bloc(css, entete, marqueur)` rend
+  celui qui PORTE le marqueur.
+- Le troisième coupait **avant** le premier `@media (max-width: 1100px)`,
+  ligne 2432 — soit 1 400 lignes avant le lien : il affirmait l'absence de la
+  pointe dans une zone où elle n'avait jamais été, et restait **VERT** sur le
+  défaut remis. Il COMPTE désormais les occurrences, ce qui n'a pas de zone à
+  borner.
+- Un QUATRIÈME dormait dans `test_162` depuis la veille : il cherchait le
+  premier média de 1100 px **à partir de** la position de la pointe. Celle-ci
+  ayant rejoint le repli en colonne, c'est le média SUIVANT qui tombait sous
+  la lecture.
+
+#### Trois cliquets de `test_162` RÉÉCRITS, pas supprimés
+
+`TestLeLienEntreLActiviteEtCeQuElleProduit` affirmait la structure remplacée :
+la pointe posée dans la gouttière (`left: -21px`) et la pointe de la barre
+choisie. Un cas qui affirme une structure disparue ne garde plus rien — et le
+supprimer ne garderait rien non plus. Ils disent désormais ce qui reste vrai :
+la gouttière est une COLONNE qui porte un tracé, et la barre marque son
+NIVEAU au lieu de pointer depuis son bas.
+
+Tests : `tests/test_145_vue_ensemble.py` passe de 50 à **63 cas**
+(`TestLeLienEstUnTrace`), plus trois cas de `test_162` réécrits ; **16 défauts
+remis un par un, 16 cliquets tombés** — l'un d'eux seulement après avoir été
+reborné. Éprouvé au banc
+(`tools/devrun_competences.py`) de 1000 à 1600 px dans les deux langues :
+**départ à 0,16 px du haut de la barre, arrivée à 0,16 px du centre de la
+pastille**, la longueur qui suit la géométrie (144 / 100 / 56 px selon
+l'activité), la teinte qui suit l'activité, le lien qui revient de lui-même
+sur un `resize`, rien de dessiné quand la gouttière n'a pas de hauteur, le
+repli en colonne, zéro débordement horizontal et zéro erreur console.
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

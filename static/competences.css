@@ -3714,37 +3714,96 @@ button.mail:active { transform: translateY(1px); }
 /* ══ LE LIEN ENTRE L'ACTIVITÉ ET CE QU'ELLE PRODUIT ════════════════════
    ⚠️ Les deux colonnes ne se parlaient PAS : on cliquait une barre à gauche,
    un panneau changeait à droite, et son titre disait « SES marches » — un
-   « ses » qui ne désignait rien. Trois attaches, et aucune ne demande de
-   géométrie calculée en JS (donc rien à recalculer au redimensionnement) :
+   « ses » qui ne désignait rien. Trois attaches :
 
    1. la TEINTE. `--vo-c` est posée sur le duo par `marches()` : la barre
-      choisie, la flèche de la gouttière, le liseré du panneau et la pastille
-      du sujet la lisent toutes. Une seule couleur pour une seule chose.
+      choisie, le lien, le liseré du panneau et la pastille du sujet la lisent
+      toutes. Une seule couleur pour une seule chose.
    2. le NOM. Le panneau nomme l'activité qu'il décrit, sous son libellé.
-   3. la FLÈCHE, posée DANS la gouttière de la grille — à hauteur des barres,
-      qui reposent toutes sur la même ligne de fond, d'où un décalage fixe.
+   3. LE LIEN, qui se trace du NIVEAU de la barre choisie jusqu'à la pastille
+      du panneau. Tranché sur maquette (« L'entre-deux », cinq mouvements
+      comparés à l'échelle réelle) : le trait se tire, une lueur le parcourt
+      une fois, la pointe se pose.
 
-   ⚠️ Pas de trait tiré de la barre jusqu'au panneau : il faudrait mesurer la
-   position de la colonne choisie à chaque rendu ET à chaque redimensionnement
-   — et dans ce volet, une mesure de mise en page n'est pas fiable. */
+   ⚠️ La version d'avant n'en gardait que la POINTE — un triangle de bordure
+   posé à un `top` fixe, au prétexte qu'un trait demanderait de mesurer la
+   grille à chaque rendu. Il la demande en effet, et c'est le prix : sans tige,
+   rien ne part de la barre, donc rien ne bouge quand on en change, et
+   l'animation qui faisait le charme du lien n'avait plus de support.
+
+   ⚠️ La gouttière est une COLONNE, pas un `gap` : le lien a besoin d'une
+   boîte pour s'y dessiner. Mesuré, le classement y perd 36 px — le `gap` de
+   20 px disparaît, la colonne du lien en prend 56. */
 .vo-duo {
-  display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 20px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 56px 420px; gap: 0;
   align-items: start; margin-top: 22px;
   position: relative; --vo-c: rgba(255, 255, 255, .3);
 }
+.vo-cl { padding-right: 4px; }
+.vo-mp { position: relative; padding-left: 4px; }
 
-/* La flèche vit dans la gouttière : 20 px de large, et on la centre dessus. */
-.vo-duo .vo-mp::before {
-  /* 82 px : le milieu de la bande des barres est à 89 px du haut du panneau
-     — MESURÉ à l'écran, pas déduit — et la flèche fait 14 px de haut. Le
-     titre du classement et `.esc` ont des hauteurs fixes, le repère ne bouge
-     donc ni au redimensionnement ni d'une activité à l'autre. */
-  content: ""; position: absolute; left: -21px; top: 82px;
-  width: 0; height: 0; border-style: solid; border-width: 7px 0 7px 9px;
-  border-color: transparent transparent transparent var(--vo-c);
-  opacity: .9; transition: border-color .2s;
+/* ── LA GOUTTIÈRE OÙ LE LIEN SE TRACE ───────────────────────────────────
+   ⚠️ `align-self: stretch` : le duo est en `align-items: start`, et une boîte
+   vide y ferait zéro pixel de haut. Elle prend donc la hauteur de la rangée,
+   et le SVG, posé en absolu, ne la change jamais — pas de boucle avec
+   l'observateur qui la surveille.
+   ⚠️ `pointer-events: none` : ce qui explique ne vole jamais le clic de ce
+   qu'il explique, et la barre d'à côté comme le panneau se cliquent. */
+.vo-lane {
+  position: relative; align-self: stretch; min-height: 0;
+  pointer-events: none;
 }
-.vo-mp { position: relative; }
+.vo-lane svg { position: absolute; top: 0; left: 0; overflow: visible; }
+/* ⚠️ Une règle d'auteur l'emporte sur un attribut de présentation : c'est
+   `fill` qu'on neutralise ici, jamais `stroke`, que chaque tracé porte. */
+.vo-lane svg path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+/* Le départ : une pastille posée sur le HAUT de la barre, c'est-à-dire sur
+   son niveau. C'est de là que le trait part. */
+.ln-src {
+  position: absolute; left: -3px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--vo-c); box-shadow: 0 0 0 4px rgba(255, 255, 255, .08);
+  transform: translateY(-50%);
+}
+/* L'arrivée : la pointe, qui se pose une fois le trait tiré. */
+.ln-tete {
+  position: absolute; width: 0; height: 0; border-style: solid;
+  border-width: 7px 0 7px 10px;
+  border-color: transparent transparent transparent var(--vo-c);
+  filter: drop-shadow(0 0 7px var(--vo-c)); transform: translateY(-50%);
+}
+@keyframes ln-tracer { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+@keyframes ln-pop {
+  from { transform: translateY(-50%) scale(.25); opacity: 0; }
+  62% { transform: translateY(-50%) scale(1.22); opacity: 1; }
+  to { transform: translateY(-50%) scale(1); opacity: 1; }
+}
+@keyframes ln-glint-k {
+  from { stroke-dashoffset: 0; opacity: 0; }
+  14% { opacity: .9; }
+  80% { opacity: .9; }
+  to { stroke-dashoffset: calc(var(--len) * -1); opacity: 0; }
+}
+/* ⚠️ `both` est NÉCESSAIRE sur les deux retards : sans lui, la pointe serait
+   déjà posée pendant que le trait se tire encore. Le garde-fou qui veut
+   qu'on retire une classe d'animation vise un CONTENEUR — un élément
+   transformé devient le repère de ses descendants `position: fixed` ; ici ce
+   sont deux feuilles dans une boîte qui ne prend même pas le clic. */
+.ln-halo { animation: ln-tracer .78s cubic-bezier(.33, .9, .3, 1) both; }
+.ln-trace { animation: ln-tracer .6s cubic-bezier(.33, .9, .3, 1) both; }
+.ln-glint {
+  stroke-dasharray: 20 9999; filter: drop-shadow(0 0 5px #fff);
+  animation: ln-glint-k .58s cubic-bezier(.4, 0, .45, 1) .46s both;
+}
+.ln-src { animation: ln-pop .3s cubic-bezier(.3, 1.5, .5, 1) both; }
+.ln-tete { animation: ln-pop .42s cubic-bezier(.3, 1.5, .5, 1) .46s both; }
+@media (prefers-reduced-motion: reduce) {
+  /* Le lien RESTE — c'est lui qui relie les deux colonnes ; seul son
+     mouvement s'arrête. Le trait se pose donc entier, et la lueur, qui n'est
+     que du mouvement, ne se dessine pas. */
+  .ln-halo, .ln-trace, .ln-src, .ln-tete { animation: none; }
+  .ln-halo, .ln-trace { stroke-dashoffset: 0; }
+  .ln-glint { display: none; }
+}
 /* Le liseré gauche du panneau reprend la teinte : le panneau APPARTIENT à
    la barre choisie, il ne flotte pas à côté. */
 .vo-mp .mpan {
@@ -3764,24 +3823,28 @@ button.mail:active { transform: translateY(1px); }
   background: var(--vo-c); box-shadow: 0 0 0 3px rgba(255, 255, 255, .1);
 }
 
-/* La barre choisie POINTE vers le panneau, et prend la teinte du lien. */
-.esc .st.on::after {
-  content: ""; position: absolute; right: -6px; bottom: 0;
-  width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 6px;
-  border-color: transparent transparent transparent var(--vo-c);
-}
+/* ⚠️ La barre choisie NE PORTE PLUS de pointe : la sienne partait de son BAS,
+   qui ne dit rien, et le lien part de son HAUT — de son NIVEAU. Deux pointes
+   à 160 px l'une de l'autre, toutes deux « vers le panneau », ne désignaient
+   plus rien. Elle garde son liseré, et c'est la pastille du lien qui marque
+   le départ. */
 .esc .st.on { box-shadow: inset 0 0 0 1px var(--vo-c); }
 .escn span.on { color: var(--vo-c); }
 
+/* ⚠️ Sous 1100 px RÉELS (les requêtes média ignorent le `zoom: .8` du corps)
+   les deux colonnes s'empilent : la gouttière n'est plus entre elles, et un
+   trait tiré de gauche à droite ne relierait plus rien. Le lien s'efface, et
+   une pointe posée sous le classement regarde vers le bas — c'est la seule
+   chose qui garde son sens dans ce sens-là. */
 @media (max-width: 1100px) {
-  /* En colonne, la flèche ne pointe plus vers rien : elle descend sous le
-     classement et regarde vers le bas. */
+  .vo-lane { display: none; }
   .vo-duo .vo-mp::before {
-    left: 50%; top: -17px; transform: translateX(-50%);
-    border-width: 9px 7px 0 7px;
+    content: ""; position: absolute; left: 50%; top: -17px;
+    transform: translateX(-50%);
+    width: 0; height: 0; border-style: solid; border-width: 9px 7px 0 7px;
     border-color: var(--vo-c) transparent transparent transparent;
+    opacity: .9; transition: border-color .2s;
   }
-  .esc .st.on::after { display: none; }
 }
 .vo-dt {
   margin: 0 0 11px; font-size: 11.5px; font-weight: 800; letter-spacing: .08em;

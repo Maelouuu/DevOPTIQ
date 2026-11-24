@@ -65,6 +65,19 @@ def _sans_commentaires_js(js):
     return re.sub(r"(?m)^\s*//.*$", "", js)
 
 
+def _bloc_media(css, entete, marqueur):
+    """Le corps de l'at-règle `entete` QUI PORTE `marqueur`.
+
+    ⚠️ `@media (max-width: 1100px)` ouvre CINQ blocs dans `competences.css` :
+    chercher « le premier », ou « le premier après telle position », fait lire
+    un bloc qui ne parle pas du sujet. Mesuré — un cas est tombé là-dessus."""
+    for part in css.split(entete)[1:]:
+        corps = part.split("\n}", 1)[0]
+        if marqueur in corps:
+            return corps
+    raise AssertionError(entete + " ne porte nulle part " + marqueur)
+
+
 def _corps(js, ancre):
     """Le corps d'une fonction, borné sur sa propre accolade fermante.
 
@@ -644,17 +657,31 @@ class TestLeLienEntreLActiviteEtCeQuElleProduit:
                        "function marches(ap)")
         assert "'--vo-c'" in corps and ".vo-duo" in corps
 
-    def test_la_fleche_vit_dans_la_GOUTTIERE(self):
+    def test_la_gouttiere_porte_un_TRACE_et_plus_une_pointe(self):
+        """⚠️ RÉÉCRIT le 24/11. La gouttière portait une POINTE SEULE, posée à
+        un `top` fixe : rien n'en partait, donc rien ne bougeait quand on
+        changeait d'activité. Elle est devenue une COLONNE de la grille, et
+        le lien s'y trace — c'est le traitement retenu sur la maquette
+        « L'entre-deux », dont seule la pointe avait été livrée."""
         css = _sans_commentaires_css(_lire(CSS_COMP))
-        i = css.index(".vo-duo .vo-mp::before")
-        bloc = css[i:css.index("}", i)]
-        assert "left: -21px" in bloc and "var(--vo-c)" in bloc
+        i = css.index(".vo-duo {")
+        assert "minmax(0, 1fr) 56px 420px" in css[i:css.index("}", i)]
+        j = css.index(".ln-tete {")
+        assert "var(--vo-c)" in css[j:css.index("}", j)]
+        assert '<div class="vo-lane" id="vo-lane"' in _lire(JS_COMP)
 
-    def test_la_barre_choisie_POINTE_vers_le_panneau(self):
+    def test_la_barre_choisie_marque_son_NIVEAU(self):
+        """⚠️ RÉÉCRIT le 24/11. Sa pointe partait de son BAS, qui ne dit rien,
+        et le lien part de son HAUT — de son NIVEAU, qui est tout le propos de
+        cette colonne. Deux pointes à 160 px l'une de l'autre, toutes deux
+        « vers le panneau », ne désignaient plus rien : c'est la pastille du
+        lien qui marque désormais le départ."""
         css = _sans_commentaires_css(_lire(CSS_COMP))
-        assert ".esc .st.on::after" in css
-        i = css.index(".esc .st.on::after")
+        assert ".esc .st.on::after" not in css
+        i = css.index(".ln-src {")
         assert "var(--vo-c)" in css[i:css.index("}", i)]
+        g = _corps(_sans_commentaires_js(_lire(JS_COMP)), "function geoLien()")
+        assert "'#vo-esc .st.on .bar'" in g and "b.top" in g
 
     def test_le_panneau_porte_le_lisere_de_la_teinte(self):
         css = _sans_commentaires_css(_lire(CSS_COMP))
@@ -665,9 +692,15 @@ class TestLeLienEntreLActiviteEtCeQuElleProduit:
         """Sous 1100 px réels les deux blocs s'empilent : une flèche qui
         pointe à droite ne désigne plus rien."""
         css = _sans_commentaires_css(_lire(CSS_COMP))
-        i = css.index("@media (max-width: 1100px)", css.index(".vo-duo .vo-mp::before"))
-        bloc = css[i:i + 500]
+        # ⚠️ L'ancre d'avant partait de la position de `.vo-duo .vo-mp::before`
+        # et prenait le PREMIER média de 1100 px rencontré ensuite — il y en a
+        # cinq dans cette feuille, et depuis que la pointe a rejoint le repli
+        # c'est le SUIVANT qui tombait sous la lecture. On borne sur le bloc
+        # qui porte le marqueur.
+        bloc = _bloc_media(css, "@media (max-width: 1100px) {", ".vo-lane")
         assert ".vo-mp::before" in bloc and "transform: translateX(-50%)" in bloc
+        assert ".vo-lane { display: none; }" in bloc, \
+            "un trait tiré de gauche à droite ne relie plus rien, empilé"
 
     def test_le_libelle_existe_dans_les_deux_langues(self):
         js = _lire(JS_COMP)

@@ -59,6 +59,26 @@ def _regle(css, entete):
     return css.split(entete, 1)[1].split("}", 1)[0]
 
 
+def _bloc(css, entete, marqueur):
+    """Le corps de l'at-règle `entete` QUI PORTE `marqueur`.
+
+    ⚠️ `@media (max-width: 1100px)` et `prefers-reduced-motion` ouvrent
+    chacun plusieurs blocs dans cette feuille : prendre « le premier » fait
+    lire un bloc qui ne parle pas du sujet, et le cliquet passe au vert sans
+    rien garder. Mesuré — deux cas sont tombés là-dessus."""
+    for part in css.split(entete)[1:]:
+        corps = part.split("\n}", 1)[0]
+        if marqueur in corps:
+            return corps
+    raise AssertionError(entete + " ne porte nulle part " + marqueur)
+
+
+def _sans_commentaires_js(js):
+    """Même raison que pour le CSS : un cliquet qui cherche une chaîne
+    s'attrape sinon sur le commentaire qui explique ce qu'il garde."""
+    return re.sub(r"/\*.*?\*/|//[^\n]*", "", js, flags=re.S)
+
+
 _N = [0]
 
 
@@ -625,3 +645,154 @@ class TestLEspacementDesCartes:
         assert "flex-direction: column" in _regle(css, "\n.vo-col {")
         assert "margin-bottom" not in _regle(css, "\n.cv2-profil {")
         assert "margin: 0;" in _regle(css, "\n.cv2-seances {")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# LE LIEN — du NIVEAU de la barre choisie jusqu'au panneau
+#
+# « Dans le rendu de la flèche on a que la pointe dans l'app, c'est dommage ;
+# on perd donc aussi l'animation qui faisait son charme. » Le reproche était
+# exact et il visait une décision écrite : la maquette « L'entre-deux »
+# comparait cinq mouvements à l'échelle réelle et retenait LE LIEN (« il se
+# trace du niveau de la barre jusqu'au panneau, puis la pointe se pose ») —
+# et seule la POINTE a été livrée, un triangle de bordure posé à un `top`
+# fixe, au prétexte qu'un trait demanderait de mesurer la grille.
+#
+# Il la demande en effet. C'est le prix du trait, et il est payé ici.
+# ══════════════════════════════════════════════════════════════════════════
+class TestLeLienEstUnTrace:
+
+    def test_la_pointe_SEULE_ne_survit_pas_au_mode_large(self):
+        """⚠️ Le triangle statique ne vit plus QUE dans le repli en colonne,
+        où il garde son sens. En mode large il redoublerait la pointe du
+        lien, posée elle sur la pastille du panneau — deux pointes pour une
+        arrivée."""
+        css = _sans_commentaires_css(_lire(CSS))
+        # ⚠️ On COMPTE, on ne borne pas : `@media (max-width: 1100px)` ouvre
+        # CINQ blocs dans cette feuille, et couper au premier faisait lire
+        # une zone située 1 400 lignes avant le lien — le cliquet passait au
+        # vert sans rien garder. Mesuré en remettant le défaut.
+        assert css.count(".vo-mp::before") == 1, "la pointe seule est restée"
+        etroit = _bloc(css, "@media (max-width: 1100px) {", ".vo-lane")
+        assert ".vo-mp::before" in etroit, "sa seule place est le repli"
+        assert "\n.ln-trace {" in css and "@keyframes ln-tracer" in css
+
+    def test_la_gouttiere_est_une_COLONNE_de_la_grille(self):
+        """Un `gap` n'est pas une boîte : le lien a besoin d'une colonne pour
+        s'y dessiner. ⚠️ Et elle coûte 36 px au classement — le `gap` de
+        20 px disparaît, la colonne du lien en prend 56."""
+        css = _sans_commentaires_css(_lire(CSS))
+        r = _regle(css, "\n.vo-duo {")
+        assert "minmax(0, 1fr) 56px 420px" in r
+        assert "gap: 0" in r
+        assert '<div class="vo-lane" id="vo-lane"' in _lire(JS)
+
+    def test_les_DEUX_points_sont_mesures_sur_la_carte(self):
+        """Le haut de la barre choisie, la pastille du panneau. C'est tout ce
+        que le lien demande — et c'est ce qui fait qu'il PART de quelque
+        part, au lieu de flotter à un `top` de 82 px."""
+        c = _corps(_sans_commentaires_js(_lire(JS)), "  function geoLien() {")
+        assert "'#vo-esc .st.on .bar'" in c, "le haut de la barre CHOISIE"
+        assert "'#vo-sujet .vo-pt'" in c, "la pastille du panneau"
+        assert "getBoundingClientRect" in c
+
+    def test_la_mesure_DIVISE_par_le_zoom_du_corps(self):
+        """⚠️⚠️ `getBoundingClientRect()` rend des pixels d'ÉCRAN — le
+        `zoom: .8` de `body.pg` y est appliqué. Seules les coordonnées qu'on
+        ÉCRIT repassent par lui : on divise, et on ne multiplie NULLE PART.
+        Même correctif que la bulle du « i », qui se posait sur son propre
+        bouton."""
+        c = _corps(_sans_commentaires_js(_lire(JS)), "  function geoLien() {")
+        assert "getComputedStyle(document.body).zoom" in c
+        assert "/ z" in c, "on divise à l'écriture"
+        assert "* z" not in c, "et on ne multiplie nulle part"
+
+    def test_une_gouttiere_sans_hauteur_ne_dessine_RIEN(self):
+        """⚠️ Volet replié, onglet jamais peint, parent masqué : tout rend des
+        rects NULS. On ne dessine alors rien plutôt qu'un tracé à des
+        coordonnées non finies — c'est le piège payé sur `fitView` de
+        l'éditeur, où un facteur nul avait fini en `<rect x="Infinity">`."""
+        js = _sans_commentaires_js(_lire(JS))
+        g = _corps(js, "  function geoLien() {")
+        assert "isFinite" in g and "return null" in g
+        p = _corps(js, "  function poserLien() {")
+        assert "if (!g) { lane.innerHTML = ''; return; }" in p
+
+    def test_la_longueur_du_trace_vient_du_NAVIGATEUR(self):
+        """Un tracé se dessine par son POINTILLÉ, et seul le navigateur
+        connaît la longueur réelle d'une bézier."""
+        p = _corps(_sans_commentaires_js(_lire(JS)), "  function poserLien() {")
+        assert "getTotalLength()" in p
+        assert "setProperty('--len'" in p
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "stroke-dashoffset: var(--len)" in _regle(css, "@keyframes ln-tracer {")
+
+    def test_la_lueur_garde_SON_pointille(self):
+        """⚠️ Un éclat court qui défile : on ne lui pose que la LONGUEUR,
+        jamais le `stroke-dasharray` du tracé — qui le ferait courir sur tout
+        le chemin d'un coup."""
+        js = _sans_commentaires_js(_lire(JS))
+        p = _corps(js, "  function poserLien() {")
+        bloc = p.split(".ln-glint", 1)[1]
+        assert "setProperty('--len'" in bloc
+        assert "strokeDasharray" not in bloc
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "stroke-dasharray: 20 9999" in _regle(css, "\n.ln-glint {")
+
+    def test_le_lien_se_rejoue_a_CHAQUE_changement_d_activite(self):
+        """⚠️ `marches()` est le seul endroit qui change d'activité, et le
+        nœud est RECONSTRUIT : une animation CSS ne se rejoue pas sur un
+        élément qu'on laisse en place. Les DEUX sorties de la fonction le
+        reposent — sans activité, la gouttière doit se vider."""
+        js = _sans_commentaires_js(_lire(JS))
+        m = _corps(js, "  function marches(ap) {")
+        assert "if (!a) { poserLien(); return; }" in m, "la sortie sans activité"
+        assert m.rstrip().endswith("poserLien();"), "et la sortie normale"
+        assert "lane.innerHTML = lienHtml(g);" in js
+
+    def test_le_lien_se_recalcule_quand_la_GRILLE_bouge(self):
+        """⚠️ DEUX déclencheurs : `resize` dit que la FENÊTRE a changé,
+        l'observateur dit que la grille a changé sans elle. Et il est gardé
+        dans une variable — sans référence vive, le navigateur peut le
+        ramasser, et le lien resterait au cadrage du premier rendu."""
+        js = _sans_commentaires_js(_lire(JS))
+        assert "const OBS_LIEN" in js and "new ResizeObserver" in js
+        assert "window.addEventListener('resize', poserLien)" in js
+        assert "document.fonts.ready.then(poserLien)" in js
+
+    def test_le_lien_ne_vole_pas_le_clic(self):
+        """Ce qui explique ne prend jamais le clic de ce qu'il explique : la
+        barre d'à côté et le panneau se cliquent à travers la gouttière."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "pointer-events: none" in _regle(css, "\n.vo-lane {")
+
+    def test_la_barre_choisie_ne_porte_plus_SA_pointe(self):
+        """⚠️ La sienne partait de son BAS, qui ne dit rien ; le lien part de
+        son HAUT, c'est-à-dire de son NIVEAU. Deux pointes à 160 px l'une de
+        l'autre, toutes deux « vers le panneau », ne désignaient plus rien."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert ".esc .st.on::after" not in css
+        assert "\n.ln-src {" in css, "c'est la pastille du lien qui marque le départ"
+
+    def test_le_MOUVEMENT_s_arrete_mais_pas_le_lien(self):
+        """Sous `prefers-reduced-motion`, le trait reste — c'est lui qui relie
+        les deux colonnes ; seul son mouvement s'arrête. La lueur, qui n'est
+        QUE du mouvement, ne se dessine pas."""
+        css = _sans_commentaires_css(_lire(CSS))
+        bloc = _bloc(css, "@media (prefers-reduced-motion: reduce) {", ".ln-glint")
+        assert "animation: none" in bloc, "le mouvement s'arrête"
+        assert "stroke-dashoffset: 0" in bloc, "mais le trait se pose entier"
+        assert ".ln-glint { display: none" in bloc, "la lueur n'est QUE du mouvement"
+
+    def test_en_COLONNE_le_lien_s_efface_et_la_pointe_regarde_en_bas(self):
+        """⚠️ Sous 1100 px RÉELS (les requêtes média ignorent le `zoom: .8` du
+        corps) les deux colonnes s'empilent : la gouttière n'est plus entre
+        elles, et un trait tiré de gauche à droite ne relierait plus rien."""
+        css = _sans_commentaires_css(_lire(CSS))
+        bloc = _bloc(css, "@media (max-width: 1100px) {", ".vo-lane")
+        assert ".vo-lane { display: none; }" in bloc
+        assert ".vo-mp::before" in bloc
+        # la pointe du repli doit se suffire à elle-même : la règle du mode
+        # large dont elle héritait n'existe plus.
+        assert 'content: ""' in bloc and "border-style: solid" in bloc
+
