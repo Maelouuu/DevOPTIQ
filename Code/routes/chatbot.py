@@ -37,86 +37,137 @@ chatbot_bp = Blueprint('chatbot', __name__, url_prefix='/api/chatbot')
 # ---------------------------------------------------------------------------
 # Construction du contexte riche pour le prompt
 # ---------------------------------------------------------------------------
-def _build_context(activity: dict) -> str:
-    def fmt_list(lst, empty="(non renseigné)"):
+# ⚠️ Les intitulés du bloc de contexte suivent la LANGUE. Le correctif du
+# 23/11 avait retiré l'amorce française écrite dans le navigateur ; ce bloc-ci
+# restait, et il est renvoyé à chaque tour de la conversation.
+# ⚠️ Des NOMS, pas des indices : la liste `sections` vit trente lignes plus bas,
+# et un tableau positionnel se décalerait en silence dès qu'on insère une
+# section — le modèle recevrait des intitulés faux sans que rien ne le dise.
+ETIQ = {
+    "fr": {
+        "tete": "=== CONTEXTE COMPLET DE L'ACTIVITÉ (OPTIQ) ===",
+        "nom": "Nom", "desc": "Description / finalité",
+        "taches": "── TÂCHES DÉJÀ SAISIES ──",
+        "entrantes": "── CONNEXIONS ENTRANTES (données / activités en amont) ──",
+        "sortantes": "── CONNEXIONS SORTANTES (données / activités en aval) ──",
+        "contraintes": "── CONTRAINTES (règles non négociables) ──",
+        "competences": "── COMPÉTENCES REQUISES ──",
+        "savoirs": "── SAVOIRS (connaissances théoriques) ──",
+        "savoir_faire": "── SAVOIR-FAIRE (compétences pratiques) ──",
+        "hsc": "── HSC — HABILETÉS SOCIO-COGNITIVES ──",
+        "aptitudes": "── APTITUDES ──",
+        "outils": "── OUTILS DISPONIBLES DANS LE RÉFÉRENTIEL (utilise ces noms exacts) ──",
+    },
+    "en": {
+        "tete": "=== FULL ACTIVITY CONTEXT (OPTIQ) ===",
+        "nom": "Name", "desc": "Description / purpose",
+        "taches": "── TASKS ALREADY ENTERED ──",
+        "entrantes": "── INCOMING CONNECTIONS (upstream data / activities) ──",
+        "sortantes": "── OUTGOING CONNECTIONS (downstream data / activities) ──",
+        "contraintes": "── CONSTRAINTS (non-negotiable rules) ──",
+        "competences": "── REQUIRED COMPETENCIES ──",
+        "savoirs": "── KNOWLEDGE (theory) ──",
+        "savoir_faire": "── PRACTICAL SKILLS ──",
+        "hsc": "── SCA — SOCIO-COGNITIVE ABILITIES ──",
+        "aptitudes": "── PHYSICAL ABILITIES ──",
+        "outils": "── TOOLS AVAILABLE IN THE CATALOGUE (use these exact names) ──",
+    },
+}
+VIDE = {
+    "fr": {"rien": "(non renseigné)", "rien_e": "(non renseignée)", "aucune": "(aucune)",
+           "aucune_tache": "(aucune tâche saisie)", "aucun_outil": "(aucun outil dans le référentiel)",
+           "outils": "outils", "niv": "niv.", "depuis": "depuis", "perf": "perf"},
+    "en": {"rien": "(not provided)", "rien_e": "(not provided)", "aucune": "(none)",
+           "aucune_tache": "(no task entered yet)", "aucun_outil": "(no tool in the catalogue)",
+           "outils": "tools", "niv": "level", "depuis": "from", "perf": "perf"},
+}
+
+
+def _build_context(activity: dict, lang: str = "fr") -> str:
+    lang = "en" if lang == "en" else "fr"
+    E = ETIQ[lang]
+    V = VIDE[lang]
+
+    def fmt_list(lst, empty=None):
+        empty = empty if empty is not None else V["rien"]
         if not lst:
             return f"    - {empty}"
         return "\n".join(f"    - {x}" for x in lst)
 
     def fmt_conn(lst):
         if not lst:
-            return "    - (aucune)"
+            return f"    - {V['aucune']}"
         return "\n".join(
             f"    - [{c.get('type', '?')}] {c.get('data_name', '?')} "
-            f"(depuis : {c.get('source_name', '?')})"
+            f"({V['depuis']} : {c.get('source_name', '?')})"
             for c in lst
         )
 
     def fmt_conn_out(lst):
         if not lst:
-            return "    - (aucune)"
+            return f"    - {V['aucune']}"
         return "\n".join(
             f"    - {c.get('data_name', '?')} → {c.get('target_name', '?')}"
-            + (f" [perf : {c['performance']['name']}]" if c.get('performance') else "")
+            + (f" [{V['perf']} : {c['performance']['name']}]" if c.get('performance') else "")
             for c in lst
         )
 
     def fmt_tasks(lst):
         if not lst:
-            return "    - (aucune tâche saisie)"
+            return f"    - {V['aucune_tache']}"
         lines = []
         for t in lst:
             tools = ", ".join(t.get("tools", [])) if t.get("tools") else "—"
-            lines.append(f"    - {t['name']} (outils : {tools})")
+            lines.append(f"    - {t['name']} ({V['outils']} : {tools})")
         return "\n".join(lines)
 
     def fmt_hsc(lst):
         if not lst:
-            return "    - (aucune)"
+            return f"    - {V['aucune']}"
         return "\n".join(
-            f"    - {h.get('habilete', '?')} [niv. {h.get('niveau', '?')}]"
+            f"    - {h.get('habilete', '?')} [{V['niv']} {h.get('niveau', '?')}]"
             + (f" — {h['justification']}" if h.get('justification') else "")
             for h in lst
         )
 
     def fmt_tools(lst):
         if not lst:
-            return "    - (aucun outil dans le référentiel)"
+            return f"    - {V['aucun_outil']}"
         return "\n".join(f"    - {t}" for t in lst)
 
     sections = [
-        "=== CONTEXTE COMPLET DE L'ACTIVITÉ (OPTIQ) ===",
-        f"Nom : {activity.get('name', '(non renseigné)')}",
-        f"Description / finalité : {activity.get('description') or '(non renseignée)'}",
+        E["tete"],
+        f"{E['nom']} : {activity.get('name') or V['rien']}",
+        f"{E['desc']} : {activity.get('description') or V['rien_e']}",
         "",
-        "── TÂCHES DÉJÀ SAISIES ──",
+        E["taches"],
         fmt_tasks(activity.get("tasks", [])),
         "",
-        "── CONNEXIONS ENTRANTES (données / activités en amont) ──",
+        E["entrantes"],
         fmt_conn(activity.get("incoming", [])),
         "",
-        "── CONNEXIONS SORTANTES (données / activités en aval) ──",
+        E["sortantes"],
         fmt_conn_out(activity.get("outgoing", [])),
         "",
-        "── CONTRAINTES (règles non négociables) ──",
+        E["contraintes"],
         fmt_list(activity.get("contraintes")),
         "",
-        "── COMPÉTENCES REQUISES ──",
+        E["competences"],
         fmt_list(activity.get("competences")),
         "",
-        "── SAVOIRS (connaissances théoriques) ──",
+        E["savoirs"],
         fmt_list(activity.get("savoirs")),
         "",
-        "── SAVOIR-FAIRE (compétences pratiques) ──",
+        E["savoir_faire"],
         fmt_list(activity.get("savoir_faires")),
         "",
-        "── HSC — HABILETÉS SOCIO-COGNITIVES ──",
+        E["hsc"],
         fmt_hsc(activity.get("hsc", [])),
         "",
-        "── APTITUDES ──",
+        E["aptitudes"],
         fmt_list(activity.get("aptitudes")),
         "",
-        "── OUTILS DISPONIBLES DANS LE RÉFÉRENTIEL (utilise ces noms exacts) ──",
+        E["outils"],
         fmt_tools(activity.get("available_tools", [])),
     ]
 
@@ -369,11 +420,12 @@ def chat():
     # interdit. La consigne d'ouverture vit déjà dans `chatbot.mode_*.<lang>`.
     demarrage = bool(data.get('demarrage'))
 
-    if not message and not demarrage:
-        return jsonify({'error': 'Message vide'}), 400
-
     lang = session.get('lang', 'fr')
     plang = 'en' if lang == 'en' else 'fr'
+
+    if not message and not demarrage:
+        return jsonify({'error': 'Empty message' if plang == 'en'
+                                 else 'Message vide'}), 400
     mode_key = 'mode_ameliorer' if mode == 'ameliorer' else 'mode_creer'
     sys_prompt = get_prompt(f'chatbot.system.{plang}')
     mode_prompt = get_prompt(f'chatbot.{mode_key}.{plang}')
@@ -383,7 +435,7 @@ def chat():
                    "Assistant IA indisponible (prompts non chargés sur cette instance).")
         return jsonify({'error': err_msg}), 503
 
-    context_block = _build_context(activity)
+    context_block = _build_context(activity, plang)
     recent = history[-14:] if len(history) > 14 else history
 
     messages = [

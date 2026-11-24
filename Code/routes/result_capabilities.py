@@ -24,18 +24,48 @@ def _lang():
     return session.get("lang", "fr")
 
 
+def _entete(lang):
+    return "=== CONTEXT ===" if lang == "en" else "=== CONTEXTE ==="
+
+
+def _demande(lang):
+    return ("Return a JSON object matching EXACTLY this schema:" if lang == "en"
+            else "Renvoie un JSON respectant EXACTEMENT ce schéma :")
+
+
+def _consigne_langue(lang):
+    """La langue de sortie, redite en DERNIER — juste après le schéma.
+
+    ⚠️ Les libellés générés ici sont ENREGISTRÉS (`Savoir.description`,
+    `SavoirFaire.description`, `Softskill.habilete`) : nés en français chez un
+    compte anglais, ils y restent — rien ne les retraduit ensuite, contrairement
+    aux rôles (`role_i18n`)."""
+    return ("Réponds en français." if lang == "fr"
+            else "Answer in English: every label and every text field.")
+
+
 def _results_of(activity_id):
     # Toute sortie, sans filtre de nature : voir `mastery.activity_mastery`.
     return get_activity_outputs(activity_id)
 
 
-def _result_ctx(activity, results):
+def _result_ctx(activity, results, lang="fr"):
+    """⚠️ Les intitulés suivent la langue : c'est le texte le plus long du
+    message, il pèse plus que la consigne qui le suit."""
     tasks = Task.query.filter_by(activity_id=activity.id).order_by(Task.order).all()
-    lines = [f"Activité: {activity.name}", f"Description: {activity.description or '-'}", "Tâches:"]
+    en = lang == "en"
+    lines = [f"{'Activity' if en else 'Activité'}: {activity.name}",
+             f"Description: {activity.description or '-'}",
+             "Tasks:" if en else "Tâches:"]
     lines += [f"  - {t.name}" for t in tasks] or ["  -"]
-    lines.append("Résultats de l'activité (RESULT) :")
+    lines.append("Results of the activity (RESULT):" if en
+                 else "Résultats de l'activité (RESULT) :")
     for d in results:
-        std = f" — standard minimal: {d.minimum_performance_text}" if d.minimum_performance_text else ""
+        if d.minimum_performance_text:
+            etiq = "minimum standard" if en else "standard minimal"
+            std = f" — {etiq}: {d.minimum_performance_text}"
+        else:
+            std = ""
         lines.append(f"  - [id={d.id}] {d.name}{std}")
     return "\n".join(lines)
 
@@ -61,7 +91,8 @@ def generate_competence(activity_id):
                         "warning": ("Aucun résultat qualifié : la compétence ne peut pas être générée."
                                     if lang == "fr" else "No qualified result: competence cannot be generated.")}), 200
     client, err = openai_client_or_none()
-    comp_system = get_prompt("result_capabilities.competency.system")
+    comp_system = get_prompt("result_capabilities.competency.system.%s"
+                             % ("en" if lang == "en" else "fr"))
     if client is None or comp_system is None:
         return jsonify({"competence": None, "source": err or "no_ai"}), 200
     try:
@@ -69,8 +100,9 @@ def generate_competence(activity_id):
             model=ai_model(),
             messages=[
                 {"role": "system", "content": comp_system},
-                {"role": "user", "content": f"=== CONTEXTE ===\n{_result_ctx(activity, results)}\n\n"
-                                             f"Renvoie un JSON respectant EXACTEMENT ce schéma :\n{COMP_SCHEMA}"},
+                {"role": "user", "content": f"{_entete(lang)}\n{_result_ctx(activity, results, lang)}\n\n"
+                                             f"{_demande(lang)}\n{COMP_SCHEMA}\n"
+                                             f"{_consigne_langue(lang)}"},
             ],
             temperature=0.2,
             response_format={"type": "json_object"},
@@ -157,7 +189,9 @@ def generate_result_links(activity_id):
     if not results:
         return jsonify({"links": [], "source": "no_result"}), 200
     client, err = openai_client_or_none()
-    sfhsc_system = get_prompt("result_capabilities.sfhsc.system")
+    lang = _lang()
+    sfhsc_system = get_prompt("result_capabilities.sfhsc.system.%s"
+                              % ("en" if lang == "en" else "fr"))
     if client is None or sfhsc_system is None:
         return jsonify({"links": [], "source": err or "no_ai"}), 200
     try:
@@ -165,8 +199,9 @@ def generate_result_links(activity_id):
             model=ai_model(),
             messages=[
                 {"role": "system", "content": sfhsc_system},
-                {"role": "user", "content": f"=== CONTEXTE ===\n{_result_ctx(activity, results)}\n\n"
-                                             f"Renvoie un JSON respectant EXACTEMENT ce schéma :\n{SFHSC_SCHEMA}"},
+                {"role": "user", "content": f"{_entete(lang)}\n{_result_ctx(activity, results, lang)}\n\n"
+                                             f"{_demande(lang)}\n{SFHSC_SCHEMA}\n"
+                                             f"{_consigne_langue(lang)}"},
             ],
             temperature=0.2,
             response_format={"type": "json_object"},

@@ -8,6 +8,29 @@ import pytest
 
 pytestmark = pytest.mark.cartography_translate
 
+# ⚠️ `client` est partagé par toute la suite : une langue laissée derrière soi
+# change les messages que les fichiers suivants comparent (la leçon de
+# `test_82` / `test_83`). Et le défaut de session est l'ANGLAIS — un refus
+# bilingue doit donc être lu dans une langue POSÉE, jamais dans celle qui
+# traîne.
+import contextlib
+
+
+@contextlib.contextmanager
+def _langue(client, code):
+    with client.session_transaction() as s:
+        avant = s.get("lang")
+        s["lang"] = code
+    try:
+        yield client
+    finally:
+        with client.session_transaction() as s:
+            if avant is None:
+                s.pop("lang", None)
+            else:
+                s["lang"] = avant
+
+
 
 # ===========================================================================
 # Helpers
@@ -117,10 +140,8 @@ class TestTranslateSoftskills:
 
     def test_missing_user_input_field_returns_400(self, auth_client):
         """Pas de champ user_input du tout → 400."""
-        r = auth_client.post(
-            "/translate_softskills/translate",
-            json={"activity_data": {}},
-        )
+        with _langue(auth_client, "fr") as c:
+            r = c.post("/translate_softskills/translate", json={"activity_data": {}})
         assert r.status_code == 400
         assert r.get_json()["error"] == "Aucun texte saisi pour la traduction."
 
@@ -130,12 +151,14 @@ class TestTranslateSoftskills:
         assert r.status_code == 400
 
     def test_error_message_on_empty_input(self, auth_client):
-        """Le champ 'error' contient bien le message attendu."""
-        r = auth_client.post(
-            "/translate_softskills/translate",
-            json={"user_input": ""},
-        )
+        """Le champ 'error' contient bien le message attendu — dans les DEUX
+        langues : ce refus s'affiche tel quel dans la modale de traduction."""
+        with _langue(auth_client, "fr") as c:
+            r = c.post("/translate_softskills/translate", json={"user_input": ""})
         assert r.get_json()["error"] == "Aucun texte saisi pour la traduction."
+        with _langue(auth_client, "en") as c:
+            r = c.post("/translate_softskills/translate", json={"user_input": ""})
+        assert r.get_json()["error"] == "No text entered for the translation."
 
     # --- Sans clé OpenAI (environnement de test) ---
 

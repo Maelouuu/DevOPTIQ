@@ -91,12 +91,14 @@ def propose_aptitudes():
         if prompt is None:
             return jsonify({"proposals": {}, "source": "prompts-unavailable"}), 200
 
-        lang = session.get('lang', 'fr')
-        lang_instr = "Respond in English (risque, leviers, profils fields)." if lang == 'en' else "Réponds en français (champs risque, leviers, profils)."
+        lang = 'en' if session.get('lang', 'fr') == 'en' else 'fr'
+        systeme = get_prompt("propose.aptitudes.inclusion_scoring.system.%s" % lang)
+        if systeme is None:
+            return jsonify({"proposals": {}, "source": "prompts-unavailable"}), 200
         resp = client.chat.completions.create(
             model=ai_model(),
             messages=[
-                {"role": "system", "content": f"Tu es un expert en analyse du travail, prevention sante/securite et inclusion. Tu reponds UNIQUEMENT en JSON valide, sans markdown ni texte supplementaire. {lang_instr}"},
+                {"role": "system", "content": systeme},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
@@ -161,12 +163,14 @@ def propose_feasibility():
         if prompt is None:
             return jsonify({"result": {}, "source": "prompts-unavailable"}), 200
 
-        lang2 = session.get('lang', 'fr')
-        lang_instr2 = "Respond in English (text fields)." if lang2 == 'en' else "Réponds en français (champs texte)."
+        lang2 = 'en' if session.get('lang', 'fr') == 'en' else 'fr'
+        systeme = get_prompt("propose.aptitudes.handicap_icf.system.%s" % lang2)
+        if systeme is None:
+            return jsonify({"result": {}, "source": "prompts-unavailable"}), 200
         resp = client.chat.completions.create(
             model=ai_model(),
             messages=[
-                {"role": "system", "content": f"Tu es un expert prevention et inclusion. Tu reponds UNIQUEMENT en JSON valide, sans markdown ni texte supplementaire. {lang_instr2}"},
+                {"role": "system", "content": systeme},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,

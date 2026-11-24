@@ -334,6 +334,15 @@ def _algorithmic_match(excel_groups: list, db_activities: list) -> dict:
 
 
 
+def _lang_remarques():
+    """Langue de la session ; 'fr' hors contexte de requête."""
+    try:
+        from flask import session
+        return 'en' if session.get('lang', 'fr') == 'en' else 'fr'
+    except Exception:
+        return 'fr'
+
+
 def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | None:
     """Tente un enrichissement IA pour les non-matchés. Retourne None si indisponible."""
     api_key = get_openai_key()
@@ -343,7 +352,12 @@ def _try_openai_enrich(unmatched_groups: list, db_activities: list) -> dict | No
 
     try:
         from openai import OpenAI
+        # `import.enrich` rédige « match_reason » dans « langue_des_remarques » :
+        # sans ce champ, la remarque revenait en français quelle que soit la
+        # langue de l'écran. `import_hub` la passe depuis toujours ; ce
+        # chemin-ci l'avait oubliée — deux chemins du MÊME prompt.
         payload = {
+            'langue_des_remarques': 'français' if _lang_remarques() == 'fr' else 'English',
             'unmatched': [
                 {'activity_name_excel': g['activity_name_excel']}
                 for g in unmatched_groups

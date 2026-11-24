@@ -41,6 +41,10 @@ def _lang():
     return session.get("lang", "fr")
 
 
+def _entete_contexte(lang):
+    return "Contexte:\n" if lang == "fr" else "Context:\n"
+
+
 def _gap_status(demonstrated, required, lang):
     """CDC 6.5 : état de l'écart d'un résultat."""
     if demonstrated is None:
@@ -179,15 +183,16 @@ def generate_plan():
         "capabilities_in_gap": [{"type": c["type_label"], "label": c["label"],
                                  "current": c["demonstrated_level"], "required": c["required_level"]} for c in caps],
     }
-    plan_system = get_prompt("diagnostic.plan.system")
+    plan_system = get_prompt("diagnostic.plan.system.%s" % ("en" if lang == "en" else "fr"))
     if client is None or plan_system is None:
         return jsonify({"plan": None, "source": err or "no_ai", "context": ctx}), 200
     try:
         resp = client.chat.completions.create(
             model=ai_model(),
             messages=[{"role": "system", "content": plan_system},
-                      {"role": "user", "content": "Contexte:\n" + json.dumps(ctx, ensure_ascii=False)
-                                                  + "\nRéponds en " + ("français." if lang == "fr" else "English.")}],
+                      {"role": "user", "content": _entete_contexte(lang) + json.dumps(ctx, ensure_ascii=False)
+                                                  + ("\nRéponds en français." if lang == "fr"
+                                                     else "\nAnswer in English: every text field.")}],
             temperature=0.3, response_format={"type": "json_object"})
         raw = json.loads(resp.choices[0].message.content)
         return jsonify({"plan": raw.get("plan") or [], "source": "AI", "context": ctx}), 200

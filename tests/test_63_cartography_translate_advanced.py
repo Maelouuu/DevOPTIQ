@@ -12,6 +12,29 @@ import os
 import pytest
 from types import SimpleNamespace
 
+# ⚠️ `client` est partagé par toute la suite : une langue laissée derrière soi
+# change les messages que les fichiers suivants comparent (la leçon de
+# `test_82` / `test_83`). Et le défaut de session est l'ANGLAIS — un refus
+# bilingue doit donc être lu dans une langue POSÉE, jamais dans celle qui
+# traîne.
+import contextlib
+
+
+@contextlib.contextmanager
+def _langue(client, code):
+    with client.session_transaction() as s:
+        avant = s.get("lang")
+        s["lang"] = code
+    try:
+        yield client
+    finally:
+        with client.session_transaction() as s:
+            if avant is None:
+                s.pop("lang", None)
+            else:
+                s["lang"] = avant
+
+
 pytestmark = pytest.mark.cartography_translate_advanced
 
 
@@ -176,10 +199,9 @@ class TestTranslateSoftskillsWithMockedClient:
     def test_non_object_json_returns_400(self, auth_client, monkeypatch):
         """Réponse IA = JSON valide mais ni liste ni objet (ex: nombre) → 400."""
         _patch_client(monkeypatch, content="42")
-        r = auth_client.post(
-            "/translate_softskills/translate",
-            json={"user_input": "quelque chose"},
-        )
+        with _langue(auth_client, "fr") as c:
+            r = c.post("/translate_softskills/translate",
+                       json={"user_input": "quelque chose"})
         assert r.status_code == 400
         assert "tableau" in r.get_json()["error"].lower()
 

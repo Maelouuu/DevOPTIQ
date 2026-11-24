@@ -79,7 +79,7 @@ def propose_softskills():
                     "niveau": default_level,
                     "justification": default_justif,
                 }
-                for item in dummy_from_context("", "hsc")
+                for item in dummy_from_context("", "hsc", lang)
             ]
             return jsonify({"proposals": proposals, "source": err}), 200
 
@@ -114,10 +114,7 @@ def propose_softskills():
                 constraints_text=constraints_text,
                 x50_766_hsc=get_prompt("referential.x50_766.en") or "",
             )
-            system_msg = (
-                "You are an HR expert in Socio-Cognitive Abilities (SCA) XP X50-766. "
-                "You MUST respond only in valid JSON. No text outside JSON, no markdown."
-            )
+            system_msg = get_prompt("propose.softskills.system.en")
         else:
             perf_text = "\n".join(perf_lines) if perf_lines else "(Aucune performance renseignée)"
             prompt = get_prompt(
@@ -128,11 +125,7 @@ def propose_softskills():
                 constraints_text=constraints_text,
                 x50_766_hsc=get_prompt("referential.x50_766.fr") or "",
             )
-            system_msg = (
-                "Tu es un assistant RH expert en habiletés sociocognitives X50-766. "
-                "Tu DOIS répondre uniquement en JSON valide. "
-                "Jamais de texte extérieur, jamais de markdown."
-            )
+            system_msg = get_prompt("propose.softskills.system.fr")
 
         resp = client.chat.completions.create(
             model=ai_model(),

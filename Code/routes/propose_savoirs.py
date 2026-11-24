@@ -15,18 +15,18 @@ def propose_savoirs():
         activity = dict(payload)
         savoir_faires = payload.get("savoir_faires") or []
 
-        ctx = build_activity_context(activity)
+        lang = 'en' if session.get('lang', 'fr') == 'en' else 'fr'
+        ctx = build_activity_context(activity, lang)
         sf_block = "- " + "\n- ".join(savoir_faires) if savoir_faires else "-"
 
         client, err = openai_client_or_none()
         if client is None:
             # ✅ fallback sans clé
-            return jsonify({"proposals": dummy_from_context(ctx, "savoir"), "source": err}), 200
+            return jsonify({"proposals": dummy_from_context(ctx, "savoir", lang), "source": err}), 200
 
-        lang = session.get('lang', 'fr')
         header = get_prompt(f"propose.savoirs.header.{'en' if lang == 'en' else 'fr'}")
         if header is None:
-            return jsonify({"proposals": dummy_from_context(ctx, "savoir"),
+            return jsonify({"proposals": dummy_from_context(ctx, "savoir", lang),
                             "source": "prompts-unavailable"}), 200
         if lang == 'en':
             prompt = f"""{header}

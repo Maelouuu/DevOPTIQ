@@ -12,17 +12,17 @@ bp_propose_sf = Blueprint("propose_savoir_faires", __name__)
 def propose_savoir_faires():
     try:
         activity = request.get_json(force=True) or {}
-        ctx = build_activity_context(activity)
+        lang = 'en' if session.get('lang', 'fr') == 'en' else 'fr'
+        ctx = build_activity_context(activity, lang)
 
         client, err = openai_client_or_none()
         if client is None:
             # ✅ pas de clé → on renvoie un fallback 200
-            return jsonify({"proposals": dummy_from_context(ctx, "savoir_faire"), "source": err}), 200
+            return jsonify({"proposals": dummy_from_context(ctx, "savoir_faire", lang), "source": err}), 200
 
-        lang = session.get('lang', 'fr')
         header = get_prompt(f"propose.savoir_faires.header.{'en' if lang == 'en' else 'fr'}")
         if header is None:
-            return jsonify({"proposals": dummy_from_context(ctx, "savoir_faire"),
+            return jsonify({"proposals": dummy_from_context(ctx, "savoir_faire", lang),
                             "source": "prompts-unavailable"}), 200
         ctx_label = "CONTEXT" if lang == 'en' else "CONTEXTE"
         prompt = f"""{header}

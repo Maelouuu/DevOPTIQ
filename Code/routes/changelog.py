@@ -78,11 +78,31 @@ def _curated_lang(item):
 
 
 def _fallback_changelog():
+    # Les deux langues, comme le fichier curé : c'est le dernier recours, et il
+    # s'affiche dans la fenêtre de bienvenue de CHAQUE page.
     return {"items": [
-        {"icon": "fa-solid fa-sparkles", "title": "Nouvelles fonctionnalités", "desc": "Plusieurs améliorations ont été apportées pour simplifier votre quotidien."},
-        {"icon": "fa-solid fa-rocket", "title": "Expérience améliorée", "desc": "La navigation et les interactions ont été optimisées pour une meilleure fluidité."},
-        {"icon": "fa-solid fa-shield-halved", "title": "Fiabilité renforcée", "desc": "Corrections diverses pour garantir la stabilité et la sécurité de vos données."}
+        {"icon": "fa-solid fa-sparkles", "title": "Nouvelles fonctionnalités", "desc": "Plusieurs améliorations ont été apportées pour simplifier votre quotidien.",
+         "title_en": "New features", "desc_en": "Several improvements have been made to simplify your day-to-day work."},
+        {"icon": "fa-solid fa-rocket", "title": "Expérience améliorée", "desc": "La navigation et les interactions ont été optimisées pour une meilleure fluidité.",
+         "title_en": "Smoother experience", "desc_en": "Navigation and interactions have been streamlined."},
+        {"icon": "fa-solid fa-shield-halved", "title": "Fiabilité renforcée", "desc": "Corrections diverses pour garantir la stabilité et la sécurité de vos données.",
+         "title_en": "Stronger reliability", "desc_en": "Various fixes to keep your data stable and secure."}
     ]}
+
+
+def _servir(data):
+    """Rend la langue du LECTEUR à partir d'items qui portent les deux.
+
+    ⚠️ La traduction se fait à la LECTURE, jamais avant la mise en cache : le
+    cache est indexé par empreinte de commit et relu par des comptes de langues
+    différentes — la langue du premier lecteur gèlerait celle de tous les
+    suivants pendant une heure."""
+    items = data.get("items") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return data
+    sortie = dict(data)
+    sortie["items"] = [_curated_lang(it) for it in items]
+    return sortie
 
 def _generate_with_openai(commits):
     api_key = get_openai_key()
@@ -293,10 +313,10 @@ def get_changelog():
     commit_hash = _get_latest_commit_hash()
     cached = _changelog_cache.get(commit_hash)
     if cached and time.time() - cached['ts'] < 3600:
-        return jsonify({'ok': True, **cached['data']})
+        return jsonify({'ok': True, **_servir(cached['data'])})
 
     commits = _get_recent_commits(30)
     data = (_generate_with_openai(commits) if commits else None) or _fallback_changelog()
 
     _changelog_cache = {commit_hash: {'ts': time.time(), 'data': data}}
-    return jsonify({'ok': True, **data})
+    return jsonify({'ok': True, **_servir(data)})

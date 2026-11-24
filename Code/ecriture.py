@@ -78,6 +78,35 @@ TOUT_COMPTE = (
     # ⚠️ `/api/chatbot/inject`, lui, écrit : il reste sous la porte, et se
     # propose comme n'importe quel ajout de tâche (voir `_SEGMENTS`).
     "/api/chatbot/chat",
+    # ⚠️ Les PROPOSITIONS IA sont le même cas que le chatbot, et il a fallu
+    # faire le tour des prompts pour le voir : ces routes n'écrivent PAS une
+    # ligne — elles appellent l'IA et rendent du JSON. Elles sont en POST parce
+    # qu'elles portent l'activité entière dans leur corps, pas parce qu'elles
+    # modifient quoi que ce soit (vérifié : aucun `db.session` dans ces cinq
+    # blueprints, et un cliquet le garde). Refusées, elles répondaient
+    # « lecture seule » — le motif réservé à `user` — à un champion qui a
+    # pourtant le droit de PROPOSER des tâches et des compétences. Sur une
+    # carto COMMUNE, c'est-à-dire la configuration du pilote, AUCUNE
+    # proposition d'IA n'était donc joignable : ni savoirs, ni savoir-faire, ni
+    # HSC, ni aptitudes, ni compétences. Mesuré au banc avant/après :
+    # 403 `lecture_seule` → 200 avec les propositions.
+    # ⚠️ Ce qu'elles préparent, en revanche, s'écrit ailleurs et reste sous la
+    # porte : `/savoirs/add`, `/skills/add`, `/competence/save`… Proposer n'est
+    # pas enregistrer.
+    # ⚠️ Et c'est bien TOUT_COMPTE, donc `user` compris — comme le chatbot. Un
+    # appel d'IA coûte de l'argent, et rien ici ne le limite : c'est le même
+    # risque que le chatbot porte depuis le 23/11, assumé de la même façon.
+    "/propose_savoirs",
+    "/propose_savoir_faires",
+    "/propose_softskills",
+    "/propose_aptitudes",
+    "/translate_softskills",
+    # ⚠️ Ces trois-là sont des PRÉFIXES PRÉCIS, et c'est volontaire :
+    # `/skills/add`, `/skills/<id>`, `/diagnostic/save` et `/hsc/descriptors`
+    # écrivent, eux. Exempter `/skills` ou `/hsc` les ouvrirait tous.
+    "/skills/propose",
+    "/diagnostic/plan",
+    "/hsc/position",
     # Paramètres : les sections d'administration ont leur propre garde
     # (`parametres_admin`), et elle est PLUS stricte que celle-ci.
     "/parametres",

@@ -21,6 +21,18 @@ def _lang():
     return session.get("lang", "fr")
 
 
+def _contexte_reponses(name, responses, examples, lang):
+    """Le contexte dans la langue de l'écran : des intitulés français sous une
+    consigne anglaise, c'est le signal mixte qui fait répondre en français."""
+    if lang == "en":
+        bloc = f"SCA: {name}\nAnswers to the situations:\n"
+        bloc += "\n".join(f"- {r}" for r in responses)
+        return bloc + (f"\nReal-life example: {examples}" if examples else "")
+    bloc = f"HSC : {name}\nRéponses situations :\n"
+    bloc += "\n".join(f"- {r}" for r in responses)
+    return bloc + (f"\nExemple vécu : {examples}" if examples else "")
+
+
 @hsc_bp.route("/levels", methods=["GET"])
 def levels():
     lang = _lang()
@@ -77,7 +89,7 @@ def position():
         return jsonify({"error": "invalid"}), 400
     lang = _lang()
     client, err = openai_client_or_none()
-    pos_system = get_prompt("hsc.positioning.system")
+    pos_system = get_prompt("hsc.positioning.system.%s" % ("en" if lang == "en" else "fr"))
     if client is None or pos_system is None:
         return jsonify({"proposal": None, "source": err or "no_ai"}), 200
     responses = p.get("responses") or []
@@ -88,10 +100,10 @@ def position():
         resp = client.chat.completions.create(
             model=ai_model(),
             messages=[{"role": "system", "content": pos_system},
-                      {"role": "user", "content": f"HSC : {name}\nRéponses situations :\n"
-                                                  + "\n".join(f"- {r}" for r in responses)
-                                                  + (f"\nExemple vécu : {examples}" if examples else "")
-                                                  + f"\nRéponds en {'français' if lang == 'fr' else 'English'}.\n{schema}"}],
+                      {"role": "user", "content": _contexte_reponses(name, responses, examples, lang)
+                                                  + ("\nRéponds en français." if lang == "fr"
+                                                     else "\nAnswer in English: every text field.")
+                                                  + f"\n{schema}"}],
             temperature=0.2, response_format={"type": "json_object"})
         raw = json.loads(resp.choices[0].message.content)
         lvl = raw.get("probable_level")
@@ -104,7 +116,9 @@ def position():
             "evidence_summary": raw.get("evidence_summary") or "",
             "missing_evidence_for_next_level": raw.get("missing_evidence_for_next_level") or "",
             "development_focus": raw.get("development_focus") or "",
-        }, "source": "AI", "note": "Proposition — à valider par un évaluateur habilité."}), 200
+        }, "source": "AI",
+            "note": ("Proposition — à valider par un évaluateur habilité." if lang == "fr"
+                     else "Proposal — to be validated by an authorised evaluator.")}), 200
     except Exception as e:
         current_app.logger.exception(e)
         return jsonify({"proposal": None, "source": "error", "error": str(e)}), 200

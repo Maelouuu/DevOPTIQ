@@ -10705,6 +10705,240 @@ l'activité), la teinte qui suit l'activité, le lien qui revient de lui-même
 sur un `resize`, rien de dessiné quand la gouttière n'a pas de hauteur, le
 repli en colonne, zéro débordement horizontal et zéro erreur console.
 
+### LES PROMPTS IA, passés en revue un par un (2026-11-25)
+
+L'application appelle l'IA à **vingt-trois endroits** dans `Code/` — vingt-deux
+routes, plus le prompt trivial de `role_i18n` — et rien ne vérifiait que
+chacun dit au modèle dans quelle langue répondre. Trois façons de le dire
+cohabitaient, toutes légitimes : le prompt a une **variante** par langue, la
+route **ajoute** une consigne au message, ou la langue voyage dans le
+**contexte JSON**. Ce qui ne marche pas, c'est de ne rien dire — un prompt
+français rend du français, quelle que soit la langue de l'écran, et personne ne
+lève d'erreur : le pilote anglophone lit simplement du français.
+
+Catalogue : **38 → 54 prompts**. Cliquets : `tests/test_164_prompts_ia.py`
+(85 cas) ; **35 gardes retirées une par une, 35 cliquets tombés**.
+
+⚠️⚠️ **Et la branche anglaise est le DÉFAUT, pas un cas limite.**
+`DEFAULT_LANG = 'en'` et `Code/app.py` pose `session['lang']` dès la requête :
+les dizaines de `session.get("lang", "fr")` disséminées dans les routes ne
+retombent **jamais** sur leur défaut français. Chaque phrase française écrite en
+dur était donc servie au compte par défaut — c'est ce qui a fait tomber trois
+cas de `test_40` et `test_63`, qui épinglaient un message de refus en comptant
+sur le fait qu'il était INCONDITIONNEL. Ils posent désormais la langue, et la
+rendent : `client` est partagé par toute la suite.
+
+#### ⚠️⚠️ Le plus gros : AUCUNE proposition d'IA n'était joignable sur une carto COMMUNE
+
+`Code/ecriture.py` refusait `/propose_savoirs`, `/propose_savoir_faires`,
+`/propose_softskills`, `/propose_aptitudes`, `/translate_softskills`,
+`/skills/propose`, `/diagnostic/plan` et `/hsc/position` — avec le code
+`lecture_seule`, **le motif réservé à `user`** — à un champion qui a pourtant le
+droit de PROPOSER des tâches et des compétences. Or ces routes **n'écrivent pas
+une ligne** : elles appellent l'IA et rendent du JSON, et elles sont en POST
+parce qu'elles portent l'activité entière dans leur corps.
+
+C'est exactement le cas du chatbot, exempté le 23/11, et c'est la configuration
+du pilote (cartos communes + champions) : ni savoirs, ni savoir-faire, ni HSC,
+ni aptitudes, ni compétences proposables. Vérifié au banc
+(`tools/devrun_partage.py`, compte `champion@test.local` sur la carto commune) :
+**200 et des propositions anglaises**, là où c'était 403.
+
+- ⚠️ **Ce qu'elles PRÉPARENT reste sous la porte** : `/skills/add`,
+  `/savoirs/add`, `/competence/save`… Proposer n'est pas enregistrer. Mesuré au
+  banc : `/skills/add` rend **202 `proposition`** pour le champion — son
+  écriture part dans son brouillon, ce qui est la bonne réponse.
+- ⚠️ **Trois préfixes sont PRÉCIS** (`/skills/propose`, `/diagnostic/plan`,
+  `/hsc/position`) : exempter `/skills` ou `/hsc` ouvrirait `/skills/add`,
+  `/diagnostic/save` et `/hsc/descriptors`, qui écrivent. Un cliquet le garde
+  dans les deux sens.
+- ⚠️ **L'exemption ne tient que parce que c'est vrai**, et ça se COMPTE : un
+  cliquet appelle les dix routes et vérifie que **pas une ligne** ne naît
+  derrière (neuf tables comptées avant / après). Lire les imports ne suffisait
+  pas — un helper venu d'ailleurs pourrait écrire ; un second cliquet vérifie
+  en plus que ces cinq blueprints ne tiennent aucune session SQLAlchemy, sur le
+  MODULE chargé et pas sur son source (l'arbre d'image n'a pas les `.py`).
+- ⚠️ C'est bien `TOUT_COMPTE`, donc `user` compris, comme le chatbot. Un appel
+  d'IA coûte de l'argent et rien ici ne le limite : même risque que celui que le
+  chatbot porte depuis le 23/11, assumé de la même façon.
+
+#### ⚠️⚠️ Huit prompts système étaient ÉCRITS DANS les routes
+
+`propose_aptitudes.py` (2), `propose_softskills.py` (2),
+`translate_softskills.py` (2), `onboarding.py` (2). Ils nomment les
+référentiels — **XP X50-766, CIF** — c'est-à-dire du savoir-faire, et le
+catalogue existe précisément pour qu'il soit chiffré dans l'image client au lieu
+de voyager dans le bytecode d'une route. La règle était écrite ici depuis la
+phase 2 d'OptiqFluent (« Ne JAMAIS remettre un prompt en dur dans une route ») ;
+elle avait été oubliée huit fois.
+
+Rapatriés en cinq paires `.fr` / `.en`, et le cliquet porte sur ce que la route
+**DEMANDE au catalogue**, pas sur le texte envoyé : ⚠️ un prompt réécrit en dur
+contiendrait peut-être encore le mot « English » — c'est ce que faisaient les
+deux prompts des aptitudes — et une règle qui ne regarde que la consigne de
+langue ne l'aurait pas vu. La clé manquante, elle, se voit.
+
+⚠️ `Code/routes/test.py` est **supprimé** : deux prompts de plus, en dur, dans
+un fichier sans Blueprint ni route que **rien n'importait**, et qui appelait
+`openai.ChatCompletion.create` — l'API d'avant openai 1.0, retirée de la version
+épinglée. Ce n'était pas du code mort fonctionnel : c'était du code mort cassé,
+qui faisait voyager du savoir-faire dans l'image.
+
+#### ⚠️⚠️ « Answer in English » ajouté à un prompt FRANÇAIS ne suffit pas — mesuré
+
+Cinq routes disaient la langue par la deuxième voie : un prompt français, suivi
+d'une consigne anglaise. Mesuré en comptant les marqueurs de langue dans ce qui
+part réellement au modèle (banc `preuve_langue`, vrai catalogue, les deux
+langues) :
+
+| route, en anglais | avant | après |
+|---|---|---|
+| `/skills/propose` | **fr 2 / en 1** | fr 0 / en 4 |
+| `/hsc/position` | fr 2 / en 2 | fr 0 / en 4 |
+| `/diagnostic/plan` | fr 2 / en 2 | fr 0 / en 4 |
+| `/competence/generate` | **fr 6 / en 3** | fr 0 / en 6 |
+| `/competence/result_links/generate` | **fr 5 / en 3** | fr 0 / en 6 |
+
+Le prompt pèse plus que son post-scriptum. Les cinq passent donc en
+**variantes** — la première des trois voies, et la seule qui ne se batte pas
+contre son propre support. L'inventaire `LANGUE_DITE_PAR_LA_ROUTE` du fichier de
+tests est désormais **vide**, et il reste là pour obliger à décider au prompt
+suivant.
+
+- ⚠️ **La consigne finale est GARDÉE à part.** Depuis que les prompts sont des
+  variantes, plus aucun autre cas ne voyait `_consigne_langue` : une ligne que
+  rien ne garde est une ligne qui pourrit.
+- ⚠️ **Et les BLOCS DE CONTEXTE comptent autant.** `build_activity_context`
+  (savoirs, savoir-faire), `_build_context` (chatbot, à chaque tour),
+  `_result_ctx` (compétence), `_build_context` (qualification) et
+  `_contexte_reponses` (HSC) envoyaient des intitulés français sous un prompt
+  anglais : c'est le texte le plus LONG du message, et le signal mixte qui fait
+  repasser le modèle au français. Tous suivent la langue.
+
+#### ⚠️⚠️ Les libellés S/SF/HSC naissaient en français — et ils sont ENREGISTRÉS
+
+`result_capabilities.sfhsc.system` n'avait ni variante ni consigne, et la route
+n'ajoutait rien. Les savoir-faire, savoirs et HSC que l'IA propose sont
+**sauvegardés** comme intitulés d'items (`Savoir.description`,
+`SavoirFaire.description`, `Softskill.habilete`) : nés en français chez un compte
+anglais, ils y restaient — rien ne les retraduit ensuite, contrairement aux rôles
+(`role_i18n`). Le prompt le dit maintenant en toutes lettres, dans les deux
+variantes.
+
+La **compétence principale**, elle, était juste par son SCHÉMA
+(`description_fr` + `description_en`, exigés par `COMP_SCHEMA`) mais le prompt
+n'en parlait pas : ⚠️ une consigne portée par le seul schéma se perd à la
+première réécriture. Les deux variantes la portent.
+
+#### ⚠️⚠️ Le changelog généré servait du FRANÇAIS à tout le monde
+
+`changelog.system` disait « **Langue : français uniquement** ». Son résultat
+s'affiche dans la fenêtre de bienvenue de **chaque page**, et il est **mis en
+cache par empreinte de commit** puis relu par des comptes de langues
+différentes. Le fichier curé, lui, est bilingue depuis toujours
+(`title_en` / `desc_en`, servis par `_curated_lang`).
+
+Le prompt demande donc désormais les **deux langues**, et `_servir` applique
+`_curated_lang` **à la LECTURE**. ⚠️ Jamais avant la mise en cache : la langue du
+premier lecteur gèlerait celle de tous les suivants pendant une heure.
+`_fallback_changelog` — le dernier recours — est bilingue lui aussi.
+
+#### Sans clé IA, les replis parlaient français
+
+C'est le cas le plus courant chez un client qui n'en a pas, et c'est tout
+l'intérêt de « en toute circonstance » :
+
+- `dummy_from_context` rendait « **Connaître** les procédures principales de
+  l'activité « X » » à un compte anglais. ⚠️ Les guillemets `« »` sont une
+  convention FRANÇAISE : la version anglaise emploie des guillemets droits.
+- ⚠️ **Le repli relit le contexte pour y prendre le titre** : il cherchait
+  « Titre: », qui n'existe plus quand le contexte est anglais. Traduire l'un
+  sans l'autre faisait perdre le nom de l'activité dans les propositions.
+- Les messages d'erreur de `skills.py` (3) et de `translate_softskills.py` (4),
+  et le `note` de `/hsc/position`, étaient en dur en français.
+  ⚠️ « Clé IA non renseignée » est un **MARQUEUR** lu par `optiqAiCheck`, pas un
+  texte d'écran : sa regex `NO_KEY_MARKERS` porte aussi la forme anglaise
+  (`ai key not configured`), la traduire est donc sûr — et le `source` que rend
+  `make_ai_client` reste en français **exprès**, c'est un code que le JS
+  reconnaît pour afficher SA propre pop-up bilingue.
+
+#### Deux chemins du même prompt, dont un seul disait la langue
+
+`import.enrich` rédige `match_reason` dans « langue_des_remarques » quand elle
+est fournie. `import_hub` la passe depuis toujours ;
+`import_full._try_openai_enrich` ne la passait pas — la remarque revenait en
+français. ⚠️ Ce chemin-là n'est appelé par **aucun écran** (`/api/import-full/*`
+n'apparaît nulle part dans le front depuis que la fenêtre d'import a déménagé),
+mais la route existe et répond : deux chemins du même prompt ne doivent pas
+diverger sur la langue.
+
+#### Ce qui a été VÉRIFIÉ et laissé tel quel
+
+- `carto.decisions.system` et `carto.reposition.system` ne rendent **pas de
+  prose** : des coordonnées, et les libellés fournis recopiés sans traduction
+  (« conserve exactement les labels »). Rien à dire sur la langue.
+- `plan_formation.system` et `import.correspondance` / `import.enrich` restent
+  sur la **troisième voie** : la langue voyage dans le contexte JSON
+  (`"langue": "English"`, `langue_des_remarques`) et le prompt le dit
+  explicitement (« Rédige tous les textes dans la langue demandée »,
+  « rédigée dans *langue_des_remarques* quand elle est fournie »). Les traduire
+  en variantes voudrait dire réécrire 1 600 signes de règles OPTIQ, pour un gain
+  qu'aucune mesure ne montre.
+  ⚠️ **Ce qui est mesuré et ce qui est seulement RELU**, parce que la nuance
+  compte : `plan_formation` et le chemin d'`import_full` sont mesurés par un
+  cliquet (le champ part bien dans le contexte) ; les deux routes
+  d'`import_hub`, elles, ont été **relues** — elles passent
+  `langue_des_remarques` depuis toujours, et `test_84` les couvre par ailleurs,
+  mais je ne les ai pas fait tourner avec un enregistreur.
+- ⚠️ `competences_plan.py` / `plan_storage.py` sont les vestiges de l'ANCIENNE
+  page Compétences : **aucun gabarit ne les charge** (c'est déjà écrit plus
+  haut). Leur paire `competences_plan.header.{fr,en}` est donc un prompt mort —
+  laissé en place, pas vérifié à l'écran.
+- `/competence/result_links/generate` **écrit** (items + liens) : il reste sous
+  la porte, et il n'est pas dans `_SEGMENTS`, donc un champion ne peut ni
+  l'écrire ni le proposer. Le rendre proposable est une décision de modèle, pas
+  une ligne d'exemption.
+
+#### ⚠️ Quatre pièges, dont trois déjà connus sous une autre forme
+
+- ⚠️⚠️ **Un NameError dans le `try` d'une route devient un repli silencieux.**
+  L'ajout du paramètre `lang` à `_build_context` (qualification) sans toucher à
+  sa signature levait un NameError **avalé par le `except`** :
+  `/qualify/analyze` rendait son repli en **200**, l'appel IA disparu sans un
+  mot. C'est le banc qui l'a vu (« AUCUN APPEL »), pas la suite. Toute route
+  dont l'appel IA vit dans un `try/except` qui rend un repli **cache ses propres
+  bugs** : c'est pour cela que la règle du fichier de tests commence par
+  « aucun appel au modèle : la route est tombée dans un repli ».
+- ⚠️ **Un cliquet qui cherche une chaîne doit borner sa zone** — deux fois ici.
+  `"title_en" in t` restait **vert** le schéma du changelog vidé, parce que la
+  consigne juste au-dessus cite « title_en/desc_en » en toutes lettres ; il vise
+  maintenant `'"title_en":"'`, la forme du schéma. Et `doit_dire_anglais`, la
+  règle générale, ne voyait **pas** un contexte remis en français — « Activité: »
+  et « Tâches: » ne contiennent pas le mot « français » : les deux cas
+  concernés épinglent désormais un intitulé anglais précis.
+- ⚠️ **Compter les guillemets d'une ligne pour la découper est faux** : une
+  chaîne à guillemets DOUBLES qui contient une apostrophe (`d'activité`) rend le
+  compte de `'` impair, et mon helper avalait la ligne suivante — il a failli
+  effacer le prompt voisin. Chaque prompt du catalogue tient sur UNE ligne : on
+  travaille par lignes.
+- ⚠️ Deux fixtures de langue dans la même signature de test (`en` **et** `fr`)
+  s'annulent : la seconde repose la langue avant que le cas ne tourne. Le test a
+  attrapé ma propre erreur.
+
+ℹ️ `Code/prompts/prompts.enc` est régénéré par **chaque** workflow de
+déploiement (`python tools/prompts/encrypt_prompts.py`, avant le build) : un
+prompt ajouté au catalogue part tout seul dans l'image client. Vérifié ici —
+chiffrement puis relecture par le chemin du client, **54 prompts**, accents
+intacts.
+
+**Reste, et c'est un chantier à part** : les **191 chaînes françaises écrites en
+dur** dans les JS encore chargés par un gabarit (`propose_aptitudes.js` 47,
+`tasks.js` 22, `propose_from_file.js` 16…), déjà inventoriées le 16/11. Ce
+travail-ci porte sur ce qui part vers le modèle et sur ce qu'il en revient ; ce
+que les écrans en font ensuite se traite écran par écran.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

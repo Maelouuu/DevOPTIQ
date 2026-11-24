@@ -121,7 +121,12 @@ class TestSuccesEtEntrees:
         with c.session_transaction() as sess:
             sess["lang"] = "en"
         c.post("/propose_aptitudes/propose", json={"name": "A"})
-        assert "Respond in English" in client.calls[0]["messages"][0]["content"]
+        systeme = client.calls[0]["messages"][0]["content"]
+        # ⚠️ Plus la phrase EXACTE : le prompt a quitté la route pour le
+        # catalogue (il nomme la CIF, c'est du savoir-faire). On garde ce qui
+        # compte — il est en anglais, et il n'est plus en français.
+        assert "in English" in systeme, systeme
+        assert "français" not in systeme and "Réponds" not in systeme, systeme
 
     def test_feasibility_sans_cle_renvoie_source(self, app, monkeypatch):
         monkeypatch.setattr(f"{MODULE}.openai_client_or_none", lambda: (None, "no-key"))

@@ -240,9 +240,12 @@ def _serialize_output(d, lang=None):
     }
 
 
-def _build_context(activity, outputs):
+def _build_context(activity, outputs, lang="fr"):
     """Contexte transmis à l'IA (CDC 1.6) : activité, description, tâches, sorties,
-    type de flux et activités destinataires."""
+    type de flux et activités destinataires.
+
+    ⚠️ Les intitulés suivent la langue : sous un prompt système anglais, un bloc
+    de contexte français est le signal mixte qui fait répondre en français."""
     tasks = Task.query.filter_by(activity_id=activity.id).order_by(Task.order).all()
     dest = {}
     for lk in Link.query.filter(Link.source_activity_id == activity.id).all():
@@ -250,16 +253,19 @@ def _build_context(activity, outputs):
             a = Activities.query.get(lk.target_activity_id)
             if a:
                 dest[a.id] = a.name
+    en = lang == "en"
     lines = [
-        f"Activité: {activity.name}",
+        f"{'Activity' if en else 'Activité'}: {activity.name}",
         f"Description: {activity.description or '-'}",
-        "Tâches:",
+        "Tasks:" if en else "Tâches:",
     ]
     lines += [f"  - {t.name}" for t in tasks] or ["  -"]
-    lines.append("Données de sortie (à qualifier):")
+    lines.append("Output data (to qualify):" if en else "Données de sortie (à qualifier):")
     for d in outputs:
-        lines.append(f"  - [id={d.id}] {d.name} (type de flux: {d.type})")
-    lines.append("Activités destinataires: " + (", ".join(dest.values()) or "-"))
+        etiq = "flux type" if en else "type de flux"
+        lines.append(f"  - [id={d.id}] {d.name} ({etiq}: {d.type})")
+    lines.append(("Receiving activities: " if en else "Activités destinataires: ")
+                 + (", ".join(dest.values()) or "-"))
     return "\n".join(lines)
 
 
@@ -268,8 +274,12 @@ def _build_context(activity, outputs):
 def _prompt_user(ctx, lang):
     schema = (
         '{"outputs": [{"data_id": <int>, "suggested_nature": "RESULT|MEASURE|EVENT|INFORMATION", '
-        '"confidence": "high|medium|low", "justification": "<courte phrase>", '
-        '"suggested_minimum_performance": "<uniquement si RESULT, sinon omettre>"}]}'
+        '"confidence": "high|medium|low", '
+        + ('"justification": "<short sentence>", '
+           '"suggested_minimum_performance": "<only if RESULT, otherwise omit>"}]}'
+           if lang == "en" else
+           '"justification": "<courte phrase>", '
+           '"suggested_minimum_performance": "<uniquement si RESULT, sinon omettre>"}]}')
     )
     head = "=== CONTEXTE ACTIVITÉ ===" if lang == "fr" else "=== ACTIVITY CONTEXT ==="
     ask = (
@@ -341,7 +351,7 @@ def analyze(activity_id):
         return jsonify({"outputs": _fallback_proposals(outs), "source": err or "no_ai"}), 200
 
     try:
-        ctx = _build_context(activity, outs)
+        ctx = _build_context(activity, outs, lang)
         resp = client.chat.completions.create(
             model=ai_model(),
             messages=[

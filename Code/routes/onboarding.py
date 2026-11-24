@@ -34,11 +34,7 @@ def generate_onboarding(role_id):
         from Code.ai_client import make_ai_client
         client, _ai_model, _err = make_ai_client()
 
-        system_content = (
-            "You are a specialist in SCA development and professional support."
-            if lang == 'en'
-            else "Vous êtes un assistant spécialisé en développement des HSC et en accompagnement professionnel."
-        )
+        system_content = get_prompt("onboarding.system.%s" % ('en' if lang == 'en' else 'fr'))
 
         response = client.chat.completions.create(
             model=_ai_model,

@@ -38,7 +38,9 @@ def propose_skills():
             tasks_list.append(str(t))
     tasks_list = [t.strip() for t in tasks_list if t.strip()]
     if not tasks_list:
-        return jsonify({"error": "Au moins une tâche est requise pour proposer des compétences."}), 400
+        return jsonify({"error": ("At least one task is required to propose competencies."
+                                  if session.get('lang', 'fr') == 'en'
+                                  else "Au moins une tâche est requise pour proposer des compétences.")}), 400
     tasks_str = ", ".join(tasks_list)
 
     # Connexions sortantes
@@ -66,10 +68,11 @@ def propose_skills():
 
     # --- PROMPT ---
     lang = session.get('lang', 'fr')
-    lang_instr = "Write the 3 competency proposals in English." if lang == 'en' else "Rédigez les 3 propositions en français."
+    # ⚠️ La consigne de langue n'est plus un POST-SCRIPTUM : le prompt entier
+    # existe dans les deux langues. Mesuré, un prompt français suivi d'un
+    # « Write … in English » envoyait deux fois plus de français que d'anglais.
     prompt = get_prompt(
-        "skills.competencies",
-        lang_instr=lang_instr,
+        "skills.competencies.%s" % ('en' if lang == 'en' else 'fr'),
         activity_name=activity_name,
         input_data=input_data_value,
         output_data=output_data_value,
@@ -78,12 +81,15 @@ def propose_skills():
         tools=tools_str,
     )
     if prompt is None:
-        return jsonify({"error": "Prompts IA non chargés sur cette instance."}), 500
+        return jsonify({"error": ("AI prompts are not loaded on this instance."
+                                  if lang == 'en' else "Prompts IA non chargés sur cette instance.")}), 500
 
     # --- OpenAI API KEY ---
     openai.api_key = get_openai_key()
     if not openai.api_key:
-        return jsonify({"error": "Clé IA non renseignée."}), 500
+        # Les deux formes sont reconnues par optiqAiCheck (NO_KEY_MARKERS).
+        return jsonify({"error": ("AI key not configured." if lang == 'en'
+                                  else "Clé IA non renseignée.")}), 500
 
     # --- NOUVEAU CLIENT OPENAI ---
     try:
@@ -93,7 +99,8 @@ def propose_skills():
         response = client.chat.completions.create(
             model=_ai_model,
             messages=[
-                {"role": "system", "content": get_prompt("skills.system")},
+                {"role": "system",
+                 "content": get_prompt("skills.system.%s" % ('en' if lang == 'en' else 'fr'))},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.3,

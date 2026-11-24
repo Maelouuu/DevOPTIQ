@@ -3,7 +3,7 @@ import os
 from flask import current_app
 from Code.ai_key import get_openai_key
 
-def build_activity_context(activity_json: dict) -> str:
+def build_activity_context(activity_json: dict, lang: str = "fr") -> str:
     title = activity_json.get("title") or activity_json.get("name") or ""
     description = activity_json.get("description") or ""
     inputs = activity_json.get("input_data") or []
@@ -17,6 +17,30 @@ def build_activity_context(activity_json: dict) -> str:
             return "-"
         return "\n".join(f"- {str(x)}" for x in lst)
 
+    # ⚠️ Les en-têtes suivent la langue. Un bloc de contexte en français sous un
+    # prompt anglais est le signal mixte qui fait repasser le modèle au
+    # français : c'est le texte le plus LONG du message, il pèse plus que la
+    # consigne qui l'accompagne.
+    if lang == "en":
+        return f"""# Activity
+Title: {title}
+Description: {description}
+
+# Input data
+{norm_list(inputs)}
+
+# Output data
+{norm_list(outputs)}
+
+# Tools
+{norm_list(tools)}
+
+# Constraints
+{norm_list(constraints)}
+
+# Tasks
+{norm_list(tasks)}
+"""
     return f"""# Activité
 Titre: {title}
 Description: {description}
@@ -57,25 +81,32 @@ def ai_model():
     return _ai_model()
 
 
-def dummy_from_context(ctx: str, kind: str = "savoir"):
+def dummy_from_context(ctx: str, kind: str = "savoir", lang: str = "fr"):
     """
     Fallback déterministe : on fabrique 3 items à partir du contexte.
     Ça évite de faire planter le front en prod.
+
+    ⚠️ Il suit la LANGUE : c'est ce que voit un compte anglais sur une instance
+    sans clé IA — donc le cas le plus courant chez un client qui n'en a pas.
     """
     base = ctx.splitlines()
     titre = ""
     for line in base:
-        if line.startswith("Titre:"):
-            titre = line.replace("Titre:", "").strip()
+        if line.startswith("Titre:") or line.startswith("Title:"):
+            titre = line.split(":", 1)[1].strip()
             break
 
-    if kind == "savoir_faire":
-        prefix = "Appliquer"
-    elif kind == "hsc":
-        prefix = "Développer"
-    else:
-        prefix = "Connaître"
+    if lang == "en":
+        prefix = {"savoir_faire": "Apply", "hsc": "Develop"}.get(kind, "Know")
+        # ⚠️ Pas de « » ici : ce sont les guillemets du FRANÇAIS.
+        part = f' of activity "{titre}"' if titre else ""
+        return [
+            f"{prefix} the main procedures{part}",
+            f"{prefix} the related tools and data{part}",
+            f"{prefix} the constraints and business rules{part}",
+        ]
 
+    prefix = {"savoir_faire": "Appliquer", "hsc": "Développer"}.get(kind, "Connaître")
     titre_part = f" de l'activité « {titre} »" if titre else ""
     return [
         f"{prefix} les procédures principales{titre_part}",

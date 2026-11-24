@@ -15,6 +15,10 @@ translate_softskills_bp = Blueprint('translate_softskills_bp', __name__, url_pre
 
 
 
+def _tls_lang():
+    return 'en' if session.get('lang', 'fr') == 'en' else 'fr'
+
+
 def _tls_ai_model():
     from Code.ai_client import ai_model
     return ai_model()
@@ -58,7 +62,8 @@ def translate_softskills():
     activity_data = data.get("activity_data", {})
 
     if not user_input:
-        return jsonify({"error": "Aucun texte saisi pour la traduction."}), 400
+        return jsonify({"error": ("No text entered for the translation." if _tls_lang() == 'en'
+                                  else "Aucun texte saisi pour la traduction.")}), 400
 
     activity_name = activity_data.get("name", "Activité sans nom")
     tasks_list = activity_data.get("tasks", [])
@@ -91,7 +96,7 @@ def translate_softskills():
             perf_text=perf_text,
             x50_766_hsc=get_prompt("referential.x50_766.en") or "",
         )
-        system_msg = "You are a specialist in Socio-Cognitive Abilities (SCA) XP X50-766. You MUST respond only in valid JSON, without markdown or additional text."
+        system_msg = get_prompt("translate.hsc.system.en")
     else:
         prompt = get_prompt(
             "translate.hsc.fr",
@@ -102,13 +107,15 @@ def translate_softskills():
             perf_text=perf_text,
             x50_766_hsc=get_prompt("referential.x50_766.fr") or "",
         )
-        system_msg = "Tu es un assistant spécialisé en habiletés socio-cognitives X50-766. Tu réponds UNIQUEMENT en JSON valide, sans markdown ni texte supplémentaire."
+        system_msg = get_prompt("translate.hsc.system.fr")
 
     client, err = get_openai_client()
     if client is None:
         return jsonify({"error": err}), 500
     if prompt is None:
-        return jsonify({"error": "Prompts IA non chargés sur cette instance."}), 500
+        return jsonify({"error": ("AI prompts are not loaded on this instance."
+                                  if _tls_lang() == 'en'
+                                  else "Prompts IA non chargés sur cette instance.")}), 500
 
     try:
         response = client.chat.completions.create(
@@ -127,13 +134,17 @@ def translate_softskills():
             proposals = json.loads(cleaned_text)
         except json.JSONDecodeError as e:
             current_app.logger.error(f"JSON parse error: {e}. Raw text: {ai_text[:500]}")
-            return jsonify({"error": f"Erreur de parsing JSON: {str(e)}"}), 400
+            libelle = ("JSON parsing error: " if _tls_lang() == 'en'
+                       else "Erreur de parsing JSON: ")
+            return jsonify({"error": libelle + str(e)}), 400
 
         if not isinstance(proposals, list):
             if isinstance(proposals, dict):
                 proposals = [proposals]
             else:
-                return jsonify({"error": "Le JSON renvoyé n'est pas un tableau d'objets."}), 400
+                return jsonify({"error": ("The returned JSON is not an array of objects."
+                                          if _tls_lang() == 'en'
+                                          else "Le JSON renvoyé n'est pas un tableau d'objets.")}), 400
 
         if lang == 'en':
             niveau_map = {
