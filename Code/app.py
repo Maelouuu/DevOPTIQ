@@ -87,6 +87,34 @@ def config_mail(env):
     }
 
 
+def normaliser_url_db(url):
+    """L'URL de la base, avec son PILOTE NOMMÉ.
+
+        ⚠️⚠️ `postgresql://` seul désignait **psycopg2** en SQLAlchemy 2.0 ;
+    depuis la **2.1** il désigne **psycopg (v3)**, qui n'est pas installé — et
+    chaque lecture meurt sur « No module named 'psycopg' ». C'est l'incident du
+    29/10 qui a mis tout le hub à terre, sans qu'un seul commit ne change : la
+    fourchette avait pris la dernière version du jour. Le correctif n'avait été
+    porté que dans `hub/` et `pulse/`.
+        L'épinglage (`SQLAlchemy==2.0.52`) nous protège aujourd'hui, mais une
+    URL qui dit son pilote ne dépend plus du tout de ce que pip a installé — et
+    `distribution/docker-compose.yml` passe au client un `postgresql://` NU,
+    qu'une reconstruction d'image ferait exploser chez lui.
+        ⚠️ Une URL qui nomme DÉJÀ un pilote (`+psycopg`, `+asyncpg`…) n'est pas
+    réécrite : ce serait décider à la place de celui qui l'a posée.
+        ⚠️ Fonction de MODULE, pas un bloc dans `create_app` : elle s'importe,
+    donc son cliquet tourne aussi dans l'arbre d'image, où `Code/app.py` n'est
+    plus lisible en source. Même raison que `config_mail`.
+    """
+    if not url:
+        return url
+    if url.startswith("postgres://"):
+        url = "postgresql://" + url[len("postgres://"):]
+    if url.startswith("postgresql://"):
+        url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+    return url
+
+
 def create_app(test_config=None):
     static_folder = os.path.join(parent_dir, "static")
     app = Flask(__name__, static_folder=static_folder)
@@ -133,9 +161,7 @@ def create_app(test_config=None):
     db_url = os.getenv("DATABASE_URL")
 
     if db_url:
-        if db_url.startswith("postgres://"):
-            db_url = db_url.replace("postgres://", "postgresql://", 1)
-        app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+        app.config["SQLALCHEMY_DATABASE_URI"] = normaliser_url_db(db_url)
         # Défauts calibrés Neon free tier (max ~20 connexions) ; un Postgres
         # local/dédié peut monter via DB_POOL_SIZE / DB_MAX_OVERFLOW.
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {

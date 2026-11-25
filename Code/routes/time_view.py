@@ -38,23 +38,44 @@ def sujet_choisi(valeur):
 def to_minutes(qty, unit):
     return float(qty or 0) * UNIT_TO_MIN.get((unit or 'minutes').lower(), 1)
 
+#     ⚠️⚠️ Les deux tables sondées ici — `company_params` et
+# `gestion_rh_params` — n'ont AUCUN modèle : rien ne les crée. Sur une base
+# NEUVE (donc chez tout nouveau client) les deux SELECT échouent, et c'est
+# normal : la fonction est faite pour retomber sur ses valeurs par défaut.
+#     Mais sur PostgreSQL un ordre raté AVORTE TOUTE LA TRANSACTION, et un
+# `except: pass` ne la répare pas : la requête HTTP continuait avec une session
+# morte, et c'est la requête SUIVANTE qui tombait en 500 — mesuré sur
+# `/temps/api/tableau_de_bord`, trois lignes plus loin, chez un client le jour 1.
+#     ⚠️ Invisible pour la suite : sur SQLite la session SURVIT au SELECT raté
+# (mesuré). C'est la famille « ce que SQLite accepte et que PostgreSQL refuse ».
+#     ⚠️⚠️ Une CONNEXION A PART, et surtout pas la session ORM. Deux fausses
+# pistes mesurées avant d'arriver là :
+#   · `db.session.rollback()` dans le `except` répare bien la transaction, mais
+#     `get_calendar_params` est appelé depuis des routes qui ÉCRIVENT : un
+#     rollback sec y jetterait le travail en attente de l'appelant ;
+#   · `db.session.begin_nested()` (SAVEPOINT) a l'air de régler ça — et ne le
+#     règle PAS : il FLUSHE la session avant de poser le point de reprise, donc
+#     le travail en attente part DANS le savepoint et le rollback l'emporte.
+#     Mesuré : un objet ajouté juste avant disparaissait de `session.new`.
+# Une connexion dédiée ne touche à aucune transaction de la session : il n'y a
+# rien à réparer et rien à perdre. C'est le parti déjà pris pour OptiqPulse.
+_SONDES_CALENDRIER = (
+    "SELECT Js, Sa, Ja FROM company_params LIMIT 1",
+    "SELECT days_per_week, weeks_per_year, days_per_year FROM gestion_rh_params LIMIT 1",
+)
+
+
 def get_company_params():
     defaults = {'Js': 5, 'Sa': 47, 'Ja': 220}
-    try:
-        row = db.session.execute(text("SELECT Js, Sa, Ja FROM company_params LIMIT 1")).fetchone()
-        if row:
-            return {'Js': int(row[0] or 5), 'Sa': int(row[1] or 47), 'Ja': int(row[2] or 220)}
-    except Exception:
-        pass
-    try:
-        row = db.session.execute(text("""
-            SELECT days_per_week, weeks_per_year, days_per_year
-            FROM gestion_rh_params LIMIT 1
-        """)).fetchone()
-        if row:
-            return {'Js': int(row[0] or 5), 'Sa': int(row[1] or 47), 'Ja': int(row[2] or 220)}
-    except Exception:
-        pass
+    for sonde in _SONDES_CALENDRIER:
+        try:
+            with db.engine.connect() as conn:
+                row = conn.execute(text(sonde)).fetchone()
+            if row:
+                return {'Js': int(row[0] or 5), 'Sa': int(row[1] or 47),
+                        'Ja': int(row[2] or 220)}
+        except Exception:
+            pass
     return defaults
 
 def get_calendar_params():

@@ -31,13 +31,32 @@ def to_dict(p: PerformancePersonnalisee):
     }
 
 # ---------- Schéma historique (DDL idempotente) ----------
+#     ⚠️⚠️ Cette DDL était écrite en SQLite PUR — `AUTOINCREMENT` et
+# la fonction date de SQLite, que PostgreSQL REFUSE. Elle est appelée en tête de six des
+# sept routes de ce fichier : toutes rendaient 500 en production, depuis
+# toujours, sur les deux instances. Mesuré : `syntax error at or near
+# "AUTOINCREMENT"`.
+#     ⚠️ Et la suite ne pouvait PAS le voir : elle tourne sur SQLite, où cette
+# syntaxe est valide. `test_67_schema_postgres` compile le DDL des MODÈLES avec
+# le dialecte PostgreSQL — une chaîne brute dans une route lui échappe.
+#     ⚠️ Le modèle `PerformancePersonnalisee`, lui, vient de `create_all` ; seule
+# la table d'HISTORIQUE est bâtie à la main, et elle n'a aucun modèle.
+def _dialecte_postgres():
+    try:
+        return db.engine.dialect.name.startswith("postgres")
+    except Exception:
+        return False
+
+
 def ensure_history_schema():
     """
     Crée la table d'historique si elle n'existe pas.
     """
+    cle = "id SERIAL PRIMARY KEY" if _dialecte_postgres() \
+        else "id INTEGER PRIMARY KEY AUTOINCREMENT"
     db.session.execute(text("""
         CREATE TABLE IF NOT EXISTS performance_personnalisee_historique (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          %s,
           performance_id INTEGER,
           user_id INTEGER,
           activity_id INTEGER,
@@ -47,9 +66,9 @@ def ensure_history_schema():
           validation_status TEXT,
           validation_date TEXT,
           event TEXT,
-          changed_at TEXT DEFAULT (datetime('now'))
+          changed_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
-    """))
+    """ % cle))
 
 def insert_history_snapshot_session(perf: PerformancePersonnalisee, *, content: str, status: str, vdate: str, event: str):
     """
@@ -60,7 +79,7 @@ def insert_history_snapshot_session(perf: PerformancePersonnalisee, *, content: 
             INSERT INTO performance_personnalisee_historique
               (performance_id, user_id, activity_id, content, validation_status, validation_date, event, changed_at)
             VALUES
-              (:performance_id, :user_id, :activity_id, :content, :validation_status, :validation_date, :event, datetime('now'))
+              (:performance_id, :user_id, :activity_id, :content, :validation_status, :validation_date, :event, CURRENT_TIMESTAMP)
         """),
         {
             "performance_id": perf.id,

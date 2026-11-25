@@ -95,15 +95,33 @@ def _capturer_config(monkeypatch):
 
 class TestConfigurationBase:
 
-    def test_url_postgres_heroku_reecrite_en_postgresql(self, monkeypatch):
+    #     ⚠️ CES DEUX CAS ONT ÉTÉ RENVERSÉS le 25/11. Ils affirmaient que
+    # `postgresql://` était laissé TEL QUEL — c'est précisément ce qui a été
+    # changé : `postgresql://` seul désignait psycopg2 en SQLAlchemy 2.0 et
+    # désigne psycopg (v3) depuis la 2.1, qui n'est pas installé. C'est
+    # l'incident du 29/10 qui a mis tout le hub à terre, et le correctif
+    # n'avait été porté que dans `hub/` et `pulse/`.
+    #     Un cas qui affirme une règle remplacée ne garde plus rien : on le
+    # réécrit sur la vérité neuve, on ne le supprime pas.
+    def test_url_postgres_heroku_recoit_postgresql_ET_son_pilote(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgres://u:p@hote:5432/optiq")
         cfg = _capturer_config(monkeypatch)()
-        assert cfg["SQLALCHEMY_DATABASE_URI"] == "postgresql://u:p@hote:5432/optiq"
+        assert cfg["SQLALCHEMY_DATABASE_URI"] == \
+            "postgresql+psycopg2://u:p@hote:5432/optiq"
 
-    def test_url_postgresql_laissee_telle_quelle(self, monkeypatch):
+    def test_url_postgresql_recoit_SON_PILOTE(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@hote/optiq")
         cfg = _capturer_config(monkeypatch)()
-        assert cfg["SQLALCHEMY_DATABASE_URI"] == "postgresql://u:p@hote/optiq"
+        assert cfg["SQLALCHEMY_DATABASE_URI"] == \
+            "postgresql+psycopg2://u:p@hote/optiq"
+
+    def test_une_url_qui_nomme_deja_son_pilote_n_est_pas_reecrite(self, monkeypatch):
+        """⚠️ Réécrire une URL qui nomme son pilote, ce serait décider à la
+        place de celui qui l'a posée."""
+        monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg://u:p@hote/optiq")
+        cfg = _capturer_config(monkeypatch)()
+        assert cfg["SQLALCHEMY_DATABASE_URI"] == \
+            "postgresql+psycopg://u:p@hote/optiq"
 
     def test_pool_par_defaut_calibre_neon(self, monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@hote/optiq")

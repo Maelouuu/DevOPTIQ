@@ -10939,6 +10939,185 @@ que les écrans en font ensuite se traite écran par écran.
 
 ---
 
+### AUDIT AVANT LIVRAISON CLIENT : deux 500 sur une base NEUVE, et la mine du 29/10 (2026-11-25)
+
+Rapport complet et classé : `docs/audit_avant_livraison.md`. Banc principal :
+un **PostgreSQL 16 vierge** monté par le démarrage NORMAL de l'application —
+c'est le scénario du client le jour 1, et les 104 routes GET y ont été balayées.
+**Deux rendaient 500, et aucune des 5176 lignes de la suite ne pouvait les
+voir : elle tourne sur SQLite.**
+
+#### ⚠️⚠️ `/temps/api/tableau_de_bord` : une sonde qui empoisonnait la session
+
+`get_calendar_params()` ne trouve aucune ligne `entreprise_settings` (base
+neuve) → retombe sur `get_company_params()` → `SELECT … FROM company_params`
+échoue, car **cette table n'a AUCUN modèle : rien ne la crée** → `except: pass`
+→ sur PostgreSQL un ordre raté **avorte TOUTE la transaction** → trois lignes
+plus loin, `Activities.for_active_entity()` lève `InFailedSqlTransaction`.
+
+⚠️ **Mesuré : sur SQLite la session SURVIT au SELECT raté.** D'où le silence de
+la suite. Famille « ce que SQLite accepte et que PostgreSQL refuse », déjà
+écrite ici pour `BOOLEAN DEFAULT 0` et `softskills.niveau` — cette instance-là
+n'avait jamais été attrapée.
+⚠️ **Et le défaut guérit tout seul** dès qu'on enregistre le calendrier de
+travail en page RH : il ne mord que le compte neuf et disparaît avant qu'on
+puisse le reproduire. Le pire profil pour un signalement client.
+
+⚠️⚠️ **Deux fausses pistes, mesurées — elles ont l'air justes :**
+- `db.session.rollback()` dans le `except` répare la transaction, mais
+  `get_calendar_params` est appelé depuis des routes qui ÉCRIVENT : le rollback
+  **jette le travail en attente de l'appelant** ;
+- `db.session.begin_nested()` (SAVEPOINT) a l'air de régler ça et **ne le règle
+  PAS** : `begin_nested` **FLUSHE** la session avant de poser le point de
+  reprise, donc le travail en attente part DANS le savepoint et le rollback
+  l'emporte. Mesuré : l'objet ajouté juste avant disparaissait de
+  `session.new`.
+
+**Retenu : une connexion DÉDIÉE** (`db.engine.connect()`), qui ne touche à
+aucune transaction de la session — rien à réparer, rien à perdre. C'est le
+parti déjà pris pour OptiqPulse (« écriture en connexion Core dédiée, jamais la
+session ORM »). Vérifié : 200 sur PostgreSQL, et sur SQLite zéro savepoint,
+session utilisable, travail en attente **préservé**.
+
+#### ⚠️⚠️ `/performance_perso/*` : une DDL en SQLite PUR, dans une route
+
+`ensure_history_schema()` exécutait `id INTEGER PRIMARY KEY AUTOINCREMENT` et
+`datetime('now')` — syntaxe SQLite que PostgreSQL refuse (`syntax error at or
+near "AUTOINCREMENT"`). Appelée en tête de **six des sept routes** du
+blueprint : cassé sur les deux instances en ligne, depuis toujours.
+⚠️ **`test_67_schema_postgres` compile le DDL des MODÈLES** avec le dialecte
+PostgreSQL ; une chaîne brute dans une route lui échappe entièrement.
+Gravité basse — `performance_personnalisee.js` n'est chargé par aucun gabarit,
+la fonctionnalité est injoignable : des routes mortes qui rendaient 500.
+
+#### ⚠️⚠️ L'URL de la base ne nommait pas son PILOTE — la mine du 29/10, restée
+
+`Code/app.py` ne faisait que normaliser `postgres://` → `postgresql://`. Or
+`postgresql://` seul désignait **psycopg2** en SQLAlchemy 2.0 et désigne
+**psycopg (v3)** depuis la **2.1**, qui n'est pas installé. C'est l'incident qui
+a mis tout le hub à terre sans qu'un seul commit ne change, et **le correctif
+n'avait été porté que dans `hub/` et `pulse/`.**
+
+⚠️ L'épinglage (`SQLAlchemy==2.0.52`) protège aujourd'hui — mais
+`distribution/docker-compose.yml` passe au client un `postgresql://` **NU**, et
+une reconstruction d'image ferait exploser son installation. Une URL qui dit son
+pilote ne dépend plus du tout de ce que pip a installé.
+
+`normaliser_url_db(url)` est une **fonction de module** (même raison que
+`config_mail` : elle s'importe, donc son cliquet tourne aussi dans l'arbre
+d'image). ⚠️ Une URL qui nomme DÉJÀ son pilote (`+psycopg`, `+asyncpg`) n'est
+pas réécrite : ce serait décider à la place de celui qui l'a posée.
+
+⚠️ **Deux cas de `test_157` ont été RENVERSÉS** : ils affirmaient que
+`postgresql://` était laissé TEL QUEL, c'est-à-dire exactement ce qu'on vient
+de changer. Un cas qui affirme une règle remplacée ne garde plus rien — on le
+réécrit sur la vérité neuve, on ne le supprime pas. Un troisième cas s'ajoute :
+une URL qui nomme déjà son pilote n'est pas touchée.
+
+#### ⚠️ Un cliquet qui ne gardait RIEN, et pourquoi
+
+Le premier cas écrit remettait le défaut **d'origine** — invisible sur SQLite
+par construction, donc il restait vert. Le cas qui tient affirme l'**INVARIANT**
+(la sonde ouvre SA PROPRE connexion) et tombe sur les **trois** versions
+fautives. Règle : *quand le défaut est invisible sur le moteur de la suite, le
+cliquet porte sur le mécanisme qui le ferme, pas sur le symptôme.*
+
+#### ⚠️⚠️ L'ASSISTANT D'INSTALLATION est 100 % français, sans aucun moyen de traduire
+
+C'est le **premier écran de l'image client** : celui où son informatique colle
+la licence, saisit l'URL de sa base, sa clé OpenAI, ses identifiants de mail et
+le compte administrateur. S'il ne le lit pas, l'installation n'a pas lieu.
+
+Vérifié : `setup_wizard.html` fait **412 lignes dont 257 dans un seul bloc
+`<script>`** qui construit les cinq étapes — et **zéro mécanisme de
+traduction** : pas un `t()`, pas de catalogue, pas de `data-i18n`. Il n'y a
+rien à compléter, il n'y a rien du tout. Idem pour `license_blocked.html`,
+l'écran servi quand la licence expire.
+
+⚠️ **Rectification de ma propre mesure** : j'avais d'abord compté 18 fragments
+français dans ce gabarit avec un détecteur qui lisait l'intérieur des
+`<script>` — il gonflait aussi le compte des autres gabarits. *Un détecteur
+qui parcourt un gabarit doit sauter `script`, `style`, `noscript` et
+`template`, exactement comme celui qui parcourt le DOM.*
+
+#### Trois mesures qui corrigent ce que ce fichier affirmait
+
+- **La dette de traduction est plus PETITE qu'annoncé** (191) : sur 236 chaînes
+  relevées dans 30 fichiers vivants, **52 sont certainement visibles**, dont 16
+  dans du **code mort** → **≈ 33 sur un écran vivant**, presque toutes des
+  messages d'erreur des chemins d'IA. Le reste : 66 `console.log`, 101 à
+  trancher, et 300 qui sont la moitié française d'un catalogue bilingue
+  **légitime**. ⚠️ Compter les chaînes françaises d'un fichier ne mesure rien
+  tant qu'on n'a pas séparé le catalogue, les traces et le code mort.
+- **`projection_metier` est un écran ENTIER injoignable** — aucun lien depuis la
+  nav ni depuis aucun gabarit. Ses 16 fragments français inventoriés par
+  `test_78` ne se voient nulle part : **le traduire serait du travail perdu**.
+- **`synth_competences.js`, `performance_perso.js` et `plan_formation.js` sont
+  bien morts** (ce fichier le disait, mon premier détecteur le niait : il les
+  croyait chargés parce qu'un AUTRE JS citait leur nom). **10 fichiers JS morts,
+  176 Ko**, dont `main copy.js`.
+
+#### Mesuré et laissé tel quel (le rapport détaille)
+
+- **Zéro CSRF** dans `Code/`, et le cookie de session sans drapeaux
+  (`SECURE=False`, `SAMESITE` non posé — mesuré). ⚠️ **Pas de vecteur
+  exploitable aujourd'hui** : `SameSite` absent retombe sur `Lax` côté
+  navigateur, et des 104 routes GET seules **trois** écrivent, du
+  provisionnement idempotent. Ce qui reste : le cookie en clair si du HTTP est
+  servi, et le constat en revue de sécurité client.
+- **Les 4 dérivés de l'accent rendent du GRIS** : mesuré au navigateur,
+  `--pg-accent` = `#7c3aed` mais `--pg-accent-soft` =
+  `color-mix(… #64748b …)`. **212 occurrences** dans 8 feuilles lisent un gris
+  en croyant lire la couleur de la page (`activities_list.css` 48,
+  `share.css` 39, `competences.css` 32, `gestion_outils.css` 32,
+  `gestion_rh.css` 30…). ⚠️ Un second compteur donne « 272 éléments » sur la
+  page Activités : il relève une COULEUR, pas un défaut — l'ordre de grandeur,
+  pas la liste des corrections. Le correctif de fond — les quatre jetons dans
+  chaque `.page--*` — reste à faire en regardant les dix pages.
+- Le `/login` n'est pas limité en débit ; `FORWARDED_ALLOW_IPS` vaut `*` ;
+  `/testpanel` est sans authentification mais **bien fermé chez le client**
+  (`TESTPANEL_ENABLED=0` baké, vérifié) et ouvert sur staging.
+- L'erreur `alembic_version` s'imprime à **chaque** démarrage sur PG neuf, avec
+  sa trace — inoffensive, mais le client la lira le jour 1.
+
+#### ⚠️ Le point aveugle : 99 routes d'écriture gardées UNE PAR UNE
+
+Mesuré : la porte centrale **refuse 102** routes d'écriture à un compte
+`user` — elle fait son travail. Mais **99 la traversent** (25 préfixes dans
+`TOUT_COMPTE`, 7 dans `SANS_COMPTE`) parce qu'elles portent une règle plus
+fine : `/comptes/*`, `/gestion_rh/*`, `/mastery/*`, `/paliers/*`, `/plan/*`,
+les routes d'IA, `/login`…
+
+⚠️⚠️ **C'est exactement dans cette moitié qu'étaient les trois trous trouvés
+jusqu'ici**, un par un et à l'usage : le garant (05/11), `/tools/add` (22/11),
+les dix routes d'IA (25/11). Chacun se présentait pareil — un champion
+recevait `lecture_seule`, le motif réservé à `user`. Un balayage ne peut pas
+les trancher (il faudrait les APPELER, donc écrire) : cela demande une passe
+construite, route par route, avec un décor jetable. **C'est le chantier à
+faire avant la livraison, devant la traduction et devant le gris.**
+
+#### Ce qui a été vérifié BON, pas supposé
+
+Suite : **5196 passés, 1 sauté, zéro rouge** ·
+61/61 tables créées sur une base vierge · zéro route cassée après correctifs ·
+verrous de l'image client corrects · **`preload_app = True` avec
+`Code.app:app` → les migrations tournent UNE fois**, pas une par worker (le
+doublon observé venait de mon propre script : `Code/app.py` porte
+`app = create_app()` au niveau module, et mon script appelait la fabrique en
+plus) · les 4 sites de SQL concaténé sont sûrs (listes blanches de littéraux,
+valeurs en paramètres liés).
+
+Cliquets : `tests/test_165_base_neuve.py` (19 cas ; **sept vérifiés rouges**,
+dont les trois versions fautives de la sonde). Un inventaire y tient les cinq
+tables sans modèle et les trois fichiers autorisés à porter de la syntaxe
+SQLite — une sixième table, ou un quatrième fichier, sera un choix écrit.
+⚠️ **Deux garde-fous de VOLUME** : dans l'arbre d'image, `Code/` n'a plus aucun
+`.py`, et les deux balayages y liraient ZÉRO fichier — ils verdiraient sans
+rien vérifier. Sous 40 sources lues, ils sautent franchement. (Mesuré : 104
+sources en temps normal.)
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.
