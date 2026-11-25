@@ -13,6 +13,30 @@ SETTING_KEYS = ("work_hours_per_day", "work_days_per_week",
                 "work_weeks_per_year", "work_days_per_year")
 
 
+@gestion_rh_bp.before_request
+def _ecriture_reservee_rh():
+    """⚠️ La porte centrale (`Code/ecriture.py`) s'efface devant `/gestion_rh`
+    parce que la page « porte sa propre garde » — mais DIX routes d'écriture
+    sur quatorze n'en portaient aucune. Mesuré le 25/11/2026 : un compte `user`
+    supprimait un rôle de n'importe quelle carto (`/delete_role/<id>` → 200),
+    réécrivait les paramètres de temps de l'entité, réaffectait les rôles et le
+    développeur de compétences de n'importe qui. Et l'exemption tombant AVANT
+    le contrôle du compte, l'anonyme passait aussi en production.
+    Fermé ici par CLASSE, comme la porte : toute écriture du blueprint exige
+    `can_access_rh` — c'est la règle que l'exemption annonçait."""
+    from Code.ecriture import METHODES_ECRITURE
+    if request.method not in METHODES_ECRITURE:
+        return None
+    from Code.permissions import can_access_rh, current_user
+    from Code.translations import t
+    moi = current_user()
+    if moi is None:
+        return jsonify({'error': t('porte.non_connecte'), 'code': 'non_connecte'}), 401
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé', 'code': 'lecture_seule'}), 403
+    return None
+
+
 def get_active_entity_id():
     """Récupère l'ID de l'entité active depuis la session."""
     return session.get('active_entity_id')

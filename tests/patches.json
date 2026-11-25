@@ -888,5 +888,55 @@
     ],
     "author": "routine",
     "fixed_at": "2026-11-19T03:27:23"
+  },
+  {
+    "patch_uid": "2026-11-25-gestion-rh-ecritures-sans-garde",
+    "title": "Page RH : dix routes d'écriture n'avaient aucun contrôle d'accès",
+    "node_ids": [
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[0]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[1]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[2]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[3]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[4]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[5]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[6]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[7]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_compte_user_est_refuse_et_rien_ne_bouge[8]",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_un_champion_est_refuse_aussi",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_sans_compte_401_et_le_role_survit",
+      "tests/test_166_ecritures_exemptees.py::TestGestionRhEcritureReservee::test_import_roles_refuse_avant_de_lire_le_fichier",
+      "tests/test_166_ecritures_exemptees.py::TestBalayageCompteUser::test_un_user_n_ecrit_que_ce_qui_est_permis"
+    ],
+    "page_slug": "ecritures_exemptees",
+    "failure_reason": "Un compte user (et un champion) recevait 200/302 et la base changeait : rôle supprimé, paramètres de temps réécrits, rôles et manager d'un collègue réaffectés, nom d'un collègue changé.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Code/ecriture.py exempte /gestion_rh de la porte centrale au motif que la page porte can_access_rh — mais seules role_cartos, role_dev et dev_scope le vérifiaient. delete_role, role, update_settings, update_single_setting, assign_roles, import_roles, collaborateur_roles, update_collaborator_name, assign_manager et assign_manager_simple écrivaient pour n'importe qui ; l'exemption tombant avant le contrôle du compte, l'anonyme passait aussi en production.",
+    "fix_description": "before_request sur le blueprint gestion_rh : toute méthode d'écriture exige un compte (401 sinon) et can_access_rh (403 code lecture_seule sinon). Les GET gardent leur règle. Balayage de toutes les routes exemptées par un compte user ajouté en cliquet (test_166).",
+    "files_changed": [
+      "Code/routes/gestion_rh.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-25T03:14:41"
+  },
+  {
+    "patch_uid": "2026-11-25-comptes-rattachement-sans-garde",
+    "title": "Comptes : un user se rattachait n'importe quel collègue (assign_manager, remove_collaborator)",
+    "node_ids": [
+      "tests/test_166_ecritures_exemptees.py::TestComptesRattachementReserve::test_un_user_ne_se_rattache_personne",
+      "tests/test_166_ecritures_exemptees.py::TestComptesRattachementReserve::test_un_user_ne_detache_personne",
+      "tests/test_166_ecritures_exemptees.py::TestComptesRattachementReserve::test_refus_en_json_pour_un_fetch"
+    ],
+    "page_slug": "ecritures_exemptees",
+    "failure_reason": "POST /comptes/assign_manager par un compte user posait users.manager_id de la victime sur lui-même ; remove_collaborator détachait n'importe qui.",
+    "was_real_bug": true,
+    "root_cause": "app_bug",
+    "error": "Les deux routes, sous le préfixe exempté /comptes, n'avaient aucun contrôle. Or le rattachement désigne le développeur de compétences, qui écrit ensuite le plan et les évaluations de la personne (/plan, /mastery) : élévation de droits.",
+    "fix_description": "Même règle que la gestion des rôles (_peut_gerer_roles : admin ou can_access_rh) ; refus par _forbidden (403 JSON pour un fetch, retour à la liste avec message sinon).",
+    "files_changed": [
+      "Code/routes/gestion_compte.py"
+    ],
+    "author": "routine",
+    "fixed_at": "2026-11-25T03:14:41"
   }
 ]

@@ -309,6 +309,18 @@ vraiment, donc écrire en base. Les vérifier demande une passe construite,
 route par route, avec un décor jetable — c'est le chantier que je
 recommanderais avant la livraison, devant la traduction et devant le gris.
 
+> **Fait le 25/11/2026 (routine de tests)** — `tests/test_166_ecritures_exemptees.py`
+> appelle chaque route d'écriture exemptée (hors IA et panel) avec un compte
+> `user`, en JSON puis en formulaire, et compare l'empreinte de toutes les
+> tables avant/après. **Douze routes écrivaient** : dix sous `/gestion_rh`
+> (dont `delete_role`, sans garde, anonyme compris en production) et
+> `/comptes/assign_manager` + `/comptes/remove_collaborator` (se rattacher un
+> collègue = devenir son développeur de compétences). Corrigé : garde
+> d'écriture `can_access_rh` sur tout le blueprint RH, `_peut_gerer_roles` sur
+> les deux routes de comptes. Le balayage lit la table des routes : toute
+> nouvelle route exemptée y entre d'office. Reste hors balayage : `/testpanel`
+> (§ 9).
+
 ## Ce qui va bien — vérifié, pas supposé
 
 - **Suite : 5176 passés, 1 sauté, aucun rouge** (avant correctifs).

@@ -466,6 +466,12 @@ def get_managers():
 
 @gestion_compte_bp.route('/assign_manager', methods=['POST'])
 def assign_manager():
+    # ⚠️ Rattacher, c'est désigner le développeur de compétences — qui écrit
+    # ensuite le plan et les évaluations de la personne (`/plan`, `/mastery`).
+    # Cette route n'avait AUCUN contrôle : un compte `user` se rattachait qui il
+    # voulait (mesuré le 25/11/2026). Même règle que les rôles : la page RH.
+    if not _peut_gerer_roles(current_user()):
+        return _forbidden('error_forbidden_edit')
     manager_id = int(request.form['manager_id'])
     multi = request.form.get('multi_select', '0') == '1'
 
@@ -499,6 +505,8 @@ def assign_manager():
 
 @gestion_compte_bp.route('/remove_collaborator/<int:user_id>', methods=['POST'])
 def remove_collaborator(user_id):
+    if not _peut_gerer_roles(current_user()):
+        return _forbidden('error_forbidden_edit')
     user = User.query.get(user_id)
     if user:
         user.manager_id = None
