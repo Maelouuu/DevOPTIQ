@@ -197,7 +197,7 @@ fetch(`/tasks/${taskId}/roles`)
 * Supprime un rôle de la tâche (DELETE /tasks/<taskId>/roles/<roleId>)
 */
 function deleteRoleFromTask(taskId, roleId) {
-if (!confirm("Confirmez-vous la suppression de ce rôle ?")) return;
+if (!confirm(_CR('confirm_delete_role'))) return;
 
 fetch(`/tasks/${taskId}/roles/${roleId}`, {
   method: 'DELETE'

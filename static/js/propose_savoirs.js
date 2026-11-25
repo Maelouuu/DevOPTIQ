@@ -26,7 +26,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
       .catch(error => {
         hideSpinner();
         console.error("Erreur fetchActivityDetailsForSavoirs:", error);
-        alert("Impossible de récupérer les détails de l'activité pour Proposer Savoirs");
+        alert(_piSav('err_fetch_details', "Impossible de récupérer les détails de l'activité (voir console)."));
       });
   }
   
@@ -54,12 +54,12 @@ function fetchActivityDetailsForSavoirs(activityId) {
       if (window.optiqAiCheck) window.optiqAiCheck(data);
       if (data.error) {
         console.error("Erreur IA /savoirs/propose_savoirs:", data.error);
-        alert("Erreur proposition Savoirs : " + data.error);
+        alert(_piSav('err_generic', "Erreur de proposition :") + " " + data.error);
         return;
       }
       const lines = data.proposals;
       if (!lines || !Array.isArray(lines)) {
-        alert("Aucune proposition retournée.");
+        alert(_piSav('err_no_proposals', "Aucune proposition retournée."));
         return;
       }
       showProposedSavoirs(lines, activityData.id);
@@ -68,7 +68,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
     .catch(err => {
       hideSpinner();
       console.error("Erreur lors de la proposition de savoirs:", err);
-      alert("Impossible d'obtenir des propositions de savoirs (voir console).");
+      alert(_piSav('err_fetch_savoirs', "Impossible d'obtenir des propositions de savoirs (voir console)."));
     });
   }
   
@@ -175,7 +175,7 @@ function fetchActivityDetailsForSavoirs(activityId) {
         })
         .catch(err => {
             hideSpinner();
-            alert("Erreur lors de l'ajout des savoirs.");
+            alert(_piSav('err_add_savoirs', "Erreur lors de l'ajout des savoirs."));
             console.error(err);
         });
     };

@@ -17,17 +17,36 @@ anglais.
 **Corrigé ici** : trois défauts, dont deux 500 qu'un client neuf aurait vus le
 jour 1. Suite : **5196 passés, 1 sauté, zéro rouge**.
 
+**Traité depuis, le 25/11** — trois points, sur demande de l'utilisateur.
+Le détail est dans `CLAUDE.md`, section « TROIS POINTS DE L'AUDIT TRAITÉS » :
+
+| | résultat mesuré |
+|---|---|
+| le **gris** des quatre dérivés (point 10) | les neuf pages rendent leur couleur ; **0 élément gris sur 6 821** là où il y en avait 272 |
+| les **chaînes françaises** (point 12) | **39** libellés passent par le catalogue ; `CRUD_I18N` vit désormais dans la nav, donc sur chaque page |
+| le **code mort** (point 13) | 11 JS (179 Kio), 2 CSS, 3 blueprints, 3 fichiers de tests, 2 prompts. Un **11e** fichier mort trouvé en chemin : chargé par un gabarit, mais sans aucun ancrage |
+
+⚠️ **`projection_metier` n'a PAS été touché**, et le point 13 le classait
+mal : c'est une fonctionnalité complète, **108 cas de test**, seulement non
+reliée — et spécifique à la France (API ROME de France Travail, identifiants
+partenaire). La supprimer ou la rebrancher est une décision produit.
+⚠️ Le **guide utilisateur** (point 16) a été refait par l'utilisateur depuis ;
+le constat de ce rapport ne vaut plus.
+
 **Ce que je prendrais ensuite, dans cet ordre** :
+
+⚠️ **Le point n° 1 de cette liste — les 99 routes d'écriture — a été traité le
+même jour par la routine de tests** (§ « Le point aveugle » ci-dessous) :
+`tests/test_166_ecritures_exemptees.py` les appelle vraiment, et **douze
+écrivaient**, dont `delete_role` sans aucune garde, anonyme compris. C'était
+bien le chantier à faire en premier, et il est fait.
 
 | # | quoi | pourquoi d'abord | coût |
 |---|---|---|---|
-| 1 | **les 99 routes d'écriture gardées une par une** | les trois trous d'accès trouvés jusqu'ici y étaient tous, un par un et à l'usage | une passe construite |
-| 2 | **le gris des quatre dérivés de l'accent** | 212 occurrences, visible sur les dix pages, et c'est la première chose qu'on voit | 40 lignes de CSS |
-| 3 | **l'assistant d'INSTALLATION, 100 % français** | c'est le PREMIER écran de l'image, celui où il saisit sa base et ses clés — et il n'a aucun mécanisme de traduction | une demi-journée |
-| 4 | **les ~33 chaînes françaises visibles** | elles sortent quand quelque chose rate, donc devant un client anglophone | une demi-journée |
-| 5 | **le guide utilisateur** | c'est le document que le client va LIRE, et il décrit une app d'il y a trois mois | un chantier |
-| 6 | **le code mort** (176 Ko de JS, 3 blueprints, 1 écran) | livré et servi publiquement ; pas de fuite, mais ça se voit | une demi-journée |
-| 7 | **les drapeaux du cookie de session** | trois lignes ; le CSRF lui-même est un chantier à décider | 3 lignes + décision |
+| 1 | **l'assistant d'INSTALLATION, 100 % français** | c'est le PREMIER écran de l'image, celui où il saisit sa base et ses clés — et il n'a aucun mécanisme de traduction | une demi-journée |
+| 2 | **`activities_map.js`** : séparer le vif du mort | 21 fragments français dans un fichier LIVE de 1 900 lignes ; les blocs morts sont identifiés | une demi-journée |
+| 3 | **les drapeaux du cookie de session** | trois lignes ; le CSRF lui-même est un chantier à décider | 3 lignes + décision |
+| 4 | **`projection_metier`** : supprimer ou rebrancher | une fonctionnalité complète et non reliée, spécifique à la France — c'est une décision, pas du travail | une décision |
 
 ---
 
@@ -163,6 +182,11 @@ compris `POST /run/all` et `POST /admin/clone_entity`.
 
 ### 10 · Les quatre dérivés de l'accent rendent du GRIS sur toute l'application
 
+> ✅ **Traité le 25/11.** Les quatre dérivés se redeclarent sur les mêmes
+> sélecteurs que l'accent. Mesuré après : les neuf pages rendent leur
+> couleur, **0 élément sur 6 821** rend encore l'ancien gris. Cliquet :
+> `tests/test_168_couleur_de_page.py`.
+
 Mesuré **dans le navigateur**, sur la page Activités : `--pg-accent` vaut bien
 le violet `#7c3aed`, mais `--pg-accent-soft` se résout en
 `color-mix(in srgb, #64748b 10%, #ffffff)` — le **gris par défaut**.
@@ -219,6 +243,11 @@ rien à compléter, il n'y a **rien du tout**.
 
 ### 12 · La dette de traduction du reste, mesurée — et plus petite qu'annoncé
 
+> ✅ **Traité le 25/11** pour les ~33 visibles : **39** libellés passent
+> désormais par le catalogue. Reste `activities_map.js` (3 alertes, dans du
+> mort) et `projection_metier.js` (écran injoignable). Cliquet :
+> `tests/test_167_alertes_des_listes.py`.
+
 `CLAUDE.md` annonçait « 191 chaînes françaises en dur dans 23 fichiers JS ».
 Mesure détaillée : **236** chaînes dans 30 fichiers vivants, mais une fois
 séparé ce qui se voit vraiment :
@@ -244,6 +273,12 @@ ou avec un réseau capricieux, donc souvent.
 activités en anglais, attributs compris, **zéro fuite**.
 
 ### 13 · Du code mort que le client recevra
+
+> ✅ **Traité le 25/11**, sauf `projection_metier` — qui n'est pas du code
+> mort : 108 cas de test, une fonctionnalité complète, seulement non
+> reliée, et spécifique à la France. Un **11e** fichier mort a été trouvé
+> en chemin (`activities_time.js`) : chargé par un gabarit, mais sans
+> aucun ancrage.
 
 - **10 fichiers JS, 176 Ko**, chargés par aucun gabarit : `debug_decisions.js`
   (34 Ko), `test.js` (27 Ko), `synth_competences.js` (45 Ko),

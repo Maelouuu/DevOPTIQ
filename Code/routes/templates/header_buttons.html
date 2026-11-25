@@ -137,6 +137,45 @@
 <script src="{{ url_for('static', filename='js/cardnav.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pulse.js') }}" defer></script>
 
+{# ⚠️ Les libellés des alertes CRUD vivent ICI, pas dans display_list.html.
+   `_CR()` (optiq_alert.js) les lit à l'APPEL, donc l'ordre importe peu — mais
+   la PAGE comptait : injecté par la seule liste des activités, le catalogue
+   manquait partout ailleurs, et `file-picker.js` sur la page Outils retombait
+   sur son repli français. La nav est sur chaque page de l'application : c'est
+   la bonne place pour ce qui sert à plusieurs d'entre elles. #}
+<script>
+  window.CRUD_I18N = {
+    err:              {{ t('crud.err') | tojson }},
+    need_description: {{ t('crud.need_description') | tojson }},
+    need_hsc_fields:  {{ t('crud.need_hsc_fields') | tojson }},
+    err_add:          {{ t('crud.err_add') | tojson }},
+    err_update:       {{ t('crud.err_update') | tojson }},
+    err_delete:       {{ t('crud.err_delete') | tojson }},
+    err_refresh:      {{ t('crud.err_refresh') | tojson }},
+    confirm_delete_perf:       {{ t('crud.confirm_delete_perf') | tojson }},
+    confirm_delete_constraint: {{ t('crud.confirm_delete_constraint') | tojson }},
+    confirm_delete_hsc:        {{ t('crud.confirm_delete_hsc') | tojson }},
+    confirm_delete_role:       {{ t('crud.confirm_delete_role') | tojson }},
+    confirm_delete_tool:       {{ t('crud.confirm_delete_tool') | tojson }},
+    err_read_constraint: {{ t('crud.err_read_constraint') | tojson }},
+    err_no_activity:     {{ t('crud.err_no_activity') | tojson }},
+    err_upload:          {{ t('crud.err_upload') | tojson }},
+    err_upload_unknown:  {{ t('crud.err_upload_unknown') | tojson }},
+    err_upload_net:      {{ t('crud.err_upload_net') | tojson }},
+    err_carto_update:    {{ t('crud.err_carto_update') | tojson }},
+    added_ok:            {{ t('crud.added_ok') | tojson }},
+    summary:             {{ t('crud.summary') | tojson }},
+    perf_field_missing:  {{ t('crud.perf_field_missing') | tojson }},
+    perf_need_name:      {{ t('crud.perf_need_name') | tojson }},
+    perf_err_create:     {{ t('crud.perf_err_create') | tojson }},
+    perf_err_create_c:   {{ t('crud.perf_err_create_c') | tojson }},
+    perf_not_found:      {{ t('crud.perf_not_found') | tojson }},
+    perf_err_update:     {{ t('crud.perf_err_update') | tojson }},
+    perf_err_update_c:   {{ t('crud.perf_err_update_c') | tojson }},
+    perf_err_delete:     {{ t('crud.perf_err_delete') | tojson }},
+  };
+</script>
+
 {% include "welcome_popup.html" %}
 {% include "entity_share_popup.html" %}
 {% include "carto_decision_popup.html" %}

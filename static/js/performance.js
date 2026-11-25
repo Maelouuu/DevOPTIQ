@@ -25,12 +25,12 @@ function hideAddPerfForm(linkId) {
 function submitAddPerf(linkId) {
   const inputElem = document.getElementById(`perf-add-input-${linkId}`);
   if (!inputElem) {
-    alert("Champ Performance introuvable.");
+    alert(_CR('perf_field_missing'));
     return;
   }
   const name = inputElem.value.trim();
   if (!name) {
-    alert("Veuillez saisir un nom de Performance.");
+    alert(_CR('perf_need_name'));
     return;
   }
   // ICI vous pouvez gérer la description si besoin
@@ -44,7 +44,7 @@ function submitAddPerf(linkId) {
   .then(resp => resp.json())
   .then(data => {
     if (data.error) {
-      alert("Erreur création performance: " + data.error);
+      alert(_CR('perf_err_create') + " " + data.error);
     } else {
       hideAddPerfForm(linkId);
       refreshPerformanceDOM(linkId);
@@ -52,7 +52,7 @@ function submitAddPerf(linkId) {
   })
   .catch(err => {
     console.error("Erreur POST /performance/add:", err);
-    alert("Impossible de créer la performance (voir console).");
+    alert(_CR('perf_err_create_c'));
   });
 }
 
@@ -102,7 +102,7 @@ function submitEditPerf(perfId) {
   if (!inputElem) return;
   const newName = inputElem.value.trim();
   if (!newName) {
-    alert("Veuillez saisir un nom de Performance.");
+    alert(_CR('perf_need_name'));
     return;
   }
   // Pas de description pour l'instant
@@ -111,7 +111,7 @@ function submitEditPerf(perfId) {
   // On a besoin du linkId pour rafraîchir ensuite
   const displayDiv = document.getElementById(`perf-display-${perfId}`);
   if (!displayDiv) {
-    alert("Impossible de localiser la performance dans le DOM.");
+    alert(_CR('perf_not_found'));
     return;
   }
  const perfContainer = displayDiv.closest("[data-linkid]");
@@ -126,7 +126,7 @@ function submitEditPerf(perfId) {
   .then(resp => resp.json())
   .then(data => {
     if (data.error) {
-      alert("Erreur mise à jour performance: " + data.error);
+      alert(_CR('perf_err_update') + " " + data.error);
     } else {
       hideEditPerfForm(perfId);
       if (linkId) refreshPerformanceDOM(linkId);
@@ -134,7 +134,7 @@ function submitEditPerf(perfId) {
   })
   .catch(err => {
     console.error("Erreur PUT /performance/<id>:", err);
-    alert("Impossible de modifier la performance (voir console).");
+    alert(_CR('perf_err_update_c'));
   });
 }
 
@@ -143,13 +143,13 @@ function submitEditPerf(perfId) {
  * puis rafraîchit la zone correspondante.
  */
 function deletePerformance(perfId) {
-    if (!confirm("Confirmez-vous la suppression de cette performance ?")) return;
+    if (!confirm(_CR('confirm_delete_perf'))) return;
 
     fetch(`/performance/${perfId}`, { method: "DELETE" })
         .then(resp => resp.json())
         .then(data => {
             if (data.error) {
-                alert("Erreur suppression: " + data.error);
+                alert(_CR('perf_err_delete') + " " + data.error);
             } else {
                 refreshParentPerformance(perfId);
             }

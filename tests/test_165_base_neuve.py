@@ -158,39 +158,19 @@ class TestLeTableauDeBordRepondSurUneBaseNEUVE:
 
 
 class TestAucuneDDLBruteNEstEcriteEnSQLitePur:
-    """La DDL de l'historique des performances tournait en 500 sur PostgreSQL
-    depuis toujours, sur les deux instances, et la suite ne pouvait pas le
-    voir : sur SQLite cette syntaxe est VALIDE."""
+    """Une DDL ecrite en SQLite PUR dans une route echappe entierement a
+    `test_67_schema_postgres`, qui compile le DDL des MODELES avec le dialecte
+    PostgreSQL. C'est ainsi que `/performance_perso/*` a rendu 500 sur les deux
+    instances depuis toujours sans qu'une seule ligne de la suite le voie.
 
-    def test_la_DDL_de_l_historique_suit_le_dialecte(self, app):
-        """Comportemental, donc portable : on capte l'ordre REELLEMENT emis
-        avec le dialecte PostgreSQL annonce, et on y cherche la syntaxe que
-        PostgreSQL refuse."""
-        from Code.routes import performance_personnalisee as pp
-        vus = []
-        vrai_execute = db.session.execute
-        vrai_dialecte = pp._dialecte_postgres
-        with app.app_context():
-            try:
-                pp._dialecte_postgres = lambda: True
-                db.session.execute = lambda sql, *a, **k: vus.append(str(sql)) or None
-                pp.ensure_history_schema()
-            finally:
-                db.session.execute = vrai_execute
-                pp._dialecte_postgres = vrai_dialecte
-        assert vus, "aucun ordre emis : le cas ne verifie rien"
-        ddl = vus[0].upper()
-        assert "AUTOINCREMENT" not in ddl, (
-            "PostgreSQL refuse AUTOINCREMENT — c'est le 500 d'origine")
-        assert "DATETIME('NOW')" not in ddl, (
-            "datetime('now') est une fonction SQLite ; PostgreSQL ne l'a pas")
-        assert "SERIAL" in ddl or "GENERATED" in ddl
+    ⚠️ Ce blueprint est PARTI (aucun ecran n'y menait), et le cas qui
+    eprouvait sa DDL avec lui : un cas qui affirme une structure disparue ne
+    garde plus rien. La lecon, elle, reste — tenue ci-dessous pour TOUT
+    `Code/` et non pour ce seul fichier, ce qui est un controle plus fort.
+    """
 
     # ⚠️ L'INVENTAIRE, pas un ban. Trois fichiers portent legitimement de la
     # syntaxe SQLite, chacun pour une raison ecrite :
-    #   · competences_plan      : DEUX branches de DDL, choisies sur
-    #                             `information_schema` — la branche SQLite a
-    #                             le droit d'ecrire AUTOINCREMENT ;
     #   · roles_view            : un `PRAGMA table_info` DORMANT — il n'est
     #                             atteint que si une table heritee
     #                             (`user_role_validations`) existe, ce qui
@@ -201,14 +181,15 @@ class TestAucuneDDLBruteNEstEcriteEnSQLitePur:
     #                             session par un rollback. Sur PostgreSQL il
     #                             ne fait rien : les colonnes qu'il ajoute
     #                             viennent de `create_all`.
-    # Un QUATRIEME fichier qui s'y mettrait est un defaut : la DDL doit
+    # Un TROISIEME fichier qui s'y mettrait est un defaut : la DDL doit
     # brancher sur le dialecte, ou ne pas etre ecrite a la main.
-    #     ⚠️ `performance_personnalisee.py` n'y est PAS, et c'est la preuve
-    # que le correctif a porte : depuis qu'il branche sur le dialecte, son
-    # AUTOINCREMENT vit dans une VARIABLE, hors du `text(...)` — le fichier est
-    # propre au sens de ce controle.
+    #     ⚠️ L'inventaire a MAIGRI de `competences_plan.py` et
+    # `performance_personnalisee.py` : leurs blueprints etaient morts — aucun
+    # ecran n'y menait — et ils ont ete retires plutot que corriges. Un
+    # inventaire qui ne maigrit pas finit par nommer des fichiers absents, et
+    # le cas « deja propres » SAUTE au premier d'entre eux : il cesse alors de
+    # surveiller les autres sans que rien ne le dise.
     INVENTAIRE = {
-        "Code/routes/competences_plan.py",
         "Code/routes/roles_view.py",
         "Code/routes/time_view.py",
     }
@@ -322,9 +303,15 @@ class TestLUrlDeLaBaseNommeSonPILOTE:
 
 
 class TestLesTablesSansModeleSontINVENTORIEES:
-    """Cinq tables sont nommees en SQL brut sans qu'aucun modele ne les cree.
-    Trois se creent elles-memes a chaud ; DEUX sont seulement LUES, et c'est
-    ce qui a produit le 500 du tableau de bord.
+    """DEUX tables sont nommees en SQL brut sans qu'aucun modele ne les cree,
+    et elles sont seulement LUES : c'est ce qui a produit le 500 du tableau de
+    bord.
+
+    ⚠️ Il y en avait CINQ. Les trois autres —
+    `performance_personnalisee_historique`, `training_plan`,
+    `prerequis_comment` — se creaient a chaud dans trois blueprints MORTS,
+    partis avec eux. Leur nom quitte donc l'inventaire : laisse dedans, il
+    designerait des tables que plus rien ne mentionne.
 
     ⚠️ L'inventaire est un CLIQUET : une table de plus doit etre un choix
     ecrit, pas un effet de bord. `entreprise_settings` et `user_activity_plans`
@@ -334,9 +321,6 @@ class TestLesTablesSansModeleSontINVENTORIEES:
     CONNUES = {
         # lues seulement, jamais creees — d'ou le repli de get_company_params
         "company_params", "gestion_rh_params",
-        # creees a chaud par leur route
-        "performance_personnalisee_historique", "training_plan",
-        "prerequis_comment",
         # sondees pour savoir si elles existent
         "user_role_validations", "role_validations",
         # pas des tables de l'application

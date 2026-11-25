@@ -76,7 +76,7 @@ function showEditConstraintForm(btnElem) {
     constraintObj = JSON.parse(constraintStr);
   } catch (e) {
     console.error("Erreur parse JSON:", e, constraintStr);
-    alert("Impossible de lire la contrainte.");
+    alert(_CR('err_read_constraint'));
     return;
   }
 
@@ -135,7 +135,7 @@ function submitEditConstraint(activityId, constraintId) {
 }
 
 function deleteConstraint(activityId, constraintId) {
-  if (!confirm("Confirmez-vous la suppression de cette contrainte ?")) return;
+  if (!confirm(_CR('confirm_delete_constraint'))) return;
   fetch(`/constraints/${activityId}/${constraintId}`, { method: "DELETE" })
   .then(resp => resp.json())
   .then(data => {

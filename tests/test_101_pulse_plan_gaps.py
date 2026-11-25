@@ -1,7 +1,12 @@
 """
-Compléments de couverture : pulse_track.py (télémétrie « jamais bloquante »)
-et plan_storage.py (échec de commit, contenu corrompu).
+Compléments de couverture : pulse_track.py (télémétrie « jamais bloquante »).
 Chaque test nettoie ce qu'il crée.
+
+⚠️ Ce fichier couvrait aussi `plan_storage.py` (échec de commit, contenu
+corrompu). Ce blueprint était MORT — aucun écran n'y menait — et il a été
+retiré : les deux cas sont partis avec leur sujet. Un cas qui appelle une
+route supprimée ne garde plus rien, et le supprimer ne garde rien non plus,
+d'où la mention ici plutôt qu'un silence.
 """
 import pytest
 
@@ -132,50 +137,3 @@ class TestPulseTrackResilience:
         with app.app_context():
             assert UsageEvent.query.filter_by(
                 path="/introuvable-pulse-get").count() == 0
-
-
-class TestPlanStorageErrors:
-
-    UID, AID = 987001, 987002
-
-    @pytest.fixture(autouse=True)
-    def _clean(self, app):
-        from sqlalchemy import text
-        def purge():
-            with app.app_context():
-                db.session.execute(text(
-                    "DELETE FROM user_activity_plans WHERE user_id = :u"),
-                    {"u": self.UID})
-                db.session.commit()
-        purge()
-        yield
-        purge()
-
-    def test_save_plan_commit_failure_returns_500(
-            self, app, auth_client, monkeypatch):
-        def boom():
-            raise RuntimeError("commit impossible")
-        monkeypatch.setattr(db.session, "commit", boom)
-        r = auth_client.post("/competences_plan/save_plan", json={
-            "user_id": self.UID, "activity_id": self.AID, "plan": {"a": 1}})
-        assert r.status_code == 500
-        body = r.get_json()
-        assert body["ok"] is False
-        assert "commit impossible" in body["error"]
-
-    def test_get_plan_with_corrupted_content_returns_null_content(
-            self, app, auth_client):
-        from sqlalchemy import text
-        with app.app_context():
-            db.session.execute(text(
-                "INSERT INTO user_activity_plans "
-                "(user_id, activity_id, role_id, content, created_at, updated_at)"
-                " VALUES (:u, :a, NULL, :c, 'x', 'x')"),
-                {"u": self.UID, "a": self.AID, "c": "{pas du json"})
-            db.session.commit()
-        r = auth_client.get(
-            f"/competences_plan/get_plan/{self.UID}/{self.AID}")
-        assert r.status_code == 200
-        body = r.get_json()
-        assert body["ok"] is True
-        assert body["plan"] is None

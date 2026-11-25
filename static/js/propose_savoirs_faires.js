@@ -25,7 +25,7 @@
     } catch (err) {
       safeHideSpinner();
       console.error("Erreur fetchActivityDetailsForSavoirsFaires:", err);
-      alert("Impossible de récupérer les détails de l'activité (voir console).");
+      alert(_piSF('err_fetch_details', "Impossible de récupérer les détails de l'activité (voir console)."));
     }
   }
 
@@ -65,7 +65,7 @@
     } catch (err) {
       safeHideSpinner();
       console.error("Erreur proposeSavoirsFaires:", err);
-      alert("Impossible d'obtenir les propositions (voir console).");
+      alert(_piSF('err_fetch_proposals', "Impossible d'obtenir les propositions (voir console)."));
     }
   }
 

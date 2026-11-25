@@ -56,12 +56,6 @@
   --pg-accent: #64748b;
   --pg-accent-deep: #475569;
 
-  /* Dérivés automatiques de l'accent */
-  --pg-accent-soft: color-mix(in srgb, var(--pg-accent) 10%, #ffffff);
-  --pg-accent-softer: color-mix(in srgb, var(--pg-accent) 5%, #ffffff);
-  --pg-accent-border: color-mix(in srgb, var(--pg-accent) 28%, #ffffff);
-  --pg-accent-glow: color-mix(in srgb, var(--pg-accent) 22%, transparent);
-
   /* Sémantique */
   --ok: #16a34a;
   --warn: #d97706;
@@ -79,6 +73,44 @@
 .page--tools,        body:has(.page--tools)        { --pg-accent: #ea580c; --pg-accent-deep: #c2410c; }
 .page--settings,     body:has(.page--settings)     { --pg-accent: #6366f1; --pg-accent-deep: #4f46e5; }
 .page--share,        body:has(.page--share)        { --pg-accent: #c026d3; --pg-accent-deep: #a21caf; }
+
+/* ⚠️⚠️ LES QUATRE DÉRIVÉS SE REDÉCLARENT SUR LES MÊMES SÉLECTEURS QUE
+   L'ACCENT, et c'est la seule façon qu'ils suivent la couleur de la page.
+     Une propriété personnalisée est substituée là où elle est DÉCLARÉE, pas
+   là où elle est employée. Déclarés sur `:root` seul — ce qu'ils étaient —
+   leur `var(--pg-accent)` prenait le gris par défaut de `:root`, et c'est ce
+   gris, déjà substitué, qui héritait aux dix pages. Mesuré au navigateur sur
+   la page Activités : `--pg-accent` valait bien `#7c3aed`, mais
+   `--pg-accent-soft` rendait `color-mix(in srgb, #64748b 10%, #ffffff)`.
+     Conséquence visible, et c'est surtout sur les bordures qu'elle se
+   remarquait : sur chaque page, les fonds doux, les bordures d'accent, le
+   halo des ombres et les survols de ligne sortaient en GRIS au lieu de la
+   couleur de la page — 212 lectures dans 8 feuilles — alors que tout ce qui
+   passait par `var(--pg-accent)` DANS la règle elle-même sortait en couleur.
+   D'où l'aspect panaché relevé depuis des mois.
+     ⚠️ Un sélecteur qui pose `--pg-accent` et qui manquerait à cette liste
+   retomberait sur le gris, en silence. `test_168` l'interdit : il lit les
+   deux listes et exige qu'elles soient IDENTIQUES.
+     ⚠️ L'ordre des deux règles n'a pas d'importance — la cascade de
+   `--pg-accent` se résout indépendamment de celle des dérivés — mais la
+   LISTE, elle, doit couvrir chaque élément qui porte l'accent, `body:has()`
+   comprise : c'est souvent le `body` qui le porte, pas la racine. */
+:root,
+.page--carto,        body:has(.page--carto),
+.page--activities,   body:has(.page--activities),
+.page--roles,        body:has(.page--roles),
+.page--competences,  body:has(.page--competences),
+.page--time,         body:has(.page--time),
+.page--accounts,     body:has(.page--accounts),
+.page--rh,           body:has(.page--rh),
+.page--tools,        body:has(.page--tools),
+.page--settings,     body:has(.page--settings),
+.page--share,        body:has(.page--share) {
+  --pg-accent-soft: color-mix(in srgb, var(--pg-accent) 10%, #ffffff);
+  --pg-accent-softer: color-mix(in srgb, var(--pg-accent) 5%, #ffffff);
+  --pg-accent-border: color-mix(in srgb, var(--pg-accent) 28%, #ffffff);
+  --pg-accent-glow: color-mix(in srgb, var(--pg-accent) 22%, transparent);
+}
 
 /* ════════════════════════════════════════════════════════════════
    FOND DE PAGE COMMUN — l'élément qui lie visuellement les pages :

@@ -196,18 +196,48 @@
 })();
 
 /* ── Libellés des listes de la fiche activité ───────────────────────────
-   window.CRUD_I18N est injecté par display_list.html ; softskills.js,
-   aptitudes.js, savoirs.js, savoir_faires.js et constraints.js alertaient
-   en dur, donc en français quelle que soit la langue. Un seul point de
-   définition : ces fichiers partagent la portée globale, un `const` répété
-   dans chacun lèverait une SyntaxError. */
+   window.CRUD_I18N est injecté par header_buttons.html — donc sur TOUTE page
+   qui porte la nav. Il ne l'était que par display_list.html, si bien que
+   `file-picker.js` sur la page Outils retombait sur le repli français.
+   softskills.js, aptitudes.js, savoirs.js, savoir_faires.js, constraints.js,
+   tools.js, tasks_roles.js, performance.js et main.js alertaient en dur,
+   donc en français quelle que soit la langue. Un seul point de définition :
+   ces fichiers partagent la portée globale, un `const` répété dans chacun
+   lèverait une SyntaxError. */
 window._CRUD_FR = {
   err: 'Erreur', need_description: 'Veuillez saisir une description.',
   need_hsc_fields: "Veuillez renseigner l'habileté et son niveau.",
   err_add: "Erreur lors de l'ajout.", err_update: 'Erreur lors de la modification.',
   err_delete: 'Erreur lors de la suppression.',
   err_refresh: 'Erreur lors du rafraîchissement de la liste.',
+  confirm_delete_perf: 'Confirmez-vous la suppression de cette performance ?',
+  confirm_delete_constraint: 'Confirmez-vous la suppression de cette contrainte ?',
+  confirm_delete_hsc: 'Voulez-vous vraiment supprimer cette HSC ?',
+  confirm_delete_role: 'Confirmez-vous la suppression de ce rôle ?',
+  confirm_delete_tool: 'Confirmez-vous la suppression de cet outil ?',
+  err_read_constraint: 'Impossible de lire la contrainte.',
+  err_no_activity: "Impossible de déterminer l'activité.",
+  err_upload: "Erreur à l'envoi du fichier :", err_upload_unknown: 'inconnue',
+  err_upload_net: "Erreur réseau à l'envoi du fichier.",
+  err_carto_update: 'Erreur de mise à jour de la cartographie.',
+  added_ok: '{n} {t}(s) ajouté(s).', summary: 'Résumé :',
+  perf_field_missing: 'Champ Performance introuvable.',
+  perf_need_name: 'Veuillez saisir un nom de Performance.',
+  perf_err_create: 'Erreur à la création de la performance :',
+  perf_err_create_c: 'Impossible de créer la performance (voir console).',
+  perf_not_found: 'Impossible de localiser la performance dans la page.',
+  perf_err_update: 'Erreur à la mise à jour de la performance :',
+  perf_err_update_c: 'Impossible de modifier la performance (voir console).',
+  perf_err_delete: 'Erreur à la suppression :',
 };
 function _CR(cle) {
   return (window.CRUD_I18N && window.CRUD_I18N[cle]) || window._CRUD_FR[cle] || cle;
+}
+/* ⚠️ Convention de substitution de CE fichier : `{nom}`. Deux conventions
+   cohabitent dans l'application (`[[n]]` ailleurs) et une clé qui prend la
+   mauvaise affiche son marqueur TEL QUEL, sans rien lever. */
+function _CRf(cle, vars) {
+  let s = _CR(cle);
+  for (const k in (vars || {})) s = s.split('{' + k + '}').join(vars[k]);
+  return s;
 }

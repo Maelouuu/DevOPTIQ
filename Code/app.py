@@ -414,17 +414,8 @@ def create_app(test_config=None):
     from Code.routes.gestion_outils import bp_tools
     app.register_blueprint(bp_tools)
 
-    from Code.routes.performance_personnalisee import performance_perso_bp
-    app.register_blueprint(performance_perso_bp)
-
-    from Code.routes.competences_plan import competences_plan_bp
-    app.register_blueprint(competences_plan_bp)
-
     from Code.routes.activity_items_api import activity_items_api_bp
     app.register_blueprint(activity_items_api_bp)
-
-    from Code.routes.plan_storage import plan_storage_bp
-    app.register_blueprint(plan_storage_bp)
 
     from Code.routes.activities_map import activities_map_bp
     app.register_blueprint(activities_map_bp)

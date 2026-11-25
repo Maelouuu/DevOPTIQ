@@ -7,7 +7,7 @@
 // retirées : ne rien redéfinir ici de ce que tasks.js expose déjà.
 
 function deleteToolFromTask(taskId, toolId) {
-  if (!confirm("Confirmez-vous la suppression de cet outil ?")) return;
+  if (!confirm(_CR('confirm_delete_tool'))) return;
   fetch('/tools/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -19,7 +19,7 @@ function deleteToolFromTask(taskId, toolId) {
   .then(response => response.json())
   .then(data => {
     if (data.error) {
-      alert("Erreur : " + data.error);
+      alert(_CR('err') + " : " + data.error);
       return;
     }
     const badgesContainer = document.getElementById('tools-badges-' + taskId);

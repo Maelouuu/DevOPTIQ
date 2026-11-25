@@ -1,6 +1,18 @@
 // static/js/file-picker.js
 // Composant drag & drop pour l'upload de fichiers vers /utils/upload-file
 
+// ⚠️ Son PROPRE accesseur, et pas `_CR()` : ce composant sert sur la liste des
+// activités ET sur la page Outils, qui ne charge pas `optiq_alert.js` — `_CR`
+// n'y existe simplement pas. Un composant employé par deux pages ne s'appuie
+// que sur ce qu'il apporte lui-même et sur le catalogue global.
+function _FP(cle) {
+  const FR = {
+    err_upload: "Erreur à l'envoi du fichier :", err_upload_unknown: 'inconnue',
+    err_upload_net: "Erreur réseau à l'envoi du fichier.",
+  };
+  return (window.CRUD_I18N || {})[cle] || FR[cle] || cle;
+}
+
 /**
  * Initialise un composant file-picker.
  * Structure HTML attendue :
@@ -58,10 +70,10 @@ function initFilePicker(el) {
       if (r.ok && d.path) {
         showSelected(d.original_name || file.name, d.path);
       } else {
-        alert("Erreur upload : " + (d.error || "inconnue"));
+        alert(_FP('err_upload') + " " + (d.error || _FP('err_upload_unknown')));
       }
     } catch {
-      alert("Erreur réseau lors de l'upload.");
+      alert(_FP('err_upload_net'));
     } finally {
       zone.classList.remove("fp-uploading");
       if (spinner) spinner.style.display = "none";

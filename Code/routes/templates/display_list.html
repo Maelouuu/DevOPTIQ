@@ -109,15 +109,9 @@
   <script>
   /* Messages des listes de la fiche activité (softskills.js, aptitudes.js,
      savoirs.js, savoir_faires.js, constraints.js) — ils alertaient en dur. */
-  window.CRUD_I18N = {
-    err:              {{ t('crud.err') | tojson }},
-    need_description: {{ t('crud.need_description') | tojson }},
-    need_hsc_fields:  {{ t('crud.need_hsc_fields') | tojson }},
-    err_add:          {{ t('crud.err_add') | tojson }},
-    err_update:       {{ t('crud.err_update') | tojson }},
-    err_delete:       {{ t('crud.err_delete') | tojson }},
-    err_refresh:      {{ t('crud.err_refresh') | tojson }},
-  };
+  {# ⚠️ `window.CRUD_I18N` a déménagé dans header_buttons.html : il sert aussi
+     à la page Outils, qui n'inclut pas ce gabarit. Le redéclarer ici en
+     ferait deux sources, dont la dernière rendue gagnerait. #}
   window.PROPOSE_I18N = {
     title_competencies:     {{ t('propose.title_competencies')|tojson }},
     title_savoirs:          {{ t('propose.title_savoirs')|tojson }},
@@ -149,6 +143,18 @@
     err_add_competency:         {{ t('propose.err_add_competency')|tojson }},
     label_description:          {{ t('propose.label_description')|tojson }},
     confirm_delete_competency:  {{ t('propose.confirm_delete_competency')|tojson }},
+    err_fetch_savoirs:          {{ t('propose.err_fetch_savoirs')|tojson }},
+    err_add_savoirs:            {{ t('propose.err_add_savoirs')|tojson }},
+    err_fetch_proposals:        {{ t('propose.err_fetch_proposals')|tojson }},
+    err_bad_response:           {{ t('propose.err_bad_response')|tojson }},
+    err_generic:                {{ t('propose.err_generic')|tojson }},
+    apt_feasibility:            {{ t('propose.apt_feasibility')|tojson }},
+    apt_result:                 {{ t('propose.apt_result')|tojson }},
+    apt_comment_ph:             {{ t('propose.apt_comment_ph')|tojson }},
+    apt_aids_other_ph:          {{ t('propose.apt_aids_other_ph')|tojson }},
+    apt_added_1:                {{ t('propose.apt_added_1')|tojson }},
+    apt_added_n:                {{ t('propose.apt_added_n')|tojson }},
+    apt_added_errors:           {{ t('propose.apt_added_errors')|tojson }},
     translate_btn:        {{ t('propose.translate_btn') | tojson }},
     translate_back:       {{ t('propose.translate_back') | tojson }},
     translate_analyzing:  {{ t('propose.translate_analyzing') | tojson }},
@@ -198,7 +204,12 @@
   {% include "script_loader.html" %}
   <!-- Scripts spécifiques à la page -->
   <script defer src="{{ url_for('static', filename='js/activities_tabs.js') }}"></script>
-  <script defer src="{{ url_for('static', filename='js/activities_time.js') }}"></script>
+  {# ⚠️ `activities_time.js` est RETIRÉ. Il était bien chargé ici, mais ses
+     ancrages (`.activity-time[data-activity-id]`, `.at-save`, `.at-global`,
+     `.at-task-rows`) n'existent dans AUCUN gabarit : l'onglet Temps a été
+     refait en JS inline dans `activity_time_new.html`, avec ses ids `time-*`
+     et son catalogue `ACTTIME_I18N`. Ses quatre alertes françaises en dur ne
+     s'affichaient donc nulle part. Chargé par un gabarit ≠ vivant. #}
   <script defer src="{{ url_for('static', filename='js/activity_highlight.js') }}"></script>
   <script defer src="{{ url_for('static', filename='js/chatbot.js') }}"></script>
 

@@ -172,10 +172,10 @@ function submitEditSoftskill(activityId, ssId) {
  *******************************************/
 async function deleteSoftskill(activityId, ssId) {
 
-    if (!confirm("Voulez-vous vraiment supprimer cette HSC ?")) return;
+    if (!confirm(_CR('confirm_delete_hsc'))) return;
 
     if (!activityId) {
-        alert("Impossible de déterminer l'activité.");
+        alert(_CR('err_no_activity'));
         return;
     }
 

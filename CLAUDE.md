@@ -3467,6 +3467,14 @@ du gabarit), `loadSvgInline` (`#svg-container` n'existe plus), les panneaux
 SCS/VCM, l'import de paquet (`#wizard-import-carto-btn` absent) et la modale
 d'export (`#btn-export` absent). Rien de tout cela ne s'affiche ; à supprimer
 plutôt qu'à traduire.
+⚠️⚠️ **Cette liste est juste, et INCOMPLÈTE — c'est pire.** Elle ne mentionne
+pas la modale « Envoyer une copie » (`openShareModal` / `confirmShare`), dont
+les ancrages `#wizard-copy-btn`, `#share-confirm-btn` et `#share-modal` sont
+bien dans le gabarit : elle est VIVANTE. Ses quatre phrases françaises sont
+les **replis** de `SHARE_I18N`, dont toutes les clés existent — elle est donc
+déjà traduite, mais pour une raison que cette note ne donnait pas. Vérifié le
+25/11 : il reste **3** alertes vraiment en dur dans ce fichier, toutes dans du
+mort, et `tests/test_167_alertes_des_listes.py` les tient à ce plafond.
 
 Restent en français, connus et inventoriés : `projection_metier`,
 `import_tasks_modal`, `chatbot_widget`, l'assistant d'installation.
@@ -11115,6 +11123,225 @@ SQLite — une sixième table, ou un quatrième fichier, sera un choix écrit.
 `.py`, et les deux balayages y liraient ZÉRO fichier — ils verdiraient sans
 rien vérifier. Sous 40 sources lues, ils sautent franchement. (Mesuré : 104
 sources en temps normal.)
+
+---
+
+### TROIS POINTS DE L'AUDIT TRAITÉS : le code mort, le gris, les alertes (2026-11-25)
+
+Suite directe de `docs/audit_avant_livraison.md`. Trois de ses points, choisis
+par l'utilisateur ; les autres attendent.
+
+#### ⚠️⚠️ Le gris : une propriété personnalisée se substitue LÀ OÙ ELLE EST DÉCLARÉE
+
+Les quatre dérivés de l'accent (`--pg-accent-soft`, `-softer`, `-border`,
+`-glow`) étaient déclarés sur `:root` SEUL, où `--pg-accent` vaut encore le
+gris par défaut `#64748b`. Le gris était donc déjà **cuit** dans leur valeur
+quand elle héritait aux dix pages — et c'est pour cela que tout ce qui passait
+par `var(--pg-accent)` **dans la règle elle-même** sortait, lui, en couleur :
+d'où l'aspect panaché relevé depuis des mois.
+
+Mesuré au navigateur **avant** (page Activités) : `--pg-accent` = `#7c3aed`,
+mais `--pg-accent-soft` = `color-mix(in srgb, #64748b 10%, #ffffff)`, et
+**272 éléments de la page** rendaient exactement cette teinte grise.
+
+Le correctif tient en une règle : les quatre dérivés se redéclarent **sur les
+mêmes sélecteurs que l'accent** — `:root` plus les vingt sélecteurs des dix
+pages, `body:has()` comprises, car c'est souvent le `body` qui porte l'accent.
+Chaque élément recalcule alors ses dérivés depuis SON `--pg-accent`.
+
+Mesuré **après**, les neuf pages servies, chacune par son propre jeton :
+
+| page | accent | `-soft` rendu | `-border` rendu |
+|---|---|---|---|
+| Activités | `#7c3aed` | violet pâle | violet |
+| Rôles | `#059669` | vert pâle | vert |
+| Compétences | `#2563eb` | bleu pâle | bleu |
+| Temps | `#d97706` | ambre pâle | ambre |
+| Comptes | `#e11d48` | rose pâle | rose |
+| RH | `#16a34a` | vert pâle | vert |
+| Outils | `#ea580c` | orange pâle | orange |
+| Paramètres | `#6366f1` | indigo pâle | indigo |
+| Partage | `#c026d3` | fuchsia pâle | fuchsia |
+
+Et sur la page Activités, **0 élément sur 6 821** rend encore l'ancien gris
+(272 avant). ⚠️ C'est surtout sur les **bordures** que l'écart se voyait :
+`-border` rendait `0,830 0,847 0,873` là où il doit rendre
+`0,856 0,784 0,980`.
+
+⚠️ **Rien d'autre n'a changé d'apparence** : les en-têtes de carte d'activité
+sont violets *par construction* (`linear-gradient(135deg, var(--pg-accent),
+var(--pg-accent-deep))` écrit dans la règle), ils l'étaient déjà.
+⚠️ Le correctif **n'est pas** « quatre lignes dans chacune des dix classes »
+comme le rapport le chiffrait : une seule règle à vingt-et-un sélecteurs, ce
+qui évite dix copies qui dériveraient.
+
+Cliquet : `tests/test_168_couleur_de_page.py` (9 cas) — il compare les **deux
+listes de sélecteurs** et exige qu'elles soient identiques, donc une page
+ajoutée demain qui poserait l'accent sans ses dérivés est un échec, pas un
+gris silencieux. **Trois défauts remis un par un, trois cliquets tombés.**
+
+#### Le code mort qui partait dans l'image client
+
+Retirés : **11 fichiers JS** (179 Kio), **2 CSS** (`menu.css`,
+`softskills.css`), **3 blueprints** et leurs 3 fichiers de tests, **2 prompts**
+du catalogue. Tous vérifiés d'abord : aucun gabarit ne les cite, aucun Python
+ne les importe, et il n'existe **aucun chargement dynamique de script** dans
+l'application (ni `createElement('script')` hors bibliothèque, ni `url_for`
+avec un nom concaténé).
+
+⚠️⚠️ **« Chargé par un gabarit » ne veut pas dire VIVANT.**
+`activities_time.js` était bien dans `display_list.html` — et ses ancrages
+(`.activity-time[data-activity-id]`, `.at-save`, `.at-global`,
+`.at-task-rows`) n'existent dans **aucun** gabarit, ni dans aucun autre JS.
+L'onglet Temps de la fiche activité a été refait en JS **inline** dans
+`activity_time_new.html`, avec ses ids `time-*` et son catalogue
+`ACTTIME_I18N` — déjà traduit. Ses quatre alertes françaises ne s'affichaient
+donc nulle part : les traduire aurait été du travail perdu. **C'est le 11e
+fichier mort, et l'audit ne l'avait pas vu** parce qu'il ne cherchait que les
+fichiers qu'aucun gabarit ne charge.
+
+⚠️ **Les trois blueprints ne se sont pas contentés de partir** : chacun
+créait sa table à chaud (`performance_personnalisee_historique`,
+`training_plan`, `prerequis_comment`). Ces trois noms quittent l'inventaire
+`CONNUES` de `test_165` — plus rien ne les mentionne — et il tombe de cinq
+tables sans modèle à **deux** (`company_params`, `gestion_rh_params`, les deux
+qui sont seulement LUES et qui ont produit le 500 du tableau de bord).
+⚠️ Les **modèles** `PerformancePersonnalisee` et `UserActivityPlan` restent,
+eux, avec leurs tables : retirer un modèle est une décision de schéma, et
+`UserActivityPlan` n'existe que parce que son absence avait coûté un 500.
+
+⚠️ **Un inventaire doit MAIGRIR avec le code qui part.** `competences_plan.py`
+figurait dans l'inventaire des fichiers autorisés à porter de la syntaxe
+SQLite ; le fichier parti, le cas « déjà propres » **SAUTAIT sur le premier
+fichier absent** et cessait de surveiller les deux autres, sans rien dire.
+L'inventaire tombe à deux entrées, et les deux cas tournent de nouveau
+(vérifié : PASSED, pas SKIPPED).
+
+⚠️ Le cas qui éprouvait la DDL de `performance_personnalisee` part avec son
+sujet. La **leçon**, elle, reste — tenue par
+`test_seuls_les_fichiers_INVENTORIES_portent_de_la_syntaxe_SQLite`, pour tout
+`Code/` et non pour ce seul fichier : un contrôle plus fort, pas un contrôle
+sauté.
+
+#### ⚠️⚠️ `projection_metier` n'est PAS du code mort — et il n'a pas été touché
+
+L'audit le rangeait avec le code mort ; la mesure dit autre chose. C'est une
+fonctionnalité **complète et éprouvée** : 27 Ko de route, son gabarit, son
+CSS, son JS, et **108 cas de test** (`test_32`). Elle est seulement **non
+reliée** — aucun lien depuis la nav ni depuis aucun gabarit.
+
+⚠️ Et elle est **spécifique à la France** : elle interroge l'API ROME de
+**France Travail** et exige `ROME_CLIENT_ID` / `ROME_CLIENT_SECRET`, un compte
+partenaire que le pilote indien n'a pas, pour une classification des métiers
+qui ne décrit pas son marché. La rebrancher exposerait donc un écran qui ne
+peut pas fonctionner chez lui ; la supprimer jetterait le travail d'AFDEC.
+
+Rien n'a été fait : supprimer ou rebrancher est une **décision produit**, et
+108 tests en dépendent. ⚠️ Le conditionner à la présence de ses identifiants
+serait possible, mais ferait rougir `test_32` en entier et `test_78` (qui
+charge `/projection_metier/`) — ce n'est pas une ligne.
+
+#### Les alertes des listes de la fiche activité
+
+**Trente-neuf libellés** s'affichaient EN DUR, donc en français quel que soit
+l'écran : les dix alertes de `performance.js`, les quatre « Confirmez-vous la
+suppression… » (contrainte, HSC, rôle, outil), les erreurs des quatre écrans
+« Proposer… », les deux de `file-picker.js`, les six titres et invites de
+l'écran des aptitudes, et le « Résumé : » de `main.js`. Ils sortent
+précisément quand quelque chose rate — chez un client sans clé IA ou avec un
+réseau capricieux, donc souvent.
+
+⚠️ **`test_78` ne pouvait pas les voir** : il lit les GABARITS, et ces phrases
+vivent dans le JS.
+
+⚠️⚠️ **Le catalogue `CRUD_I18N` n'était injecté que par `display_list.html`.**
+`file-picker.js` sert aussi la page **Outils**, qui n'inclut pas ce gabarit :
+son message d'erreur y retombait sur le repli français de `_CRUD_FR`. Il vit
+désormais dans **`header_buttons.html`** — la nav, donc chaque page de
+l'application — et `display_list.html` ne le redéclare plus : deux sources,
+c'est la dernière rendue qui gagne, et plus personne ne sait laquelle.
+⚠️ `optiq_alert.js`, qui définit `_CR`, **n'est pas chargé par la page
+Outils** : `file-picker.js` a donc son PROPRE accesseur. Un composant partagé
+par deux pages ne s'appuie que sur ce qu'il apporte lui-même.
+
+⚠️ **Une chaîne française en second argument d'un accesseur est un REPLI, pas
+un libellé en dur** — `_piComp('cle', "français")` ne s'affiche que si la clé
+manque. Mon premier détecteur les comptait : 72 relevés pour 39 réels, dont
+les cinq de `competencies.js` (déjà traduit depuis toujours) et les quatre de
+la modale « Envoyer une copie » d'`activities_map.js`, qui sont les replis de
+`SHARE_I18N` et dont **toutes les clés existent**.
+
+⚠️ **Et cela corrige une note de ce fichier** : « `activities_map.js` porte
+encore du français en dur, mais dans du code MORT ». La liste qu'elle donnait
+était juste mais **incomplète** — elle ne mentionnait pas la modale de
+partage, dont les ancrages (`#wizard-copy-btn`, `#share-confirm-btn`,
+`#share-modal`) sont bien dans le gabarit, donc VIVANTE. Elle est déjà
+traduite ; il reste **3** alertes en dur dans ce fichier, toutes dans du mort
+(`importCartoPackage`, dont le bouton n'existe plus, et `submitWizard`).
+
+⚠️ **L'accord ne se devine pas d'une langue à l'autre** : le libellé des
+aptitudes accordait en JS (`added > 1 ? 's' : ''`). Il passe par deux clés
+`_1` / `_n`, la convention déjà employée dans ce catalogue.
+
+Cliquet : `tests/test_167_alertes_des_listes.py` (15 cas) — aucune alerte en
+dur hors inventaire, l'inventaire de dette qui **ne peut que baisser** (un cas
+exige l'égalité stricte, sinon une marge masquerait un retour en arrière), les
+clés présentes dans les deux langues, et une clé anglaise recopiée du français
+qui échoue. **Sept défauts remis un par un, sept cliquets tombés.**
+
+#### ⚠️ Deux cliquets qui ne gardaient rien, et c'est toujours la même faute
+
+- **Viser l'EMPLOI, pas la présence du nom.** `"window.CRUD_I18N" in s`
+  restait vrai avec `window.CRUD_I18N_DESACTIVE` : le cliquet passait au vert
+  sur le défaut remis. Il cherche désormais l'affectation
+  (`window\.CRUD_I18N\s*=\s*\{`).
+- **Un balayage ne garde que ce qu'il regarde.** Celui des alertes ne lit que
+  `alert(` / `confirm(` — les six libellés des aptitudes sont du HTML
+  (`innerHTML`, `placeholder=`) et lui échappaient entièrement. Ils ont leur
+  propre cas, qui vérifie que chaque libellé passe par le catalogue.
+
+#### ⚠️⚠️ Un test de `test_30` ne passait QUE grâce à l'ordre
+
+Relevé en jouant la suite avec `-p no:randomly` : deux cas de
+`TestSkillsPropose` épinglaient le message **français** de `/skills/propose`
+en comptant sur le fait qu'il était inconditionnel. Il est bilingue depuis la
+passe des prompts (24/11), et le défaut de session est l'**ANGLAIS**
+(`DEFAULT_LANG = 'en'`, plus le `before_request` de `create_app`) : ils ne
+passaient que si un fichier joué AVANT avait laissé la langue à « fr ». Verts
+en suite complète, **rouges tout seuls**.
+
+Ils posent désormais la langue avec le `_langue()` déjà écrit pour `test_40`,
+et lisent le refus dans les **deux** langues — ces phrases s'affichent telles
+quelles dans la modale de proposition.
+
+#### Ce qui reste, et qui a été vu en chemin
+
+- **`activities_map.js`** : séparer le vif du mort dans 1 900 lignes d'un
+  fichier LIVE (la page Carte, refondue quatre fois) ne se fait pas en
+  passant. Les blocs morts sont identifiés — l'ancien assistant VSDX/SVG
+  (`#wizard-title`, `#wizard-progress`, `screen-import` absents), les panneaux
+  SCS/VCM, l'import de paquet (`wireCartoImport` rend la main tout de suite,
+  son bouton n'existe plus). `goToScreen` est vivant, mais ses deux écritures
+  françaises sont derrière des gardes (`if (title)`, `if (prog)`) que rien ne
+  satisfait.
+- **« Développeur de compétences » s'affiche en français sur la page
+  Comptes.** `role_i18n.nom_affiche` est branché dans `api_tableau` (RH) et
+  `/mastery/*`, pas dans la liste des rôles de cette page. Antérieur, hors des
+  trois points demandés.
+- **`confirm()` reste la fenêtre du NAVIGATEUR** dans ces fichiers. Seul
+  `window.alert` est détourné vers la pop-up maison ; passer à `optiqConfirm`
+  demande de rendre les appelants `async`, ce qui est un changement de
+  comportement et pas une traduction.
+
+Suite : voir le commit. Éprouvé au banc (`tools/devrun_partage.py`) dans les
+deux langues : les neuf pages mesurées une à une pour la couleur, les alertes
+déclenchées pour de vrai sur l'écran anglais (« Performance field not
+found. », « Delete this performance indicator? », « Delete this constraint? »,
+« Delete this socio-cognitive ability? »), le catalogue vérifié présent sur la
+page Outils où il manquait, et le détecteur de fuites passé sur quatre
+écrans : **zéro fuite française** (2 136 textes relevés sur la seule liste des
+activités, attributs compris — tout ce qui reste en français est une DONNÉE du
+banc).
 
 ---
 

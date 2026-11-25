@@ -52,7 +52,7 @@ if (!window.OPTIQ_MAIN_LOADED) {
       });
     });
 
-    alert(`${selected.length} ${window.currentType}(s) ajouté(s) !`);
+    alert(_CRf('added_ok', { n: selected.length, t: window.currentType }));
     window.closeProposalModal();
     location.reload();
   };
@@ -110,9 +110,9 @@ document.addEventListener("DOMContentLoaded", function () {
         .then((data) => {
           hideSpinner();
           if (data.error) {
-            alert("Erreur : " + data.error);
+            alert(_CR('err') + " : " + data.error);
           } else {
-            alert(data.message + "\n\nRésumé :\n" + data.summary);
+            alert(data.message + "\n\n" + _CR('summary') + "\n" + data.summary);
             // Ajoute cette ligne pour recharger la page automatiquement après la mise à jour
             location.reload(); 
           }
@@ -120,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch((err) => {
           hideSpinner();
           console.error("Erreur update-cartography:", err);
-          alert("Erreur de mise à jour de la cartographie.");
+          alert(_CR('err_carto_update'));
         });
     });
   }

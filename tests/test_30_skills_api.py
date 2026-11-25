@@ -3,10 +3,35 @@
 Page : API Compétences Legacy (/skills)
 Couvre : CRUD compétence (ajout, mise à jour, suppression), cas limites, proposition IA (sans clé → 500).
 """
+import contextlib
 import pytest
 import json
 
 pytestmark = pytest.mark.skills_api
+
+
+# ⚠️ `client` est partagé par toute la suite, et le défaut de session est
+# l'ANGLAIS (`DEFAULT_LANG = 'en'`, plus le `before_request` de `create_app`).
+# Deux cas de ce fichier épinglaient le message FRANÇAIS de `/skills/propose`
+# en comptant sur le fait qu'il était inconditionnel : depuis qu'il est
+# bilingue, ils ne passaient que si un fichier joué AVANT avait laissé la
+# langue à « fr ». Verts en suite complète, rouges tout seuls — donc un
+# contrôle qui dépendait de l'ordre. Un refus bilingue se lit dans une langue
+# POSÉE, jamais dans celle qui traîne, et on le lit dans les DEUX : ces deux
+# phrases s'affichent telles quelles dans la modale de proposition.
+@contextlib.contextmanager
+def _langue(client, code):
+    with client.session_transaction() as s:
+        avant = s.get("lang")
+        s["lang"] = code
+    try:
+        yield client
+    finally:
+        with client.session_transaction() as s:
+            if avant is None:
+                s.pop("lang", None)
+            else:
+                s["lang"] = avant
 
 
 # ---------------------------------------------------------------------------
@@ -256,14 +281,18 @@ class TestSkillsPropose:
         assert "error" in body
 
     def test_propose_no_tasks_returns_400(self, auth_client):
-        """Aucune tâche (ni valide ni non-vide) → 400, avant toute vérification IA."""
-        r = auth_client.post(
-            "/skills/propose",
-            data=json.dumps({"name": "X", "tasks": []}),
-            content_type="application/json",
-        )
+        """Aucune tâche (ni valide ni non-vide) → 400, avant toute vérification
+        IA — et le refus se lit dans la langue de l'écran, dans les deux sens."""
+        charge = dict(data=json.dumps({"name": "X", "tasks": []}),
+                      content_type="application/json")
+        with _langue(auth_client, "fr") as c:
+            r = c.post("/skills/propose", **charge)
         assert r.status_code == 400
         assert "Au moins une tâche" in json.loads(r.data)["error"]
+        with _langue(auth_client, "en") as c:
+            r = c.post("/skills/propose", **charge)
+        assert r.status_code == 400
+        assert "At least one task" in json.loads(r.data)["error"]
 
     def test_propose_minimal_payload_without_key_returns_500(self, auth_client, monkeypatch):
         """Payload AVEC tâche mais sans clé → 500.
@@ -318,13 +347,17 @@ class TestSkillsPropose:
     def test_propose_prompts_unavailable_returns_500(self, auth_client, monkeypatch):
         """Si le prompt principal n'est pas chargé sur l'instance → 500 explicite."""
         monkeypatch.setattr("Code.routes.skills.get_prompt", lambda *a, **k: None)
-        r = auth_client.post(
-            "/skills/propose",
+        charge = dict(
             data=json.dumps({"name": "X", "tasks": [{"name": "Analyser"}]}),
-            content_type="application/json",
-        )
+            content_type="application/json")
+        with _langue(auth_client, "fr") as c:
+            r = c.post("/skills/propose", **charge)
         assert r.status_code == 500
         assert "Prompts IA non chargés" in json.loads(r.data)["error"]
+        with _langue(auth_client, "en") as c:
+            r = c.post("/skills/propose", **charge)
+        assert r.status_code == 500
+        assert "AI prompts are not loaded" in json.loads(r.data)["error"]
 
     def test_propose_ai_success_returns_up_to_three_proposals(self, auth_client, monkeypatch):
         """Clé + client mockés → jusqu'à 3 propositions extraites de la réponse."""

@@ -3,6 +3,17 @@
   const API_PROPOSE     = "/propose_aptitudes/propose";
   const API_FEASIBILITY = "/propose_aptitudes/feasibility";
 
+  // ⚠️ Quatre des cinq écrans « Proposer… » lisaient déjà PROPOSE_I18N ;
+  // celui-ci écrivait ses titres et ses invites EN DUR dans du HTML, donc en
+  // français quelle que soit la langue de l'écran.
+  const _PI_APT = window.PROPOSE_I18N || {};
+  const _piApt = (k, fb) => _PI_APT[k] || fb;
+  // ⚠️ Convention de substitution de ce catalogue : `{nom}`.
+  const _piAptF = (k, fb, vars) => {
+    let s = _piApt(k, fb);
+    for (const v in vars) s = s.split("{" + v + "}").join(vars[v]);
+    return s;
+  };
   const safeShowSpinner = () => (typeof showSpinner === "function" ? showSpinner() : void 0);
   const safeHideSpinner = () => (typeof hideSpinner === "function" ? hideSpinner() : void 0);
 
@@ -256,7 +267,7 @@
     const body = $("#apt-modal-body");
     const footer = $("#apt-modal-footer");
     const title = $("#apt-modal-title");
-    title.innerHTML = '<i class="fa-solid fa-wheelchair"></i> Faisabilité d\'adaptation';
+    title.innerHTML = '<i class="fa-solid fa-wheelchair"></i> ' + _piApt('apt_feasibility', "Faisabilité d'adaptation");
 
     const profileFields = [
       { key: "vision", label: "Vision" },
@@ -305,7 +316,7 @@
     html += `
       <div class="feasibility-section-title"><i class="fa-solid fa-comment"></i> Commentaire court (facultatif)</div>
       <div class="feasibility-field" style="max-width:100%;">
-        <input type="text" id="feas-commentaire" placeholder="Sans détail médical..." style="width:100%;">
+        <input type="text" id="feas-commentaire" placeholder="${_piApt('apt_comment_ph', 'Sans détail médical…')}" style="width:100%;">
       </div>
     `;
 
@@ -323,7 +334,7 @@
     });
     html += `
       <div class="aids-other-field">
-        <input type="text" id="feas-aids-other" placeholder="Autres aides (préciser)...">
+        <input type="text" id="feas-aids-other" placeholder="${_piApt('apt_aids_other_ph', 'Autres aides (préciser)…')}">
       </div>
     `;
     html += '</div>';
@@ -424,7 +435,7 @@
     const body = $("#apt-modal-body");
     const footer = $("#apt-modal-footer");
     const title = $("#apt-modal-title");
-    title.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> Résultat — Faisabilité';
+    title.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> ' + _piApt('apt_result', "Résultat — Faisabilité");
 
     // Determine status class
     let statutClass = 'ok';
@@ -589,12 +600,16 @@
     if (btn) {
       btn.disabled = false;
       if (errors === 0) {
-        btn.innerHTML = `<i class="fa-solid fa-check"></i> ${added} entrée${added > 1 ? 's' : ''} ajoutée${added > 1 ? 's' : ''}`;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> ' + (added > 1
+          ? _piAptF('apt_added_n', '{n} entrées ajoutées', { n: added })
+          : _piApt('apt_added_1', '1 entrée ajoutée'));
         btn.style.background = '#d1fae5';
         btn.style.color = '#065f46';
         btn.style.borderColor = '#6ee7b7';
       } else {
-        btn.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${added} ajouté${added > 1 ? 's' : ''}, ${errors} erreur${errors > 1 ? 's' : ''}`;
+        btn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> '
+          + _piAptF('apt_added_errors', '{n} ajouté(s), {e} erreur(s)',
+                    { n: added, e: errors });
         btn.style.background = '#fef3c7';
         btn.style.color = '#92400e';
       }

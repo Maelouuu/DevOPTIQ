@@ -19,7 +19,7 @@ function fetchActivityDetailsForPropose(activityId) {
     .catch(err => {
       hideSpinner();
       console.error("Erreur fetchActivityDetailsForPropose:", err);
-      alert("Impossible de récupérer les détails pour Proposer HSC");
+      alert(_piHsc('err_fetch_details', "Impossible de récupérer les détails de l'activité (voir console)."));
     });
 }
 
@@ -41,11 +41,11 @@ function proposeSoftskills(activityData) {
     hideSpinner();
     if (window.optiqAiCheck) window.optiqAiCheck(resp);
     if (resp.error) {
-      alert("Erreur proposition HSC : " + resp.error);
+      alert(_piHsc('err_generic', "Erreur de proposition :") + " " + resp.error);
       return;
     }
     if (!resp.proposals || !Array.isArray(resp.proposals)) {
-      alert("Réponse inattendue : 'proposals' manquant.");
+      alert(_piHsc('err_bad_response', "Réponse inattendue : proposals manquant."));
       return;
     }
     showProposedSoftskills(resp.proposals, activityData.id);
@@ -53,7 +53,7 @@ function proposeSoftskills(activityData) {
   .catch(err => {
     hideSpinner();
     console.error("Erreur proposeSoftskills:", err);
-    alert("Erreur proposeSoftskills");
+    alert(_piHsc('err_generic', "Erreur de proposition :"));
   });
 }
 
