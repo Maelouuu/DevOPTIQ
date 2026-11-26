@@ -55,7 +55,12 @@ def decor(app):
         db.session.add_all([coord, champ, simple])
         db.session.commit()
 
-        ent = Entity(name="ACP carto %d" % n, owner_id=coord.id, is_shared=True)
+        # ⚠️ Socle VALIDE : ce fichier eprouve le regime « une modification,
+        # une demande », celui d'APRES le premier remplissage. Au defaut
+        # ('saisie'), le champion ecrirait directement et rien ne serait
+        # detourne vers un brouillon — voir Code/socle_activites.py.
+        ent = Entity(name="ACP carto %d" % n, owner_id=coord.id,
+                     is_shared=True, socle_etat="valide")
         db.session.add(ent)
         db.session.commit()
         act = Activities(name="ACP activité %d" % n, entity_id=ent.id)

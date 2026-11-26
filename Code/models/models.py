@@ -79,7 +79,45 @@ class Entity(db.Model):
     # paliers par défaut qui l'ouvrent (coordinateur et administrateur).
     statuts_regles = db.Column(db.Boolean, default=False, nullable=False,
                                server_default=_sa.false())
-    
+
+    # ── LE SOCLE : où en est le PREMIER remplissage de cette carto ────────
+    #
+    # Une carto neuve arrive vide de tout ce qui n'est pas le diagramme : ni
+    # garant, ni tâche, ni outil. Le remplir, c'est des centaines d'écritures
+    # — et sur une carto commune chacune partirait en demande au coordinateur.
+    # D'où deux régimes, et c'est CETTE colonne qui dit lequel s'applique :
+    #
+    #   'saisie'  le remplissage est ouvert. Qui peut PROPOSER écrit
+    #             directement (`carto_access.can_fill`), sans demande. Rien
+    #             n'est officiel : la page le dit.
+    #   'soumis'  un champion a déclaré le remplissage fini. Plus personne ne
+    #             le touche : le coordinateur examine un état FIXE.
+    #   'valide'  le coordinateur a validé. On repasse au régime normal —
+    #             une modification, une demande.
+    #
+    # ⚠️ C'est l'ENTITÉ qui porte l'état, pas une demande. La porte d'écriture
+    # le lit à chaque écriture : un `before_request` ne va pas joindre une
+    # table de demandes pour savoir s'il laisse passer.
+    #
+    # ⚠️ Et il ne veut dire quelque chose que sur une carto COMMUNE. Sur une
+    # carto privée, son propriétaire écrit de toute façon (`can_edit`) et
+    # personne n'a rien à valider : la colonne y dort.
+    #
+    # ⚠️⚠️ Le défaut est 'saisie' pour une carto NEUVE — et les cartos DÉJÀ
+    # en base sont en service : `socle_activites.reprendre_cartos_existantes`
+    # les passe à 'valide' une fois pour toutes, au démarrage. Sans elle,
+    # cette livraison ouvrirait l'écriture directe sur des données déjà
+    # officielles — c'est-à-dire un recul du contrôle d'accès.
+    socle_etat = db.Column(db.String(10), default='saisie', nullable=False,
+                           server_default='saisie')
+    # Qui a soumis le socle (et à qui la décision s'annonce).
+    socle_par_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    # La dernière transition — pour dire « soumis le… », « validé le… ».
+    socle_le = db.Column(db.DateTime, nullable=True)
+    # Le mot du champion à l'envoi, et celui du coordinateur en retour.
+    socle_message = db.Column(db.Text, nullable=True)
+    socle_retour = db.Column(db.Text, nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

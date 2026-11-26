@@ -167,6 +167,12 @@ def _hors_compte(chemin):
 MOTIF = {
     "non_connecte": ("porte.non_connecte", 401),
     "lecture_seule": ("porte.lecture_seule", 403),
+    # ⚠️ Un refus À PART, et il lui faut son propre motif : le socle de la
+    # carto est soumis, le coordinateur examine un état FIXE. Dire « lecture
+    # seule » à un champion qui remplissait la carto cinq minutes plus tôt
+    # l'enverrait chercher un droit qu'il a — c'est la même faute que de dire
+    # « lecture seule » là où il faut dire « proposez ».
+    "socle_en_examen": ("porte.socle_en_examen", 409),
 }
 
 # ⚠️ Un verdict qui n'est PAS un refus : le geste est détourné vers une
@@ -202,17 +208,23 @@ def _peut_ecrire():
     d'écrire chez eux. Une porte qui contredit la règle qu'elle fait
     respecter est un deuxième avis, pas une porte.
 
+    ⚠️ Et c'est `can_fill`, PAS `can_edit` : pendant le premier remplissage
+    d'une carto commune, qui peut proposer écrit directement les DONNÉES
+    d'activité (voir `Code/socle_activites.py`). Le DIAGRAMME, lui, reste à
+    `can_edit` — c'est `/cartography/api/save` qui le garde, et il n'est pas
+    à remplir.
+
     Sans carto active, l'écriture ne vise aucune cartographie : on retombe
     alors sur le droit de statut.
     """
-    from Code.carto_access import can_edit
+    from Code.carto_access import can_fill
     from Code.models.models import Entity
     try:
         entite = Entity.get_active()
     except Exception:
         entite = None
     if entite is not None:
-        return bool(can_edit(entite))
+        return bool(can_fill(entite))
     return bool(a_le_droit(DROIT_ECRITURE))
 
 
@@ -238,6 +250,16 @@ def _peut_proposer(chemin, methode):
     except Exception:
         return False
     return bool(entite is not None and can_propose(entite))
+
+
+def _socle_en_examen():
+    """Le socle de la carto active est-il soumis à l'examen ?"""
+    from Code.models.models import Entity
+    from Code.socle_activites import en_examen
+    try:
+        return bool(en_examen(Entity.get_active()))
+    except Exception:
+        return False
 
 
 def porte(chemin, methode, en_test=False):
@@ -271,6 +293,12 @@ def porte(chemin, methode, en_test=False):
     # carto commune n'écrit pas, mais il n'est pas en lecture seule pour
     # autant — c'est exactement ce qui sépare `champion` de `user`.
     if _peut_proposer(chemin, methode):
+        # ⚠️ Sauf pendant l'examen du socle : le coordinateur regarde un état
+        # FIXE. Détourner la saisie vers un brouillon marcherait, mais le
+        # champion se construirait une seconde pile pendant qu'on examine la
+        # première — deux choses à trancher pour un seul travail.
+        if _socle_en_examen():
+            return "socle_en_examen"
         return VERDICT_PROPOSITION
     # Règle 1 — connecté, mais sans le droit d'écrire. C'est le défaut que
     # l'audit a relevé : un compte `user` créait des tâches et réécrivait la

@@ -160,6 +160,43 @@ def can_edit(entity, user=None):
     return bool(can_edit_carto(user) and can_read(entity, user))
 
 
+def can_fill(entity, user=None):
+    """Le compte peut-il écrire les DONNÉES d'activité de cette carto ?
+
+    C'est `can_edit`, PLUS le premier remplissage : tant que le socle d'une
+    carto commune est en 'saisie', qui peut proposer écrit directement. Voir
+    `Code/socle_activites.py` pour les deux régimes.
+
+    ⚠️⚠️ **Et c'est pour ça que ce n'est PAS `can_edit`.** `can_edit` ouvre
+    aussi le DIAGRAMME (`/cartography/api/save`, l'import Visio, le
+    renommage de la carto) : le rendre vrai pour un champion lui donnerait la
+    carte elle-même, qui vient du coordinateur et n'est pas à remplir. Les
+    données d'activité, elles, sont exactement le travail qu'on lui demande.
+
+    ⚠️ Sans ce droit, le découlement ne démarre même pas : l'import Excel ne
+    vise que les cartos où le compte a `can_edit` (`import_hub`), donc « un
+    champion remplit l'entité avec un import Excel » — le premier pas — était
+    impossible. Mesuré avant : `_cibles_possibles` rendait une liste vide.
+
+    ⚠️ Le droit consulté est `propose_carto`, celui du tableau des droits :
+    un `user` consulte et ne modifie rien, et ce régime ne doit pas changer
+    la grammaire du produit. Ce qu'il change, c'est que pendant la saisie une
+    PROPOSITION devient une écriture — et une seule validation à la fin.
+
+    ⚠️ Et pas pendant l'examen ('soumis') : le coordinateur regarde un état
+    fixe. La porte d'écriture le dit alors avec son propre motif, plutôt que
+    de laisser repartir une saisie sous les yeux de qui l'examine.
+    """
+    if can_edit(entity, user):
+        return True
+    from Code.socle_activites import en_saisie
+    if not en_saisie(entity):
+        return False
+    if not can_read(entity, user):
+        return False
+    return bool(can_propose_carto(user if user is not None else current_user()))
+
+
 def can_propose(entity, user=None):
     """Le compte peut-il DÉPOSER une proposition sur cette carto ?
 
@@ -235,6 +272,7 @@ def can_manage_access(entity=None, user=None):
 
 def access_summary(entity, user=None):
     """Ce que l'interface a besoin de savoir sur une carto, d'un coup."""
+    from Code.socle_activites import etat_brut as _socle_etat
     user = user if user is not None else current_user()
     gere = can_manage_access(entity, user)
     # La liste des rôles ne sert qu'à celui qui règle l'accès. L'éditeur reçoit
@@ -257,6 +295,12 @@ def access_summary(entity, user=None):
         "open_to_all": bool(entity and entity.is_shared and not autorises),
         "statuts": sorted(entity_statuts(entity)) if entity is not None else [],
         "can_edit": can_edit(entity, user),
+        # ⚠️ `can_fill` n'est PAS `can_edit` : il ouvre les DONNÉES d'activité
+        # pendant le premier remplissage, jamais le diagramme. L'écran qui
+        # confondrait les deux offrirait la carte à qui doit remplir ses
+        # fiches.
+        "can_fill": can_fill(entity, user),
+        "socle_etat": _socle_etat(entity) if entity is not None else None,
         "must_propose": must_propose(entity, user),
         # ⚠️ Ni enregistrer ni proposer : l'éditeur doit alors s'ouvrir SANS ses
         # outils. Refuser seulement au moment d'enregistrer laisserait un `user`

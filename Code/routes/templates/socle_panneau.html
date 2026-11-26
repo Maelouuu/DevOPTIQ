@@ -1,0 +1,167 @@
+<!-- ============================================================
+     LE SOCLE — le premier remplissage d'une carto, page Activités.
+
+     Le serveur : Code/socle_activites.py (les deux régimes et le palier)
+     + Code/routes/activite_propositions.py (les trois transitions).
+     L'écran : static/js/socle_saisie.js — tout passe par SOCLE_I18N.
+
+     ⚠️ Ce panneau et le bandeau des propositions (activite_propositions.html)
+     ne cohabitent JAMAIS, par construction : le panneau ne paraît que si le
+     socle n'est pas validé, et le bandeau que si le compte doit PROPOSER —
+     ce qui est faux pendant la saisie, puisqu'il écrit directement. Deux
+     régimes, deux écrans, jamais les deux à la fois.
+
+     ⚠️ Le panneau est RENDU PAR LE SERVEUR, pas rempli par un `fetch` : un
+     panneau qui apparaît une image plus tard, ou qui s'affiche vide le temps
+     d'un aller-retour, se lit comme un défaut. Le JS ne met à jour que les
+     VALEURS, sur place.
+     ============================================================ -->
+{% if socle and socle.actif %}
+{% set pal = socle.palier or {} %}
+{% set pc = ((pal.pretes or 0) * 100 // (pal.total or 1)) if pal.total else 0 %}
+<link rel="stylesheet" href="{{ url_for('static', filename='socle_saisie.css') }}">
+<script>
+  /* ⚠️ `| tojson`, jamais une traduction entre guillemets dans un script : le
+     navigateur ne décode pas les entités HTML ici.
+
+     ⚠️ Aucun commentaire ENTRE deux clés : `test_78` exige un `{` ou une `,`
+     juste avant la clé, sinon celle qui suit devient invisible au contrôle. */
+  window.SOCLE_I18N = {
+    pretes_1:      {{ t('socle.pretes_1') | tojson }},
+    pretes_n:      {{ t('socle.pretes_n') | tojson }},
+    sur_total:     {{ t('socle.sur_total') | tojson }},
+    manque:        {{ t('socle.manque') | tojson }},
+    m_garant_1:    {{ t('socle.m_garant_1') | tojson }},
+    m_garant_n:    {{ t('socle.m_garant_n') | tojson }},
+    m_tache_1:     {{ t('socle.m_tache_1') | tojson }},
+    m_tache_n:     {{ t('socle.m_tache_n') | tojson }},
+    m_outil_1:     {{ t('socle.m_outil_1') | tojson }},
+    m_outil_n:     {{ t('socle.m_outil_n') | tojson }},
+    reste_1:       {{ t('socle.reste_1') | tojson }},
+    reste_n:       {{ t('socle.reste_n') | tojson }},
+    pret:          {{ t('socle.pret') | tojson }},
+    vide:          {{ t('socle.vide') | tojson }},
+    voir:          {{ t('socle.voir') | tojson }},
+    cacher:        {{ t('socle.cacher') | tojson }},
+    et_autres:     {{ t('socle.et_autres') | tojson }},
+    soumettre:     {{ t('socle.soumettre') | tojson }},
+    mot_ph:        {{ t('socle.mot_ph') | tojson }},
+    confirmer:     {{ t('socle.confirmer') | tojson }},
+    annuler:       {{ t('socle.annuler') | tojson }},
+    valider:       {{ t('socle.valider') | tojson }},
+    renvoyer:      {{ t('socle.renvoyer') | tojson }},
+    retour_ph:     {{ t('socle.retour_ph') | tojson }},
+    a_valider:     {{ t('socle.a_valider') | tojson }},
+    soumis_par:    {{ t('socle.soumis_par') | tojson }},
+    attente:       {{ t('socle.attente') | tojson }},
+    attente_d:     {{ t('socle.attente_d') | tojson }},
+    coord_attend:  {{ t('socle.coord_attend') | tojson }},
+    err_mot:       {{ t('socle.err_mot') | tojson }},
+    err:           {{ t('socle.err') | tojson }},
+    introuvable:   {{ t('socle.introuvable') | tojson }},
+    rail:          {{ t('socle.rail') | tojson }},
+    c_garant:      {{ t('socle.c_garant') | tojson }},
+    c_tache:       {{ t('socle.c_tache') | tojson }},
+    c_outil:       {{ t('socle.c_outil') | tojson }},
+    lang:          {{ lang | tojson }}
+  };
+  /* L'état SERVI par le serveur : la seule source du panneau. Le JS le
+     relit après chaque écriture et met les valeurs à jour sur place. */
+  window.SOCLE_ETAT = {{ socle | tojson }};
+</script>
+<script defer src="{{ url_for('static', filename='js/socle_saisie.js') }}"></script>
+
+<section class="scl" id="scl" data-etat="{{ socle.etat }}"
+         data-remplis="{{ 1 if socle.je_remplis else 0 }}"
+         data-valide="{{ 1 if socle.je_valide else 0 }}"
+         aria-labelledby="scl-h">
+  <header class="scl-tete">
+    <span class="scl-pic" aria-hidden="true"><i class="fa-solid fa-layer-group"></i></span>
+    <div class="scl-tete-t">
+      <p class="scl-sur">{{ t('socle.sur') }}</p>
+      <h2 id="scl-h">{{ socle.carto }}</h2>
+    </div>
+    {# ⚠️ UN seul « i » pour toute la page, et c'est ce qui évite de répéter
+       « non validé » sur chaque champ de chaque fiche. #}
+    <button type="button" class="scl-i" data-scl="i"
+            aria-label="{{ t('socle.i_titre') }}">
+      <i class="fa-solid fa-info" aria-hidden="true"></i>
+    </button>
+    <span class="scl-etiq">
+      {%- if socle.etat == 'soumis' -%}{{ t('socle.etiq_soumis') }}
+      {%- else -%}{{ t('socle.etiq_saisie') }}{%- endif -%}
+    </span>
+  </header>
+
+  {# La carte d'explication — posée sur le BODY par le JS, pour qu'elle ne
+     soit pas rognée par le panneau. Son texte vit ici, traduit. #}
+  <template id="scl-i-tpl">
+    <strong>{{ t('socle.i_titre') }}</strong>
+    <span>{{ t('socle.i_texte') }}</span>
+  </template>
+
+  {% if socle.retour and socle.etat == 'saisie' %}
+  {# Le mot du coordinateur est ce qui rend le renvoi utile : sans lui, on ne
+     sait pas ce qu'il faut reprendre. Il est donc en TÊTE, pas en note. #}
+  <p class="scl-renvoi">
+    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+    <span><b>{{ t('socle.renvoye') }}</b>{{ socle.retour }}</span>
+  </p>
+  {% endif %}
+
+  <div class="scl-corps">
+    <div class="scl-chiffre">
+      <b id="scl-pretes">{{ pal.pretes or 0 }}</b>
+      <span id="scl-sur">{{ t('socle.sur_total') | replace('[[n]]', pal.total or 0) }}</span>
+    </div>
+
+    <div class="scl-av">
+      <div class="scl-barre" id="scl-barre" role="progressbar"
+           aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pc }}">
+        <i style="--p: {{ pc }}"></i>
+      </div>
+      <p class="scl-manque" id="scl-manque"></p>
+      <button type="button" class="scl-voir" id="scl-voir" data-scl="liste" hidden></button>
+    </div>
+
+    <div class="scl-act" id="scl-act"></div>
+  </div>
+
+  {# La liste de travail : chaque nom OUVRE son activité. Un rapport qui dit
+     ce qui manque sans permettre d'y aller n'est qu'un rapport.
+
+     ⚠️ Les trois libellés sont écrits EN TOUTES LETTRES dans une table : une
+     clé construite (préfixe + code) est relevée par `test_78` comme la clé
+     « socle.c_ », et le jour où une exigence s'ajoute sa pastille
+     s'afficherait en clair. #}
+  {% set CHIP = {'garant': t('socle.c_garant'),
+                 'tache':  t('socle.c_tache'),
+                 'outil':  t('socle.c_outil')} %}
+  <div class="scl-liste" id="scl-liste" hidden>
+    {% for a in pal.activites or [] %}
+    <button type="button" class="scl-l" data-scl-act="{{ a.id }}">
+      <span class="scl-l-nom">{{ a.nom }}</span>
+      <span class="scl-l-m">
+        {%- for code in a.manque -%}
+        <i class="scl-chip scl-chip--{{ code }}">{{ CHIP.get(code, code) }}</i>
+        {%- endfor -%}
+      </span>
+    </button>
+    {% endfor %}
+    {% if pal.reste %}
+    <p class="scl-l-reste">{{ t('socle.et_autres') | replace('[[n]]', pal.reste) }}</p>
+    {% endif %}
+  </div>
+</section>
+
+{# ⚠️ Le rappel latéral : il n'existe QUE quand le panneau est sorti de vue.
+   Posé sur le body en `position: fixed`, hors du panneau — dedans, il
+   défilerait avec lui. #}
+<button type="button" class="scl-rail" id="scl-rail" hidden
+         aria-label="{{ t('socle.rail') }}">
+  <span class="scl-rail-anneau" style="--p: {{ pc }}">
+    <b id="scl-rail-n">{{ pal.pretes or 0 }}</b>
+  </span>
+  <span class="scl-rail-t" id="scl-rail-t">/ {{ pal.total or 0 }}</span>
+</button>
+{% endif %}

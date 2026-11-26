@@ -1,0 +1,351 @@
+/* ============================================================
+   LE SOCLE — le premier remplissage d'une carto, page Activités.
+
+   ⚠️ **AMBRE, pas le violet de la page.** C'est la couleur de la gouvernance
+   partout ailleurs : le bouton « Proposer la modification » de l'éditeur, le
+   bandeau d'examen de la page Carte, le bandeau des propositions juste
+   au-dessus. Prendre l'accent de la page rangerait ce panneau parmi ses
+   contenus, alors qu'il parle du RÉGIME dans lequel on écrit.
+
+   ⚠️ **Ses tokens sont déclarés ICI**, et c'est volontaire : la famille
+   ambre vit dans `activite_propositions.css`, qui n'est PAS chargée pendant
+   la saisie (le bandeau des propositions et ce panneau ne cohabitent jamais).
+   Les valeurs sont les mêmes des deux côtés, pour que les deux écrans se
+   lisent comme une seule famille.
+
+   ⚠️ **L'en-tête est sur une surface de NUIT.** Ce n'est pas un décor : c'est
+   le CONTRASTE qui désigne le sujet. En gris clair, ce panneau n'aurait été
+   qu'une quatrième boîte au-dessus de la liste — la leçon de la fiche de
+   notation et des propositions d'activité.
+
+   ⚠️ Le corps de la page porte `zoom: .8` (ui-theme) : un « 12 px » y est
+   rendu à 9,6. Les tailles ci-dessous sont écrites pour que ce qu'on LIT
+   passe le plancher de 11 px RÉELS de l'échelle typographique.
+   ============================================================ */
+:root {
+  --scl-nuit:  #2d1b06;  --scl-nuit2: #4a2d0a;
+  --scl-or:    #e8a84c;  --scl-or-p:  #fcd399;  --scl-or-f: #b45309;
+  --scl-encre: #3a2206;  --scl-sur:   #8a6a3a;
+  --scl-voile: #fffdf8;  --scl-trait: #e2d4ba;
+  /* Le vert SÉMANTIQUE de l'application : « c'est tenu ». Il n'apparaît
+     qu'une fois le palier franchi — avant, tout est ambre. */
+  --scl-ok:    #059669;  --scl-ok-f:  #047857;  --scl-ok-p: #d1fae5;
+}
+
+/* ══ LE PANNEAU ═══════════════════════════════════════════════════════════ */
+
+.scl {
+  margin: 0 0 18px;
+  border: 1px solid var(--scl-trait);
+  border-radius: var(--r-card, 16px);
+  background: var(--scl-voile);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(90, 60, 15, .05),
+              0 3px 8px -4px rgba(90, 60, 15, .14),
+              0 10px 24px -14px rgba(90, 60, 15, .26);
+}
+
+/* ── L'en-tête : qui on remplit, et dans quel régime ──────────────────── */
+.scl-tete {
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 16px;
+  background: linear-gradient(118deg, var(--scl-nuit2), var(--scl-nuit));
+  color: #fdf6e8;
+}
+.scl-pic {
+  width: 38px; height: 38px; flex: none; border-radius: 12px;
+  display: grid; place-items: center; font-size: 16px;
+  background: rgba(252, 211, 153, .17); color: var(--scl-or-p);
+}
+.scl-tete-t { flex: 1; min-width: 0; }
+.scl-sur {
+  margin: 0; font-size: 12.5px; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--scl-or);
+}
+.scl-tete-t h2 {
+  margin: 1px 0 0; font-family: var(--pg-font-display);
+  font-size: 23px; font-weight: 600; line-height: 1.15; color: #fdf6e8;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scl-etiq {
+  flex: none; padding: 5px 11px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 600;
+  background: rgba(252, 211, 153, .15); color: var(--scl-or-p);
+  border: 1px solid rgba(252, 211, 153, .3);
+}
+.scl[data-etat="soumis"] .scl-etiq {
+  background: rgba(252, 211, 153, .92); color: var(--scl-nuit);
+  border-color: transparent;
+}
+
+/* Le « i » : un seul pour toute la page. ⚠️ Sa carte est posée sur le BODY
+   (voir le JS) — dans le panneau, l'`overflow: hidden` la rognerait. */
+.scl-i {
+  flex: none; width: 25px; height: 25px; border-radius: 50%;
+  border: 1px solid rgba(252, 211, 153, .45);
+  background: rgba(252, 211, 153, .12); color: var(--scl-or-p);
+  font-size: 11.5px; cursor: pointer;
+  display: grid; place-items: center;
+  transition: background .15s, border-color .15s;
+}
+.scl-i:hover { background: rgba(252, 211, 153, .26); border-color: var(--scl-or-p); }
+
+/* ── Le mot du coordinateur, quand il a rendu la main ─────────────────── */
+.scl-renvoi {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin: 0; padding: 11px 16px;
+  background: #fff1f2; border-bottom: 1px solid #fecdd3;
+  font-size: 14px; line-height: 1.45; color: #881337;
+}
+.scl-renvoi i { margin-top: 3px; color: #be123c; }
+.scl-renvoi b { display: block; font-weight: 700; }
+
+/* ── Le corps : le compte, l'avancement, l'action ─────────────────────── */
+.scl-corps {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 22px; padding: 16px;
+}
+
+.scl-chiffre { text-align: center; min-width: 76px; }
+.scl-chiffre b {
+  display: block; font-family: var(--pg-font-display);
+  font-size: 46px; font-weight: 600; line-height: .95;
+  color: var(--scl-or-f); font-variant-numeric: tabular-nums;
+}
+.scl[data-etat="soumis"] .scl-chiffre b,
+.scl.est-complet .scl-chiffre b { color: var(--scl-ok-f); }
+.scl-chiffre span {
+  display: block; margin-top: 3px;
+  font-size: 14px; color: var(--scl-sur);
+}
+
+.scl-av { min-width: 0; }
+/* ⚠️ Le PREMIER jet ne se lisait pas : une piste crème et un remplissage
+   ambre clair sur un panneau crème — à 22 %, on voyait une ligne pâle et
+   rien d'autre. Une barre d'avancement doit se lire d'un coup d'œil, sinon
+   le chiffre à côté fait tout le travail et elle ne sert à rien. La piste
+   est donc CREUSÉE (fond soutenu, ombre interne) et le remplissage PLEIN. */
+.scl-barre {
+  height: 13px; border-radius: 999px; overflow: hidden;
+  background: #e4d2ae; border: 1px solid #cdb795;
+  box-shadow: inset 0 1px 2px rgba(90, 60, 15, .18);
+}
+.scl-barre > i {
+  display: block; height: 100%; width: calc(var(--p, 0) * 1%);
+  min-width: 13px; border-radius: 999px;
+  background: linear-gradient(90deg, #d97706, var(--scl-or-f));
+  box-shadow: 0 1px 3px -1px rgba(120, 53, 15, .5);
+  transition: width .45s cubic-bezier(.4, 0, .2, 1);
+}
+.scl.est-complet .scl-barre > i {
+  background: linear-gradient(90deg, #10b981, var(--scl-ok-f));
+}
+
+.scl-manque {
+  margin: 9px 0 0; font-size: 14px; line-height: 1.4; color: var(--scl-encre);
+}
+.scl-manque b { font-weight: 700; color: var(--scl-or-f); }
+.scl.est-complet .scl-manque b { color: var(--scl-ok-f); }
+
+.scl-voir {
+  margin-top: 7px; padding: 4px 11px 4px 9px; border-radius: 999px;
+  border: 1px solid var(--scl-trait); background: #fff;
+  font-size: 12.5px; font-weight: 600; color: var(--scl-sur);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  transition: border-color .15s, color .15s;
+}
+.scl-voir:hover { border-color: var(--scl-or); color: var(--scl-or-f); }
+/* ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose
+   un `display` l'emporte. Septième fois que ce piège se présente ici. */
+.scl-voir[hidden] { display: none; }
+
+/* ── L'action ─────────────────────────────────────────────────────────── */
+.scl-act {
+  flex: none; display: flex; flex-direction: column; align-items: flex-end;
+  gap: 8px; min-width: 0;
+}
+
+/* ⚠️ Le rapport INVERSÉ, déjà tranché sur la page Temps et la page Carte :
+   l'ACTION pose une pastille PASTEL sur un fond vif, le réglage une pastille
+   VIVE sur un fond clair. Deux formes qui se distinguent sans se disputer le
+   regard. */
+.scl-b {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 9px 16px 9px 10px; border: 0; border-radius: 999px;
+  font-family: var(--pg-font); font-size: 14.5px; font-weight: 600;
+  color: #fff; cursor: pointer; position: relative; overflow: hidden;
+  background: linear-gradient(135deg, var(--scl-ok), var(--scl-ok-f));
+  box-shadow: 0 2px 6px -2px rgba(4, 120, 87, .5);
+}
+.scl-b i {
+  width: 24px; height: 24px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px;
+  background: rgba(255, 255, 255, .22);
+}
+/* L'éclat ne dure que le temps du geste — la seule fantaisie du panneau. */
+.scl-b::after {
+  content: ""; position: absolute; inset: 0 auto 0 -40%; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .34), transparent);
+  transform: translateX(0); transition: transform .5s ease;
+}
+.scl-b:hover::after { transform: translateX(350%); }
+/* ⚠️ PAS une opacité : à .55 sur un panneau crème, le bouton devenait une
+   tache pâle qu'on lit comme un décor, et non comme « ce sur quoi on
+   cliquera quand ce sera prêt ». Éteint, il garde donc sa FORME et son
+   encre — c'est son remplissage qui disparaît. */
+.scl-b:disabled {
+  cursor: not-allowed; box-shadow: none;
+  background: #fdf4e3; color: var(--scl-or-f);
+  border: 1px dashed #d8b887;
+}
+.scl-b:disabled i { background: #f6e3c4; color: var(--scl-or-f); }
+.scl-b:disabled::after { display: none; }
+
+.scl-b--ambre {
+  background: linear-gradient(135deg, var(--scl-or), var(--scl-or-f));
+  box-shadow: 0 2px 6px -2px rgba(180, 83, 9, .5);
+}
+/* Le réglage : pastille VIVE sur fond clair. Renvoyer n'est pas l'action
+   qu'on vient faire — c'est celle qu'on prend quand ça ne va pas. */
+.scl-b--sec {
+  background: #fff; color: var(--scl-encre);
+  border: 1px solid var(--scl-trait); box-shadow: none;
+}
+.scl-b--sec i { background: #fdf4e3; color: var(--scl-or-f); }
+.scl-b--sec:hover { border-color: var(--scl-or); }
+.scl-b--sec::after { display: none; }
+
+.scl-attente {
+  text-align: right; font-size: 14px; line-height: 1.4; color: var(--scl-sur);
+  max-width: 290px;
+}
+.scl-attente b { display: block; font-weight: 700; color: var(--scl-encre); }
+.scl-attente q { font-style: italic; color: var(--scl-encre); }
+
+/* Le formulaire : il s'ouvre DANS le panneau, jamais en fenêtre. Une modale
+   cacherait le chiffre qu'on vient de lire pour décider. */
+.scl-form {
+  width: min(360px, 100%); display: flex; flex-direction: column; gap: 8px;
+}
+.scl-form textarea {
+  width: 100%; min-height: 62px; resize: vertical;
+  padding: 9px 11px; border-radius: 10px;
+  border: 1px solid var(--scl-trait); background: #fff;
+  font-family: var(--pg-font); font-size: 14px; color: var(--scl-encre);
+}
+.scl-form textarea:focus { outline: 2px solid var(--scl-or); outline-offset: 1px; }
+.scl-form-b { display: flex; justify-content: flex-end; gap: 8px; }
+.scl-err { margin: 0; font-size: 13px; font-weight: 600; color: #be123c; }
+
+/* ── La liste de travail ──────────────────────────────────────────────── */
+.scl-liste {
+  border-top: 1px solid var(--scl-trait); background: #fff;
+  max-height: 268px; overflow-y: auto; padding: 8px;
+}
+.scl-liste[hidden] { display: none; }
+
+.scl-l {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px; border: 0; border-radius: 10px;
+  background: transparent; cursor: pointer; text-align: left;
+  font-family: var(--pg-font);
+}
+.scl-l:hover { background: #fdf6e8; }
+.scl-l-nom {
+  flex: 1; min-width: 0; font-size: 14px; color: var(--scl-encre);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scl-l-m { flex: none; display: flex; gap: 5px; }
+.scl-chip {
+  padding: 2px 8px; border-radius: 999px; font-size: 12px; font-style: normal;
+  font-weight: 600; white-space: nowrap;
+}
+/* La couleur de la PAGE où la donnée vit — Rôles vert, Activités violet,
+   Outils orange. C'est la convention de la fenêtre d'import, et elle veut
+   dire quelque chose. */
+.scl-chip--garant { background: #ecfdf5; color: #047857; }
+.scl-chip--tache  { background: #f5f3ff; color: #6d28d9; }
+.scl-chip--outil  { background: #fff7ed; color: #c2410c; }
+.scl-l-reste {
+  margin: 6px 10px 2px; font-size: 13px; color: var(--scl-sur); font-style: italic;
+}
+
+/* ══ LE RAPPEL LATÉRAL ════════════════════════════════════════════════════
+   Il n'existe QUE quand le panneau est sorti de vue, et il est MOINS
+   détaillé : un compte, un anneau, et il ramène au panneau. */
+.scl-rail {
+  position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+  z-index: 70; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 11px 9px; border: 1px solid var(--scl-trait);
+  border-radius: 16px; background: var(--scl-voile); cursor: pointer;
+  font-family: var(--pg-font);
+  box-shadow: 0 4px 16px -8px rgba(90, 60, 15, .4);
+  animation: scl-rail-in .28s ease both;
+}
+.scl-rail[hidden] { display: none; }
+.scl-rail:hover { border-color: var(--scl-or); }
+
+@keyframes scl-rail-in {
+  from { opacity: 0; transform: translate(10px, -50%); }
+  to   { opacity: 1; transform: translate(0, -50%); }
+}
+
+/* L'anneau : un `conic-gradient` masqué en son centre. Pas de SVG pour
+   dessiner un cercle. */
+.scl-rail-anneau {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; position: relative;
+  background: conic-gradient(var(--scl-or-f) calc(var(--p, 0) * 1%),
+                             #f0e6d2 0);
+}
+.scl-rail-anneau::before {
+  content: ""; position: absolute; inset: 5px; border-radius: 50%;
+  background: var(--scl-voile);
+}
+.scl-rail-anneau b {
+  position: relative; font-family: var(--pg-font-display);
+  font-size: 17px; font-weight: 600; color: var(--scl-or-f);
+  font-variant-numeric: tabular-nums;
+}
+.scl-rail.est-complet .scl-rail-anneau {
+  background: conic-gradient(var(--scl-ok-f) 100%, var(--scl-ok-f) 0);
+}
+.scl-rail.est-complet .scl-rail-anneau b { color: var(--scl-ok-f); }
+.scl-rail-t { font-size: 12px; font-weight: 600; color: var(--scl-sur); }
+
+/* ══ LA CARTE DU « i » ════════════════════════════════════════════════════
+   ⚠️ Posée sur le BODY en `position: fixed` : dans le panneau, son
+   `overflow: hidden` la rognerait. Et c'est pour cela que le JS DIVISE par
+   le zoom du corps avant d'écrire `left`/`top` — septième fois que ce piège
+   se présente dans cette application. */
+.scl-info {
+  position: fixed; z-index: 95; width: min(380px, calc(100vw - 32px));
+  padding: 13px 15px; border-radius: 13px;
+  background: var(--scl-nuit); color: #fdf6e8;
+  box-shadow: 0 14px 40px -12px rgba(45, 27, 6, .6);
+  font-family: var(--pg-font); pointer-events: none;
+}
+.scl-info strong {
+  display: block; font-size: 14.5px; font-weight: 700;
+  margin-bottom: 5px; color: var(--scl-or-p);
+}
+.scl-info span { display: block; font-size: 13.5px; line-height: 1.5; }
+
+/* ══ ÉTROIT ══════════════════════════════════════════════════════════════
+   ⚠️ Les points de bascule s'écrivent en px RÉELS : `body.pg` porte
+   `zoom: .8` et les requêtes média IGNORENT ce zoom. 860 px réels, c'est
+   1075 px de mise en page — là où les trois colonnes ne tiennent plus. */
+@media (max-width: 860px) {
+  .scl-corps { grid-template-columns: auto 1fr; }
+  .scl-act { grid-column: 1 / -1; align-items: stretch; }
+  .scl-attente { max-width: none; text-align: left; }
+  .scl-form { width: 100%; }
+  /* Le rail prend trop de place sur un écran étroit, et la page y défile
+     déjà beaucoup : il s'efface. */
+  .scl-rail { display: none; }
+}
+@media (max-width: 560px) {
+  .scl-corps { grid-template-columns: 1fr; gap: 14px; }
+  .scl-chiffre { text-align: left; }
+  .scl-tete-t h2 { font-size: 19px; }
+}

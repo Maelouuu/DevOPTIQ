@@ -40,12 +40,6 @@
     pose_annuler:   {{ t('acp.pose_annuler') | tojson }},
     pose_aucun_outil: {{ t('acp.pose_aucun_outil') | tojson }},
     pose_rien_choisi: {{ t('acp.pose_rien_choisi') | tojson }},
-    socle_restent_1:  {{ t('acp.socle_restent_1') | tojson }},
-    socle_restent_n:  {{ t('acp.socle_restent_n') | tojson }},
-    socle_barre:      {{ t('acp.socle_barre') | tojson }},
-    socle_voir:       {{ t('acp.socle_voir') | tojson }},
-    socle_cacher:     {{ t('acp.socle_cacher') | tojson }},
-    socle_introuvable: {{ t('acp.socle_introuvable') | tojson }},
     {# Les familles au PLURIEL, pour les en-têtes de groupe et les pastilles
        de filtre : `f_*` porte un article et se compose en « Ajouter la
        tâche ». ⚠️ Écrites en toutes lettres — `test_78` relève une clé
@@ -100,18 +94,6 @@
     f_contrainte:   {{ t('acp.f_contrainte') | tojson }},
     f_donnee:       {{ t('acp.f_donnee') | tojson }},
     f_garant:       {{ t('acp.f_garant') | tojson }},
-    socle_titre:    {{ t('acp.socle_titre') | tojson }},
-    socle_pourquoi: {{ t('acp.socle_pourquoi') | tojson }},
-    socle_exige:    {{ t('acp.socle_exige') | tojson }},
-    socle_manque:   {{ t('acp.socle_manque') | tojson }},
-    socle_liste:    {{ t('acp.socle_liste') | tojson }},
-    socle_ok:       {{ t('acp.socle_ok') | tojson }},
-    socle_garde:    {{ t('acp.socle_garde') | tojson }},
-    socle_rejeu:    {{ t('acp.socle_rejeu') | tojson }},
-    socle_c_garant: {{ t('acp.socle_c_garant') | tojson }},
-    socle_c_tache:  {{ t('acp.socle_c_tache') | tojson }},
-    socle_c_outil:  {{ t('acp.socle_c_outil') | tojson }},
-    socle_vide:     {{ t('acp.socle_vide') | tojson }},
     fermer:         {{ t('btn.close') | tojson }},
     lang:           {{ session.get('lang', 'fr') | tojson }}
   };
@@ -144,12 +126,11 @@
         <i class="fa-solid fa-xmark"></i>
       </button>
     </header>
-    {# ⚠️ TROIS zones, et une seule défile. Mesuré sur un portable 1366×768 :
+    {# ⚠️ DEUX zones fixes, et une seule qui défile. Mesuré sur un portable 1366×768 :
        le pied vivait DANS le corps, donc il fallait dérouler 3191 px de liste
        pour atteindre « Envoyer ». Le socle (ce qui décide si l'envoi est
        possible) et le pied (l'envoi) restent sous les yeux ; seule la liste
        défile. #}
-    <div class="acp-socle-z" id="acp-socle-z"></div>
     <div class="acp-filtres" id="acp-filtres"></div>
     <div class="acp-corps" id="acp-corps"></div>
     <div class="acp-pied-z" id="acp-pied-z"></div>

@@ -14,13 +14,16 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request, session
 
-from Code.carto_access import can_review
+from Code.carto_access import can_fill, can_review
 from Code.extensions import db
 from Code.models.models import ActivityChangeRequest, Entity, User
 from Code.propositions_activite import (EchecDeRejeu, refs_du_corps,
                                         brouillon, gestes, rejouer,
                                         retirer_geste)
 from Code.socle_activites import etat as socle_etat
+from Code.socle_activites import renvoyer as socle_renvoyer_etat
+from Code.socle_activites import soumettre as socle_soumettre_etat
+from Code.socle_activites import valider as socle_valider_etat
 
 acp_bp = Blueprint("activite_propositions", __name__, url_prefix="/api/propositions")
 
@@ -109,24 +112,105 @@ def vider_brouillon():
     return jsonify({"ok": True})
 
 
+# ── LE SOCLE : le premier remplissage, et sa validation ──────────────────
+#
+# ⚠️ Le socle n'est PAS une proposition : il n'y a aucun geste à rejouer. La
+# saisie est déjà en base (voir `Code/socle_activites.py`), et ce qu'on
+# soumet, c'est l'état de la carto. Ces routes vivent ici parce que c'est le
+# même écran et le même examinateur, pas parce que c'est le même objet.
+
 @acp_bp.route("/socle")
 def get_socle():
-    """Où en est la carto du PALIER de soumission.
+    """Où en est le premier remplissage de la carto active.
 
-    ⚠️ Une LECTURE, et elle coûte un rejeu simulé : elle n'est donc pas
-    calculée au rendu de chaque page (le bandeau, lui, ne fait que compter
-    les gestes). On l'interroge quand on ouvre la fenêtre — là où l'on vient
-    chercher la réponse.
+    ⚠️ Une LECTURE : quatre requêtes, sans simulation depuis que la saisie du
+    champion s'écrit directement. C'est la page Activités qui l'affiche à
+    chaque rendu — et elle la reçoit du serveur, pas d'un `fetch` : un
+    panneau qui apparaît une image plus tard se lit comme un défaut.
     """
     user = _connecte()
     if not user:
         return jsonify({"error": "Non connecté"}), 401
-    return jsonify(socle_etat(user, Entity.get_active()))
+    return jsonify(socle_etat(Entity.get_active(), user))
+
+
+@acp_bp.route("/socle/soumettre", methods=["POST"])
+def socle_soumettre():
+    """Le champion déclare le remplissage fini : le coordinateur est saisi."""
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    entite = Entity.get_active()
+    # ⚠️ Celui qui REMPLIT soumet, et lui seul : un compte qui n'a pas écrit
+    # une ligne n'a pas à déclarer le travail d'un autre terminé.
+    if not can_fill(entite, user):
+        return jsonify({"error": "Réservé à qui remplit la carto",
+                        "code": "forbidden"}), 403
+    ok, code = socle_soumettre_etat(entite, user,
+                                    (request.get_json(silent=True) or {}).get("message"))
+    if not ok:
+        return jsonify({"error": "Soumission refusée", "code": code,
+                        "socle": socle_etat(entite, user)}), 409
+    return jsonify({"ok": True, "socle": socle_etat(entite, user)}), 201
+
+
+@acp_bp.route("/socle/valider", methods=["POST"])
+def socle_valider():
+    """Le coordinateur valide : le socle vaut pour tous ceux qui ouvrent la carto."""
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    entite = _carto_a_examiner(user)
+    if entite is None:
+        return jsonify({"error": "Réservé aux coordinateurs",
+                        "code": "forbidden"}), 403
+    ok, code = socle_valider_etat(entite, user,
+                                  (request.get_json(silent=True) or {}).get("commentaire"))
+    if not ok:
+        return jsonify({"error": "Validation refusée", "code": code}), 409
+    return jsonify({"ok": True, "entity_id": entite.id})
+
+
+@acp_bp.route("/socle/renvoyer", methods=["POST"])
+def socle_renvoyer():
+    """Le coordinateur rend la main : on repart en saisie, avec son mot."""
+    user = _connecte()
+    if not user:
+        return jsonify({"error": "Non connecté"}), 401
+    entite = _carto_a_examiner(user)
+    if entite is None:
+        return jsonify({"error": "Réservé aux coordinateurs",
+                        "code": "forbidden"}), 403
+    ok, code = socle_renvoyer_etat(entite, user,
+                                   (request.get_json(silent=True) or {}).get("commentaire"))
+    if not ok:
+        return jsonify({"error": "Renvoi refusé", "code": code}), 409
+    return jsonify({"ok": True, "entity_id": entite.id})
+
+
+def _carto_a_examiner(user):
+    """La carto que ce compte tranche : celle de l'URL, sinon l'active.
+
+    ⚠️ `can_review` est exigé sur l'entité, pas « en général » : un champion
+    à qui l'on confierait l'examen ne doit pas trancher sur une carto qu'il
+    ne voit pas.
+    """
+    demande = (request.get_json(silent=True) or {}).get("entity_id")
+    entite = (db.session.get(Entity, demande) if isinstance(demande, int)
+              else Entity.get_active())
+    return entite if (entite is not None and can_review(entite, user)) else None
 
 
 @acp_bp.route("/envoyer", methods=["POST"])
 def envoyer():
-    """Le brouillon part à l'examen — si le PALIER est franchi."""
+    """Le brouillon part à l'examen.
+
+    ⚠️ Plus de contrôle du PALIER ici, et ce n'est pas un oubli : un brouillon
+    ne peut PAS exister pendant le premier remplissage — la saisie s'y écrit
+    directement, il n'y a rien à accumuler. Le palier garde désormais la
+    seule porte qui le concerne, `POST /socle/soumettre`. Un contrôle mort
+    ment sur ce qu'il garde.
+    """
     user = _connecte()
     if not user:
         return jsonify({"error": "Non connecté"}), 401
@@ -135,17 +219,6 @@ def envoyer():
     if cr is None or not gestes(cr):
         return jsonify({"error": "Rien à envoyer", "code": "vide"}), 400
 
-    # ⚠️ LE PALIER, et il est appliqué ICI : le bouton éteint de la fenêtre
-    # n'est pas une sécurité, et une proposition déposée sur une carto à
-    # moitié remplie est précisément ce qui noie le coordinateur.
-    socle = socle_etat(user, entite)
-    if not socle.get("complet"):
-        return jsonify({"error": "Carto incomplète", "code": "socle",
-                        "socle": socle}), 409
-
-    # ⚠️ Le socle a SIMULÉ le brouillon puis annulé : la ligne qu'on tenait
-    # est expirée. On la reprend avant d'écrire dessus.
-    cr = brouillon(user, entite)
     data = request.get_json(silent=True) or {}
     cr.message = (data.get("message") or "").strip() or None
     cr.status = "pending"

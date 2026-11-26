@@ -528,8 +528,11 @@ def inject_full():
         return jsonify({'error': 'Aucune entité active'}), 400
     # ⚠️ Cette route écrit : elle exige le droit d'écrire dans la carto, comme
     # l'import de la page Carte (`/api/import`). Lire la carto ne suffit pas.
-    from Code.carto_access import can_edit
-    if not can_edit(db.session.get(Entity, entity_id)):
+    # ⚠️ `can_fill` : c'est le MÊME moteur d'injection de tâches que
+    # `/api/import`, il doit donc dire la même chose pendant le premier
+    # remplissage — deux portes sur un même moteur finiraient par diverger.
+    from Code.carto_access import can_fill
+    if not can_fill(db.session.get(Entity, entity_id)):
         return jsonify({'error': t('imph.err_droits')}), 403
 
     try:

@@ -328,6 +328,14 @@ def delete_user(user_id):
 
         # 1. Détacher les entités dont cet user est owner
         Entity.query.filter_by(owner_id=user_id).update({'owner_id': None})
+        # ⚠️ Et celles dont il a soumis le PREMIER REMPLISSAGE : `socle_par_id`
+        # est une clé étrangère vers `users`, et PostgreSQL les applique quand
+        # SQLite les ignore — oubliée, la suppression d'un compte tomberait en
+        # 500 en production sans qu'aucun test de la suite puisse le voir.
+        # C'est la même famille que `password_resets.user_id`, qui a choisi
+        # l'autre bord (pas de FK du tout) pour la même raison.
+        Entity.query.filter_by(socle_par_id=user_id).update(
+            {'socle_par_id': None})
 
         # 2. Retirer ce user comme manager d'autres users
         User.query.filter_by(manager_id=user_id).update({'manager_id': None})

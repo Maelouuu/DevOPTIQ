@@ -63,122 +63,21 @@
     return i < 0 ? ORDRE.length : i;
   }
 
-  var S = { n: 0, gestes: [], id: null, ouvert: false, socle: null,
-            socleOuvert: false, fam: null, texte: '' };
+  var S = { n: 0, gestes: [], id: null, ouvert: false,
+            fam: null, texte: '' };
 
-  /* ══ LE PALIER DE SOUMISSION ════════════════════════════════════════
-     Une carto ne part à l'examen que complète : chaque activité porte un
-     garant, au moins une tâche et au moins un outil. Sinon le coordinateur
-     reçoit autant de demandes que de lignes saisies.
+  /* ⚠️ **Le PALIER de soumission a quitté cette fenêtre**, et ce n'est
+     pas du ménage. Il ne vaut que pendant le PREMIER REMPLISSAGE d'une
+     carto, où la saisie s'écrit directement et où il n'existe aucun
+     brouillon — c'est le panneau de la page (`static/js/socle_saisie.js`)
+     qui le porte. Ici on est dans l'autre régime : une modification, une
+     demande. Laissé en place, le bloc éteignait « Envoyer » au nom d'une
+     règle qui ne s'applique plus.
 
-     ⚠️ Le socle coûte un rejeu simulé côté serveur : on le lit quand la
-     FENÊTRE s'ouvre — là où l'on vient chercher la réponse — et après un
-     retrait. Jamais à chaque geste détourné : le bandeau, lui, ne fait que
-     compter.
-     ⚠️ Et tant qu'on ne l'a pas, le bouton reste ALLUMÉ. L'écran ne promet
-     rien qu'il ne sache ; c'est `/envoyer` qui tranche, et il répond 409
-     avec l'état — le bouton éteint n'est pas une sécurité. */
-  async function chargerSocle() {
-    try {
-      var r = await window.__acpFetch('/api/propositions/socle');
-      S.socle = r.ok ? await r.json() : null;
-    } catch (_) { S.socle = null; }
-    if (S.ouvert) rendre();
-  }
-
-  /* ⚠️⚠️ **Le défaut que l'usage a relevé : « ça me dit 1 truc manquant alors
-     que j'ai rempli 30 % des activités ».** Le serveur rendait le bon compte
-     — mesuré, `{garant: 0, outil: 26, tache: 26}` sur 36 activités — mais
-     l'écran n'affichait qu'une PASTILLE PAR FAMILLE. Quand une famille est
-     déjà complète partout (le garant vient de l'import carto), il n'en reste
-     qu'UNE : on lisait « une chose manque » là où VINGT-SIX activités sont
-     incomplètes.
-
-     Le chiffre de tête est donc le nombre d'ACTIVITÉS à compléter. Les
-     familles passent dessous, en détail, et chacune dit sur combien
-     d'activités elle manque. */
-  function detailManque(manque) {
-    return ['garant', 'tache', 'outil'].filter(function (c) {
-      return manque[c] > 0;
-    }).map(function (c) {
-      return '<span class="acp-ex"><b>' + esc(T('socle_c_' + c)) + '</b>'
-        + '<i>' + manque[c] + '</i></span>';
-    }).join('');
-  }
-
-  /* ⚠️ Le socle n'est plus un pavé DANS le défilement : c'est la bande qui
-     décide si l'envoi est possible, elle reste sous les yeux. Les deux
-     paragraphes d'explication sont passés derrière un « i » — c'est le motif
-     de la maison, et ils occupaient 160 px de la hauteur utile. */
-  function rendreSocle() {
-    var z = document.getElementById('acp-socle-z');
-    if (!z) return;
-    var s = S.socle;
-    if (!s || !S.gestes.length) { z.innerHTML = ''; z.hidden = true; return; }
-    z.hidden = false;
-
-    if (s.complet) {
-      z.innerHTML = '<div class="acp-sb acp-sb--ok">'
-        + '<span class="acp-sb-ic"><i class="fa-solid fa-circle-check"></i></span>'
-        + '<p class="acp-sb-t">' + esc(T(s.total ? 'socle_ok' : 'socle_vide')) + '</p>'
-        + '</div>';
-      return;
-    }
-
-    var reste = Math.max(0, (s.total || 0) - (s.pretes || 0));
-    var part = s.total ? Math.round((s.pretes / s.total) * 100) : 0;
-    var noms = (s.activites || []).map(function (a) {
-      return '<li><button type="button" class="acp-sa-b" data-aller="' + a.id + '">'
-        + '<span class="acp-sa-n">' + esc(a.nom || '—') + '</span>'
-        + (a.manque || []).map(function (c) {
-          return '<em>' + esc(T('socle_c_' + c)) + '</em>';
-        }).join('')
-        + '<i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></li>';
-    }).join('');
-    if (s.reste > 0) {
-      noms += '<li class="acp-sa-plus">' + esc(F('et_autres', { n: s.reste })) + '</li>';
-    }
-
-    z.innerHTML = '<div class="acp-sb">'
-      + '<span class="acp-sb-ic"><i class="fa-solid fa-layer-group"></i></span>'
-      + '<div class="acp-sb-t">'
-      /* LE chiffre : des ACTIVITÉS, pas des familles. */
-      + '<strong>' + esc(nf('socle_restent', reste)) + '</strong>'
-      + '<span class="acp-sb-j"><i style="width:' + part + '%"></i></span>'
-      + '<span class="acp-sb-p">' + esc(F('socle_barre', { n: s.pretes, t: s.total }))
-      + '</span></div>'
-      + '<button type="button" class="acp-sb-v" data-socle-voir aria-expanded="'
-      + (S.socleOuvert ? 'true' : 'false') + '">'
-      + esc(T(S.socleOuvert ? 'socle_cacher' : 'socle_voir'))
-      + '<i class="fa-solid fa-chevron-' + (S.socleOuvert ? 'up' : 'down') + '"></i></button>'
-      + '</div>'
-      + (s.rejeu
-         ? '<p class="acp-sb-r">' + esc(F('socle_rejeu', { n: s.rejeu.rang })) + '</p>'
-         : '')
-      + (S.socleOuvert
-         ? '<div class="acp-sb-d">'
-           + '<p class="acp-sb-l">' + esc(T('socle_manque')) + '</p>'
-           + '<div class="acp-exs">' + detailManque(s.manque || {}) + '</div>'
-           + (noms ? '<p class="acp-sb-l">' + esc(T('socle_liste')) + '</p>'
-                     + '<ul class="acp-sa">' + noms + '</ul>' : '')
-           + '</div>'
-         : '');
-    var h = z.querySelector('.acp-sb-t strong');
-    if (h) h.appendChild(boutonSocleInfo());
-  }
-
-  /* Les deux paragraphes qui expliquaient la règle — pourquoi d'un bloc, et
-     que rien n'est perdu — tiennent derrière un « i ». */
-  function boutonSocleInfo() {
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'acp-i';
-    b.setAttribute('aria-label', T('socle_titre'));
-    b.title = T('socle_titre') + ' — ' + T('socle_exige') + ' ' + T('socle_pourquoi')
-      + ' ' + T('socle_garde');
-    b.innerHTML = '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>';
-    return b;
-  }
+     Partis avec lui : `chargerSocle`, `detailManque`, `rendreSocle`,
+     `boutonSocleInfo`, `allerA`, et les vingt clés `socle_*` du catalogue
+     — une clé qu'on retire avec son seul lecteur ne laisse rien derrière
+     elle. */
 
   /* ── Le libellé d'un geste, composé dans la langue de CELUI QUI LIT ──
      ⚠️ Jamais figé à l'écriture : le champion propose dans sa langue, le
@@ -245,9 +144,8 @@
     S.ouvert = true;
     // On rouvre sur TOUT : un filtre gardé d'une fois sur l'autre ferait
     // croire qu'il manque des gestes.
-    S.fam = null; S.texte = ''; S.socleOuvert = false;
+    S.fam = null; S.texte = '';
     rendre();
-    chargerSocle();
   }
 
   /* Le titre DIT ce qu'on soumet ; la phrase « rien n'est appliqué tant
@@ -394,22 +292,10 @@
     if (!z) return;
     if (!S.gestes.length) { z.innerHTML = ''; z.hidden = true; return; }
     z.hidden = false;
-    // Le palier se lit AVANT le bouton : le découvrir après avoir cliqué
-    // serait le découvrir trop tard.
-    var bloque = !!(S.socle && !S.socle.complet);
-    /* ⚠️ Le pied ne se RECONSTRUIT pas s'il est déjà là : le socle arrive en
-       différé et un retrait re-rend tout — réécrire le champ ferait perdre le
-       mot qu'on est en train d'écrire, et le curseur avec. Seul l'état du
-       bouton change. */
-    var deja = document.getElementById('acp-message');
-    if (deja) {
-      var b = z.querySelector('[data-envoyer]');
-      if (b) {
-        b.disabled = bloque;
-        b.setAttribute('aria-disabled', bloque ? 'true' : 'false');
-      }
-      return;
-    }
+    /* ⚠️ Le pied ne se RECONSTRUIT pas s'il est déjà là : un retrait re-rend
+       tout, et réécrire le champ ferait perdre le mot qu'on est en train
+       d'écrire, et le curseur avec. */
+    if (document.getElementById('acp-message')) return;
     /* ⚠️ Tout sur UNE ligne : le mot pour l'auteur, puis les deux boutons.
        Le libellé au-dessus d'un champ d'une ligne coûtait 30 px de la
        hauteur que la liste n'a pas — il passe en invite, et la fenêtre dit
@@ -429,7 +315,6 @@
 
   function rendre() {
     majTitre();
-    rendreSocle();
     rendreFiltres();
     rendreListe();
     rendrePied();
@@ -674,7 +559,6 @@
     /* ⚠️ Retirer un geste peut DÉFAIRE le palier : la tâche qu'on vient
        d'enlever était peut-être la seule de son activité. Un panneau qui
        continuerait d'annoncer « complète » mentirait jusqu'au refus. */
-    if (S.ouvert) await chargerSocle();
   }
 
   async function abandonner() {
@@ -694,19 +578,6 @@
       body: JSON.stringify({ message: champ ? champ.value : '' })
     });
     if (!r.ok) {
-      /* ⚠️ Le PALIER : le serveur a le dernier mot, et il rend l'état avec
-         son refus. On le montre là où l'on vient de cliquer plutôt que de
-         dire « erreur » — « ça ne marche pas » n'apprend rien, « il manque un
-         garant sur 39 activités » dit quoi faire. */
-      var j = null;
-      try { j = await r.json(); } catch (_) { j = null; }
-      if (j && j.code === 'socle' && j.socle) {
-        S.socle = j.socle;
-        rendre();
-        var p = document.querySelector('.acp-socle');
-        if (p && p.scrollIntoView) p.scrollIntoView({ block: 'nearest' });
-        return;
-      }
       signaler(T('err'));
       return;
     }
@@ -717,10 +588,10 @@
     S.ouvert = false;
     await charger();
     S.ouvert = true;
-    // ⚠️ Les trois zones FIXES se vident aussi : laissées en place, l'écran
-    // de fin s'afficherait sous une bande de palier et au-dessus d'un bouton
-    // « Envoyer » qui n'a plus rien à envoyer.
-    ['acp-socle-z', 'acp-filtres', 'acp-pied-z'].forEach(function (id) {
+    // ⚠️ Les deux zones FIXES se vident aussi : laissées en place, l'écran
+    // de fin s'afficherait au-dessus d'un bouton « Envoyer » qui n'a plus
+    // rien à envoyer.
+    ['acp-filtres', 'acp-pied-z'].forEach(function (id) {
       var n = document.getElementById(id);
       if (n) { n.innerHTML = ''; n.hidden = true; }
     });
@@ -736,21 +607,6 @@
   /* Ouvrir l'activité à compléter, depuis la liste du palier : la fenêtre se
      ferme, la page défile jusqu'à sa fiche et l'ouvre. C'est ce qui fait de
      cette liste un plan de travail plutôt qu'un rapport. */
-  function allerA(activityId) {
-    fermer();
-    var hote = document.querySelector('.tasks-section-modern[data-acp-act="'
-                                      + activityId + '"]');
-    var carte = hote ? hote.closest('.activity-container') : null;
-    if (!carte) { signaler(T('socle_introuvable')); return; }
-    var tete = carte.querySelector('.activity-header');
-    // ⚠️ On n'ouvre que si la fiche est FERMÉE : un second clic la
-    // refermerait juste après l'avoir montrée.
-    if (tete && !hote.offsetParent) tete.click();
-    carte.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    carte.classList.add('est-pointee');
-    setTimeout(function () { carte.classList.remove('est-pointee'); }, 1600);
-  }
-
   /* ⚠️ Un TOAST, pas une modale. Corriger une fiche, c'est cinq ou six
      gestes : une fenêtre à fermer entre chacun transformerait la saisie en
      parcours d'obstacles. La modale reste pour ce qui ARRÊTE (une erreur). */
@@ -812,10 +668,6 @@
     if (ko) { ouvrirOutils(parseInt(ko.dataset.outilsAnnuler, 10)); return; }
     var pf = e.target.closest ? e.target.closest('[data-fam]') : null;
     if (pf) { S.fam = pf.dataset.fam || null; rendreFiltres(); rendreListe(); return; }
-    var sv = e.target.closest ? e.target.closest('[data-socle-voir]') : null;
-    if (sv) { S.socleOuvert = !S.socleOuvert; rendreSocle(); return; }
-    var al = e.target.closest ? e.target.closest('[data-aller]') : null;
-    if (al) { allerA(parseInt(al.dataset.aller, 10)); return; }
     var r = e.target.closest ? e.target.closest('[data-retirer]') : null;
     if (r) { retirer(parseInt(r.dataset.retirer, 10)); return; }
     if (e.target.closest && e.target.closest('[data-abandonner]')) { abandonner(); return; }

@@ -544,9 +544,12 @@ def _neutraliser_commits():
 def _appliquer_gestes(liste):
     """Rejoue les gestes dans la session COURANTE, sans rien valider.
 
-    Le corps commun de `rejouer` (qui valide) et de `simuler` (qui annule) :
-    deux boucles de rejeu finiraient par ne plus appliquer la même chose, et
-    l'écran annoncerait une carto que l'envoi refuserait.
+    Extrait de `rejouer` pour que la boucle de rejeu existe UNE fois : elle a
+    longtemps servi aussi à `simuler`, qui mesurait ce que le brouillon
+    donnerait sans l'écrire — c'était la seule façon pour le palier de voir
+    une saisie détournée. La saisie du premier remplissage s'écrivant
+    désormais directement, il n'y a plus rien à simuler et la fonction a été
+    retirée avec son dernier appelant.
 
     ⚠️ On appelle la VUE directement, jamais par le client de test : les
     `before_request` ne tirent donc pas, et c'est nécessaire — la porte
@@ -611,38 +614,6 @@ def rejouer(cr, acteur):
     db.session.commit = vrai_commit
     db.session.commit()
     return len(liste)
-
-
-def simuler(cr, mesurer):
-    """Ce que le brouillon DONNERAIT s'il s'appliquait — sans rien écrire.
-
-    Rend la valeur de `mesurer()`, appelée une fois les gestes rejoués.
-
-    ⚠️ On rejoue les vraies routes, puis on ANNULE. C'est la seule façon de
-    n'avoir qu'une idée de ce qu'« ajouter une tâche » veut dire : une mesure
-    qui relirait les gestes à sa façon finirait par annoncer une carto
-    complète que l'envoi refuse — ou l'inverse.
-
-    ⚠️ L'annulation est dans un `finally` : une simulation qui laisse une
-    ligne derrière elle a écrit sans qu'on le lui demande. Et elle remet la
-    session en état AVANT que l'appelant ne mesure à nouveau sur la base —
-    après une vue qui a levé, la session refuse toute requête tant qu'on n'a
-    pas annulé.
-
-    ⚠️ `EchecDeRejeu` REMONTE : un geste qui ne s'applique plus ne se mesure
-    pas, il se dit. L'appelant tranche (et l'envoi butera dessus de toute
-    façon).
-    """
-    liste = gestes(cr) if cr is not None else []
-    if not liste:
-        return mesurer()
-    vrai_commit = _neutraliser_commits()
-    try:
-        _appliquer_gestes(liste)
-        return mesurer()
-    finally:
-        db.session.commit = vrai_commit
-        db.session.rollback()
 
 
 def _resoudre_refs(corps, nes, rang, geste):

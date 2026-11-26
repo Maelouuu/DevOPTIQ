@@ -487,6 +487,11 @@ TRANSLATIONS = {
         'welcome.props_anon':        "Un collaborateur",
         'welcome.wait.draft':        "modifications prêtes à envoyer",
         'welcome.wait.sessions':     "séances d'évaluation à tenir",
+        # ⚠️ La forme « (s) » plutôt qu'un pluriel sec : ces lignes reçoivent
+        # leur nombre à côté, et les quatre autres annoncent déjà
+        # « 1 modifications » quand il n'y en a qu'une (dette connue). Celle-ci
+        # ne l'ajoute pas.
+        'welcome.wait.socle':        'remplissage(s) de carto à valider',
         'welcome.fields_changed':    'Champs modifiés',
         'welcome.link_detail':       "Détail de l'association",
         'welcome.tool':              'Outil',
@@ -818,35 +823,12 @@ TRANSLATIONS = {
         # « 1 activité prête sur 42 » et « 3 activités prêtes sur 42 »
         # demanderaient deux clés par langue, et l'anglais n'accorde pas au
         # même seuil. « Prêtes : n sur t » se lit pareil à tous les comptes.
-        'acp.socle_titre': 'La carto doit être complète pour partir à l\'examen',
-        'acp.socle_pourquoi': 'Une première version se soumet d\'un bloc : sinon le '
-                              'coordinateur reçoit autant de demandes que de lignes saisies.',
-        'acp.socle_exige': 'Chaque activité porte un garant, au moins une tâche et au '
-                           'moins un outil.',
         # ⚠️ LE chiffre de tête compte des ACTIVITÉS, pas des familles : avec
         # une pastille par famille, une carto dont le garant est partout
         # affichait « 1 chose manque » là où 26 activités sont incomplètes.
-        'acp.socle_restent_1': '[[n]] activité à compléter',
-        'acp.socle_restent_n': '[[n]] activités à compléter',
-        'acp.socle_barre': '[[n]] sur [[t]] sont prêtes',
-        'acp.socle_voir': 'Voir lesquelles',
-        'acp.socle_cacher': 'Masquer',
-        'acp.socle_introuvable': "Cette activité n'est pas affichée sur cette page.",
         'acp.filtre_tout': 'Tout',
         'acp.filtre_ph': 'Chercher un nom, une activité…',
         'acp.filtre_rien': 'Rien ne correspond à cette recherche.',
-        'acp.socle_manque': 'Ce qui manque encore',
-        'acp.socle_liste': 'Les activités à compléter',
-        'acp.socle_ok': 'La carto est complète : la proposition peut partir.',
-        'acp.socle_garde': 'Rien n\'est perdu : ce que vous saisissez est gardé ici, '
-                           'visite après visite. Rien ne part au coordinateur avant '
-                           'que vous n\'envoyiez.',
-        'acp.socle_rejeu': 'L\'étape n° [[n]] ne s\'applique plus : retirez-la avant '
-                           'd\'envoyer.',
-        'acp.socle_c_garant': 'Garant',
-        'acp.socle_c_tache': 'Tâche',
-        'acp.socle_c_outil': 'Outil',
-        'acp.socle_vide': 'Cette carto ne porte aucune activité à compléter.',
         'acp.pose_titre': "En attente d'envoi",
         'acp.pose_d': "Ces lignes ne sont pas encore dans l'activité : elles partiront à l'examen avec votre proposition.",
         'acp.pose_outiller': 'Outiller',
@@ -862,6 +844,58 @@ TRANSLATIONS = {
         # sur une interface anglaise.
         'porte.lecture_seule': 'lecture seule',
         'porte.non_connecte': 'non connecté',
+        'porte.socle_en_examen': "Le premier remplissage de cette carto est soumis au "
+                                 "coordinateur : les fiches ne bougent plus jusqu'à sa décision.",
+        # ── LE SOCLE : le premier remplissage d'une carto ─────────────────
+        'socle.sur': 'Premier remplissage',
+        'socle.etiq_saisie': 'Saisie en cours',
+        'socle.etiq_soumis': 'En attente de validation',
+        'socle.i_titre': "Rien n'est encore validé",
+        'socle.i_texte': "Tout ce que vous voyez dans ces fiches est la saisie des "
+                         "champions. La carto n'apporte que les activités et ce qui "
+                         "entre et sort de chacune : le garant, les tâches, les outils "
+                         "et les compétences s'écrivent ici, puis le coordinateur les "
+                         "valide d'un seul coup — et cela vaut alors pour tous ceux qui "
+                         "ouvrent la carto.",
+        'socle.sur_total': 'sur [[n]] activités',
+        'socle.pretes_1': '[[n]] activité complète',
+        'socle.pretes_n': '[[n]] activités complètes',
+        'socle.manque': 'Il manque',
+        'socle.m_garant_1': '[[n]] garant',
+        'socle.m_garant_n': '[[n]] garants',
+        'socle.m_tache_1': '[[n]] tâche',
+        'socle.m_tache_n': '[[n]] tâches',
+        'socle.m_outil_1': '[[n]] outil',
+        'socle.m_outil_n': '[[n]] outils',
+        'socle.reste_1': 'il reste [[n]] activité à compléter',
+        'socle.reste_n': 'il reste [[n]] activités à compléter',
+        'socle.pret': 'Chaque activité porte son garant, une tâche et un outil.',
+        'socle.vide': "Cette carto n'a aucune activité : importez-la d'abord.",
+        'socle.voir': 'Voir lesquelles',
+        'socle.cacher': 'Masquer',
+        'socle.et_autres': 'et [[n]] autres',
+        'socle.c_garant': 'garant',
+        'socle.c_tache': 'tâche',
+        'socle.c_outil': 'outil',
+        'socle.soumettre': 'Soumettre au coordinateur',
+        'socle.mot_ph': 'Un mot pour le coordinateur (facultatif)',
+        'socle.confirmer': 'Confirmer',
+        'socle.annuler': 'Annuler',
+        'socle.valider': 'Valider le socle',
+        'socle.renvoyer': 'Renvoyer en saisie',
+        'socle.retour_ph': "Ce qu'il faut reprendre",
+        'socle.err_mot': "Dites ce qu'il faut reprendre : sans ce mot, personne ne "
+                         'sait quoi corriger.',
+        'socle.err': 'Action impossible pour le moment.',
+        'socle.introuvable': "Cette activité n'est pas dans la liste affichée.",
+        'socle.rail': 'Revenir au suivi du remplissage',
+        'socle.a_valider': 'À valider',
+        'socle.soumis_par': 'Soumis par [[q]] le [[d]]',
+        'socle.attente': 'Soumis au coordinateur',
+        'socle.attente_d': 'Les fiches ne bougent plus jusqu’à sa décision.',
+        'socle.coord_attend': "Le remplissage est en cours : vous pourrez valider une "
+                              'fois chaque activité complète.',
+        'socle.renvoye': 'Le coordinateur a rendu la main : ',
         'examen.bandeau_n': '{n} modifications proposées attendent votre décision',
         'examen.sur_carto': 'Sur la carto « {nom} »',
         'examen.sur_n_cartos': 'Sur {n} cartos',
@@ -2949,6 +2983,7 @@ TRANSLATIONS = {
         'welcome.props_anon':        "A colleague",
         'welcome.wait.draft':        "changes ready to send",
         'welcome.wait.sessions':     "evaluation sessions to hold",
+        'welcome.wait.socle':        'map fill-in(s) to validate',
         'welcome.fields_changed':    'Fields changed',
         'welcome.link_detail':       'Link detail',
         'welcome.tool':              'Tool',
@@ -3266,31 +3301,9 @@ TRANSLATIONS = {
         'acp.g_contrainte': 'Constraints',
         'acp.g_donnee': 'Data',
         'acp.g_garant': 'Guarantors',
-        'acp.socle_titre': 'The map must be complete before it goes for review',
-        'acp.socle_pourquoi': 'A first version is submitted in one go: otherwise the '
-                              'coordinator gets as many requests as there are entries.',
-        'acp.socle_exige': 'Every activity needs a guarantor, at least one task and at '
-                           'least one tool.',
-        'acp.socle_restent_1': '[[n]] activity still to complete',
-        'acp.socle_restent_n': '[[n]] activities still to complete',
-        'acp.socle_barre': '[[n]] of [[t]] are ready',
-        'acp.socle_voir': 'See which',
-        'acp.socle_cacher': 'Hide',
-        'acp.socle_introuvable': 'That activity is not shown on this page.',
         'acp.filtre_tout': 'All',
         'acp.filtre_ph': 'Search a name, an activity…',
         'acp.filtre_rien': 'Nothing matches that search.',
-        'acp.socle_manque': 'Still missing',
-        'acp.socle_liste': 'Activities left to complete',
-        'acp.socle_ok': 'The map is complete: the proposal can be sent.',
-        'acp.socle_garde': 'Nothing is lost: what you enter is kept here, visit after '
-                           'visit. Nothing reaches the coordinator until you send it.',
-        'acp.socle_rejeu': 'Step [[n]] can no longer be applied: remove it before '
-                           'sending.',
-        'acp.socle_c_garant': 'Guarantor',
-        'acp.socle_c_tache': 'Task',
-        'acp.socle_c_outil': 'Tool',
-        'acp.socle_vide': 'This map has no activity left to complete.',
         'acp.pose_titre': 'Waiting to be sent',
         'acp.pose_d': 'These lines are not in the activity yet: they will go for review with your proposal.',
         'acp.pose_outiller': 'Add a tool',
@@ -3302,6 +3315,57 @@ TRANSLATIONS = {
         'acp.pose_rien_choisi': 'Tick a tool, or name one.',
         'porte.lecture_seule': 'read-only',
         'porte.non_connecte': 'not signed in',
+        'porte.socle_en_examen': "This map's initial fill-in has been submitted to the "
+                                 'coordinator: the cards stay as they are until a decision '
+                                 'is made.',
+        'socle.sur': 'Initial fill-in',
+        'socle.etiq_saisie': 'Being filled in',
+        'socle.etiq_soumis': 'Awaiting validation',
+        'socle.i_titre': 'Nothing here is validated yet',
+        'socle.i_texte': 'Everything you see in these cards is what the champions have '
+                         'entered. The map itself only brings the activities and what '
+                         'goes in and out of each one: the guarantor, the tasks, the '
+                         'tools and the competencies are written here, then the '
+                         'coordinator validates them in one go — and from then on it '
+                         'holds for everyone who opens the map.',
+        'socle.sur_total': 'of [[n]] activities',
+        'socle.pretes_1': '[[n]] activity complete',
+        'socle.pretes_n': '[[n]] activities complete',
+        'socle.manque': 'Still missing:',
+        'socle.m_garant_1': '[[n]] guarantor',
+        'socle.m_garant_n': '[[n]] guarantors',
+        'socle.m_tache_1': '[[n]] task',
+        'socle.m_tache_n': '[[n]] tasks',
+        'socle.m_outil_1': '[[n]] tool',
+        'socle.m_outil_n': '[[n]] tools',
+        'socle.reste_1': '[[n]] activity left to complete',
+        'socle.reste_n': '[[n]] activities left to complete',
+        'socle.pret': 'Every activity has its guarantor, a task and a tool.',
+        'socle.vide': 'This map has no activity yet: import it first.',
+        'socle.voir': 'See which ones',
+        'socle.cacher': 'Hide',
+        'socle.et_autres': 'and [[n]] more',
+        'socle.c_garant': 'guarantor',
+        'socle.c_tache': 'task',
+        'socle.c_outil': 'tool',
+        'socle.soumettre': 'Submit to the coordinator',
+        'socle.mot_ph': 'A word for the coordinator (optional)',
+        'socle.confirmer': 'Confirm',
+        'socle.annuler': 'Cancel',
+        'socle.valider': 'Validate the fill-in',
+        'socle.renvoyer': 'Send back',
+        'socle.retour_ph': 'What needs reworking',
+        'socle.err_mot': 'Say what needs reworking: without it, nobody knows what to fix.',
+        'socle.err': 'That is not possible right now.',
+        'socle.introuvable': 'That activity is not in the list on screen.',
+        'socle.rail': 'Back to the fill-in progress',
+        'socle.a_valider': 'To validate',
+        'socle.soumis_par': 'Submitted by [[q]] on [[d]]',
+        'socle.attente': 'Submitted to the coordinator',
+        'socle.attente_d': 'The cards stay as they are until a decision is made.',
+        'socle.coord_attend': 'The fill-in is under way: you will be able to validate '
+                              'once every activity is complete.',
+        'socle.renvoye': 'The coordinator sent it back: ',
         'examen.bandeau_n': '{n} proposed changes are waiting for your decision',
         'examen.sur_carto': 'On the map “{nom}”',
         'examen.sur_n_cartos': 'Across {n} maps',

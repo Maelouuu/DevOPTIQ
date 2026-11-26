@@ -11345,6 +11345,183 @@ banc).
 
 ---
 
+### LE SOCLE : le premier remplissage s'écrit DIRECTEMENT (2026-11-26)
+
+Reprise du palier du 22/11 sur le découlement que l'utilisateur a décrit :
+« un coordinateur crée une entité, lui importe une carto, la partage aux
+champions ; l'un d'eux la remplit avec un import Excel. Au lieu d'une demande
+par modification, le palier se met en place. Une fois validé, on rebascule
+dans une modification = une demande. »
+
+**Deux régimes, et c'est `Entity.socle_etat` qui dit lequel s'applique.**
+
+| état | ce qu'on peut écrire | qui décide |
+|---|---|---|
+| `saisie` | les DONNÉES d'activité, **directement**, par qui peut proposer | `carto_access.can_fill` |
+| `soumis` | plus rien : le coordinateur examine un état FIXE | la porte, motif `socle_en_examen` |
+| `valide` | une modification = une demande (le régime du 19/10) | `can_propose`, comme avant |
+
+`Code/socle_activites.py` porte l'état, le palier et les trois transitions ;
+`Code/routes/activite_propositions.py` les expose
+(`/socle`, `/socle/soumettre`, `/socle/valider`, `/socle/renvoyer`).
+
+#### ⚠️⚠️ Pourquoi la saisie DIRECTE, et pas un brouillon rendu en place
+
+Le palier d'origine mesurait la base **plus le brouillon SIMULÉ** : la saisie
+du champion était détournée (202) et n'atteignait jamais la base. Deux faits
+mesurés ont tranché contre ce modèle :
+
+- ⚠️⚠️ **L'import Excel ne vise que les cartos où le compte a `can_edit`**
+  (`import_hub._cibles_possibles`), et `can_edit` rend faux pour un champion
+  sur une carto commune. Mesuré avant : la liste des cibles était **VIDE** —
+  le PREMIER PAS du découlement était donc impossible, et aucun brouillon ne
+  pouvait le rattraper (un import n'est pas un geste qu'on rejoue) ;
+- la demande était explicite : « la saisie se fait de manière standard, cela
+  nous évitera d'avoir une section donnée officielle / donnée saisie pour
+  chaque élément ».
+
+Conséquence heureuse : **le palier se mesure en base seule**, quatre requêtes,
+sans simulation. Assez peu cher pour que la page Activités l'affiche à chaque
+rendu — ce que le brouillon simulé interdisait.
+
+⚠️ `propositions_activite.simuler` est donc partie avec son dernier appelant.
+`_appliquer_gestes` reste, partagé par `rejouer` ; les références locales
+(`b:0`) restent aussi — elles servent à l'approbation en phase 2.
+
+#### ⚠️⚠️ `can_fill` n'est PAS `can_edit`, et c'est tout l'arbitrage
+
+`can_edit` ouvre aussi le **DIAGRAMME** : `/cartography/api/save`, l'import
+Visio, le renommage de la carto. Le rendre vrai pour un champion lui donnerait
+la carte elle-même, qui vient du coordinateur et n'est pas à remplir.
+`can_fill` = `can_edit` **ou** (carto commune + socle en `saisie` +
+`propose_carto`). Trois appelants y passent, et trois seulement :
+`ecriture._peut_ecrire`, `import_hub._cibles_possibles`, `import_full.inject`.
+Le reste garde `can_edit`.
+
+⚠️ Le droit consulté est **`propose_carto`**, celui du tableau des droits : un
+`user` consulte et ne modifie rien, et ce régime ne change pas la grammaire du
+produit. Ce qu'il change, c'est que pendant la saisie une PROPOSITION devient
+une écriture — et une seule validation à la fin.
+
+#### ⚠️⚠️ La REPRISE, sans laquelle cette livraison est un recul d'accès
+
+Le défaut de la colonne est `'saisie'`, et **toutes les lignes existantes
+l'héritent** : sans reprise, cette livraison ouvrirait l'écriture directe à
+tout champion sur des données déjà officielles.
+`reprendre_cartos_existantes()` passe toutes les cartos en `'valide'` au
+démarrage, **une seule fois** (marqueur `socle_cartos_existantes` dans
+`app_settings`). Rejouée, elle validerait le socle de chaque carto qu'on est
+en train de remplir : on ouvrirait la saisie le matin et le redéploiement du
+soir la refermerait — exactement le défaut de `migrer_anciens_champions`.
+
+⚠️ Les cartos PRIVÉES sont reprises aussi : le socle y dort (leur
+propriétaire écrit de toute façon), mais si l'une devient commune demain elle
+ne doit pas rouvrir l'écriture directe sur ce qu'elle porte déjà.
+
+#### L'écran : un panneau en tête de la page Activités
+
+`socle_panneau.html` + `static/socle_saisie.{css,js}`, inclus par
+`display_list.html`, servi par `activities_view._socle()`.
+
+- **Rendu par le SERVEUR**, pas rempli par un `fetch` : un panneau qui
+  apparaît une image plus tard se lit comme un défaut. Le JS ne met à jour
+  que les VALEURS, sur place (réécrire le panneau ferait sauter la barre au
+  lieu de la laisser avancer).
+- ⚠️ Calculé par la ROUTE, **pas par le processeur de contexte** : le palier
+  coûte quatre requêtes et le processeur tourne au rendu de CHAQUE page, nav
+  comprise. Et `etat()` s'arrête avant le palier dès que le socle est validé
+  ou la carto privée — coût nul dans le cas normal.
+- **UN seul « i »** pour toute la page : « tout ce que vous voyez dans ces
+  fiches est la saisie des champions ; la carto n'apporte que les activités
+  et ce qui entre et sort de chacune ». C'est ce qui évite de répéter « non
+  validé » sur chaque champ de chaque fiche.
+- **Un rappel latéral** quand le panneau sort de vue : un anneau, un compte,
+  et il y ramène. ⚠️ Pas d'`IntersectionObserver` — il ne tire pas dans le
+  volet de mise au point ; un calcul au défilement se rejoue à la main
+  (`window.__sclRail`, exposé pour le banc).
+- **Deux défauts d'habillage, mesurés puis corrigés** : la barre
+  d'avancement ne se lisait pas (piste crème + remplissage ambre clair sur
+  panneau crème — à 22 % on voyait une ligne pâle), et le bouton éteint à
+  `opacity: .55` se lisait comme un décor. Piste CREUSÉE, remplissage PLEIN,
+  et un bouton éteint qui garde sa FORME et son encre.
+- ⚠️ **Le mot du champion se cite avec `<q>`** : « » est une convention
+  FRANÇAISE, relevée à l'écran au milieu d'une phrase anglaise.
+- ⚠️ La carte du « i » est posée sur le BODY en `position: fixed` : elle
+  DIVISE par le zoom du corps avant d'écrire `left`/`top`. Septième fois.
+
+#### ⚠️ Le bloc « palier » a quitté la fenêtre des propositions
+
+Il y affichait une bande « il reste n activités à compléter » et **éteignait
+« Envoyer »** — au nom d'une règle qui ne s'applique plus en phase 2, puisque
+`/envoyer` ne regarde plus le palier (un brouillon ne peut pas exister pendant
+le premier remplissage). Ce n'était pas du ménage : c'était un défaut
+fonctionnel. Partis : `chargerSocle`, `rendreSocle`, `detailManque`,
+`boutonSocleInfo`, `allerA`, la zone `acp-socle-z`, **20 clés `acp.socle_*`**
+et 110 lignes de CSS.
+
+⚠️ **Et les deux écrans ne cohabitent jamais** : `_propose_activites` rend
+faux dès que `can_fill` ou `en_examen`. Vu au banc en basculant l'état à la
+main — le bandeau « vos modifications partent à l'examen » s'affichait à côté
+du panneau, annonçant une SECONDE file là où il n'y en a qu'une.
+
+#### Trois pièges, dont deux payés dans la même journée
+
+- ⚠️⚠️ **Une suppression ligne à ligne dans un catalogue Python doit tenir
+  compte des valeurs sur PLUSIEURS lignes.** En ne retirant que la ligne de
+  la clé, j'ai laissé **9 continuations orphelines** et `translations.py` ne
+  se compilait plus — 265 erreurs d'un coup, dans des fichiers qui ne parlent
+  pas du sujet.
+- ⚠️⚠️ **Un cliquet qui cherche une chaîne doit retirer les COMMENTAIRES** :
+  celui qui explique un retrait cite forcément ce qu'il retire. Le piège a
+  mordu **trois fois ce jour-là** — dans le script de retrait, puis deux fois
+  dans mes propres tests (une clé construite citée en commentaire, et le nom
+  de l'observateur qu'on explique ne pas employer). D'où `_js_nu()` dans
+  `test_169`.
+- ⚠️ **Une clé i18n ne s'ASSEMBLE pas**, ni dans un gabarit (`t('socle.c_' +
+  code)` est relevé comme la clé « socle.c_ ») ni dans le JS (`nf('m_' +
+  code, n)`). Les six libellés passent par une table écrite en toutes
+  lettres.
+- ⚠️ `socle_par_id` est une clé étrangère vers `users` : `delete_user` la
+  détache, sinon la suppression d'un compte tomberait en 500 **en production
+  seulement** (PostgreSQL applique les FK, SQLite non).
+
+#### Mesures
+
+Parcours complet éprouvé en vrai HTTP sur le banc : saisie → écriture
+directe (201, la tâche en base) → soumission refusée sur palier incomplet
+(409 `palier`) → écriture pendant l'examen refusée (409 `socle_en_examen`) →
+renvoi sans mot refusé (409 `sans_mot`) → renvoi avec mot lu par le champion
+→ resoumission → validation → **la même écriture rend 202 `proposition`**. Un
+`user` reste à 403 `lecture_seule` du début à la fin.
+
+Tests : `tests/test_169_socle_saisie.py` (**86 cas**, NEUF) ;
+`test_159_palier_soumission.py` reconstruit (30 cas — ce qui restait vrai est
+gardé tel quel, ce qui affirmait la simulation est RÉÉCRIT, pas supprimé) ;
+`test_112`, `test_114`, `test_162` posent `socle_etat="valide"` sur leur carto
+— ils éprouvent le régime d'APRÈS. **Treize défauts remis un par un, treize
+cliquets tombés.** Suite : **5 199 passés**, 1 sauté ; arbre d'image 5 081 + 119 sautés.
+
+Banc : `tools/devrun_partage.py` sème les TROIS états en même temps (#1 en
+saisie avec 8 activités complètes, #4 soumise et complète, #3 validée), plus
+`/devrun/socle/<état>` et `/devrun/carto/<id>`. ⚠️ Sans les activités à
+moitié remplies, on ne voit jamais que le cas malheureux ; et l'import carto
+pose un garant à CHAQUE activité, donc la troisième exigence ne se voit qu'en
+le retirant à la main.
+
+#### Ce qui n'est PAS fait, et qui se décide
+
+- **Le bandeau de la page Carte ne compte pas les socles soumis.** La fenêtre
+  d'examen est faite pour des GESTES et pour un diagramme ; ajouter le compte
+  sans ajouter la liste ferait diverger le chiffre de ce qui s'ouvre.
+  L'attente vit donc dans la **fenêtre de bienvenue** (« ce qui vous
+  attend »), un COUNT que seul un valideur paie.
+- **Aucune pop-up de décision** pour le champion : le panneau porte le mot du
+  coordinateur en rouge, en tête, et la validation se voit au changement de
+  régime. Une pop-up demanderait une colonne de plus (le valideur) — à
+  décider.
+- **Rouvrir la saisie d'une carto validée** n'existe pas : cela rendrait
+  l'écriture directe sur des données officielles, et personne ne l'a demandé.
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

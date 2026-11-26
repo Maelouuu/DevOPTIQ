@@ -115,8 +115,11 @@ def carto(app):
         lect = faire("lect", "user")
         db.session.add_all([coord, champ, lect])
         db.session.commit()
+        # Socle VALIDE : ce fichier eprouve le regime « une modification,
+        # une demande ». Au defaut (saisie), le champion ecrirait
+        # directement et rien ne partirait au brouillon.
         ent = Entity(name="Visible carto %d" % n, owner_id=coord.id,
-                     is_shared=True)
+                     is_shared=True, socle_etat="valide")
         db.session.add(ent)
         db.session.commit()
         act = Activities(name="Visible activité %d" % n, entity_id=ent.id,
@@ -219,27 +222,32 @@ class TestLesReferencesLocales:
         assert g[1]["objet"] == "Balance"
         assert g[1]["vise"] == [0]
 
-    def test_la_simulation_voit_la_tache_ET_son_outil(self, app, carto):
-        """C'est ce qui rend le palier franchissable : le brouillon compte."""
-        from Code.models.models import ActivityChangeRequest, Task
+    def test_le_REJEU_resout_la_reference_et_outille_la_tache(self, app, carto):
+        """La tache naît au rejeu, et l'outil doit tomber SUR ELLE.
+
+        ⚠️ Éprouvé par le REJEU, et non plus par une simulation : celle-ci
+        mesurait ce que le brouillon donnerait, pour un palier qui lisait le
+        brouillon. Le premier remplissage s'écrivant désormais directement en
+        base (`Code/socle_activites.py`), il n'y a plus rien à simuler et
+        `simuler` est partie avec son dernier appelant. La référence `b:0`,
+        elle, sert toujours — c'est elle qui permet d'outiller une tâche qui
+        n'existe pas encore quand le coordinateur approuve."""
+        from Code.models.models import ActivityChangeRequest, Task, User
+        from Code.propositions_activite import rejouer
         rid = _ranger_gestes(
             app, carto,
             ("/tasks/add", "POST", {"activity_id": carto["act"], "name": "Peser"}),
             ("/tools/add", "POST", {"task_id": "b:0", "new_tools": ["Balance"]}))
-        from Code.propositions_activite import simuler
         with app.test_request_context():
             from flask import session
-            session["user_id"] = carto["champ"]
+            session["user_id"] = carto["coord"]
             session["active_entity_id"] = carto["ent"]
             cr = db.session.get(ActivityChangeRequest, rid)
-
-            def mesurer():
-                t = Task.query.filter_by(activity_id=carto["act"]).first()
-                return (t.name if t else None, len(t.tools) if t else 0)
-
-            assert simuler(cr, mesurer) == ("Peser", 1)
+            assert rejouer(cr, db.session.get(User, carto["coord"])) == 2
         with app.app_context():
-            assert Task.query.filter_by(activity_id=carto["act"]).count() == 0
+            t = Task.query.filter_by(activity_id=carto["act"]).first()
+            assert t is not None and t.name == "Peser"
+            assert [o.name for o in t.tools] == ["Balance"]
 
     def test_le_rejeu_resout_la_reference_par_ce_qu_il_vient_d_ecrire(self, app, carto):
         from Code.models.models import ActivityChangeRequest, Task, User

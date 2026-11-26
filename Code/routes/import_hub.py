@@ -605,9 +605,16 @@ def _moi():
 
 
 def _cibles_possibles(moi):
-    """Les cartos où ce compte écrit : c'est là, et seulement là, qu'il importe."""
-    from Code.carto_access import can_edit
-    return [e for e in Entity.accessible(moi.id) if can_edit(e, moi)] if moi else []
+    """Les cartos où ce compte écrit : c'est là, et seulement là, qu'il importe.
+
+    ⚠️ `can_fill`, pas `can_edit` : une carto commune en premier remplissage
+    s'importe par qui la remplit. Avec `can_edit`, cette liste était VIDE
+    pour un champion — donc « un champion remplit l'entité avec un import
+    Excel », le premier pas du découlement, était impossible. Les comptes,
+    eux, ne suivent pas ce droit : `_peut` les arbitre à part.
+    """
+    from Code.carto_access import can_fill
+    return [e for e in Entity.accessible(moi.id) if can_fill(e, moi)] if moi else []
 
 
 def _cibles_demandees(moi, ids):

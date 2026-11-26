@@ -58,6 +58,72 @@ def _modifier(diagram):
     return d
 
 
+def _remplir(entity_id, combien=None):
+    """Pose garant + tache + outil sur les `combien` premieres activites.
+
+    ⚠️ Sans cette aide, le banc ne montre QUE le cas malheureux : une carto
+    toute vide, ou le panneau du socle dit « 0 sur 42 » et le bouton reste
+    eteint. Ce qu'on vient regarder, c'est une saisie EN COURS — donc des
+    activites completes a cote d'activites qui manquent de l'un des trois.
+    """
+    from Code.extensions import db as _db
+    from Code.models.models import (Activities, Role, Task, Tool,
+                                    activity_roles, task_tools)
+    from Code.socle_activites import _perimetre, ETAT_SAISIE
+    from Code.models.models import Entity as _E
+
+    ent = _db.session.get(_E, entity_id)
+    perim = _perimetre(ent)
+    if combien is None:
+        combien = len(perim)
+    role = Role.query.filter_by(entity_id=entity_id).order_by(Role.id).first()
+    outil = Tool(name="Gabarit de controle", entity_id=entity_id)
+    _db.session.add(outil)
+    _db.session.commit()
+
+    def _garant(aid):
+        """⚠️ `_sync_carto_to_db` a DEJA lie la bande de la carte a chaque
+        activite : un INSERT buterait sur la contrainte d'unicite
+        (activity_id, role_id). On met donc a jour le statut de la ligne qui
+        existe, et on n'insere que s'il n'y en a aucune."""
+        if role is None:
+            return
+        deja = _db.session.execute(
+            activity_roles.select().where(
+                activity_roles.c.activity_id == aid)).first()
+        if deja is not None:
+            _db.session.execute(activity_roles.update().where(
+                activity_roles.c.activity_id == aid,
+                activity_roles.c.role_id == deja.role_id
+            ).values(status="Garant"))
+            return
+        _db.session.execute(activity_roles.insert().values(
+            activity_id=aid, role_id=role.id, status="Garant"))
+
+    for aid, nom in perim[:combien]:
+        _garant(aid)
+        t = Task(name="Preparer le dossier", activity_id=aid, order=1)
+        _db.session.add(t)
+        _db.session.flush()
+        _db.session.execute(task_tools.insert().values(
+            task_id=t.id, tool_id=outil.id))
+    # ⚠️ Et quelques activites a MOITIE remplies : une tache sans outil, un
+    # garant sans tache. Les trois exigences ne se voient qu'ainsi.
+    for aid, nom in perim[combien:combien + 2]:
+        t = Task(name="Esquisse", activity_id=aid, order=1)
+        _db.session.add(t)
+    for aid, nom in perim[combien + 2:combien + 4]:
+        _garant(aid)
+    # ⚠️ Et quelques activites SANS garant. L'import carto en pose un a chaque
+    # activite (la bande de la carte) : sans ce retrait, la troisieme exigence
+    # du palier est toujours satisfaite au banc et on ne la voit JAMAIS a
+    # l'ecran. Mesure avant : « il manque 26 taches · 28 outils », zero garant.
+    for aid, nom in perim[combien + 4:combien + 9]:
+        _db.session.execute(activity_roles.update().where(
+            activity_roles.c.activity_id == aid).values(status="Acteur"))
+    _db.session.commit()
+
+
 with app.app_context():
     from Code.models.models import CartoChangeRequest, Entity, User
     from Code.routes.cartography_editor import _sync_carto_to_db
@@ -162,6 +228,40 @@ with app.app_context():
     ent3.optiqcarto_data = json.dumps(retouche, ensure_ascii=False)
     db.session.commit()
 
+    # ══ LE SOCLE : les trois etats, en meme temps ══════════════════
+    # ⚠️ Les trois a la fois, et c'est le point : avec un seul etat on ne voit
+    # jamais ce que l'ecran doit savoir montrer. `ent` est en SAISIE (le cas
+    # du champion), une quatrieme carto est SOUMISE (le cas du coordinateur),
+    # et `ent3` est VALIDEE — c'est elle qui garde le regime « une
+    # modification, une demande », donc le bandeau des propositions.
+    from Code.socle_activites import ETAT_SAISIE, ETAT_SOUMIS, ETAT_VALIDE
+    from datetime import datetime as _dt
+
+    assurer_roles_permanents(ent.id)
+    db.session.commit()
+    _remplir(ent.id, 8)
+    ent.socle_etat = ETAT_SAISIE
+
+    ent3.socle_etat = ETAT_VALIDE
+    ent2.socle_etat = ETAT_VALIDE
+
+    ent4 = Entity(name="Quatrieme carto (socle soumis)",
+                  description="pour la validation du coordinateur",
+                  owner_id=coord.id, is_shared=True,
+                  optiqcarto_data=json.dumps(diagram, ensure_ascii=False))
+    db.session.add(ent4)
+    db.session.commit()
+    _sync_carto_to_db(ent4, diagram)
+    assurer_roles_permanents(ent4.id)
+    db.session.commit()
+    _remplir(ent4.id)                      # complete : le palier est franchi
+    ent4.socle_etat = ETAT_SOUMIS
+    ent4.socle_par_id = champion.id
+    ent4.socle_le = _dt.utcnow()
+    ent4.socle_message = ("J'ai repris les trois activites amont avec Camille, "
+                          "et outille chaque tache.")
+    db.session.commit()
+
     print(f"[devrun] base      : {db_path}")
     print(f"[devrun] carto     : {len(diagram.get('shapes', []))} formes, "
           f"{len(diagram.get('connections', []))} connexions — commune, ouverte à tous")
@@ -174,6 +274,10 @@ with app.app_context():
     print(f"[devrun] {simple.email} tient {len(deux)} rôle(s) : "
           + ", ".join(r.name for r in deux))
     print(f"[devrun] propositions en attente : #{cr.id}, #{cr3.id} (carto retouchée depuis)")
+    print(f"[devrun] socle      : #{ent.id} saisie (8 completes) | "
+          f"#{ent4.id} soumis | #{ent3.id} valide")
+    print(f"[devrun] bascule    : /devrun/socle/<saisie|soumis|valide>")
+    print(f"[devrun] carto      : /devrun/carto/<id>")
     print(f"[devrun] http://127.0.0.1:{PORT}/login")
 
 @app.route("/devrun/as/<email>")
@@ -196,6 +300,31 @@ def _devrun_as(email):
     session["user_id"] = u.id
     session["lang"] = u.lang or "fr"
     return redirect("/activities/map")
+
+
+@app.route("/devrun/socle/<etat>")
+def _devrun_socle(etat):
+    """Bascule le socle de la carto ACTIVE, pour rejouer les trois etats."""
+    from flask import redirect
+    from Code.models.models import Entity
+    from Code.socle_activites import ETATS
+
+    if etat not in ETATS:
+        return "etat inconnu : %s (attendus : %s)" % (etat, ", ".join(ETATS)), 400
+    ent = Entity.get_active()
+    if ent is None:
+        return "aucune carto active", 404
+    ent.socle_etat = etat
+    db.session.commit()
+    return redirect("/activities/view")
+
+
+@app.route("/devrun/carto/<int:entity_id>")
+def _devrun_carto(entity_id):
+    """Rend une carto active en un clic."""
+    from flask import redirect, session
+    session["active_entity_id"] = entity_id
+    return redirect("/activities/view")
 
 
 app.run(host="127.0.0.1", port=PORT, debug=False, use_reloader=False)

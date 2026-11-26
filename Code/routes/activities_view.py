@@ -14,6 +14,28 @@ def _sans_taches_demande():
     return (request.args.get('sans_taches') or '').strip() in ('1', 'true', 'on')
 
 
+def _socle():
+    """L'état du PREMIER REMPLISSAGE, pour le panneau en tête de page.
+
+    ⚠️ Calculé par la ROUTE, pas par le processeur de contexte : le palier
+    coûte quatre requêtes, et le processeur de contexte tourne au rendu de
+    CHAQUE page — nav comprise, sur les quatorze écrans. Ce panneau ne vit
+    que sur celui-ci.
+
+    ⚠️ Et il ne coûte rien dans le cas normal : `etat` s'arrête avant le
+    palier dès que le socle est validé, ou que la carto est privée.
+    """
+    try:
+        from Code.models.models import Entity
+        from Code.permissions import current_user
+        from Code.socle_activites import etat as socle_etat
+        return socle_etat(Entity.get_active(), current_user())
+    except Exception as exc:
+        # Un panneau qui tombe ne doit jamais emporter la page.
+        print(f"[SOCLE] état illisible : {exc}")
+        return None
+
+
 def _cadrer(q, sans_taches):
     """⚠️ Le filtre ne peut PAS se faire en JS : la liste arrive par lots de
     20 et la recherche passe déjà par le serveur — on ne masquerait que ce qui
@@ -65,7 +87,8 @@ def view_activities():
         return render_template('display_list.html', activity_data=[],
                                has_more=False, next_offset=0, total=0,
                                pinned_activity_id=None, pinned_label=pinned_label,
-                               sans_taches=sans_taches, n_sans_taches=n_sans_taches)
+                               sans_taches=sans_taches, n_sans_taches=n_sans_taches,
+                               socle=_socle())
 
     if activity_id:
         target = Activities.for_active_entity().filter(Activities.id == activity_id).first()
@@ -90,7 +113,8 @@ def view_activities():
                            pinned_activity_id=activity_id,
                            pinned_label=pinned_label,
                            sans_taches=sans_taches,
-                           n_sans_taches=n_sans_taches)
+                           n_sans_taches=n_sans_taches,
+                           socle=_socle())
 
 
 @activities_bp.route('/view/more', methods=['GET'])

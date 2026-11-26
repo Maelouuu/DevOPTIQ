@@ -324,12 +324,29 @@ def create_app(test_config=None):
         ⚠️ C'est le même verdict que celui de la porte d'écriture, pas une
         seconde règle : le bandeau ne doit jamais promettre un examen que la
         porte refuserait, ni se taire alors qu'elle détourne.
+
+        ⚠️ Donc `not can_fill` : pendant le PREMIER REMPLISSAGE d'une carto
+        commune, le champion écrit directement — il n'y a ni détour ni
+        brouillon, et un bandeau « 0 modification en attente » l'enverrait
+        chercher une file qui n'existe pas. C'est le panneau du socle qui
+        parle alors (voir `Code/socle_activites.py`). Les deux ne cohabitent
+        jamais, et c'est ICI que cela se décide.
         """
         try:
-            from Code.carto_access import can_propose
+            from Code.carto_access import can_fill, can_propose
             from Code.models.models import Entity
+            from Code.socle_activites import en_examen
             entite = Entity.get_active()
-            return bool(entite is not None and can_propose(entite))
+            if entite is None or can_fill(entite):
+                return False
+            # ⚠️ Ni pendant l'EXAMEN du socle : la porte refuse alors les
+            # écritures (`socle_en_examen`), donc rien ne s'accumule — un
+            # bandeau « vos modifications partent à l'examen » posé à côté du
+            # panneau du socle annoncerait une SECONDE file là où il n'y en a
+            # qu'une. Vu au banc, en basculant l'état à la main.
+            if en_examen(entite):
+                return False
+            return bool(can_propose(entite))
         except Exception:
             return False
 
@@ -606,10 +623,31 @@ def create_app(test_config=None):
         # La décision sur une proposition doit parvenir à son auteur : on
         # retient quand il l'a lue (NULL = à lui annoncer).
         _safe_add_column("carto_change_requests", "author_seen_at", "TIMESTAMP")
+        # LE SOCLE : où en est le premier remplissage d'une carto commune.
+        # ⚠️ `DEFAULT 'saisie'` — une chaîne, donc sans le piège du booléen
+        # ci-dessus ; mais la REPRISE qui suit (plus bas, après les modèles)
+        # est indispensable : sans elle, les cartos déjà en service
+        # repartiraient en « saisie », c'est-à-dire en écriture directe.
+        _safe_add_column("entities", "socle_etat", "VARCHAR(10) DEFAULT 'saisie'")
+        _safe_add_column("entities", "socle_par_id", "INTEGER")
+        _safe_add_column("entities", "socle_le", "TIMESTAMP")
+        _safe_add_column("entities", "socle_message", "TEXT")
+        _safe_add_column("entities", "socle_retour", "TEXT")
+        try:
+            with _init_conn() as _conn:
+                _conn.execute(_text(
+                    "UPDATE entities SET socle_etat = 'saisie' "
+                    "WHERE socle_etat IS NULL"))
+                _conn.commit()
+        except Exception:
+            pass
         # Une colonne que le modèle interroge et qui manque casse toute la page.
         # _safe_add_column est muet par construction (il ignore « déjà là ») :
         # on vérifie donc, et on le dit fort.
-        _verifier_colonnes({"entities": ["is_shared", "statuts_regles"],
+        _verifier_colonnes({"entities": ["is_shared", "statuts_regles",
+                                         "socle_etat", "socle_par_id",
+                                         "socle_le", "socle_message",
+                                         "socle_retour"],
                             "carto_change_requests": ["author_seen_at"]})
         # Statut Garant : l'import carto l'écrivait en minuscule, la page Rôles
         # cherchait 'Garant' — un rôle garant d'après la carte n'apparaissait
@@ -769,6 +807,21 @@ def create_app(test_config=None):
         except Exception as e:
             db.session.rollback()
             print(f"[DB] numérotation des cartos homonymes: {e}")
+
+        # ⚠️⚠️ LE SOCLE des cartos DÉJÀ en base. Elles sont en service : leurs
+        # données sont officielles, et le défaut de la colonne ('saisie')
+        # ouvrirait l'écriture directe dessus à tout champion. Une seule fois
+        # — rejouée, elle validerait le socle de chaque carto qu'on est en
+        # train de remplir (le défaut de `migrer_anciens_champions`, qui
+        # promouvait tout champion créé APRÈS la reprise).
+        try:
+            from Code.socle_activites import reprendre_cartos_existantes
+            reprises = reprendre_cartos_existantes()
+            if reprises:
+                print(f"[DB] {reprises} carto(s) existante(s) : socle validé")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise du socle des cartos: {e}")
 
         try:
             from Code.models.models import RecentEvent

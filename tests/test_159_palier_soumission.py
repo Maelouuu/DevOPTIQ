@@ -4,18 +4,29 @@
 « Sur une carto de cent activités, si on dépose une demande dès qu'on met un
 truc, on va faire des centaines de demandes pour remplir la carto. »
 
+⚠️⚠️ **Ce fichier a changé de monde le 26/11.** Le palier lisait la base PLUS
+le brouillon SIMULÉ : la saisie du champion était détournée (202) et
+n'atteignait jamais la base, donc mesurer la base seule aurait annoncé
+« 0 activité complète » quel que soit le travail fourni. Depuis, pendant le
+premier remplissage d'une carto commune, la saisie s'écrit DIRECTEMENT
+(`carto_access.can_fill`) — il n'y a plus rien à simuler, et le palier garde
+une autre porte : `POST /socle/soumettre`, et non plus `/envoyer`.
+
+Les cas qui affirmaient la simulation et le brouillon comptés ont donc été
+RÉÉCRITS sur la vérité neuve, pas supprimés : un cas qui affirme une
+structure remplacée ne garde plus rien, et le supprimer ne garde rien non
+plus. Ce qui restait vrai — le périmètre, les trois exigences, le coût, la
+fenêtre des propositions — est conservé tel quel.
+
 Ce que ces cas tiennent, dans l'ordre d'importance :
 
-1. **la simulation n'écrit RIEN** — elle rejoue les vraies routes pour savoir
-   ce que le brouillon donnerait ; une ligne laissée derrière elle serait une
-   écriture que personne n'a demandée ;
-2. **le brouillon COMPTE** — sur une carto commune tout ce que le champion
-   écrit est détourné et n'atteint jamais la base : mesuré sur la base seule,
-   le palier ne se franchirait JAMAIS ;
-3. le périmètre (un résultat, une activité d'une autre carto ne bloquent pas),
+1. **la saisie est DIRECTE** pendant le premier remplissage, et seulement
+   là : un `user` reste en lecture seule, et l'examen gèle la carto ;
+2. le périmètre (un résultat, une activité d'une autre carto ne bloquent pas),
    sans quoi le palier serait inatteignable ;
-4. les trois exigences, chacune seule ;
-5. le refus d'`/envoyer`, qui a le dernier mot.
+3. les trois exigences, chacune seule ;
+4. les trois transitions, et le refus de chacune ;
+5. la REPRISE, qui ne doit se jouer qu'une fois.
 
 ⚠️ Ce fichier se donne SA PROPRE carto, avec un `owner_id`. C'est la règle du
 14/11 : une entité de test sans propriétaire est lisible par TOUT LE MONDE et
@@ -82,7 +93,12 @@ def carto(app):
         db.session.add_all([coord, champ])
         db.session.commit()
 
-        ent = Entity(name="Socle carto %d" % n, owner_id=coord.id, is_shared=True)
+        # ⚠️ Socle VALIDE : ce fichier eprouve le regime « une modification,
+        # une demande », celui d'APRES le premier remplissage. Au defaut
+        # ('saisie'), le champion ecrirait directement et rien ne serait
+        # detourne vers un brouillon — voir Code/socle_activites.py.
+        ent = Entity(name="Socle carto %d" % n, owner_id=coord.id,
+                     is_shared=True, socle_etat="valide")
         db.session.add(ent)
         db.session.commit()
         act = Activities(name="Socle activité %d" % n, entity_id=ent.id,
@@ -132,14 +148,36 @@ def _comme(app, uid, entity_id):
 
 
 def _etat(app, carto, qui="champ"):
+    """Le PALIER de la carto : total, prêtes, complet, manque, activités.
+
+    ⚠️ Plus de simulation : la saisie du premier remplissage s'écrit
+    directement, il n'y a plus de brouillon à rejouer pour savoir où on en
+    est. Quatre requêtes, et rien d'autre."""
+    from Code.models.models import Entity
+    from Code.socle_activites import palier
+    with app.app_context():
+        return palier(db.session.get(Entity, carto["ent"]))
+
+
+def _socle(app, carto, qui="champ"):
+    """L'état COMPLET que lit le panneau : l'état du socle plus le palier."""
     from Code.models.models import Entity, User
     from Code.socle_activites import etat
     with app.test_request_context():
         from flask import session
         session["user_id"] = carto[qui]
         session["active_entity_id"] = carto["ent"]
-        return etat(db.session.get(User, carto[qui]),
-                    db.session.get(Entity, carto["ent"]))
+        return etat(db.session.get(Entity, carto["ent"]),
+                    db.session.get(User, carto[qui]))
+
+
+def _poser(app, carto, etat_socle):
+    from Code.models.models import Entity
+    with app.app_context():
+        ent = db.session.get(Entity, carto["ent"])
+        ent.socle_etat = etat_socle
+        ent.socle_retour = None
+        db.session.commit()
 
 
 def _garant(app, carto, activity_id=None):
@@ -174,71 +212,11 @@ def _complete(app, carto, activity_id=None):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-class TestLaSimulationNEcritRien:
-    """⚠️⚠️ Le point le plus grave de tout le module. La mesure REJOUE les
-    vraies routes — c'est la seule façon de n'avoir qu'une idée de ce
-    qu'« ajouter une tâche » veut dire. Mais une simulation qui laisse une
-    ligne derrière elle a écrit sans qu'on le lui demande, et le brouillon
-    serait appliqué deux fois à l'arrivée."""
-
-    def test_lire_le_socle_n_ecrit_AUCUNE_ligne(self, app, carto):
-        from Code.models.models import Task
-        c = _comme(app, carto["champ"], carto["ent"])
-        # Détourné : la tâche part au brouillon, pas en base.
-        assert c.post("/tasks/add", json={"activity_id": carto["act"],
-                                          "name": "Proposée"}).status_code == 202
-        with app.app_context():
-            avant = Task.query.filter_by(activity_id=carto["act"]).count()
-        assert avant == 0, "la porte doit détourner, pas écrire"
-
-        # On lit le socle deux fois : si la simulation validait, la seconde
-        # lecture compterait la tâche de la première.
-        _etat(app, carto)
-        _etat(app, carto)
-        with app.app_context():
-            assert Task.query.filter_by(activity_id=carto["act"]).count() == 0
-
-    def test_et_la_session_reste_UTILISABLE_apres(self, app, carto):
-        """⚠️ Une vue qui lève laisse la session en attente d'annulation :
-        toute requête suivante échouerait. L'annulation est dans un
-        `finally`, et on le vérifie en relisant juste après."""
-        from Code.models.models import Task
-        c = _comme(app, carto["champ"], carto["ent"])
-        c.post("/tasks/add", json={"activity_id": carto["act"], "name": "X"})
-        _etat(app, carto)
-        with app.app_context():
-            assert Task.query.filter_by(activity_id=carto["act"]).count() == 0
-
-
-# ══════════════════════════════════════════════════════════════════════════
-class TestLeBrouillonCompte:
-    """⚠️ Sur une carto COMMUNE, tout ce que le champion écrit est détourné
-    (`ecriture.porte` → 202) et n'atteint jamais la base. Mesuré sur la base
-    seule, le palier annoncerait « 0 activité complète » quel que soit le
-    travail fourni — il ne se franchirait jamais, et la fonction serait un
-    mur."""
-
-    def test_la_base_seule_dirait_TOUJOURS_incomplet(self, app, carto):
-        assert _etat(app, carto)["complet"] is False
-
-    def test_le_brouillon_FRANCHIT_le_palier(self, app, carto):
-        c = _comme(app, carto["champ"], carto["ent"])
-        r = c.post("/roles/garant/activity/%d" % carto["act"],
-                   json={"role_name": "Métrologie"})
-        assert r.status_code == 202, r.get_data(as_text=True)
-        t = c.post("/tasks/add", json={"activity_id": carto["act"],
-                                       "name": "Peser"})
-        assert t.status_code == 202
-
-        # ⚠️ L'outil se rattache à une TÂCHE, et la tâche n'existe pas encore
-        # en base : son identifiant ne sera connu qu'au rejeu. On outille donc
-        # la tâche du SOCLE — celle que le champion verra dans sa fiche — en
-        # créant d'abord la tâche en base… ce qui n'est PAS le cas réel.
-        # Le cas réel est couvert par `test_outiller_une_tache_se_propose`.
-        etat = _etat(app, carto)
-        assert etat["manque"]["garant"] == 0, etat
-        assert etat["manque"]["tache"] == 0, etat
-        assert etat["manque"]["outil"] == 1, "la tâche proposée n'a pas d'outil"
+class TestLeBrouillonDUneCartoValidee:
+    """⚠️ La carto du décor est au socle VALIDÉ : on est dans le régime
+    « une modification, une demande ». Les deux cas qui affirmaient que le
+    brouillon COMPTAIT dans le palier sont partis avec la simulation — le
+    premier remplissage s'écrit désormais en base."""
 
     def test_outiller_une_tache_se_propose(self, app, carto):
         """⚠️⚠️ `POST /tools/add` RATTACHE un outil à une tâche, et il
@@ -262,8 +240,9 @@ class TestLeBrouillonCompte:
         assert r.status_code == 202, r.get_data(as_text=True)
         assert r.get_json()["code"] == "proposition"
 
-        etat = _etat(app, carto)
-        assert etat["complet"] is True, etat
+        # ⚠️ Le palier lit la BASE : la proposition ne l'avance pas, et
+        # c'est juste — elle n'est pas appliquée.
+        assert _etat(app, carto)["manque"]["outil"] == 1
 
     def test_le_geste_d_outillage_se_LIT_sous_son_activite(self, app, carto):
         """Un outil du CATALOGUE n'appartient à aucune activité — mais celui
@@ -381,78 +360,34 @@ class TestLePerimetre:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-class TestLEnvoi:
+class TestLEnvoiNeRegardePlusLePalier:
+    """⚠️ Le contrôle a CHANGÉ DE PORTE, et ce n'est pas un oubli : un
+    brouillon ne peut pas exister pendant le premier remplissage — la saisie
+    s'y écrit directement, il n'y a rien à accumuler. Le palier garde donc la
+    seule porte qui le concerne, `POST /socle/soumettre`. Un contrôle mort
+    ment sur ce qu'il garde."""
 
-    def _brouillon(self, app, carto):
+    def test_envoyer_passe_meme_sur_une_carto_INCOMPLETE(self, app, carto):
         c = _comme(app, carto["champ"], carto["ent"])
-        c.post("/tasks/add", json={"activity_id": carto["act"], "name": "Z"})
-        return c
-
-    def test_envoyer_est_REFUSE_avec_l_etat(self, app, carto):
-        c = self._brouillon(app, carto)
-        r = c.post("/api/propositions/envoyer", json={})
-        assert r.status_code == 409
-        j = r.get_json()
-        assert j["code"] == "socle"
-        # ⚠️ Le refus PORTE l'état : « erreur » n'apprend rien, « il manque un
-        # garant » dit quoi faire.
-        assert j["socle"]["complet"] is False
-        assert j["socle"]["manque"]["garant"] == 1
-
-    def test_et_la_proposition_RESTE_un_brouillon(self, app, carto):
-        from Code.models.models import ActivityChangeRequest
-        c = self._brouillon(app, carto)
-        c.post("/api/propositions/envoyer", json={})
-        with app.app_context():
-            cr = ActivityChangeRequest.query.filter_by(entity_id=carto["ent"]).first()
-            assert cr.status == "draft", "refusé n'est pas envoyé"
-            assert cr.submitted_at is None
-
-    def test_une_fois_complete_l_envoi_PASSE(self, app, carto):
-        """Le palier se libère tout seul : il n'y a pas de « première
-        version » à marquer, le contrôle est « la carto est complète »."""
-        _complete(app, carto)
-        c = _comme(app, carto["champ"], carto["ent"])
-        c.post("/tasks/add", json={"activity_id": carto["act"], "name": "Z"})
+        assert c.post("/tasks/add", json={"activity_id": carto["act"],
+                                          "name": "Z"}).status_code == 202
+        assert _etat(app, carto)["complet"] is False
         r = c.post("/api/propositions/envoyer", json={})
         assert r.status_code == 201, r.get_data(as_text=True)
 
     def test_le_socle_se_lit_par_sa_route(self, app, carto):
         c = _comme(app, carto["champ"], carto["ent"])
         j = c.get("/api/propositions/socle").get_json()
-        assert j["total"] == 1 and j["complet"] is False
+        # Socle validé : le panneau ne s'affiche pas, et le palier n'est pas
+        # calculé — quatre requêtes qu'on ne paie pas pour rien.
+        assert j["etat"] == "valide" and j["actif"] is False
+        assert j["palier"] is None
 
     def test_sans_connexion_401(self, app):
         """⚠️ Un client PROPRE : `client` arrive connecté dès qu'un fichier
         précédent s'est authentifié, et ce cas ne passerait qu'en premier."""
         c = app.test_client()
         assert c.get("/api/propositions/socle").status_code == 401
-
-
-# ══════════════════════════════════════════════════════════════════════════
-class TestUnGesteQuiNeSAppliquePlus:
-
-    def test_il_bloque_et_le_DIT(self, app, carto):
-        """Mesurer « ce que les gestes d'avant donnent » laisserait croire à un
-        envoi possible que `rejouer` refuserait de toute façon."""
-        from Code.models.models import ActivityChangeRequest
-        _complete(app, carto)
-        c = _comme(app, carto["champ"], carto["ent"])
-        c.post("/tasks/add", json={"activity_id": carto["act"], "name": "Z"})
-        with app.app_context():
-            cr = ActivityChangeRequest.query.filter_by(entity_id=carto["ent"]).first()
-            liste = json.loads(cr.actions)
-            liste.append({"op": "task.update", "chemin": "/tasks/999999",
-                          "methode": "PUT", "corps": {"name": "fantôme"},
-                          "activity_id": carto["act"], "activite": None,
-                          "objet": "fantôme"})
-            cr.actions = json.dumps(liste, ensure_ascii=False)
-            db.session.commit()
-        etat = _etat(app, carto)
-        assert etat["complet"] is False
-        assert etat["rejeu"] and etat["rejeu"]["rang"] == 2
-        r = c.post("/api/propositions/envoyer", json={})
-        assert r.status_code == 409 and r.get_json()["code"] == "socle"
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -530,34 +465,49 @@ class TestLeCout:
 
 
 # ══════════════════════════════════════════════════════════════════════════
-class TestLEcran:
+class TestLaFenetreDesPropositions:
+    """Ce qui reste vrai de la fenêtre après le départ du bloc socle."""
 
-    def test_le_panneau_et_le_pied_SORTENT_du_defilement(self):
-        """⚠️ Le panneau décide si l'envoi est possible et le pied le déclenche :
-        les deux doivent rester sous les yeux. Mesuré avant correctif sur un
-        portable 1366×768 — 3191 px de contenu pour 544 px visibles, et le
-        bouton « Envoyer » tout en bas du défilement."""
+    def test_les_zones_FIXES_sortent_du_defilement(self):
+        """⚠️ Le pied déclenche l'envoi : il doit rester sous les yeux.
+        Mesuré avant correctif sur un portable 1366×768 — 3191 px de contenu
+        pour 544 px visibles, et « Envoyer » tout en bas du défilement.
+
+        ⚠️ `acp-socle-z` n'en fait plus partie : le palier a quitté cette
+        fenêtre avec le régime qu'il gardait."""
         gab = _lire(GABARIT)
-        # Trois zones sœurs du corps, pas trois blocs écrits DANS le corps.
-        for ident in ('id="acp-socle-z"', 'id="acp-filtres"',
-                      'id="acp-corps"', 'id="acp-pied-z"'):
+        for ident in ('id="acp-filtres"', 'id="acp-corps"', 'id="acp-pied-z"'):
             assert ident in gab, ident
-        assert gab.index('id="acp-socle-z"') < gab.index('id="acp-corps"')
+        assert 'id="acp-socle-z"' not in gab
         assert gab.index('id="acp-corps"') < gab.index('id="acp-pied-z"')
 
         js = _lire(JS)
-        # Le socle et le pied écrivent dans LEUR zone, jamais dans le corps.
-        assert "getElementById('acp-socle-z')" in js
         assert "getElementById('acp-pied-z')" in js
         corps = _corps(js, "function rendreListe()")
         assert "data-envoyer" not in corps and "acp-msg" not in corps
 
         css = _lire(CSS)
-        # Seul le corps défile ; les trois autres zones ne se laissent pas
-        # écraser (`flex: none`).
-        for cls in (".acp-socle-z", ".acp-filtres", ".acp-pied-z"):
+        for cls in (".acp-filtres", ".acp-pied-z"):
             i = css.index(cls + " {")
             assert "flex: none" in css[i:css.index("}", i)], cls
+
+    def test_le_bloc_du_PALIER_a_quitte_la_fenetre(self):
+        """⚠️ Laissé en place, il éteignait « Envoyer » au nom d'une règle qui
+        ne s'applique plus — un défaut fonctionnel, pas du ménage.
+
+        ⚠️ On vise les IDENTIFIANTS et on retire les COMMENTAIRES : celui qui
+        explique le retrait cite forcément ce qu'il retire. Neuvième fois que
+        ce piège se présente dans ce dépôt."""
+        js = _lire(JS)
+        nu = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+        nu = re.sub(r"^\s*//.*$", "", nu, flags=re.M)
+        for mort in ("S.socle", "rendreSocle", "chargerSocle", "detailManque",
+                     "boutonSocleInfo", "data-socle-voir", "acp-socle-z"):
+            assert mort not in nu, mort
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            restes = [k for k in TRANSLATIONS[lg] if k.startswith("acp.socle_")]
+            assert not restes, (lg, restes[:4])
 
     def test_la_fenetre_ne_se_borne_PAS_en_vh(self):
         """⚠️⚠️ `body.pg` porte `zoom: .8`, et les unités de fenêtre passent
@@ -569,114 +519,6 @@ class TestLEcran:
         boite = css[i:css.index("}", i)]
         assert "vh" not in boite, boite
         assert "max-height: 100%" in boite
-
-    def test_le_bouton_est_eteint_mais_le_SERVEUR_tranche(self, app, carto):
-        """⚠️ Le masquage n'est jamais une sécurité. Le bouton s'éteint ici, et
-        `/envoyer` refuse de son côté — on le VÉRIFIE en appelant la route,
-        pas en relisant son source : un cliquet qui lit un `.py` rougit dans
-        l'arbre d'image, compilé en bytecode."""
-        assert "disabled aria-disabled" in _lire(JS)
-        c = _comme(app, carto["champ"], carto["ent"])
-        c.post("/tasks/add", json={"activity_id": carto["act"], "name": "Z"})
-        r = c.post("/api/propositions/envoyer", json={})
-        assert r.status_code == 409 and r.get_json()["code"] == "socle"
-
-    def test_le_refus_du_serveur_REMPLACE_le_message_d_erreur(self):
-        """« Erreur » n'apprend rien. Le 409 porte l'état, et c'est lui qu'on
-        affiche là où l'on vient de cliquer."""
-        js = _lire(JS)
-        assert "j.code === 'socle'" in js
-        assert "S.socle = j.socle" in js
-
-    def test_le_panneau_dit_que_RIEN_N_EST_PERDU(self):
-        """La demande est explicite : le champion doit savoir que sa saisie est
-        gardée d'une visite à l'autre, et qu'elle n'est pas pour autant une
-        proposition déposée."""
-        js = _lire(JS)
-        assert "socle_garde" in js
-        from Code.translations import TRANSLATIONS
-        for lg in ("fr", "en"):
-            assert TRANSLATIONS[lg]["acp.socle_garde"].strip()
-
-    def test_le_socle_n_est_PAS_relu_a_chaque_geste(self):
-        """Il coûte un rejeu simulé : le recalculer au rendu de chaque page —
-        ou à chaque geste détourné — paierait un rejeu par frappe."""
-        # ⚠️ Le corps de la fonction, borné sur sa propre accolade : le
-        # découpage « 900 signes après l'ancre » avalait `ouvrir()`, qui
-        # appelle légitimement `chargerSocle` — le cliquet rougissait sur du
-        # code juste. C'est le piège documenté, et il a remordu ici.
-        assert "chargerSocle" not in _corps(_lire(JS), "async function charger(")
-
-    @pytest.mark.parametrize("cle", [
-        "socle_titre", "socle_pourquoi", "socle_exige", "socle_barre",
-        "socle_manque", "socle_liste", "socle_ok", "socle_garde",
-        "socle_rejeu", "socle_c_garant", "socle_c_tache", "socle_c_outil",
-        "socle_vide"])
-    def test_chaque_cle_existe_dans_les_DEUX_langues(self, cle):
-        from Code.translations import TRANSLATIONS
-        for lg in ("fr", "en"):
-            v = TRANSLATIONS[lg].get("acp." + cle)
-            assert v and v.strip(), (lg, cle)
-
-    @pytest.mark.parametrize("cle", [
-        "socle_titre", "socle_pourquoi", "socle_exige", "socle_barre",
-        "socle_manque", "socle_liste", "socle_ok", "socle_garde",
-        "socle_rejeu", "socle_c_garant", "socle_c_tache", "socle_c_outil",
-        "socle_vide"])
-    def test_chaque_cle_est_INJECTEE(self, cle):
-        """⚠️ `T()` rend la CLÉ quand elle manque, sans rien lever : une clé
-        oubliée s'afficherait telle quelle. Et trois d'entre elles sont
-        CONSTRUITES (`socle_c_` + code) — une analyse qui ne lit que les
-        littéraux ne les verrait pas."""
-        assert cle + ":" in _lire(GABARIT), cle
-
-    def test_aucune_phrase_n_accorde_un_adjectif_sur_un_nombre(self):
-        """« 1 activité prête sur 42 » et « 3 activités prêtes » demanderaient
-        deux clés par langue, et l'anglais n'accorde pas au même seuil.
-        « Prêtes : n sur t » se lit pareil à tous les comptes."""
-        from Code.translations import TRANSLATIONS
-        for lg in ("fr", "en"):
-            v = TRANSLATIONS[lg]["acp.socle_barre"]
-            assert "[[n]]" in v and "[[t]]" in v, (lg, v)
-            assert "(s)" not in v
-
-    def test_le_panneau_a_sa_feuille_de_style(self):
-        css = _lire(CSS)
-        for regle in (".acp-sb", ".acp-sb--ok", ".acp-ex", ".acp-sa",
-                      ".acp-ok[disabled]"):
-            assert regle in css, regle
-
-    def test_le_chiffre_de_tete_compte_des_ACTIVITES(self):
-        """⚠️⚠️ Le défaut relevé à l'usage : « ça me dit 1 truc manquant alors
-        que j'ai rempli 30 % des activités ». Le serveur rendait le bon compte
-        — mesuré `{garant: 0, outil: 26, tache: 26}` sur 36 activités — mais
-        l'écran n'affichait qu'une pastille PAR FAMILLE. Quand une famille est
-        complète partout (le garant vient de l'import carto), il n'en restait
-        qu'UNE : on lisait « une chose manque » pour 26 activités."""
-        js = _lire(JS)
-        corps = _corps(js, "function rendreSocle()")
-        # Le gros chiffre vient de (total − prêtes), pas d'un compte de familles.
-        assert "nf('socle_restent', reste)" in corps
-        assert "(s.total || 0) - (s.pretes || 0)" in corps
-        # Les familles passent DANS le détail replié, pas en tête.
-        assert "detailManque" in corps
-        assert corps.index("socle_restent") < corps.index("detailManque")
-
-        from Code.translations import TRANSLATIONS
-        for lg in ("fr", "en"):
-            for cle in ("acp.socle_restent_1", "acp.socle_restent_n"):
-                v = TRANSLATIONS[lg][cle]
-                assert "[[n]]" in v, (lg, cle)
-            assert TRANSLATIONS["en"][cle] != TRANSLATIONS["fr"][cle]
-
-    def test_chaque_activite_a_completer_S_OUVRE(self):
-        """Sans cela la liste est un rapport : elle dit ce qui manque et ne
-        permet pas d'aller le remplir."""
-        js = _lire(JS)
-        assert "data-aller=" in _corps(js, "function rendreSocle()")
-        aller = _corps(js, "function allerA(activityId)")
-        assert "data-acp-act" in aller and "scrollIntoView" in aller
-        assert "fermer()" in aller
 
     def test_aucune_regle_neuve_ne_lit_l_accent_doux_de_la_RACINE(self):
         """⚠️ `--pg-accent-soft` et ses trois frères sont déclarés sur `:root`,

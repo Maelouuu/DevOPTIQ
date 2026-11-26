@@ -25,6 +25,11 @@
 
   <div class="pg-container">
 
+  {# LE SOCLE d'abord : il dit dans quel RÉGIME on écrit sur cette page, et
+     c'est la première chose à savoir en arrivant. Le bandeau des
+     propositions, lui, ne paraît que dans l'autre régime — les deux ne
+     cohabitent jamais (voir socle_panneau.html). #}
+  {% include "socle_panneau.html" %}
   {% include "activite_propositions.html" %}
 
   <!-- Barre de recherche, dépliage, filtre -->

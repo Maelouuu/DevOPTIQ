@@ -343,6 +343,35 @@ def attentes(user=None, lang=None):
     except Exception:
         pass
 
+    # ── Les cartos dont le PREMIER REMPLISSAGE attend votre validation ──
+    # ⚠️ C'est ici, et pas dans un bandeau de la page Carte : la fenêtre
+    # d'examen est faite pour des GESTES et pour un diagramme, et un socle
+    # n'est ni l'un ni l'autre — ajouter son compte à ce bandeau sans
+    # l'ajouter à la liste qu'il ouvre ferait diverger le chiffre annoncé de
+    # ce qui s'ouvre. Sans cette ligne, en revanche, une soumission dormirait
+    # jusqu'à ce qu'un coordinateur ouvre la bonne carto par hasard.
+    #
+    # ⚠️ Et le mot du champion n'est PAS repris ici : cette section compte ce
+    # qui attend, elle ne raconte pas. Le panneau de la page Activités le
+    # porte, à côté des deux boutons qui en décident.
+    try:
+        from Code.carto_access import can_review
+        from Code.models.models import Entity
+        from Code.socle_activites import ETAT_SOUMIS
+        if can_review(None, user):
+            # Un COUNT sur une petite table (une instance en porte quelques
+            # dizaines), et on ne le fait pas du tout pour qui ne tranche pas.
+            n = (Entity.query
+                 .filter(Entity.is_shared.is_(True),
+                         Entity.socle_etat == ETAT_SOUMIS)
+                 .count())
+            if n:
+                liste.append({"cle": "socle", "n": n, "ton": "attention",
+                              "libelle": t('welcome.wait.socle', lang),
+                              "href": "/activities/view"})
+    except Exception:
+        pass
+
     # ── Les séances d'évaluation que VOUS tenez ────────────────────────
     # ⚠️ Un COUNT indexé (`date_prevue`), pas `_sessions_lisibles` : celui-ci
     # charge TOUTES les sessions pour un statut élevé, ce qui n'est pas une
