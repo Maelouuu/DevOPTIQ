@@ -106,51 +106,66 @@
   align-items: center; gap: 22px; padding: 16px;
 }
 
-.scl-chiffre { text-align: center; min-width: 76px; }
-.scl-chiffre b {
-  display: block; font-family: var(--pg-font-display);
-  font-size: 46px; font-weight: 600; line-height: .95;
-  color: var(--scl-or-f); font-variant-numeric: tabular-nums;
+/* ── Le compteur ─────────────────────────────────────────
+   ⚠️ La BARRE DROITE est partie : « j'imaginais un truc un peu plus sympa
+   avec une courbe pas juste droite mais en mode arrondie (compteur de
+   vitesse) ». Le cadran se dessine dans le JS — un arc demande de la
+   trigonométrie — et ICI on réserve sa HAUTEUR, pour que le panneau ne
+   saute pas entre le rendu du serveur et celui du script :
+   218 × 0,92 = 201. */
+.scl-jauge { flex: none; min-width: 218px; min-height: 201px; }
+.scl-jauge svg { display: block; }
+/* ⚠️ La lecture est DANS le SVG : posée par-dessus en absolu, elle
+   retombait sur le moyeu de l'aiguille, qui occupe le centre. */
+.scl-jauge .scl-n {
+  font-family: var(--pg-font-display); font-weight: 600;
+  fill: var(--scl-or-f); font-variant-numeric: tabular-nums;
 }
-.scl[data-etat="soumis"] .scl-chiffre b,
-.scl.est-complet .scl-chiffre b { color: var(--scl-ok-f); }
-.scl-chiffre span {
-  display: block; margin-top: 3px;
-  font-size: 14px; color: var(--scl-sur);
+.scl-jauge .scl-d {
+  font-family: var(--pg-font); font-weight: 500; fill: var(--scl-sur);
 }
+.scl[data-etat="soumis"] .scl-jauge .scl-n,
+.scl.est-complet .scl-jauge .scl-n { fill: var(--scl-ok-f); }
 
-.scl-av { min-width: 0; }
-/* ⚠️ Le PREMIER jet ne se lisait pas : une piste crème et un remplissage
-   ambre clair sur un panneau crème — à 22 %, on voyait une ligne pâle et
-   rien d'autre. Une barre d'avancement doit se lire d'un coup d'œil, sinon
-   le chiffre à côté fait tout le travail et elle ne sert à rien. La piste
-   est donc CREUSÉE (fond soutenu, ombre interne) et le remplissage PLEIN. */
-.scl-barre {
-  height: 13px; border-radius: 999px; overflow: hidden;
+/* ── Les trois exigences ──────────────────────────────────
+   Une barre par exigence : on voit d'un coup que les garants sont acquis et
+   que ce sont les outils qui traînent. C'est ce que l'ancienne phrase
+   « Il manque : 1 tâche · 2 outils » disait en petit, et sans dire sur
+   combien. */
+.scl-mid { min-width: 0; }
+.scl-ex { display: grid; gap: 11px; min-width: 0; }
+.scl-ex-l {
+  display: grid; grid-template-columns: 112px 1fr auto; gap: 13px;
+  align-items: center;
+}
+.scl-ex-lib { font-size: 14px; font-weight: 600; color: var(--scl-encre); }
+/* La piste est CREUSÉE et le remplissage PLEIN : le premier jet du panneau
+   ne se lisait pas — une piste crème et un remplissage ambre clair sur un
+   panneau crème, où l'on voyait une ligne pâle et rien d'autre. */
+.scl-ex-b {
+  height: 11px; border-radius: 999px; overflow: hidden;
   background: #e4d2ae; border: 1px solid #cdb795;
   box-shadow: inset 0 1px 2px rgba(90, 60, 15, .18);
 }
-.scl-barre > i {
-  display: block; height: 100%; width: calc(var(--p, 0) * 1%);
-  min-width: 13px; border-radius: 999px;
+.scl-ex-b > i {
+  display: block; height: 100%; border-radius: 999px;
   background: linear-gradient(90deg, #d97706, var(--scl-or-f));
   box-shadow: 0 1px 3px -1px rgba(120, 53, 15, .5);
   transition: width .45s cubic-bezier(.4, 0, .2, 1);
 }
-.scl.est-complet .scl-barre > i {
+.scl-ex-l.est-pleine .scl-ex-b > i {
   background: linear-gradient(90deg, #10b981, var(--scl-ok-f));
 }
-
-.scl-manque {
-  margin: 9px 0 0; font-size: 14px; line-height: 1.4; color: var(--scl-encre);
+.scl-ex-n {
+  font-size: 14px; font-weight: 700; color: var(--scl-or-f);
+  font-variant-numeric: tabular-nums; min-width: 54px; text-align: right;
 }
-.scl-manque b { font-weight: 700; color: var(--scl-or-f); }
-.scl.est-complet .scl-manque b { color: var(--scl-ok-f); }
+.scl-ex-l.est-pleine .scl-ex-n { color: var(--scl-ok-f); }
 
 .scl-voir {
-  margin-top: 7px; padding: 4px 11px 4px 9px; border-radius: 999px;
+  margin-top: 11px; padding: 4px 11px 4px 9px; border-radius: 999px;
   border: 1px solid var(--scl-trait); background: #fff;
-  font-size: 12.5px; font-weight: 600; color: var(--scl-sur);
+  font-size: 13px; font-weight: 600; color: var(--scl-sur);
   cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
   transition: border-color .15s, color .15s;
 }
@@ -270,6 +285,16 @@
   margin: 6px 10px 2px; font-size: 13px; color: var(--scl-sur); font-style: italic;
 }
 
+/* Les deux cas de bord — aucune activité, ou plus rien à compléter — se
+   disent DANS la zone de la liste : c'est le seul endroit qui parle des
+   activités, et une phrase posée ailleurs aurait demandé un troisième
+   emplacement à tenir. */
+.scl-l-dit {
+  margin: 0; padding: 11px 14px; font-size: 14px; font-weight: 600;
+  color: var(--scl-sur);
+}
+.scl-l-dit.est-ok { color: var(--scl-ok-f); }
+
 /* ══ LE RAPPEL LATÉRAL ════════════════════════════════════════════════════
    Il n'existe QUE quand le panneau est sorti de vue, et il est MOINS
    détaillé : un compte, un anneau, et il ramène au panneau. */
@@ -345,7 +370,8 @@
   .scl-rail { display: none; }
 }
 @media (max-width: 560px) {
-  .scl-corps { grid-template-columns: 1fr; gap: 14px; }
-  .scl-chiffre { text-align: left; }
+  .scl-corps { grid-template-columns: 1fr; gap: 14px; justify-items: center; }
+  .scl-mid { width: 100%; }
+  .scl-ex-l { grid-template-columns: 96px 1fr auto; }
   .scl-tete-t h2 { font-size: 19px; }
 }

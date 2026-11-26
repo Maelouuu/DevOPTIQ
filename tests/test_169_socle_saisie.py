@@ -639,9 +639,8 @@ class TestSupprimerUnCompteQuiASoumis:
 class TestLePanneau:
 
     CLES = ["sur", "etiq_saisie", "etiq_soumis", "i_titre", "i_texte",
-            "sur_total", "pretes_1", "pretes_n", "manque", "m_garant_1",
-            "m_garant_n", "m_tache_1", "m_tache_n", "m_outil_1", "m_outil_n",
-            "reste_1", "reste_n", "pret", "vide", "voir", "cacher",
+            "sur_total", "pretes_1", "pretes_n", "x_garant", "x_tache",
+            "x_outil", "pret", "vide", "voir_1", "voir_n", "cacher",
             "et_autres", "c_garant", "c_tache", "c_outil", "soumettre",
             "mot_ph", "confirmer", "annuler", "valider", "renvoyer",
             "retour_ph", "err_mot", "err", "introuvable", "rail", "a_valider",
@@ -661,14 +660,17 @@ class TestLePanneau:
         gab = _lire(GABARIT)
         lues = set(re.findall(r"T\('([a-z0-9_]+)'\)", js))
         lues |= set(re.findall(r"F\('([a-z0-9_]+)'", js))
-        # ⚠️ `nf()` reçoit la BASE d'une paire singulier/pluriel. Les trois
-        # libellés de famille passent par une table (`MANQUE`) et non par une
-        # clé construite : on les lit donc là.
+        # ⚠️ `nf()` reçoit la BASE d'une paire singulier/pluriel.
         for base in re.findall(r"nf\('([a-z0-9_]+)'", js):
             lues |= {base + "_1", base + "_n"}
-        for base in re.findall(r"nf\(MANQUE\[code\]", js) and \
-                re.findall(r":\s*'(m_[a-z]+)'", js):
-            lues |= {base + "_1", base + "_n"}
+        # ⚠️ Les libellés de famille passent par une TABLE, jamais par une
+        # clé construite : `T('x_' + code)` serait relevé par `test_78` comme
+        # la clé « x_ ». On les lit donc dans la table — sans quoi une
+        # injection oubliée passerait inaperçue, ce qui était le cas des
+        # pastilles avant cette passe.
+        for nom in ("CHIP", "LIB"):
+            for bloc in re.findall(r"var " + nom + r" = \{([^}]*)\}", js):
+                lues |= set(re.findall(r"'([a-z0-9_]+)'", bloc))
         assert len(lues) >= 20, lues
         absentes = [c for c in sorted(lues) if (c + ":") not in gab]
         assert not absentes, absentes
@@ -762,6 +764,188 @@ class TestLePanneau:
         corps = _corps_js(_js_nu(), "function majValeurs(")
         assert "rendreListe()" in corps, \
             "majValeurs doit re-rendre la liste"
+
+    def test_la_barre_DROITE_est_devenue_un_COMPTEUR(self):
+        """⚠️ « j'imaginais un truc un peu plus sympa avec une courbe pas
+        juste droite mais en mode arrondie (compteur de vitesse) ». Et le
+        reproche portait juste : une barre droite dit « 80 % », pas
+        « 8 sur 10 » — il fallait aller lire le chiffre à côté."""
+        css = _sans_commentaires(_lire(CSS))
+        assert ".scl-barre" not in css
+        assert "scl-barre" not in _lire(GABARIT)
+        js = _js_nu()
+        assert "function rendreJauge(" in js
+        # Un ARC, pas une barre pliée : 240° du bas-gauche au bas-droit.
+        assert "DEB = -120" in js and "SWEEP = 240" in js
+        assert "' A '" in js, "le tracé doit être un arc SVG"
+
+    def test_le_compteur_est_dessine_pour_le_ZOOM_du_corps(self):
+        """⚠️ `body:has(.pg-root)` porte `zoom: .8` (ui-theme) : la maquette,
+        écrite dans une page SANS ce zoom, arriverait 20 % plus petite.
+        218 × 0,8 = 174, la taille éprouvée à l'écran."""
+        t = int(re.search(r"TAILLE = (\d+)", _js_nu()).group(1))
+        assert round(t * 0.8) == 174, t
+
+    def test_la_hauteur_du_compteur_est_RESERVEE(self):
+        """Le cadran se dessine dans le JS : sans hauteur réservée, le
+        panneau sauterait entre le rendu du serveur et celui du script.
+
+        ⚠️ Et la réserve suit la PROPORTION : changée d'un côté sans
+        l'autre, elle ne réserverait plus la bonne place."""
+        css = _sans_commentaires(_lire(CSS))
+        i = css.index(".scl-jauge {")
+        bloc = css[i:css.index("}", i)]
+        js = _js_nu()
+        t = int(re.search(r"TAILLE = (\d+)", js).group(1))
+        h = int(re.search(r"min-height:\s*(\d+)px", bloc).group(1))
+        prop = float(re.search(r"H = TAILLE \* ([0-9.]+)", js).group(1))
+        assert abs(h - t * prop) <= 1, (h, t * prop)
+
+    def test_la_lecture_passe_SOUS_le_moyeu_et_tient_dans_sa_boite(self):
+        """⚠️ Les proportions sont MESURÉES, pas choisies au jugé : la
+        lecture posée par-dessus en absolu retombait sur le moyeu de
+        l'aiguille, qui occupe le centre. On rejoue ici la géométrie du SVG
+        — c'est le seul contrôle qui porte sur ce qu'on publie, le volet de
+        mise au point ne rendant pas la page.
+
+        ⚠️ Les proportions sont LUES dans le JS, jamais recopiées : un
+        cliquet qui porte sa propre copie de la formule ne garde rien."""
+        import math
+        js = _js_nu()
+        t = int(re.search(r"TAILLE = (\d+)", js).group(1))
+        k = t / 174.0
+        C = t / 2.0
+        R = t * float(re.search(r"R = TAILLE \* ([0-9.]+)", js).group(1))
+        EP = t * float(re.search(r"EP = TAILLE \* ([0-9.]+)", js).group(1))
+        H = t * float(re.search(r"H = TAILLE \* ([0-9.]+)", js).group(1))
+        prop = [float(x) for x in re.findall(r"\(TAILLE \* ([0-9.]+)\)", js)]
+        assert len(prop) == 4, prop
+        n_y, n_t, d_y, d_t = prop
+
+        def pt(r, deg):
+            a = math.radians(deg - 90)
+            return C + r * math.cos(a), C + r * math.sin(a)
+
+        deb = float(re.search(r"DEB = (-?\d+)", js).group(1))
+        bal = float(re.search(r"SWEEP = (\d+)", js).group(1))
+        bas = max(pt(R, deb)[1], pt(R, deb + bal)[1]) + EP / 2
+        haut = pt(R, 0)[1] - EP / 2
+        gauche = pt(R, deb)[0] - EP / 2
+        droite = pt(R, deb + bal)[0] + EP / 2
+        assert haut >= 0 and bas <= H, ("l'arc sort de sa boîte", haut, bas, H)
+        assert gauche >= 0 and droite <= t, (gauche, droite, t)
+        # Le chiffre : sa hauteur de capitale passe SOUS le moyeu.
+        capitale = t * n_y - t * n_t * 0.72
+        assert capitale > C + 6.5 * k, ("le chiffre touche le moyeu", capitale)
+        # La légende tient dans la boîte, jambage compris, et sous le chiffre.
+        assert t * d_y + t * d_t * 0.25 <= H, "la légende sort par le bas"
+        assert t * n_y < t * d_y - t * d_t * 0.8, "le chiffre touche la légende"
+
+    def test_l_aiguille_n_entre_PAS_dans_le_chiffre(self):
+        """⚠⚠ Un balayage de 240° fait pointer l'aiguille vers le BAS à ses
+        deux extrêmes : elle y atteint C + r/2, c'est-à-dire la zone où vit
+        la lecture. Mesuré à 36/36 avant correctif : dix pixels de
+        recouvrement sur le coin haut-droit des chiffres, et comme le texte
+        est peint par-dessus, la pointe paraissait s'arrêter dans le « 6 ».
+
+        ⚠️ La maquette portait le même défaut et il n'a PAS été vu à l'œil :
+        c'est la mesure qui le trouve. D'où ce cliquet."""
+        import math
+        js = _js_nu()
+        t = int(re.search(r"TAILLE = (\d+)", js).group(1))
+        k = t / 174.0
+        C = t / 2.0
+        R = t * float(re.search(r"R = TAILLE \* ([0-9.]+)", js).group(1))
+        EP = t * float(re.search(r"EP = TAILLE \* ([0-9.]+)", js).group(1))
+        lg = float(re.search(r"R - EP - ([0-9.]+) \* k", js).group(1))
+        deb = float(re.search(r"DEB = (-?\d+)", js).group(1))
+        bal = float(re.search(r"SWEEP = (\d+)", js).group(1))
+        prop = [float(x) for x in re.findall(r"\(TAILLE \* ([0-9.]+)\)", js)]
+        n_y, n_t = prop[0], prop[1]
+
+        def y(r, deg):
+            return C + r * math.sin(math.radians(deg - 90))
+
+        r_aig = R - EP - lg * k
+        bas = max(y(r_aig, deb), y(r_aig, deb + bal))
+        capitale = t * n_y - t * n_t * 0.72
+        assert capitale > bas + 4, \
+            ("l'aiguille entre dans le chiffre", bas, capitale)
+
+    def test_les_graduations_sont_PLAFONNEES(self):
+        """Une carto du pilote porte six cents activités : six cents traits
+        sur un arc de 354 px se lisent comme une hachure, pas comme une
+        échelle. L'arc seul suffit alors."""
+        js = _js_nu()
+        assert "GRADS_MAX" in _corps_js(js, "function rendreJauge(")
+        n = int(re.search(r"GRADS_MAX = (\d+)", js).group(1))
+        assert 10 <= n <= 60, n
+
+    def test_les_trois_exigences_montrent_ce_qui_est_ACQUIS(self):
+        """⚠️ `manque[code]` compte les activités qui en MANQUENT. Une barre
+        remplie avec ce nombre se VIDERAIT à mesure qu'on avance."""
+        corps = _corps_js(_js_nu(), "function rendreExigences(")
+        assert re.search(r"total\s*-\s*\(\(p\.manque", corps), corps
+
+    def test_les_trois_libelles_ne_sont_pas_CONSTRUITS(self):
+        """⚠️ `T('x_' + code)` est relevé par `test_78` comme la clé
+        « x_ », et le jour où une exigence s'ajoute son libellé s'afficherait
+        en clair."""
+        js = _js_nu()
+        assert "T('x_' +" not in js and 'T("x_" +' not in js
+        for c in ("x_garant", "x_tache", "x_outil"):
+            assert "'" + c + "'" in js, c
+
+    def test_le_compteur_et_les_exigences_suivent_les_CHIFFRES(self):
+        """Même règle que la liste : rendus ailleurs, ils se figeraient à
+        l'état du chargement de page."""
+        corps = _corps_js(_js_nu(), "function majValeurs(")
+        for appel in ("rendreJauge()", "rendreExigences()"):
+            assert appel in corps, appel
+
+    def test_le_cadran_porte_son_etiquette_pour_un_LECTEUR_d_ecran(self):
+        """`role="img"` masque le texte interne du SVG : sans `aria-label`,
+        le compteur ne dit plus rien à un lecteur d'écran."""
+        corps = _corps_js(_js_nu(), "function rendreJauge(")
+        assert 'role="img"' in corps and "aria-label" in corps
+        assert "nf('pretes'" in corps, "l'étiquette porte les DEUX nombres"
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            v = TRANSLATIONS[lg]["socle.pretes_n"]
+            assert "[[n]]" in v and "[[t]]" in v, (lg, v)
+
+    def test_les_deux_cas_de_bord_vivent_dans_la_zone_de_la_LISTE(self):
+        """Carto vide, ou plus rien à compléter : la zone de la liste est le
+        seul endroit de ce panneau qui parle des activités. Et elle ne doit
+        pas se replier quand elle porte l'une des deux phrases."""
+        corps = _corps_js(_js_nu(), "function rendreListe(")
+        assert "T('vide')" in corps and "T('pret')" in corps
+        assert "liste.hidden = false" in _corps_js(_js_nu(),
+                                                   "function majValeurs(")
+        assert ".scl-l-dit" in _sans_commentaires(_lire(CSS))
+
+    def test_la_liste_s_ouvre_d_elle_meme_quand_il_reste_PEU(self):
+        """C'est le moment où l'on chasse les dernières activités — et c'est
+        précisément ce qu'on reprochait à l'écran. Au-delà elle reste pliée :
+        vingt-huit lignes enterreraient les fiches qu'elles désignent.
+
+        ⚠️ Posé UNE fois, à l'init : dans `majValeurs`, chaque écriture
+        rouvrirait ce que l'on vient de replier."""
+        js = _js_nu()
+        assert "OUVRE_SI" in js, "la liste ne s'ouvre plus d'elle-même"
+        n = int(re.search(r"OUVRE_SI = (\d+)", js).group(1))
+        assert 2 <= n <= 12, n
+        assert "OUVRE_SI" not in _corps_js(js, "function majValeurs(")
+
+    def test_le_compte_du_bouton_vit_DANS_sa_cle(self):
+        """⚠️ « Voir » + un nombre + « activités à compléter » découperait
+        une phrase en trois, et l'ordre des mots n'est pas le même d'une
+        langue à l'autre."""
+        from Code.translations import TRANSLATIONS
+        for lg in ("fr", "en"):
+            assert "[[n]]" in TRANSLATIONS[lg]["socle.voir_n"]
+            assert "[[n]]" not in TRANSLATIONS[lg]["socle.voir_1"]
+        assert "nf('voir'" in _js_nu()
 
     def test_le_panneau_n_est_rendu_QUE_s_il_est_actif(self):
         """Une carto privée, ou un socle validé, ne paie pas les quatre

@@ -36,9 +36,11 @@
   }
   /* ⚠️ Le singulier ne couvre pas les mêmes nombres d'une langue à l'autre :
      « 0 activité » en français, « 0 activities » en anglais. */
-  function nf(cle, n) {
+  function nf(cle, n, extra) {
     var un = (L.lang === 'en') ? (n === 1) : (n < 2);
-    return F(cle + (un ? '_1' : '_n'), { n: n });
+    var vars = { n: n };
+    Object.keys(extra || {}).forEach(function (k) { vars[k] = extra[k]; });
+    return F(cle + (un ? '_1' : '_n'), vars);
   }
   function esc(s) {
     return String(s === null || s === undefined ? '' : s)
@@ -63,47 +65,158 @@
     return !!p.complet;
   }
 
-  /* ⚠️ Les trois clés sont écrites EN TOUTES LETTRES : `nf('m_' + code, n)`
-     est une clé CONSTRUITE, que les contrôles de couverture relèvent comme
-     la clé « m_ » — et le jour où une exigence s'ajoute, son libellé
-     s'afficherait en clair. Même règle que dans le gabarit. */
-  var MANQUE = { garant: 'm_garant', tache: 'm_tache', outil: 'm_outil' };
+  /* ── LE COMPTEUR ──────────────────────────────────────
+     Un arc de 240°, du bas-gauche au bas-droit : la forme d'un cadran de
+     tableau de bord, pas une barre pliée. Les graduations marquent chaque
+     ACTIVITÉ — on compte des activités, pas des pourcentages, et c'est ce
+     qui fait qu'on lit « 8 sur 10 » sans aller chercher le chiffre.
 
-  function phraseManque() {
+     ⚠️ TAILLE est écrite pour le zoom du corps : `body:has(.pg-root)` porte
+     `zoom: .8` (ui-theme), donc 218 px de mise en page font 174 px RÉELS —
+     la taille éprouvée sur maquette. La maquette, elle, vivait dans une page
+     SANS ce zoom : reprise telle quelle, elle arriverait 20 % plus petite.
+
+     ⚠️ Les proportions sont MESURÉES, pas choisies au jugé. Et la mesure a
+     trouvé ce que l'œil n'avait pas vu — la maquette portait le même
+     défaut : un balayage de 240° fait pointer l'aiguille vers le BAS à ses
+     deux extrêmes, où elle atteint C + r/2, c'est-à-dire DANS les chiffres.
+     Le chiffre étant peint par-dessus, la pointe paraissait s'arrêter au
+     milieu du « 6 ». On DESCEND donc la lecture (0,805·T) plutôt que de
+     raccourcir l'aiguille — un pointeur à 31 % du rayon ne ressemble plus
+     à rien — et la boîte passe à 0,92·T. Les valeurs en dur (moyeu,
+     aiguille, graduations) suivent le facteur `k`, sinon elles ne
+     grandiraient pas avec le cadran. */
+  var TAILLE = 218, DEB = -120, SWEEP = 240;
+  /* Au-delà, les graduations se touchent et l'échelle se lit comme une
+     hachure : l'arc fait 354 px de long, soit 8,9 px entre deux traits à
+     quarante. Une carto du pilote en porte six cents. */
+  var GRADS_MAX = 40;
+
+  function pt(c, r, deg) {
+    var a = (deg - 90) * Math.PI / 180;
+    return [c + r * Math.cos(a), c + r * Math.sin(a)];
+  }
+  function arc(c, r, d1, d2) {
+    var a = pt(c, r, d1), b = pt(c, r, d2);
+    return 'M ' + a[0].toFixed(2) + ' ' + a[1].toFixed(2)
+      + ' A ' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 '
+      + (Math.abs(d2 - d1) > 180 ? 1 : 0) + ' 1 '
+      + b[0].toFixed(2) + ' ' + b[1].toFixed(2);
+  }
+
+  function rendreJauge() {
+    var zone = $('scl-jauge');
+    if (!zone) return;
     var p = S.palier || {};
-    if (!p.total) return T('vide');
-    if (p.complet) return T('pret');
-    var bouts = [];
-    ['garant', 'tache', 'outil'].forEach(function (code) {
-      var n = (p.manque || {})[code] || 0;
-      if (n) bouts.push('<b>' + esc(nf(MANQUE[code], n)) + '</b>');
-    });
-    var reste = (p.total || 0) - (p.pretes || 0);
-    return esc(T('manque')) + ' ' + bouts.join(' · ')
-      + ' <span>— ' + esc(nf('reste', reste)) + '</span>';
+    var total = p.total || 0, pretes = p.pretes || 0;
+    var plein = complet();
+    var t = total ? pretes / total : 0;
+    var k = TAILLE / 174;
+    var C = TAILLE / 2, R = TAILLE * 0.388, EP = TAILLE * 0.0765;
+    var H = TAILLE * 0.92, fin = DEB + t * SWEEP;
+    /* ⚠️ Les couleurs sont des ATTRIBUTS SVG, donc aucun jeton CSS ne
+       les atteint : elles s'écrivent à la main, comme celles du relief de la
+       page Compétences. Ce sont les valeurs de --scl-or-f et --scl-ok-f. */
+    var vif = plein ? '#10b981' : '#d97706';
+    var fonce = plein ? '#047857' : '#b45309';
+
+    var grads = '';
+    if (total && total <= GRADS_MAX) {
+      for (var i = 0; i <= total; i++) {
+        var d = DEB + (i / total) * SWEEP;
+        var g1 = pt(C, R - EP / 2 - 3 * k, d);
+        var g2 = pt(C, R - EP / 2 - 9 * k, d);
+        grads += '<line x1="' + g1[0].toFixed(1) + '" y1="' + g1[1].toFixed(1)
+          + '" x2="' + g2[0].toFixed(1) + '" y2="' + g2[1].toFixed(1)
+          + '" stroke="' + (i <= pretes ? fonce : '#cdb795')
+          + '" stroke-width="' + (2 * k).toFixed(1)
+          + '" stroke-linecap="round"></line>';
+      }
+    }
+    var ai = pt(C, R - EP - 14 * k, fin);
+    var a1 = pt(C, 7 * k, fin - 90), a2 = pt(C, 7 * k, fin + 90);
+    var aiguille = '<path d="M ' + ai[0].toFixed(1) + ' ' + ai[1].toFixed(1)
+      + ' L ' + a1[0].toFixed(1) + ' ' + a1[1].toFixed(1)
+      + ' L ' + a2[0].toFixed(1) + ' ' + a2[1].toFixed(1)
+      + ' Z" fill="' + fonce + '"></path>'
+      + '<circle cx="' + C + '" cy="' + C + '" r="' + (6.5 * k).toFixed(1)
+      + '" fill="' + fonce + '"></circle>'
+      + '<circle cx="' + C + '" cy="' + C + '" r="' + (2.6 * k).toFixed(1)
+      + '" fill="#fffdf8"></circle>';
+
+    zone.innerHTML = '<svg viewBox="0 0 ' + TAILLE + ' ' + H.toFixed(1)
+      + '" width="' + TAILLE + '" height="' + H.toFixed(1)
+      + '" role="img" aria-label="'
+      + esc(nf('pretes', pretes, { t: total })) + '">'
+      + '<defs><linearGradient id="scl-g" x1="0" y1="1" x2="1" y2="0">'
+      + '<stop offset="0" stop-color="' + vif + '"></stop>'
+      + '<stop offset="1" stop-color="' + fonce + '"></stop>'
+      + '</linearGradient></defs>'
+      + '<path d="' + arc(C, R, DEB, DEB + SWEEP) + '" fill="none"'
+      + ' stroke="#e4d2ae" stroke-width="' + EP.toFixed(1)
+      + '" stroke-linecap="round"></path>'
+      + (t > 0.001 ? '<path d="' + arc(C, R, DEB, fin) + '" fill="none"'
+        + ' stroke="url(#scl-g)" stroke-width="' + EP.toFixed(1)
+        + '" stroke-linecap="round"></path>' : '')
+      + grads + aiguille
+      + '<text class="scl-n" x="' + C + '" y="' + (TAILLE * 0.805).toFixed(1)
+      + '" text-anchor="middle" font-size="' + (TAILLE * 0.205).toFixed(1)
+      + '">' + pretes + '</text>'
+      + '<text class="scl-d" x="' + C + '" y="' + (TAILLE * 0.895).toFixed(1)
+      + '" text-anchor="middle" font-size="' + (TAILLE * 0.0735).toFixed(1)
+      + '">' + esc(F('sur_total', { n: total })) + '</text>'
+      + '</svg>';
+  }
+
+  /* ── Les trois exigences ─────────────────────────────────
+
+     ⚠️ Les trois clés sont écrites EN TOUTES LETTRES : `T('x_' + code)` est
+     une clé CONSTRUITE, que les contrôles de couverture relèvent comme la
+     clé « x_ » — et le jour où une exigence s'ajoute, son libellé
+     s'afficherait en clair. Même règle que dans le gabarit. */
+  var EXIGENCES = ['garant', 'tache', 'outil'];
+  var LIB = { garant: 'x_garant', tache: 'x_tache', outil: 'x_outil' };
+
+  function rendreExigences() {
+    var zone = $('scl-ex');
+    if (!zone) return;
+    var p = S.palier || {};
+    var total = p.total || 0;
+    zone.innerHTML = EXIGENCES.map(function (code) {
+      /* ⚠️ `manque[code]` compte les activités qui en MANQUENT. Ce qu'on
+         montre, c'est celles qui l'ONT : une barre qui se remplit à mesure
+         qu'on avance, pas une barre qui se vide. */
+      var n = total - ((p.manque || {})[code] || 0);
+      var pc = total ? Math.round(n * 100 / total) : 0;
+      return '<div class="scl-ex-l'
+        + (total && n >= total ? ' est-pleine' : '') + '">'
+        + '<span class="scl-ex-lib">' + esc(T(LIB[code])) + '</span>'
+        + '<span class="scl-ex-b"><i style="width: ' + pc + '%"></i></span>'
+        + '<span class="scl-ex-n">' + n + ' / ' + total + '</span></div>';
+    }).join('');
   }
 
   function majValeurs() {
     var p = S.palier || {};
     var pc = p.total ? Math.round((p.pretes || 0) * 100 / p.total) : 0;
     panneau.classList.toggle('est-complet', complet());
-    $('scl-pretes').textContent = p.pretes || 0;
-    $('scl-sur').textContent = F('sur_total', { n: p.total || 0 });
-    var barre = $('scl-barre');
-    barre.setAttribute('aria-valuenow', pc);
-    barre.querySelector('i').style.setProperty('--p', pc);
-    $('scl-manque').innerHTML = phraseManque();
+    rendreJauge();
+    rendreExigences();
 
     var voir = $('scl-voir');
-    var aMontrer = !!(p.activites && p.activites.length);
-    voir.hidden = !aMontrer;
     var liste = $('scl-liste');
-    if (!aMontrer) liste.hidden = true;
-    if (aMontrer) {
+    var actes = p.activites || [];
+    voir.hidden = !actes.length;
+    if (!actes.length) {
+      // ⚠️ La zone de la liste porte alors la phrase de bord (carto vide,
+      // ou plus rien à compléter) : la replier la ferait disparaître.
+      liste.hidden = false;
+    } else {
+      var reste = (p.total || 0) - (p.pretes || 0);
       var ouvert = !liste.hidden;
       voir.innerHTML = '<i class="fa-solid fa-chevron-'
         + (ouvert ? 'up' : 'down') + '"></i>'
-        + esc(ouvert ? T('cacher') : T('voir'));
+        + esc(ouvert ? T('cacher') : nf('voir', reste));
     }
     rendreListe();
     majRail(pc, p);
@@ -121,6 +234,18 @@
     if (!liste) return;
     var p = S.palier || {};
     var actes = p.activites || [];
+    /* Les deux cas de bord se disent ICI : la zone de la liste est le seul
+       endroit de ce panneau qui parle des activités, et une phrase posée
+       ailleurs aurait demandé un troisième emplacement à tenir. */
+    if (!p.total) {
+      liste.innerHTML = '<p class="scl-l-dit">' + esc(T('vide')) + '</p>';
+      return;
+    }
+    if (!actes.length) {
+      liste.innerHTML = '<p class="scl-l-dit est-ok">' + esc(T('pret'))
+        + '</p>';
+      return;
+    }
     var html = actes.map(function (a) {
       var pastilles = (a.manque || []).map(function (code) {
         return '<i class="scl-chip scl-chip--' + code + '">'
@@ -433,6 +558,21 @@
   // Exposé pour le banc : dans le volet de mise au point, aucun événement
   // `scroll` ne tire — on rejoue la fonction à la main.
   window.__sclRail = majVisibiliteRail;
+
+  /* ⚠️ La liste s'ouvre D'ELLE-MÊME quand il reste peu à faire : c'est le
+     moment où l'on chasse les dernières activités, et c'est précisément ce
+     qu'on reprochait à l'écran — il ne disait pas OÙ. Au-delà elle reste
+     pliée : vingt-huit lignes enterreraient les fiches qu'elles désignent.
+     Posé ICI, avant le premier rendu, pour que le bouton dise la vérité —
+     et une seule fois, sinon chaque écriture rouvrirait ce que l'on vient
+     de replier. */
+  var OUVRE_SI = 6;
+  (function ouvrirSiCourt() {
+    var p = S.palier || {};
+    var reste = (p.total || 0) - (p.pretes || 0);
+    var liste = $('scl-liste');
+    if (liste && reste && reste <= OUVRE_SI) liste.hidden = false;
+  })();
 
   majValeurs();
   majAction();

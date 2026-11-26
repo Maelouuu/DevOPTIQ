@@ -30,18 +30,13 @@
     pretes_1:      {{ t('socle.pretes_1') | tojson }},
     pretes_n:      {{ t('socle.pretes_n') | tojson }},
     sur_total:     {{ t('socle.sur_total') | tojson }},
-    manque:        {{ t('socle.manque') | tojson }},
-    m_garant_1:    {{ t('socle.m_garant_1') | tojson }},
-    m_garant_n:    {{ t('socle.m_garant_n') | tojson }},
-    m_tache_1:     {{ t('socle.m_tache_1') | tojson }},
-    m_tache_n:     {{ t('socle.m_tache_n') | tojson }},
-    m_outil_1:     {{ t('socle.m_outil_1') | tojson }},
-    m_outil_n:     {{ t('socle.m_outil_n') | tojson }},
-    reste_1:       {{ t('socle.reste_1') | tojson }},
-    reste_n:       {{ t('socle.reste_n') | tojson }},
+    x_garant:      {{ t('socle.x_garant') | tojson }},
+    x_tache:       {{ t('socle.x_tache') | tojson }},
+    x_outil:       {{ t('socle.x_outil') | tojson }},
     pret:          {{ t('socle.pret') | tojson }},
     vide:          {{ t('socle.vide') | tojson }},
-    voir:          {{ t('socle.voir') | tojson }},
+    voir_1:        {{ t('socle.voir_1') | tojson }},
+    voir_n:        {{ t('socle.voir_n') | tojson }},
     cacher:        {{ t('socle.cacher') | tojson }},
     et_autres:     {{ t('socle.et_autres') | tojson }},
     soumettre:     {{ t('socle.soumettre') | tojson }},
@@ -110,17 +105,18 @@
   {% endif %}
 
   <div class="scl-corps">
-    <div class="scl-chiffre">
-      <b id="scl-pretes">{{ pal.pretes or 0 }}</b>
-      <span id="scl-sur">{{ t('socle.sur_total') | replace('[[n]]', pal.total or 0) }}</span>
-    </div>
+    {# ⚠️ Le COMPTEUR et les TROIS EXIGENCES se rendent dans le JS, et
+       c'est la seule exception au « rendu par le serveur » de ce panneau :
+       un arc demande de la trigonométrie, et le JS doit de toute façon le
+       redessiner après chaque écriture. Le bâtir AUSSI en Jinja ferait deux
+       implantations du même dessin — c'est exactement le défaut qui a figé
+       la liste de travail. Les données arrivent par `SOCLE_ETAT`, donc sans
+       aller-retour, et la hauteur est RÉSERVÉE en CSS : pas de saut entre
+       le rendu du serveur et celui du script. #}
+    <div class="scl-jauge" id="scl-jauge"></div>
 
-    <div class="scl-av">
-      <div class="scl-barre" id="scl-barre" role="progressbar"
-           aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ pc }}">
-        <i style="--p: {{ pc }}"></i>
-      </div>
-      <p class="scl-manque" id="scl-manque"></p>
+    <div class="scl-mid">
+      <div class="scl-ex" id="scl-ex"></div>
       <button type="button" class="scl-voir" id="scl-voir" data-scl="liste" hidden></button>
     </div>
 

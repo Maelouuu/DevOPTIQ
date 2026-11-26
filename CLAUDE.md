@@ -11449,6 +11449,85 @@ ne doit pas rouvrir l'écriture directe sur ce qu'elle porte déjà.
 - ⚠️ La carte du « i » est posée sur le BODY en `position: fixed` : elle
   DIVISE par le zoom du corps avant d'écrire `left`/`top`. Septième fois.
 
+#### LE COMPTEUR remplace la barre droite, et les trois exigences disent QUOI
+
+« L'écran n'indique pas ce qu'il manque est où, de plus je trouve assez léger
+le nombre d'info que l'on a, j'imaginais un truc un peu plus sympa avec une
+courbe pas juste droite mais en mode arrondie (compteur de vitesse). »
+
+Le premier reproche était un **défaut**, pas une préférence : le panneau est
+rendu par le serveur, et `relire()` — qui tire après chaque écriture — ne met
+à jour que les CHIFFRES, sans toucher au HTML du serveur. La liste de travail
+restait donc dans l'état du chargement de page, et le bouton annonçait
+« Masquer » au-dessus de RIEN. Une seule implantation désormais, et c'est le
+JS — `rendreListe()`, appelée par `majValeurs()`, donc par le même chemin que
+les chiffres.
+⚠️ Le premier cliquet est resté **VERT** sur ce défaut : il cherchait
+« rendreListe() » entre `majValeurs` et `majRail`, or la DÉFINITION de
+rendreListe vit entre les deux — il lisait son propre sujet. D'où
+`_corps_js()`, qui borne un corps de fonction sur SA propre accolade.
+
+Le second était une question de FORME, tranchée sur **prototype cliquable à
+l'échelle réelle** — trois organisations autour du même cadran. Retenue :
+**A — le compteur et les trois exigences**, qui répond à « qu'est-ce qui
+manque ».
+
+- **Le cadran** : un arc de 240°, du bas-gauche au bas-droit. Les graduations
+  marquent chaque ACTIVITÉ — on compte des activités, pas des pourcentages,
+  et c'est ce qui fait qu'on lit « 9 sur 36 » sans aller chercher le chiffre.
+  ⚠️ Plafonnées à 40 : l'arc fait 354 px, soit 8,9 px entre deux traits ; une
+  carto du pilote en porte six cents, et l'échelle se lirait comme une
+  hachure.
+- **Les trois exigences**, une barre chacune : on voit d'un coup que les
+  garants sont acquis (31/36) et que ce sont les outils qui traînent (9/36).
+  C'est ce que l'ancienne phrase « Il manque : 1 tâche · 2 outils » disait en
+  petit, et sans dire SUR COMBIEN.
+  ⚠️ Elles montrent ce qui est ACQUIS (`total − manque[code]`), pas ce qui
+  manque : une barre remplie avec le second se VIDERAIT à mesure qu'on
+  avance.
+- ⚠⚠ **218 px, pas 174** : `body:has(.pg-root)` porte `zoom: .8`, et le
+  prototype vivait dans une page SANS ce zoom. Repris tel quel, le cadran
+  arrivait 20 % plus petit. 218 × 0,8 = 174, la taille éprouvée à l'écran.
+- ⚠️ **La hauteur est RÉSERVÉE en CSS** (0,92 × 218 = 201) : le cadran se
+  dessine dans le JS — un arc demande de la trigonométrie, et le bâtir AUSSI
+  en Jinja ferait deux implantations du même dessin, exactement le défaut
+  qu'on venait de corriger sur la liste. Les données arrivent par
+  `SOCLE_ETAT`, donc sans aller-retour ; seule la hauteur manquerait.
+- **La liste s'ouvre D'ELLE-MÊME** sous sept activités restantes : c'est le
+  moment où l'on chasse les dernières, et c'est précisément ce qu'on
+  reprochait à l'écran. Au-delà elle reste pliée — vingt-huit lignes
+  enterreraient les fiches qu'elles désignent — et le bouton porte le compte.
+  ⚠️ Posé UNE fois, à l'init : dans `majValeurs`, chaque écriture rouvrirait
+  ce que l'on vient de replier.
+- **Les deux cas de bord** (carto vide, plus rien à compléter) vivent dans la
+  ZONE DE LA LISTE : elle est le seul endroit du panneau qui parle des
+  activités, et une phrase posée ailleurs aurait demandé un troisième
+  emplacement à tenir.
+
+⚠⚠ **Et la mesure a trouvé ce que l'œil n'avait pas vu — la maquette portait
+le même défaut.** Un balayage de 240° fait pointer l'aiguille vers le BAS à
+ses deux extrêmes, où elle atteint C + r/2 : à 36/36, **dix pixels de
+recouvrement sur le coin haut-droit des chiffres**, et comme le texte est
+peint par-dessus, la pointe paraissait s'arrêter dans le « 6 ». On DESCEND la
+lecture (0,805·T) plutôt que de raccourcir l'aiguille — un pointeur à 31 % du
+rayon ne ressemble plus à rien — et la boîte passe de 0,859·T à 0,92·T, soit
+dix pixels réels de plus. Mesuré après : **9,1 px d'écart**.
+⚠️ Le cliquet rejoue la géométrie en Python, et les proportions sont LUES
+dans le JS, jamais recopiées : un cliquet qui porte sa propre copie de la
+formule ne garde rien.
+
+⚠️ Les couleurs du cadran sont des ATTRIBUTS SVG — aucun jeton CSS ne les
+atteint — et s'écrivent donc à la main, comme celles du relief de la page
+Compétences. Seules les deux encres de texte passent par une classe.
+
+Catalogue : −10 clés par langue (`manque`, les six `m_*`, les deux `reste_*`,
+`voir`), +5 (`x_garant`, `x_tache`, `x_outil`, `voir_1`, `voir_n`).
+⚠️ `pretes_1/n` était injectée et lue par PERSONNE : elle porte désormais
+l'étiquette du cadran pour un lecteur d'écran, avec ses DEUX nombres
+(`role="img"` masque le texte interne du SVG). Et l'analyse d'injection lit
+maintenant les TABLES de libellés (`CHIP`, `LIB`) : les pastilles y
+échappaient entièrement, une injection oubliée serait passée inaperçue.
+
 #### ⚠️ Le bloc « palier » a quitté la fenêtre des propositions
 
 Il y affichait une bande « il reste n activités à compléter » et **éteignait
