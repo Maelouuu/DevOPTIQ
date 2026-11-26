@@ -56,6 +56,26 @@ def _js_nu():
     return re.sub(r"^\s*//.*$", "", s, flags=re.M)
 
 
+def _corps_js(js, ancre):
+    """Le corps d'une fonction, borné sur sa propre accolade fermante.
+
+    ⚠️ Jamais « jusqu'à la fonction suivante » : la DÉFINITION de ce qu'on
+    cherche peut vivre entre les deux, et le cliquet lit alors son propre
+    sujet. C'est ce qui lui a fait rater le défaut au premier essai."""
+    i = js.index(ancre)
+    j = js.index("{", i)
+    niveau, k = 0, j
+    while k < len(js):
+        if js[k] == "{":
+            niveau += 1
+        elif js[k] == "}":
+            niveau -= 1
+            if niveau == 0:
+                return js[j:k + 1]
+        k += 1
+    raise AssertionError("accolade non refermee apres " + ancre)
+
+
 def _sans_commentaires(css):
     """⚠️ Les commentaires d'abord : celui qui explique une règle la cite, et
     un cliquet qui cherche une chaîne s'attrape alors sur sa propre
@@ -717,6 +737,31 @@ class TestLePanneau:
         for jeton in ("--pg-accent-soft", "--pg-accent-softer",
                       "--pg-accent-border", "--pg-accent-glow"):
             assert jeton not in css, jeton
+
+    def test_la_liste_de_travail_se_rend_DANS_LE_JS(self):
+        """⚠️⚠️ Le défaut relevé à l'usage : « l'écran n'indique pas ce qu'il
+        manque est où ». La liste était rendue par le GABARIT, et `relire()`
+        met à jour les chiffres après chaque écriture sans toucher au HTML du
+        serveur : elle restait dans l'état du chargement de page. Le bouton
+        annonçait « Masquer » au-dessus de RIEN.
+
+        Une seule implantation, donc, et c'est le JS — les données arrivent
+        par `SOCLE_ETAT`, donc sans aller-retour au premier rendu."""
+        gab = _lire(GABARIT)
+        i = gab.index('id="scl-liste"')
+        j = gab.index("</div>", i)
+        assert "{% for" not in gab[i:j], \
+            "le gabarit ne doit plus rendre la liste"
+        js = _js_nu()
+        assert "function rendreListe(" in js
+        assert "data-scl-act=" in js, "chaque nom doit OUVRIR son activité"
+
+    def test_et_elle_suit_les_CHIFFRES(self):
+        """Sans cet appel, la liste se fige au chargement : c'est exactement
+        le défaut. Les deux se mettent à jour ensemble ou pas du tout."""
+        corps = _corps_js(_js_nu(), "function majValeurs(")
+        assert "rendreListe()" in corps, \
+            "majValeurs doit re-rendre la liste"
 
     def test_le_panneau_n_est_rendu_QUE_s_il_est_actif(self):
         """Une carto privée, ou un socle validé, ne paie pas les quatre

@@ -127,31 +127,15 @@
     <div class="scl-act" id="scl-act"></div>
   </div>
 
-  {# La liste de travail : chaque nom OUVRE son activité. Un rapport qui dit
-     ce qui manque sans permettre d'y aller n'est qu'un rapport.
+  {# La liste de travail est rendue par le JS, pas ici.
 
-     ⚠️ Les trois libellés sont écrits EN TOUTES LETTRES dans une table : une
-     clé construite (préfixe + code) est relevée par `test_78` comme la clé
-     « socle.c_ », et le jour où une exigence s'ajoute sa pastille
-     s'afficherait en clair. #}
-  {% set CHIP = {'garant': t('socle.c_garant'),
-                 'tache':  t('socle.c_tache'),
-                 'outil':  t('socle.c_outil')} %}
-  <div class="scl-liste" id="scl-liste" hidden>
-    {% for a in pal.activites or [] %}
-    <button type="button" class="scl-l" data-scl-act="{{ a.id }}">
-      <span class="scl-l-nom">{{ a.nom }}</span>
-      <span class="scl-l-m">
-        {%- for code in a.manque -%}
-        <i class="scl-chip scl-chip--{{ code }}">{{ CHIP.get(code, code) }}</i>
-        {%- endfor -%}
-      </span>
-    </button>
-    {% endfor %}
-    {% if pal.reste %}
-    <p class="scl-l-reste">{{ t('socle.et_autres') | replace('[[n]]', pal.reste) }}</p>
-    {% endif %}
-  </div>
+     ⚠️ UNE seule implantation : rendue des DEUX côtés, elle restait dans
+     l'état du chargement de page — `relire()` met à jour les chiffres après
+     chaque écriture, pas le HTML du serveur. Le bouton disait « Masquer »
+     au-dessus de RIEN, et l'écran ne disait plus où était ce qui manque.
+     Les données arrivent par `SOCLE_ETAT`, donc sans aller-retour ni
+     clignotement au premier rendu. #}
+  <div class="scl-liste" id="scl-liste" hidden></div>
 </section>
 
 {# ⚠️ Le rappel latéral : il n'existe QUE quand le panneau est sorti de vue.

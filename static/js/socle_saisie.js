@@ -97,13 +97,43 @@
     var voir = $('scl-voir');
     var aMontrer = !!(p.activites && p.activites.length);
     voir.hidden = !aMontrer;
+    var liste = $('scl-liste');
+    if (!aMontrer) liste.hidden = true;
     if (aMontrer) {
-      var ouvert = !$('scl-liste').hidden;
+      var ouvert = !liste.hidden;
       voir.innerHTML = '<i class="fa-solid fa-chevron-'
         + (ouvert ? 'up' : 'down') + '"></i>'
         + esc(ouvert ? T('cacher') : T('voir'));
     }
+    rendreListe();
     majRail(pc, p);
+  }
+
+  /* ⚠️ La liste se rend ICI, et nulle part ailleurs. Rendue aussi par le
+     gabarit, elle restait dans l'état du chargement de page : `relire()` met
+     à jour les chiffres après chaque écriture, pas le HTML du serveur. Le
+     bouton annonçait « Masquer » au-dessus de RIEN, et l'écran ne disait
+     plus OÙ était ce qui manque — c'est le défaut relevé à l'usage. */
+  var CHIP = { garant: 'c_garant', tache: 'c_tache', outil: 'c_outil' };
+
+  function rendreListe() {
+    var liste = $('scl-liste');
+    if (!liste) return;
+    var p = S.palier || {};
+    var actes = p.activites || [];
+    var html = actes.map(function (a) {
+      var pastilles = (a.manque || []).map(function (code) {
+        return '<i class="scl-chip scl-chip--' + code + '">'
+          + esc(T(CHIP[code] || code)) + '</i>';
+      }).join('');
+      return '<button type="button" class="scl-l" data-scl-act="' + a.id + '">'
+        + '<span class="scl-l-nom">' + esc(a.nom) + '</span>'
+        + '<span class="scl-l-m">' + pastilles + '</span></button>';
+    }).join('');
+    if (p.reste) {
+      html += '<p class="scl-l-reste">' + esc(F('et_autres', { n: p.reste })) + '</p>';
+    }
+    liste.innerHTML = html;
   }
 
   function majRail(pc, p) {
