@@ -1,0 +1,744 @@
+# -*- coding: utf-8 -*-
+"""LA PÉRIODE d'une analyse de temps, et LA CHARGE DE TRAVAIL de la page RH.
+
+Une analyse de temps n'est pas vraie pour l'éternité : une charge fluctue, et
+un poids de rôle relevé en janvier ne dit rien de novembre. Chaque analyse
+porte donc le MOIS qu'elle décrit — c'est lui qui rend lisible « le poids de
+ce rôle en novembre », et c'est de là que vient toute la section ④ de la page
+RH : le damier rôle × cartographie, le poids de chaque personne, et le plafond
+de prévention à 80 % du temps travaillé de l'année.
+"""
+import io
+import os
+import re
+
+import pytest
+
+from Code.extensions import db
+
+RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _lire(chemin):
+    return io.open(os.path.join(RACINE, chemin), encoding="utf-8").read()
+
+
+def _sans_commentaires_css(css):
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+def _section_charge(css_brut):
+    """La section ④ SEULE, commentaires retirés.
+
+    ⚠️ On coupe sur le repère AVANT de retirer les commentaires : le repère
+    EST un commentaire, et il cite ce qu'il interdit. Puis on repart après la
+    fin de ce commentaire, sinon le `/*` disparaît avec le nettoyage et son
+    texte retombe dans la zone lue.
+    """
+    tail = css_brut.split("④ LA CHARGE DE TRAVAIL", 1)[1]
+    return _sans_commentaires_css(tail.split("*/", 1)[1])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Décor : une carto à soi, des rôles, des analyses datées
+# ═══════════════════════════════════════════════════════════════════════════
+
+class _Decor:
+    """Une carto, des activités, des rôles et des analyses de rôle datées.
+
+    ⚠️ Sur sa PROPRE carto, détruite en sortant : écrire dans celle du décor
+    commun s'équilibre peut-être à la ligne près, mais l'entité ACTIVE ne
+    revient pas toute seule — et l'échec se lit alors chez un fichier qui ne
+    parle pas du même sujet.
+    """
+
+    def __init__(self, client, ids, n_act=10):
+        self.client, self.ids, self.n_act = client, ids, n_act
+        self.roles, self.gens, self.analyses = {}, {}, []
+
+    def __enter__(self):
+        from Code.models.models import (Activities, Entity, EntrepriseSettings)
+        self.ent = Entity(name="CH171-%d" % id(self), owner_id=self.ids["user_id"])
+        self.ent2 = Entity(name="CH171b-%d" % id(self), owner_id=self.ids["user_id"])
+        db.session.add_all([self.ent, self.ent2])
+        db.session.commit()
+        # 47 sem. × 5 j × 7 h = 1 645 h → plafond 80 % = 1 316 h
+        self.cal = EntrepriseSettings(entity_id=self.ent.id, work_hours_per_day=7,
+                                      work_days_per_week=5, work_weeks_per_year=47)
+        db.session.add(self.cal)
+        self.actes = {}
+        for e in (self.ent, self.ent2):
+            self.actes[e.id] = [Activities(name="CH171-a%d-%d" % (e.id, i),
+                                           entity_id=e.id, duration_minutes=60)
+                                for i in range(self.n_act)]
+            db.session.add_all(self.actes[e.id])
+        db.session.commit()
+        with self.client.session_transaction() as sess:
+            self.avant = sess.get("active_entity_id")
+            sess["active_entity_id"] = self.ent.id
+        return self
+
+    def role(self, nom):
+        from Code.models.models import Role
+        r = Role(name="CH171-" + nom, entity_id=self.ent.id)
+        db.session.add(r)
+        db.session.commit()
+        self.roles[nom] = r
+        return r
+
+    def personne(self, prenom, roles=()):
+        from Code.models.models import User, UserRole
+        from Code.security import hash_password
+        u = User(email="ch171-%s-%d@t.local" % (prenom, id(self)),
+                 first_name=prenom, last_name="X", password=hash_password("x"),
+                 status="user")
+        db.session.add(u)
+        db.session.commit()
+        for nom in roles:
+            db.session.add(UserRole(user_id=u.id, role_id=self.roles[nom].id))
+        db.session.commit()
+        self.gens[prenom] = u
+        return u
+
+    def analyse(self, role, periode, n=4, duree=60, rec="journalier", freq=1,
+                carto=None):
+        from Code.models.models import TimeRoleAnalysis, TimeRoleLine
+        e = carto or self.ent
+        R = TimeRoleAnalysis(role_id=self.roles[role].id, name="CH171 " + role,
+                             periode=periode)
+        db.session.add(R)
+        db.session.flush()
+        for i in range(n):
+            db.session.add(TimeRoleLine(role_analysis_id=R.id,
+                                        activity_id=self.actes[e.id][i].id,
+                                        recurrence=rec, frequency=freq,
+                                        duration_minutes=float(duree)))
+        db.session.commit()
+        self.analyses.append(R)
+        return R
+
+    def __exit__(self, *_):
+        from Code.models.models import (Activities, Entity, EntrepriseSettings,
+                                        Role, TimeRoleAnalysis, TimeRoleLine,
+                                        User, UserRole)
+        with self.client.session_transaction() as sess:
+            sess["active_entity_id"] = (self.avant if self.avant is not None
+                                        else self.ids["entity_id"])
+        for R in self.analyses:
+            for ln in TimeRoleLine.query.filter_by(role_analysis_id=R.id).all():
+                db.session.delete(ln)
+            obj = db.session.get(TimeRoleAnalysis, R.id)
+            if obj:
+                db.session.delete(obj)
+        db.session.commit()
+        for u in self.gens.values():
+            for ur in UserRole.query.filter_by(user_id=u.id).all():
+                db.session.delete(ur)
+            db.session.delete(db.session.get(User, u.id))
+        for r in self.roles.values():
+            obj = db.session.get(Role, r.id)
+            if obj:
+                db.session.delete(obj)
+        for lot in self.actes.values():
+            for a in lot:
+                obj = db.session.get(Activities, a.id)
+                if obj:
+                    db.session.delete(obj)
+        obj = db.session.get(EntrepriseSettings, self.cal.id)
+        if obj:
+            db.session.delete(obj)
+        for e in (self.ent, self.ent2):
+            obj = db.session.get(Entity, e.id)
+            if obj:
+                db.session.delete(obj)
+        db.session.commit()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LA PÉRIODE — le mois que l'analyse décrit
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLaPeriodeSeLit:
+
+    def test_le_mois_seul_une_date_entiere_et_un_mois_non_rembourre(self):
+        from Code.periode import lire_periode
+        assert lire_periode("2026-11") == "2026-11"
+        assert lire_periode("2026-11-05") == "2026-11"
+        assert lire_periode("2026-1") == "2026-01"
+
+    def test_tout_le_reste_rend_le_DEFAUT_jamais_un_mois_invente(self):
+        """⚠️ La valeur vient du navigateur : un mois inventé rangerait une
+        analyse dans une période qui n'existe pas."""
+        from Code.periode import lire_periode
+        for mauvais in (None, "", "bientôt", "2026-13", "2026-00", "11-2026",
+                        "99999-01", [], {}):
+            assert lire_periode(mauvais, "2026-01") == "2026-01", mauvais
+
+    def test_le_mois_courant_a_la_bonne_forme(self):
+        from Code.periode import mois_courant
+        assert re.match(r"^\d{4}-\d{2}$", mois_courant())
+
+
+class TestLaPeriodeSEcritEtSeRelit:
+
+    def test_une_analyse_de_role_SANS_periode_prend_le_mois_courant(self, auth_client, ids):
+        from Code.models.models import TimeRoleAnalysis
+        from Code.periode import mois_courant
+        with _Decor(auth_client, ids) as d:
+            d.role("R")
+            r = auth_client.post("/temps/api/role_analysis", json={
+                "role_id": d.roles["R"].id, "name": "sans periode",
+                "lines": [{"activity_id": d.actes[d.ent.id][0].id,
+                           "duration": 30, "recurrence": "journalier",
+                           "frequency": 1}]})
+            assert r.status_code == 200
+            rid = r.get_json()["id"]
+            d.analyses.append(db.session.get(TimeRoleAnalysis, rid))
+            assert db.session.get(TimeRoleAnalysis, rid).periode == mois_courant()
+
+    def test_une_modification_SANS_la_cle_garde_la_periode(self, auth_client, ids):
+        """⚠️ Jamais NULL : une analyse sans période ne figurerait dans aucun
+        tableau par mois, et disparaîtrait sans que personne ne l'ait retirée."""
+        from Code.models.models import TimeRoleAnalysis
+        with _Decor(auth_client, ids) as d:
+            d.role("R")
+            R = d.analyse("R", "2026-03")
+            auth_client.patch("/temps/api/role_analysis/%d" % R.id,
+                              json={"name": "renommee"})
+            db.session.expire_all()
+            assert db.session.get(TimeRoleAnalysis, R.id).periode == "2026-03"
+
+    def test_les_quatre_routes_RENDENT_la_periode(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            d.role("R")
+            R = d.analyse("R", "2026-05")
+            j = auth_client.get("/temps/api/role_analysis/%d" % R.id).get_json()
+            assert j["role"]["periode"] == "2026-05"
+            j = auth_client.get("/temps/api/role_analyses").get_json()
+            assert any(x["periode"] == "2026-05" for x in j["items"])
+
+            p = auth_client.post("/temps/api/project", json={
+                "name": "CH171 projet", "periode": "2026-04",
+                "lines": [{"activity_id": d.actes[d.ent.id][0].id, "duration": 10,
+                           "duration_unit": "minutes"}]}).get_json()
+            lu = auth_client.get("/temps/api/project/%d" % p["project_id"]).get_json()
+            assert lu["project"]["periode"] == "2026-04"
+            auth_client.delete("/temps/api/project/%d" % p["project_id"])
+
+            a = auth_client.post("/temps/api/activity_workload", json={
+                "activity_id": d.actes[d.ent.id][0].id, "duration": 30,
+                "duration_unit": "minutes", "recurrence": "journalier",
+                "frequency": 1, "periode": "2026-06"}).get_json()
+            lu = auth_client.get("/temps/api/activity_workload/%d" % a["id"]).get_json()
+            assert lu["item"]["periode"] == "2026-06"
+            auth_client.delete("/temps/api/activity_workload/%d" % a["id"])
+
+            w = auth_client.post("/temps/api/weakness", json={
+                "activity_id": d.actes[d.ent.id][0].id, "recurrence": "hebdomadaire",
+                "frequency": 1, "duration_std": 30, "delay_std": 60,
+                "weakness": "CH171", "periode": "2026-07", "save": True}).get_json()
+            assert w["periode"] == "2026-07"
+
+    def test_le_tableau_de_bord_porte_la_periode_de_chaque_analyse(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            d.role("R")
+            d.analyse("R", "2026-08")
+            j = auth_client.get("/temps/api/tableau_de_bord").get_json()
+            assert any(x.get("periode") == "2026-08" for x in j["par_role"])
+
+
+class TestLaRepriseDesAnalysesDAvant:
+
+    def test_elle_pose_la_periode_depuis_created_at_et_ne_rejoue_rien(self, auth_client, ids):
+        from datetime import datetime
+        from Code.models.models import TimeRoleAnalysis
+        from Code.periode import reprendre_periodes
+        with _Decor(auth_client, ids) as d:
+            d.role("R")
+            R = d.analyse("R", None)
+            R.created_at = datetime(2025, 2, 17, 9, 0, 0)
+            R.periode = None
+            db.session.commit()
+            assert reprendre_periodes() >= 1
+            db.session.expire_all()
+            assert db.session.get(TimeRoleAnalysis, R.id).periode == "2025-02"
+            # Rejouée, elle ne touche plus rien : `periode IS NULL` la rend
+            # idempotente par construction.
+            db.session.get(TimeRoleAnalysis, R.id).periode = "2026-09"
+            db.session.commit()
+            reprendre_periodes()
+            db.session.expire_all()
+            assert db.session.get(TimeRoleAnalysis, R.id).periode == "2026-09"
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LE POIDS D'UN RÔLE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLePoidsDUnRole:
+
+    def _charge(self, periode=None):
+        from Code.charge_travail import charge
+        return charge(periode)
+
+    def _role(self, d, nom, periode=None):
+        c = self._charge(periode)
+        return next(r for r in c["roles"] if r["id"] == d.roles[nom].id)
+
+    def test_un_role_mesure_dans_DEUX_cartos_additionne_et_nomme_les_deux(
+            self, auth_client, ids):
+        """La comparaison « extra entité » : le total pèse l'ensemble, et le
+        détail dit ce que chaque carto demande."""
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=4, duree=60, carto=d.ent)
+            d.analyse("Q", "2026-11", n=3, duree=30, carto=d.ent2)
+            r = self._role(d, "Q", "2026-11")
+            assert len(r["mesures"]) == 2
+            assert r["annuel_min"] == pytest.approx(
+                sum(m["annuel_min"] for m in r["mesures"]))
+            assert {m["entite"] for m in r["mesures"]} == {d.ent.name, d.ent2.name}
+
+    def test_deux_analyses_du_MEME_couple_ne_comptent_qu_une_fois(self, auth_client, ids):
+        """⚠️ Deux analyses du même rôle, même carto, même mois sont deux
+        TENTATIVES, pas deux charges : les additionner compterait le travail
+        deux fois. La plus récente l'emporte."""
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=4, duree=60, carto=d.ent)
+            seconde = d.analyse("Q", "2026-11", n=4, duree=10, carto=d.ent)
+            r = self._role(d, "Q", "2026-11")
+            assert len(r["mesures"]) == 1
+            assert r["mesures"][0]["analyse_id"] == seconde.id
+
+    def test_un_role_sans_mesure_pour_ce_mois_vaut_NUL_jamais_zero(self, auth_client, ids):
+        """⚠️ NULL ≠ 0 : « pas mesuré » et « ne pèse rien » ne se corrigent pas
+        de la même façon, et l'écran dit en quel mois il l'a été."""
+        with _Decor(auth_client, ids) as d:
+            d.role("M")
+            d.analyse("M", "2026-10")
+            r = self._role(d, "M", "2026-10")
+            assert r["mesure"] is True
+            # le mois SUIVANT : rien n'a été mesuré
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            r = self._role(d, "M", "2026-11")
+            assert r["mesure"] is False
+            assert r["annuel_min"] is None
+            assert r["part"] is None
+            assert r["derniere_periode"] == "2026-10"
+
+    def test_un_role_JAMAIS_mesure_n_a_pas_de_derniere_periode(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            d.role("Jamais")
+            r = self._role(d, "Jamais", "2026-11")
+            assert r["mesure"] is False and r["derniere_periode"] is None
+
+    def test_les_periodes_offertes_sont_celles_qui_portent_une_analyse(
+            self, auth_client, ids):
+        from Code.charge_travail import periodes_disponibles
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            d.analyse("Q", "2026-09")
+            p = periodes_disponibles()
+            assert "2026-11" in p and "2026-09" in p
+            assert p == sorted(p, reverse=True)
+
+    def test_le_poids_en_BLOC_donne_le_MEME_chiffre_que_la_page_Temps(
+            self, auth_client, ids):
+        """⚠️ Une seule implémentation : `_role_summary` est appelé avec ses
+        caches ici, sans eux là-bas. Deux versions finiraient par donner deux
+        chiffres pour la même analyse."""
+        from Code.routes.time_view import _role_summary
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            R = d.analyse("Q", "2026-11", n=4, duree=75, rec="hebdomadaire", freq=2)
+            seul = _role_summary(R)["annual_minutes"]
+            r = self._role(d, "Q", "2026-11")
+            assert r["annuel_min"] == pytest.approx(seul)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LE POIDS D'UNE PERSONNE, ET LE PLAFOND
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLePoidsDUnePersonne:
+
+    def _gens(self, d, prenom, periode=None):
+        from Code.charge_travail import charge
+        c = charge(periode)
+        return next(p for p in c["personnes"] if p["id"] == d.gens[prenom].id)
+
+    def test_c_est_la_SOMME_de_ses_roles_chacun_en_ENTIER(self, auth_client, ids):
+        """⚠️ Le poids d'un rôle est le travail qu'il exige de qui le tient :
+        on ne le divise pas par le nombre de titulaires — ce serait inventer
+        un partage que rien dans l'application ne décide."""
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("A")
+            d.role("B")
+            d.analyse("A", "2026-11", n=4, duree=60)
+            d.analyse("B", "2026-11", n=2, duree=30)
+            d.personne("Un", ("A", "B"))
+            d.personne("Deux", ("A",))          # deux titulaires sur « A »
+            c = charge("2026-11")
+            ra = next(r for r in c["roles"] if r["id"] == d.roles["A"].id)
+            rb = next(r for r in c["roles"] if r["id"] == d.roles["B"].id)
+            un = self._gens(d, "Un", "2026-11")
+            deux = self._gens(d, "Deux", "2026-11")
+            assert un["annuel_min"] == pytest.approx(ra["annuel_min"] + rb["annuel_min"])
+            assert deux["annuel_min"] == pytest.approx(ra["annuel_min"])
+            assert len(ra["titulaires"]) == 2
+
+    def test_aucun_role_mesure_rend_NUL_jamais_zero(self, auth_client, ids):
+        """⚠️ Zéro se lirait « cette personne n'a rien à faire »."""
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            d.role("Sans")
+            d.personne("Vide", ("Sans",))
+            p = self._gens(d, "Vide", "2026-11")
+            assert p["annuel_min"] is None and p["part_plafond"] is None
+            assert p["sans_mesure"] == 1 and p["n_roles"] == 1
+
+    def test_un_role_non_mesure_est_COMPTE_a_part_pas_additionne(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            d.role("A")
+            d.role("Sans")
+            d.analyse("A", "2026-11", n=4, duree=60)
+            d.personne("Moitie", ("A", "Sans"))
+            p = self._gens(d, "Moitie", "2026-11")
+            assert p["sans_mesure"] == 1
+            assert p["annuel_min"] is not None
+
+    def test_le_plafond_vaut_QUATRE_VINGTS_POUR_CENT_du_temps_plein(
+            self, auth_client, ids):
+        from Code.charge_travail import PART_PLAFOND, charge
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            c = charge("2026-11")
+            assert PART_PLAFOND == 0.80
+            assert c["plafond_min"] == pytest.approx(c["plein_temps_min"] * 0.80)
+            # ⚠️ Le temps plein se lit sur le calendrier que la réponse
+            # PORTE : hors requête, `get_calendar_params` retombe sur la
+            # première ligne de `entreprise_settings`, qui n'est pas forcément
+            # celle du décor — un chiffre en dur ne tiendrait qu'au hasard de
+            # l'ordre des fichiers.
+            cal = c["calendrier"]
+            assert c["plein_temps_min"] == pytest.approx(
+                cal["hours_per_day"] * cal["days_per_week"] * cal["weeks_per_year"] * 60)
+
+
+class TestLeVerdictDUnAjout:
+
+    def test_il_dit_AVANT_APRES_et_s_il_depasse(self, auth_client, ids):
+        from Code.charge_travail import charge, verdict_ajout
+        with _Decor(auth_client, ids) as d:
+            d.role("Lourd")
+            d.role("Leger")
+            # journalier × 47 sem × 5 j : 4 × 120 min = 1 880 h/an → au-delà
+            d.analyse("Lourd", "2026-11", n=4, duree=120, rec="journalier")
+            d.analyse("Leger", "2026-11", n=1, duree=10, rec="mensuel")
+            d.personne("Qui", ("Leger",))
+            c = charge("2026-11")
+            v = verdict_ajout(c, d.gens["Qui"].id, d.roles["Lourd"].id)
+            assert v["depasse"] is True
+            assert v["deja"] is False
+            assert v["apres_min"] == pytest.approx(v["avant_min"] + v["ajout_min"])
+
+    def test_un_role_NON_mesure_n_ajoute_rien_de_connu(self, auth_client, ids):
+        from Code.charge_travail import charge, verdict_ajout
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            d.role("Sans")
+            d.personne("Qui", ("Q",))
+            c = charge("2026-11")
+            assert verdict_ajout(c, d.gens["Qui"].id, d.roles["Sans"].id) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CE QUE LE CALCUL NE DOIT PAS FAIRE
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLeCoutEtLesEffetsDeBord:
+
+    def test_le_cout_ne_grandit_pas_avec_l_effectif(self, auth_client, ids):
+        """⚠️ Un nombre FIXE de requêtes : `_role_summary` appelé en boucle
+        demanderait `get_calendar_params()` et une requête par ligne — c'est le
+        défaut qui mettait le tableau des compétences à deux minutes et demie."""
+        from sqlalchemy import event
+        from Code.charge_travail import charge
+
+        def compter():
+            n = [0]
+
+            def avant(*_a, **_k):
+                n[0] += 1
+            event.listen(db.engine, "before_cursor_execute", avant)
+            try:
+                charge("2026-11")
+            finally:
+                event.remove(db.engine, "before_cursor_execute", avant)
+            return n[0]
+
+        with _Decor(auth_client, ids) as d:
+            for nom in ("A", "B"):
+                d.role(nom)
+                d.analyse(nom, "2026-11", n=3)
+            d.personne("P1", ("A",))
+            avant = compter()
+            for nom in ("C", "D", "E", "F"):
+                d.role(nom)
+                d.analyse(nom, "2026-11", n=3)
+            for p in ("P2", "P3", "P4", "P5", "P6"):
+                d.personne(p, ("A", "C"))
+            apres = compter()
+            assert apres == avant, "%d requêtes puis %d" % (avant, apres)
+
+    def test_la_lecture_n_ECRIT_rien(self, auth_client, ids):
+        """Une page de lecture ne matérialise rien : le compte des lignes ne
+        bouge pas."""
+        from Code.models.models import TimeRoleAnalysis, TimeRoleLine
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            avant = (TimeRoleAnalysis.query.count(), TimeRoleLine.query.count())
+            charge("2026-11")
+            charge(None)
+            assert (TimeRoleAnalysis.query.count(), TimeRoleLine.query.count()) == avant
+
+
+class TestLaPorteDeLaRoute:
+
+    def test_sans_compte_elle_refuse(self, app):
+        """⚠️ Le `before_request` du blueprint ne ferme que les ÉCRITURES, et
+        ce tableau nomme la charge de chacun."""
+        anon = app.test_client()
+        r = anon.get("/gestion_rh/api/charge")
+        assert r.status_code == 401
+
+    def test_un_compte_sans_acces_RH_est_refuse(self, app, auth_client, ids):
+        from Code.models.models import User
+        from Code.security import hash_password
+        u = User(email="ch171-simple@t.local", first_name="S", last_name="X",
+                 password=hash_password("x"), status="user")
+        db.session.add(u)
+        db.session.commit()
+        c = app.test_client()
+        with c.session_transaction() as sess:
+            sess["user_id"] = u.id
+            sess["user_email"] = u.email
+        r = c.get("/gestion_rh/api/charge")
+        assert r.status_code == 403
+        db.session.delete(db.session.get(User, u.id))
+        db.session.commit()
+
+    def test_elle_sert_le_payload_a_qui_ouvre_la_page_RH(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11")
+            j = auth_client.get("/gestion_rh/api/charge?periode=2026-11").get_json()
+            assert j["ok"] and j["periode"] == "2026-11"
+            assert "plafond_min" in j and "roles" in j and "personnes" in j
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  L'ÉCRAN
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLaSectionEstBranchee:
+
+    def test_le_gabarit_porte_la_section_et_charge_son_script(self):
+        h = _lire("Code/routes/templates/gestion_rh.html")
+        assert 'id="bloc-charge"' in h
+        assert 'id="ch-corps"' in h
+        assert "js/rh_charge.js" in h
+        assert 'id="grh-ch-win"' in h
+
+    def test_les_cles_lues_par_le_JS_sont_toutes_injectees(self):
+        """⚠️ L'accesseur rend la CLÉ quand elle manque — jamais un repli
+        français en dur. Une clé oubliée s'affiche donc telle quelle."""
+        js = _lire("static/js/rh_charge.js")
+        h = _lire("Code/routes/templates/gestion_rh.html")
+        lues = set(re.findall(r"[LV]\('(ch_[a-z0-9_]+)'", js))
+        lues |= {m + "_1" for m in re.findall(r"nf\('(ch_[a-z0-9_]+)'", js)}
+        lues |= {m + "_n" for m in re.findall(r"nf\('(ch_[a-z0-9_]+)'", js)}
+        bloc = h.split("window.RHCH_I18N", 1)[1].split("};", 1)[0]
+        injectees = set(re.findall(r"(ch_[a-z0-9_]+):", bloc))
+        assert lues <= injectees, sorted(lues - injectees)
+
+    def test_les_cles_existent_dans_les_DEUX_langues(self):
+        from Code.translations import TRANSLATIONS as T
+        fr = {k for k in T["fr"] if k.startswith("rh.ch_")}
+        en = {k for k in T["en"] if k.startswith("rh.ch_")}
+        assert fr and fr == en
+        # et l'anglais n'est pas une recopie du français
+        recopies = [k for k in fr if T["fr"][k] == T["en"][k] and len(T["fr"][k]) > 14]
+        assert not recopies, recopies
+
+    def test_la_rampe_est_declaree_sur_ROOT_pas_sur_le_bloc(self):
+        """⚠️ Une propriété personnalisée ne descend qu'à ses DESCENDANTS. La
+        cellule de charge vit dans le bloc des personnes, la fenêtre et
+        l'avertissement hors de tout bloc : déclarée sur `#bloc-charge`,
+        `--ch-rouge` y était INVALIDE, donc transparent — la pastille d'alerte
+        et le bouton « Ajouter quand même » étaient des rectangles vides."""
+        css = _sans_commentaires_css(_lire("static/gestion_rh.css"))
+        decl = re.search(r":root\s*\{[^}]*--ch-rouge", css)
+        assert decl, "la rampe doit vivre sur :root"
+        assert not re.search(r"#bloc-charge\s*\{[^}]*--ch-rouge", css)
+
+    def test_le_repli_etroit_de_la_carte_d_une_personne_est_REDIT(self):
+        """⚠️ Le `@media (max-width: 900px)` qui la remet sur deux colonnes est
+        déclaré neuf cents lignes plus haut : à spécificité égale, c'est la
+        DERNIÈRE déclaration qui gagne, et la règle à six colonnes l'écrasait
+        aussi en dessous de 900 px."""
+        css = _sans_commentaires_css(_lire("static/gestion_rh.css"))
+        i = css.index(".grh-person {", css.index("--ch-rouge"))
+        apres = css[i:]
+        bloc = [b for b in apres.split("@media (max-width: 900px) {")[1:]]
+        assert bloc, "le repli doit être redit APRÈS la règle à six colonnes"
+        assert "grid-template-columns: auto 1fr" in bloc[0]
+        assert "grh-person-ch" in bloc[0]
+
+    def test_aucune_regle_de_la_section_ne_lit_le_gris_de_la_racine(self):
+        """Les quatre dérivés de l'accent sont déclarés là où l'accent vaut
+        encore le gris par défaut : ils rendent du GRIS."""
+        bout = _section_charge(_lire("static/gestion_rh.css"))
+        assert not re.findall(r"--pg-accent-(?:soft|softer|border|glow)", bout)
+
+    def test_la_cellule_de_charge_est_posee_VIDE_et_remplie_par_rh_charge(self):
+        """Une seule source pour la charge : `gestion_rh.js` n'a pas à
+        connaître son calcul, et aucun des deux fichiers n'attend l'autre."""
+        g = _lire("static/js/gestion_rh.js")
+        c = _lire("static/js/rh_charge.js")
+        assert 'class="grh-person-ch" data-ch="${p.id}"' in g
+        # ⚠️ Le DISPATCH, pas le nom : celui-ci figure AUSSI dans le
+        # commentaire qui explique la couture, et le cliquet restait vert
+        # — treizième fois que cette famille mord.
+        assert "document.dispatchEvent(new CustomEvent('grh:personnes'))" in g
+        assert "document.addEventListener('grh:personnes'" in c
+
+    def test_l_avertissement_est_une_PREVENTION_pas_un_refus(self):
+        """La décision d'affecter quelqu'un appartient à qui affecte."""
+        c = _lire("static/js/rh_charge.js")
+        corps = c.split("function avertir(", 1)[1].split("\n  }", 1)[0]
+        assert "ch-al-ok" in corps and "suite()" in corps
+        g = _lire("static/js/gestion_rh.js")
+        assert "window.RHCharge.avertir(u, r, el, () => majLien(u, r, true))" in g
+
+    def test_le_defilement_de_l_avertissement_est_INSTANTANE(self):
+        """⚠️ Une animation ne progresse pas dans un volet qui ne peint pas —
+        mesuré, l'avertissement restait 102 px sous le bord."""
+        corps = _lire("static/js/rh_charge.js").split("function avertir(", 1)[1]
+        assert "behavior: 'instant'" in corps
+        assert "behavior: 'smooth'" not in corps.split("\n  }", 1)[0]
+
+
+class TestCeQueLeDamierNeMontrePas:
+
+    def test_les_colonnes_sont_les_cartos_REELLEMENT_mesurees(self):
+        """⚠️ Neuf rôles pour trois cartos laisseraient les deux tiers des
+        cases vides, et un damier creux se lit comme un tableau cassé."""
+        js = _lire("static/js/rh_charge.js")
+        corps = js.split("function colonnes(", 1)[1].split("\n  }", 1)[0]
+        assert "mesures.forEach" in corps
+        assert "entites" not in corps.replace("entite_id", "")
+
+    def test_les_roles_sans_mesure_sortent_de_la_matrice(self):
+        js = _lire("static/js/rh_charge.js")
+        corps = js.split("function rendre(", 1)[1].split("\n  }", 1)[0]
+        assert "r.mesure)" in corps and "!r.mesure)" in corps
+        assert "zoneSansMesure(sans)" in corps
+        # ... et la matrice ne reçoit QUE les mesurés
+        assert "damier(mes," in corps
+
+    def test_aucun_role_pese_n_affiche_PAS_un_damier_a_zero_colonne(self):
+        """Il resterait trois en-têtes au-dessus de rien, ce qui se lit comme
+        un tableau cassé — alors que la vérité a une suite : la page Temps."""
+        js = _lire("static/js/rh_charge.js")
+        corps = js.split("function rendre(", 1)[1].split("\n  }", 1)[0]
+        assert "if (!mes.length) {" in corps
+        avant = corps.split("if (!mes.length) {", 1)[1].split("return;", 1)[0]
+        assert "ch-vide" in avant and "zoneSansMesure(sans)" in avant
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LE PLAN DE FORMATION : l'écran vide invite, et l'IA montre qu'elle tourne
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLEcranVideDuPlanInvite:
+
+    def test_l_action_est_EN_PLEIN_dans_le_bloc_vide(self):
+        """⚠️ « Aucun plan n'existe encore » et « vous ne pouvez rien faire
+        ici » se ressemblaient : un texte gris centré, et pour toute porte une
+        pastille discrète au fond d'un pied de page."""
+        js = _lire("static/js/competences_v2.js")
+        corps = js.split("function blocVide(", 1)[1].split("\n  }\n", 1)[0]
+        assert 'class="pl-go"' in corps and "data-pl-prop" in corps
+        assert "pl-vide-chs" in corps, "de quoi partir doit être sous les yeux"
+
+    def test_une_seule_porte_le_pied_ne_redit_pas_le_bouton(self):
+        js = _lire("static/js/competences_v2.js")
+        corps = js.split("    if (!p.activites.length || !p.actions.length) {", 1)[1]
+        corps = corps.split("\n    }", 1)[0]
+        assert "pied()" not in corps
+
+    def test_l_attente_de_l_IA_montre_le_SQUELETTE_de_la_frise(self):
+        """Trois secondes où rien ne bougeait : on cliquait une seconde fois."""
+        js = _lire("static/js/competences_v2.js")
+        assert "function renderAttenteIA()" in js
+        corps = js.split("async function proposerPlan()", 1)[1].split("\n  }", 1)[0]
+        assert "renderAttenteIA();" in corps
+        att = js.split("function renderAttenteIA()", 1)[1].split("\n  }", 1)[0]
+        assert "pl-att-fr" in att and "teteDuPlan()" in att
+
+    def test_l_en_tete_du_plan_n_est_ECRIT_QU_UNE_FOIS(self):
+        """Trois états de l'écran — le plan, le vide, l'attente — et c'est lui
+        qui dit de qui et de quel rôle on parle."""
+        js = _lire("static/js/competences_v2.js")
+        assert js.count('<div class="pl-nuit"><div class="pl-h">') == 1
+
+    def test_les_cles_de_l_ecran_vide_existent_dans_les_deux_langues(self):
+        js = _lire("static/js/competences_v2.js")
+        for cle in ("plan_empty_1", "plan_empty_n", "plan_empty_how", "plan_gen_l"):
+            assert js.count(cle + ":") == 2, cle
+        # la phrase d'avant parlait de « curseurs » qui n'existent plus
+        assert "plan_empty_d" not in js
+
+
+class TestLeMoisDansLaPageTemps:
+
+    def test_le_champ_vit_dans_la_BANDE_et_en_derniere_place(self):
+        """Une propriété de l'analyse ENTIÈRE, comme son nom — et à une place
+        FIXE : posé avant le repère de modification, il glissait de 180 px dès
+        qu'on ouvrait une analyse."""
+        h = _lire("Code/routes/templates/time_dashboard.html")
+        barre = h.split('<div class="tm-barre">', 1)[1].split("</div>\n\n", 1)[0]
+        assert 'id="tm-periode-m"' in barre and 'id="tm-periode-a"' in barre
+        assert barre.index('id="tm-mod"') < barre.index('id="tm-periode-m"')
+
+    def test_DEUX_selects_jamais_un_input_month(self):
+        """⚠️ Firefox ne sait pas le rendre et retombe sur un champ de texte où
+        il faut taper le mois à la main.
+
+        ⚠️ Les COMMENTAIRES sont retirés d'abord : celui qui explique ce choix
+        cite forcément la forme qu'il interdit, et le cliquet s'attrapait sur
+        sa propre explication."""
+        h = _lire("Code/routes/templates/time_dashboard.html")
+        h = re.sub(r"<!--.*?-->", "", h, flags=re.S)
+        h = re.sub(r"\{#.*?#\}", "", h, flags=re.S)
+        assert 'type=' + chr(34) + 'month' + chr(34) not in h
+
+    def test_les_quatre_enregistrements_envoient_la_periode(self):
+        js = _lire("static/js/time.js")
+        assert js.count("periode: periodeLue()") == 4
+
+    def test_les_quatre_lectures_la_reposent(self):
+        js = _lire("static/js/time.js")
+        assert js.count("posePeriode(") >= 6   # 4 lectures + vider + démarrage

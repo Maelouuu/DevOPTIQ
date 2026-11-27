@@ -58,6 +58,7 @@
                        tab_project:   {{ t('time.tab_project')|tojson }},
                        tab_activity:  {{ t('time.tab_activity')|tojson }},
                        tab_role:      {{ t('time.tab_role')|tojson }},
+                       periode_col:   {{ t('time.periode_col')|tojson }},
                        tab_weakness:  {{ t('time.tab_weakness')|tojson }},
                        tm_faib_aucune: {{ t('time.tm_faib_aucune')|tojson }},
                        tm_par_jour:   {{ t('time.tm_par_jour')|tojson }},
@@ -426,6 +427,24 @@
         <button type="button" id="tm-mod-sortir" title="{{ t('time.tm_mod_sortir') }}">
           <i class="fa-solid fa-xmark"></i>
         </button>
+      </span>
+      <!-- ⚠️ LE MOIS ANALYSÉ, et il vit dans la BANDE : c'est une propriété
+           de l'analyse ENTIÈRE, comme son nom, et la bande est le seul
+           endroit commun aux quatre types — quatre champs dans quatre
+           formulaires, c'étaient quatre occasions d'en oublier un.
+           ⚠️ DERNIER de la bande, donc à une place FIXE : posé avant le
+           repère de modification, il glissait de 180 px dès qu'on
+           ouvrait une analyse pour la modifier.
+           ⚠️ DEUX `<select>`, pas un `<input type="month">` : Firefox ne
+           sait pas le rendre et retombe sur un champ de texte où il faut
+           taper « 2026-11 ». Et un `<select>` de cette page est habillé par
+           `tm_select.js`, donc il porte le même panneau que ses voisins. -->
+      <span class="tm-per">
+        <label for="tm-periode-m">{{ t('time.periode_label') }}{{ aide('time.periode_aide') }}</label>
+        <span class="tm-per-duo">
+          <select id="tm-periode-m" class="input" aria-label="{{ t('time.periode_label') }}"></select>
+          <select id="tm-periode-a" class="input" aria-label="{{ t('time.periode_label') }}"></select>
+        </span>
       </span>
     </div>
 

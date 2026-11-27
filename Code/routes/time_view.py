@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, request, jsonify
 from datetime import datetime
 from sqlalchemy import text
 from Code.extensions import db
+from Code.periode import lire_periode, mois_courant
 from Code.models.models import (
     Activities, Task, Role, TimeAnalysis,
     TimeProject, TimeProjectLine, TimeWeakness,
@@ -37,6 +38,17 @@ def sujet_choisi(valeur):
     return ident if ident > 0 else None
 def to_minutes(qty, unit):
     return float(qty or 0) * UNIT_TO_MIN.get((unit or 'minutes').lower(), 1)
+
+
+def periode_posee(d, actuelle=None):
+    """Le MOIS que l'analyse decrit (« YYYY-MM », voir Code/periode.py).
+
+    ⚠️ Le mois courant par defaut a la creation, et celui DEJA EN PLACE a la
+    modification : une cle absente ne doit jamais vider une periode. Une
+    analyse sans periode ne figurerait dans aucun tableau par mois, et
+    disparaitrait de l'ecran sans que personne ne l'ait retiree.
+    """
+    return lire_periode(d.get('periode'), actuelle or mois_courant())
 
 #     ⚠️⚠️ Les deux tables sondées ici — `company_params` et
 # `gestion_rh_params` — n'ont AUCUN modèle : rien ne les crée. Sur une base
@@ -415,7 +427,8 @@ def api_project_create():
 
     # MODIFIÉ: Associer le projet à l'entité active
     active_entity_id = Entity.get_active_id()
-    proj = TimeProject(name=name, created_at=datetime.utcnow(), entity_id=active_entity_id)
+    proj = TimeProject(name=name, created_at=datetime.utcnow(), entity_id=active_entity_id,
+                       periode=periode_posee(data))
     db.session.add(proj)
     db.session.flush()
 
@@ -451,7 +464,8 @@ def api_project_read(project_id):
         sum_delay += float(ln.delay_minutes)
     return jsonify({
         "ok": True,
-        "project": {"id": proj.id, "name": proj.name, "created_at": proj.created_at.isoformat() if proj.created_at else None},
+        "project": {"id": proj.id, "name": proj.name, "periode": proj.periode,
+                    "created_at": proj.created_at.isoformat() if proj.created_at else None},
         "lines": rows,
         "total_nb_people": tot_nb,
         "total_duration_minutes": tot_dur,
@@ -470,6 +484,7 @@ def api_projects_list():
         out.append({
             "id": p.id,
             "name": p.name,
+            "periode": p.periode,
             "created_at": p.created_at.isoformat() if p.created_at else None,
             "line_count": len(p.lines),
             "total_duration_minutes": tot_dur,
@@ -485,7 +500,8 @@ def api_project_rename(project_id):
     if new_name:
         proj.name = new_name
         db.session.commit()
-    return jsonify({"ok": True, "id": proj.id, "name": proj.name})
+    return jsonify({"ok": True, "id": proj.id, "name": proj.name,
+                    "periode": proj.periode})
 
 @time_bp.route('/api/project/<int:project_id>', methods=['PUT'])
 def api_project_update(project_id):
@@ -496,6 +512,7 @@ def api_project_update(project_id):
     nom = (d.get('name') or '').strip()
     if nom:
         proj.name = nom
+    proj.periode = periode_posee(d, proj.periode)
 
     lignes = d.get('lines')
     if lignes is not None and any(
@@ -517,7 +534,8 @@ def api_project_update(project_id):
                 nb_people=int(ln.get('nb_people') or 1)
             ))
     db.session.commit()
-    return jsonify({"ok": True, "id": proj.id, "name": proj.name})
+    return jsonify({"ok": True, "id": proj.id, "name": proj.name,
+                    "periode": proj.periode})
 
 
 @time_bp.route('/api/project/<int:project_id>', methods=['DELETE'])
@@ -620,6 +638,7 @@ def _workload_json(x):
         "recurrence": x.recurrence,
         "frequency": int(x.frequency or 1),
         "nb_people": int(x.nb_people or 1),
+        "periode": x.periode,
         "total_minutes": _workload_total(x)
     }
 
@@ -638,7 +657,8 @@ def api_activity_workload():
         nb_people=int(d.get('nb_people') or 1),
         delay=None,
         delay_increase=None,
-        impact_unit='minutes'
+        impact_unit='minutes',
+        periode=periode_posee(d),
     )
     db.session.add(ta)
     db.session.commit()
@@ -661,8 +681,10 @@ def api_activity_workload_update(wk_id):
     if d.get('recurrence') is not None: x.recurrence = (d['recurrence'] or '').strip().lower()
     if d.get('frequency') is not None: x.frequency = int(d['frequency'])
     if d.get('nb_people') is not None: x.nb_people = int(d['nb_people'])
+    x.periode = periode_posee(d, x.periode)
     db.session.commit()
-    return jsonify({"ok": True, "id": x.id, "total_minutes": _workload_total(x)})
+    return jsonify({"ok": True, "id": x.id, "periode": x.periode,
+                    "total_minutes": _workload_total(x)})
 
 @time_bp.route('/api/activity_workload/<int:wk_id>', methods=['DELETE'])
 def api_activity_workload_delete(wk_id):
@@ -750,7 +772,8 @@ def api_role_analysis_create():
     if not lines:
         return jsonify({"ok": False, "code": "aucune_ligne"}), 400
 
-    R = TimeRoleAnalysis(role_id=role_id, name=name, created_at=datetime.utcnow())
+    R = TimeRoleAnalysis(role_id=role_id, name=name, created_at=datetime.utcnow(),
+                         periode=periode_posee(d))
     db.session.add(R)
     db.session.flush()
 
@@ -763,20 +786,39 @@ def api_role_analysis_create():
             duration_minutes=_duree_ligne_role(ln)
         ))
     db.session.commit()
-    return jsonify({"ok": True, "id": R.id})
+    return jsonify({"ok": True, "id": R.id, "periode": R.periode})
 
-def _line_duration(l):
+def _line_duration(l, durees=None):
+    """La duree d'une ligne de role, en minutes.
+
+    ⚠️ `durees` est un cache {activity_id: minutes} : sans lui, le repli sur
+    la fiche de l'activite fait UNE REQUETE PAR LIGNE. Lu en boucle sur tous
+    les roles de l'entreprise (page RH, `Code/charge_travail.py`), cela
+    grandissait avec l'effectif — le defaut qui mettait le tableau des
+    competences a deux minutes et demie.
+    """
     if getattr(l, 'duration_minutes', None):
         return float(l.duration_minutes or 0)
+    if durees is not None:
+        return float(durees.get(l.activity_id, 0) or 0)
     return activity_duration_minutes(l.activity_id)
 
-def _role_summary(R):
-    sum_day = sum(_line_duration(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('jour'))
-    sum_week = sum(_line_duration(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('hebdo'))
-    sum_month = sum(_line_duration(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('mens'))
-    sum_year = sum(_line_duration(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('ann'))
+def _role_summary(R, params=None, durees=None):
+    """Le poids annuel d'une analyse de role, et ses sommes par rythme.
 
-    p = get_calendar_params()
+    ⚠️ UNE seule implementation : l'onglet Role, le tableau de bord, la page
+    RH et l'apercu du navigateur s'y referent tous. `params` et `durees`
+    permettent de l'appeler EN BLOC sans refaire une requete par appel —
+    jamais d'en ecrire une seconde version pour aller plus vite.
+    """
+    def _d(l):
+        return _line_duration(l, durees)
+    sum_day = sum(_d(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('jour'))
+    sum_week = sum(_d(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('hebdo'))
+    sum_month = sum(_d(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('mens'))
+    sum_year = sum(_d(l) * max(1, l.frequency) for l in R.lines if l.recurrence.startswith('ann'))
+
+    p = params or get_calendar_params()
     # Une seule regle (`annuel_minutes`) : elle etait reecrite ici ET dans le
     # navigateur, et le tableau de bord en aurait fait une troisieme.
     annual = (annuel_minutes(sum_day, 'journalier', p)
@@ -806,6 +848,7 @@ def api_role_analysis_read_patch_delete(rid):
             R.name = new_name
         if data.get('role_id'):
             R.role_id = int(data['role_id'])
+        R.periode = periode_posee(data, R.periode)
         # Le renommage seul reste possible : `lines` absent ne touche à rien.
         lignes = data.get('lines')
         # ⚠️ Mais une liste VIDE viderait l'analyse, qui disparaitrait alors
@@ -829,7 +872,7 @@ def api_role_analysis_read_patch_delete(rid):
                     frequency=int(ln.get('frequency') or 1),
                     duration_minutes=_duree_ligne_role(ln)))
         db.session.commit()
-        return jsonify({"ok": True, "id": R.id, "name": R.name})
+        return jsonify({"ok": True, "id": R.id, "name": R.name, "periode": R.periode})
     if request.method == 'DELETE':
         db.session.delete(R)
         db.session.commit()
@@ -849,7 +892,7 @@ def api_role_analysis_read_patch_delete(rid):
         })
     return jsonify({
         "ok": True,
-        "role": {"id": R.id, "role_id": R.role_id, "name": R.name, "created_at": R.created_at.isoformat() if hasattr(R, "created_at") and R.created_at else None},
+        "role": {"id": R.id, "role_id": R.role_id, "name": R.name, "periode": R.periode, "created_at": R.created_at.isoformat() if hasattr(R, "created_at") and R.created_at else None},
         "lines": rows,
         "summary": _role_summary(R)
     })
@@ -866,6 +909,7 @@ def api_role_analyses_list():
             "role_id": R.role_id,
             "role": Role.query.get(R.role_id).name if R.role_id else "",
             "name": getattr(R, "name", "Analyse rôle"),
+            "periode": R.periode,
             "created_at": R.created_at.isoformat() if hasattr(R, "created_at") and R.created_at else None,
             **s
         })
@@ -899,6 +943,7 @@ def api_weakness():
     rec = (d.get('recurrence') or 'journalier').strip().lower()
     freq = int(d.get('frequency') or 1)
     weakness_txt = (d.get('weakness') or '').strip()
+    per = periode_posee(d)
     save = bool(d.get('save'))
 
     L_qty = to_minutes(d.get('L_work_added', 0), d.get('L_unit') or 'minutes')
@@ -936,7 +981,7 @@ def api_weakness():
                     work_added_qty=L_qty, work_added_unit='minutes',
                     wait_added_qty=M_qty, wait_added_unit='minutes',
                     prob_denom=_denom_depuis_pct(pct, N_denom),
-                    prob_percent=pct, created_at=datetime.utcnow()
+                    prob_percent=pct, periode=per, created_at=datetime.utcnow()
                 ))
             db.session.add(TimeWeakness(
                 activity_id=activity_id, task_id=None,
@@ -945,7 +990,7 @@ def api_weakness():
                 work_added_qty=L_qty, work_added_unit='minutes',
                 wait_added_qty=M_qty, wait_added_unit='minutes',
                 prob_denom=_denom_depuis_pct(pct, N_denom),
-                prob_percent=pct, created_at=datetime.utcnow()
+                prob_percent=pct, periode=per, created_at=datetime.utcnow()
             ))
         else:
             db.session.add(TimeWeakness(
@@ -955,7 +1000,7 @@ def api_weakness():
                 work_added_qty=L_qty, work_added_unit='minutes',
                 wait_added_qty=M_qty, wait_added_unit='minutes',
                 prob_denom=_denom_depuis_pct(pct, N_denom),
-                prob_percent=pct, created_at=datetime.utcnow()
+                prob_percent=pct, periode=per, created_at=datetime.utcnow()
             ))
         db.session.commit()
 
@@ -963,6 +1008,7 @@ def api_weakness():
         "ok": True,
         "mode": mode,
         "activity_id": activity_id,
+        "periode": per,
         # ⚠⚠ `cout_faiblesse` TEL QUEL, jamais une liste de cles recopiee.
         # L'autre route (`/api/weakness/<id>`) le renvoie ainsi : une liste
         # figee ici fait que les deux routes rendent un `calc` de forme
@@ -1014,6 +1060,7 @@ def api_weakness_read(wid):
             "M_wait_added": to_minutes(w.wait_added_qty, w.wait_added_unit),
             "N_prob_denom": int(w.prob_denom or 1),
             "N_prob_pct": _pct_stocke(w),
+            "periode": w.periode,
             "tasks": taches,
         },
         "calc": cout_faiblesse(w.duration_std_minutes, w.delay_std_minutes,
@@ -1066,6 +1113,7 @@ def api_weakness_update(wid):
     w.wait_added_unit = 'minutes'
     w.prob_denom = _denom_depuis_pct(pct, max(1, int(d.get('N_prob_denom') or 1)))
     w.prob_percent = pct
+    w.periode = periode_posee(d, w.periode)
 
     if mode == 'tasks':
         for t in taches:
@@ -1079,11 +1127,11 @@ def api_weakness_update(wid):
                 work_added_qty=L, work_added_unit='minutes',
                 wait_added_qty=M, wait_added_unit='minutes',
                 prob_denom=w.prob_denom, prob_percent=w.prob_percent,
-                created_at=datetime.utcnow()))
+                periode=w.periode, created_at=datetime.utcnow()))
 
     db.session.commit()
     return jsonify({
-        "ok": True, "id": w.id,
+        "ok": True, "id": w.id, "periode": w.periode,
         "calc": cout_faiblesse(B, C, w.recurrence, w.frequency, L, M,
                                w.prob_denom, pct_proba=pct),
         "params": get_calendar_params(),
@@ -1145,6 +1193,7 @@ def api_tableau_de_bord():
                 "recurrence": x.recurrence,
                 "frequence": int(x.frequency or 1),
                 "personnes": int(x.nb_people or 1),
+                "periode": x.periode,
                 "par_periode_min": par_periode,
                 "annuel_min": annuel_minutes(par_periode, x.recurrence, params),
             })
@@ -1166,6 +1215,7 @@ def api_tableau_de_bord():
             "role_id": R.role_id,
             "role": role.name if role else "",
             "nom": getattr(R, "name", None) or "",
+            "periode": R.periode,
             "n_activites": len(lignes),
             "annuel_min": resume["annual_minutes"],
             "mensuel_min": resume["monthly_minutes"],
@@ -1190,6 +1240,7 @@ def api_tableau_de_bord():
                 "activity_id": w.activity_id,
                 "activite": noms.get(w.activity_id, ""),
                 "nom": (w.weakness or "").strip(),
+                "periode": w.periode,
                 "recurrence": w.recurrence,
                 "occurrences": m["AA"],
                 "travail_annuel_min": m["U"],
@@ -1211,6 +1262,7 @@ def api_tableau_de_bord():
         projets.append({
             "id": p.id,
             "nom": p.name or "",
+            "periode": p.periode,
             "n_activites": len(p.lines),
             "charge_min": sum(float(ln.duration_minutes) * max(1, ln.nb_people) for ln in p.lines),
             "duree_min": sum(float(ln.duration_minutes) for ln in p.lines),

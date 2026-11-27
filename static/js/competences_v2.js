@@ -433,7 +433,10 @@
       plan_none_t: 'Aucun écart sur ce rôle',
       plan_none_d: "Le niveau requis est tenu partout : il n'y a rien à combler.",
       plan_empty_t: 'Pas encore de plan',
-      plan_empty_d: "Partez d'une proposition, puis ajustez les charges et les curseurs jusqu'à ce que le plan tienne dans le temps disponible.",
+      plan_empty_1: "1 activité en écart sur ce rôle : il y a de quoi bâtir un parcours.",
+      plan_empty_n: "[[n]] activités en écart sur ce rôle : il y a de quoi bâtir un parcours.",
+      plan_empty_how: "L'IA lit ces écarts et propose un parcours. Rien n'est enregistré sans vous.",
+      plan_gen_l: "L'IA lit les écarts de ce rôle et bâtit un parcours…",
       plan_propose: 'Proposer un plan', plan_repropose: 'Proposer à nouveau',
       plan_save: 'Enregistrer le plan', plan_saved: 'Plan enregistré',
       plan_hours_week: 'Heures par semaine', plan_weeks: 'Durée visée',
@@ -860,7 +863,10 @@
       plan_none_t: 'No gap on this role',
       plan_none_d: 'The required level is met everywhere: there is nothing to close.',
       plan_empty_t: 'No plan yet',
-      plan_empty_d: 'Start from a proposal, then adjust the workloads and the sliders until the plan fits the time available.',
+      plan_empty_1: '1 activity in gap on this role — there is material for a path.',
+      plan_empty_n: '[[n]] activities in gap on this role — there is material for a path.',
+      plan_empty_how: 'AI reads these gaps and proposes a path. Nothing is saved without you.',
+      plan_gen_l: 'AI is reading this role\u2019s gaps and building a path\u2026',
       plan_propose: 'Propose a plan', plan_repropose: 'Propose again',
       plan_save: 'Save plan', plan_saved: 'Plan saved',
       plan_hours_week: 'Hours per week', plan_weeks: 'Target duration',
@@ -3367,32 +3373,32 @@
     else chargerSynthese();
   }
 
-  function renderPlan() {
-    const p = state.plan;
-    const z = $('#cv2-ecran-plan');
-    z.classList.add('pl');
-    const tete = `<div class="pl-nuit"><div class="pl-h">
+  // ⚠️ L'en-tête est le MÊME dans les TROIS états de l'écran — le plan,
+  // l'écran vide, l'attente de l'IA. Écrit trois fois, il finirait par
+  // diverger ; et c'est lui qui dit de qui et de quel rôle on parle.
+  function teteDuPlan() {
+    return `<div class="pl-nuit"><div class="pl-h">
           <button type="button" class="ev-retour" data-pl-retour>
             <i class="fa-solid fa-chevron-left"></i>${esc(T('plan_retour'))}</button>
           <div class="pl-ch"><b>${esc(state.cibleNom || '')}</b><i>→</i>
             <b>${esc(state.roleName || '')}</b><i>→</i>
             <span>${esc(T('plan_title'))}</span></div>
         </div>`;
-    const brancherRetour = () => {
-      const b = z.querySelector('[data-pl-retour]');
-      if (b) b.onclick = retourDuPlan;
-    };
+  }
+  function brancherRetourDuPlan(z) {
+    const b = z.querySelector('[data-pl-retour]');
+    if (b) b.onclick = retourDuPlan;
+  }
+
+  function renderPlan() {
+    const p = state.plan;
+    const z = $('#cv2-ecran-plan');
+    z.classList.add('pl');
+    const tete = teteDuPlan();
+    const brancherRetour = () => brancherRetourDuPlan(z);
 
     if (!p.activites.length || !p.actions.length) {
-      const vide = p.activites.length
-        ? `<div class="cv2-ia-t">${esc(T('plan_empty_t'))}</div>
-           <div style="margin-top:6px;max-width:520px;margin-left:auto;margin-right:auto">
-             ${esc(T('plan_empty_d'))}</div>`
-        : `<div class="cv2-ia-t">${esc(T('plan_none_t'))}</div>
-           <div style="margin-top:6px">${esc(T('plan_none_d'))}</div>`;
-      z.innerHTML = tete + '</div>'
-        + `<div class="pl-bloc" style="margin-top:18px"><div class="cv2-plan-vide">${vide}</div></div>`
-        + (p.activites.length ? pied() : '');
+      z.innerHTML = tete + '</div>' + blocVide();
       brancherRetour();
       brancherPied(z);
       return;
@@ -3419,6 +3425,63 @@
     brancherPied(z);
     renderActions(true);
     recalculer();
+  }
+
+  /* ⚠️ « Aucun plan n'existe encore » et « vous ne pouvez rien faire ici »
+     se ressemblaient : un texte GRIS centré, et la seule porte était une
+     pastille discrète au fond d'un pied de page. L'invitation porte donc
+     l'action EN PLEIN, avec de quoi partir sous les yeux — les activités en
+     écart et leur écart, qui prouvent qu'il y a matière.
+     ⚠️ Et une seule porte : le pied ne redit pas le bouton (il n'est pas
+     rendu dans cet état, sa ligne de provenance ne décrirait rien). */
+  function blocVide() {
+    const p = state.plan;
+    if (!p.activites.length) {
+      return `<div class="pl-bloc pl-vide"><div class="pl-vide-c">
+          <span class="pl-vide-i pl-vide-i--ok"><i class="fa-solid fa-circle-check"></i></span>
+          <b>${esc(T('plan_none_t'))}</b>
+          <p>${esc(T('plan_none_d'))}</p>
+        </div></div>`;
+    }
+    const n = p.activites.length;
+    const chips = p.activites.slice(0, 4).map(a =>
+      `<span class="pl-vide-ch">${esc(court(a.activity_name))}
+         <u>${esc(String(a.gap).replace('-', MOINS))}</u></span>`).join('')
+      + (n > 4 ? `<span class="pl-vide-ch pl-vide-ch--p">+${n - 4}</span>` : '');
+    return `<div class="pl-bloc pl-vide"><div class="pl-vide-c">
+        <span class="pl-vide-i"><i class="fa-solid fa-route"></i></span>
+        <b>${esc(T('plan_empty_t'))}</b>
+        <p>${esc(nf('plan_empty', n))}</p>
+        <div class="pl-vide-chs">${chips}</div>
+        <button type="button" class="pl-go" data-pl-prop id="cv2-plan-prop">
+          <span class="pl-go-i"><i class="fa-solid fa-wand-magic-sparkles"></i></span>
+          ${esc(T('plan_propose'))}</button>
+        <div class="pl-vide-h">${esc(T('plan_empty_how'))}</div>
+      </div></div>`;
+  }
+
+  /* ⚠️ L'appel IA dure trois secondes, et le bouton se contentait de passer
+     en « Génération… » : rien ne bougeait, et on cliquait une seconde fois.
+     L'attente est donc le SQUELETTE de la frise — les segments se remplissent
+     de gauche à droite dans les trois couleurs de nature : on voit ce qu'on
+     attend, au lieu d'une roue qui pourrait tourner pour n'importe quoi.
+     ⚠️ L'en-tête de nuit RESTE : sans lui on perd la personne et son rôle,
+     et l'écran a l'air d'avoir changé de sujet. */
+  function renderAttenteIA() {
+    const z = $('#cv2-ecran-plan'); if (!z) return;
+    z.classList.add('pl');
+    const larg = [26, 14, 20, 11, 17, 12];
+    const nat = ['t', 'a', 'f', 't', 'a', 'f'];
+    const seg = larg.map((w, i) =>
+      `<span class="pl-att-s ${nat[i]}" style="width:${w}%;--i:${i}"></span>`).join('');
+    // ⚠️ On REBÂTIT l'en-tête : garder celui en place laissait la frise de
+    // l'ANCIEN plan sous les yeux pendant qu'on en calculait un autre.
+    z.innerHTML = teteDuPlan() + '</div>'
+      + `<div class="pl-bloc pl-att"><div class="pl-att-c">
+           <div class="pl-att-fr">${seg}</div>
+           <div class="pl-att-l"><span class="pl-att-d"></span>${esc(T('plan_gen_l'))}</div>
+         </div></div>`;
+    brancherRetourDuPlan(z);
   }
 
   function pied() {
@@ -3826,13 +3889,17 @@
 
   async function proposerPlan() {
     const btn = $('#cv2-plan-prop');
-    if (btn) { btn.disabled = true; btn.textContent = T('gen'); }
+    if (btn) btn.disabled = true;
+    renderAttenteIA();
     const r = await api('/plan/proposer', {
       method: 'POST',
       body: JSON.stringify({ user_id: state.cible, role_id: state.roleId,
                              parametres: state.plan.parametres }),
     });
-    if (r.__error) { if (btn) { btn.disabled = false; btn.textContent = T('plan_propose'); } return; }
+    // ⚠️ Un échec repasse par la page ENTIÈRE : l'attente a effacé ce qu'il y
+    // avait, et laisser le squelette à l'écran serait annoncer un plan qui ne
+    // vient pas.
+    if (r.__error) { renderPlan(); return; }
     state.plan.activites = r.activites || state.plan.activites;
     state.plan.actions = ordonner(r.actions || []);
     state.plan.source = r.source === 'AI' ? 'AI' : 'LOCAL';

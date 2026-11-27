@@ -136,9 +136,15 @@ with app.app_context():
     db.session.commit()
 
     # Deux analyses de rôle : celle de l'Acheteur déborde le temps plein.
+    # ⚠️ Deux PÉRIODES différentes, et plus bas des analyses SANS période :
+    # une analyse de temps décrit un mois, et l'écran doit savoir montrer les
+    # deux états — avec son mois, et sans (les lignes d'avant la colonne).
+    from Code.periode import mois_courant
+    MOIS = {acheteur.id: mois_courant(), appro.id: "2026-09"}
     for role, bornes, nom in ((acheteur, (0, 8), "Charge d'un acheteur"),
                               (appro, (8, 12), "Charge d'un approvisionneur")):
-        R = TimeRoleAnalysis(role_id=role.id, name=nom, created_at=datetime.utcnow())
+        R = TimeRoleAnalysis(role_id=role.id, name=nom, created_at=datetime.utcnow(),
+                             periode=MOIS[role.id])
         db.session.add(R)
         db.session.flush()
         for i in range(*bornes):

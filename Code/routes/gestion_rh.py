@@ -655,6 +655,29 @@ def api_tableau():
 #  Les compétences de tout le monde, sur toutes les cartos
 # ═══════════════════════════════════════════════════════════════════════════
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  LA CHARGE DE TRAVAIL : le poids des rôles, celui des personnes, le plafond
+# ═══════════════════════════════════════════════════════════════════════════
+
+@gestion_rh_bp.route('/api/charge')
+def api_charge():
+    """Le poids de chaque rôle et de chaque personne, pour un mois.
+
+    ⚠️ La même porte que la page (`can_access_rh`) : le `before_request` du
+    blueprint ne ferme que les ÉCRITURES, et ce tableau nomme la charge de
+    chacun — ce n'est pas une lecture publique.
+    """
+    from Code.charge_travail import charge
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if moi is None:
+        return jsonify({'error': 'Non connecté'}), 401
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé', 'code': 'lecture_seule'}), 403
+    return jsonify(charge(request.args.get('periode') or None))
+
+
 @gestion_rh_bp.route('/api/competences')
 def api_competences():
     """Le tableau global : chaque personne × chacun de ses rôles.

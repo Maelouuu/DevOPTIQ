@@ -93,6 +93,33 @@
       <div class="grh-block-body" id="rhc-corps"></div>
     </section>
 
+    <!-- ④ LA CHARGE DE TRAVAIL ───────────────────────────────────────
+         ⚠️ Un DAMIER rôle × cartographie : la comparaison « pour un même rôle,
+         quelle carto demande quoi » se lit EN LIGNE, et la couleur donne
+         l'ordre de grandeur sans qu'on lise un chiffre.
+         ⚠️ Les colonnes sont les cartos RÉELLEMENT mesurées ce mois-là, jamais
+         toutes les entités : sur le pilote, neuf rôles pour trois cartos
+         laisseraient les deux tiers des cases vides, et un damier creux se lit
+         comme un tableau cassé. Les rôles sans mesure sortent de la matrice —
+         ils n'ont rien à y mettre — et se rangent dessous avec le mois où ils
+         l'ont été pour la dernière fois.
+         ⚠️ Indépendant de la carto choisie en haut de page, comme le bloc ③ :
+         celle-ci cadre ce qu'on RÈGLE, ce tableau sert à VOIR. -->
+    <section class="grh-block" id="bloc-charge">
+      <header class="grh-block-head">
+        <span class="grh-block-num">4</span>
+        <div class="grh-block-titles">
+          <h2>{{ t('rh.ch_title') }}</h2>
+          <p>{{ t('rh.ch_sub') }}</p>
+        </div>
+        <div class="grh-block-tools">
+          <label class="grh-ch-per" for="ch-periode">{{ t('rh.ch_month') }}</label>
+          <select id="ch-periode" class="grh-select"></select>
+        </div>
+      </header>
+      <div class="grh-block-body" id="ch-corps"></div>
+    </section>
+
     <!-- ⚠️ « Ce que chaque palier ouvre » vit désormais sur la page Comptes :
          on y donne les statuts, on doit y lire ce qu'ils ouvrent. -->
 
@@ -118,6 +145,27 @@
         <input type="search" id="grh-modal-q" placeholder="{{ t('rh.search_placeholder') }}">
       </div>
       <div class="grh-modal-body" id="grh-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- La charge d'une personne, en détail. ⚠️ Une fenêtre À PART de
+       `#grh-modal` : celle-ci sert aux deux sens d'une même relation (un rôle
+       ↔ ses titulaires), et porte un champ de recherche. La charge n'est pas
+       cette relation, c'est une mesure — et elle se regarde, elle ne se
+       coche pas. -->
+  <div id="grh-ch-win" class="grh-ch-win hidden">
+    <div class="grh-modal-backdrop" id="grh-ch-fond"></div>
+    <div class="grh-ch-box">
+      <header class="grh-ch-head">
+        <div>
+          <h3 id="grh-ch-titre">—</h3>
+          <p id="grh-ch-sous"></p>
+        </div>
+        <button class="grh-ch-x" id="grh-ch-x" aria-label="{{ t('btn.close') }}">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </header>
+      <div class="grh-ch-body" id="grh-ch-body"></div>
     </div>
   </div>
 
@@ -149,6 +197,7 @@
       st_admin:        {{ t('account.status_admin') | tojson }},
       col_roles:       {{ t('rh.col_roles') | tojson }},
       dev_label:       {{ t('rh.dev_label') | tojson }},
+      charge_label:    {{ t('rh.tile_charge') | tojson }},
       dev_none:        {{ t('rh.dev_none') | tojson }},
       dev_no_candidate: {{ t('rh.dev_no_candidate') | tojson }},
       dev_badge:       {{ t('rh.dev_badge') | tojson }},
@@ -239,7 +288,65 @@
       leg_tick:       {{ t('rh.comp_leg_tick') | tojson }},
     };
   </script>
+  <script>
+    /* ⚠️ `| tojson`, jamais une traduction entre guillemets dans un script.
+       ⚠️ Et l'accesseur rend la CLÉ quand elle manque (jamais un repli
+       français en dur) : un repli ne se voit pas, et c'est ce que le pilote
+       anglophone a signalé. */
+    window.RHCH_I18N = {
+      lang:             {{ session.get('lang', 'fr') | tojson }},
+      loading:          {{ t('rh.loading') | tojson }},
+      err:              {{ t('rh.comp_err') | tojson }},
+      cancel:           {{ t('btn.cancel') | tojson }},
+      ch_title:         {{ t('rh.ch_title') | tojson }},
+      ch_sub:           {{ t('rh.ch_sub') | tojson }},
+      ch_month:         {{ t('rh.ch_month') | tojson }},
+      ch_role:          {{ t('rh.ch_role') | tojson }},
+      ch_total:         {{ t('rh.ch_total') | tojson }},
+      ch_holders:       {{ t('rh.ch_holders') | tojson }},
+      ch_av:            {{ t('rh.ch_av') | tojson }},
+      ch_tile_mes:      {{ t('rh.ch_tile_mes') | tojson }},
+      ch_tile_over:     {{ t('rh.ch_tile_over') | tojson }},
+      ch_tile_no:       {{ t('rh.ch_tile_no') | tojson }},
+      ch_roles_1:       {{ t('rh.ch_roles_1') | tojson }},
+      ch_roles_n:       {{ t('rh.ch_roles_n') | tojson }},
+      ch_etp_1:         {{ t('rh.ch_etp_1') | tojson }},
+      ch_etp_n:         {{ t('rh.ch_etp_n') | tojson }},
+      ch_pers_1:        {{ t('rh.ch_pers_1') | tojson }},
+      ch_pers_n:        {{ t('rh.ch_pers_n') | tojson }},
+      ch_pers_0:        {{ t('rh.ch_pers_0') | tojson }},
+      ch_nb_roles_1:    {{ t('rh.ch_nb_roles_1') | tojson }},
+      ch_nb_roles_n:    {{ t('rh.ch_nb_roles_n') | tojson }},
+      ch_acts_1:        {{ t('rh.ch_acts_1') | tojson }},
+      ch_acts_n:        {{ t('rh.ch_acts_n') | tojson }},
+      ch_nomes:         {{ t('rh.ch_nomes') | tojson }},
+      ch_last:          {{ t('rh.ch_last') | tojson }},
+      ch_never:         {{ t('rh.ch_never') | tojson }},
+      ch_nomes_zone:    {{ t('rh.ch_nomes_zone') | tojson }},
+      ch_legend:        {{ t('rh.ch_legend') | tojson }},
+      ch_full:          {{ t('rh.ch_full') | tojson }},
+      ch_pct_full:      {{ t('rh.ch_pct_full') | tojson }},
+      ch_cal:           {{ t('rh.ch_cal') | tojson }},
+      ch_empty:         {{ t('rh.ch_empty') | tojson }},
+      ch_empty_d:       {{ t('rh.ch_empty_d') | tojson }},
+      ch_empty_go:      {{ t('rh.ch_empty_go') | tojson }},
+      ch_hours:         {{ t('rh.ch_hours') | tojson }},
+      ch_load:          {{ t('rh.ch_load') | tojson }},
+      ch_plus_nomes_1:  {{ t('rh.ch_plus_nomes_1') | tojson }},
+      ch_plus_nomes_n:  {{ t('rh.ch_plus_nomes_n') | tojson }},
+      ch_only_nomes:    {{ t('rh.ch_only_nomes') | tojson }},
+      ch_no_role:       {{ t('rh.ch_no_role') | tojson }},
+      ch_pop_sub:       {{ t('rh.ch_pop_sub') | tojson }},
+      ch_pop_roles:     {{ t('rh.ch_pop_roles') | tojson }},
+      ch_ceiling:       {{ t('rh.ch_ceiling') | tojson }},
+      ch_warn_t:        {{ t('rh.ch_warn_t') | tojson }},
+      ch_warn_d:        {{ t('rh.ch_warn_d') | tojson }},
+      ch_warn_ok:       {{ t('rh.ch_warn_ok') | tojson }},
+      ch_warn_already:  {{ t('rh.ch_warn_already') | tojson }},
+    };
+  </script>
   <script src="{{ url_for('static', filename='js/gestion_rh.js') }}"></script>
   <script src="{{ url_for('static', filename='js/rh_competences.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/rh_charge.js') }}"></script>
 </body>
 </html>

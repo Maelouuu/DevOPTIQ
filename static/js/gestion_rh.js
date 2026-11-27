@@ -279,6 +279,16 @@
     });
   }
 
+  /* ⚠️ La CHARGE DE TRAVAIL est rendue par `rh_charge.js` : la cellule
+     `.grh-person-ch` naît VIDE et il la remplit, dans les deux sens — à
+     chaque rendu de cette liste (l'événement `grh:personnes` émis à la fin)
+     et dès que sa lecture arrive. Aucun des deux fichiers n'attend l'autre,
+     et celui-ci n'a pas à connaître le calcul de la charge.
+
+     ⚠️⚠️ Et le commentaire vit ICI, pas dans le littéral de gabarit : un
+     BACKTICK y fermerait la chaîne, et le fichier ne se compile plus (vu).
+     Un commentaire qui cite un nom de fichier en citant du code n'a donc
+     rien à faire entre deux backticks de gabarit. */
   function rendrePersonnes() {
     const gens = personnesVisibles();
     if (!gens.length) {
@@ -313,12 +323,16 @@
           <span class="grh-col-label">${esc(L('dev_label'))}</span>
           ${boutonDev(p, devs, peut)}
         </div>
+        <div class="grh-person-ch" data-ch="${p.id}">
+          <span class="grh-col-label">${esc(L('charge_label'))}</span>
+        </div>
       </article>`).join('')}</div>`;
 
     document.querySelectorAll('[data-roles]').forEach((b) =>
       b.addEventListener('click', () => ouvrirPersonne(parseInt(b.dataset.roles, 10))));
     document.querySelectorAll('.grh-devpick').forEach((b) =>
       b.addEventListener('click', (e) => { e.stopPropagation(); ouvrirMenuDev(b); }));
+    document.dispatchEvent(new CustomEvent('grh:personnes'));
   }
 
   /* ⚠️ Ce que dit l'écran doit être ce que dit le DROIT. `encadre()` lit les
@@ -907,6 +921,13 @@
     document.querySelectorAll('.grh-pick').forEach((el) =>
       el.addEventListener('change', () => {
         const [u, r] = el.dataset.paire.split(':').map(Number);
+        /* ⚠️ Une PRÉVENTION, jamais un refus : si l'ajout de ce rôle fait
+           passer la personne au-delà des 80 % du temps travaillé de l'année,
+           `rh_charge.js` déplie l'avertissement DANS la ligne et prend la
+           main — il rappellera `majLien` si l'on valide quand même. Il rend
+           `false` quand il n'y a rien à dire, et l'ajout part aussitôt. */
+        if (el.checked && window.RHCharge
+            && window.RHCharge.avertir(u, r, el, () => majLien(u, r, true))) return;
         majLien(u, r, el.checked);
       }));
     document.querySelectorAll('.grh-devpick[data-role]').forEach((b) =>
@@ -991,6 +1012,9 @@
         ajouter ? { add: [userId] } : { remove: [userId] });
       if (data.error) { toast(data.error, 'error'); return; }
       await charger({ discret: true });
+      // Le poids de la personne vient de changer : la section ④ et sa
+      // cellule disent sinon la charge d'avant l'affectation.
+      if (window.RHCharge) window.RHCharge.recharger();
     } catch (_) { toast(L('save_error'), 'error'); }
   }
 

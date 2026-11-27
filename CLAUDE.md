@@ -11993,6 +11993,241 @@ sa voie **0 px**, **zéro fuite française** sur l'écran anglais (176 textes
 relevés, attributs compris), zéro clé brute, zéro débordement horizontal, zéro
 erreur console.
 
+### LA CHARGE DE TRAVAIL : le mois d'une analyse, et le damier de la page RH (2026-11-28)
+
+Trois demandes d'un coup : rendre VISIBLE le « Proposer un plan » quand il n'y
+a pas encore de plan, montrer que l'IA tourne, et surtout — fonctionnalité
+neuve — dater les analyses de temps pour en tirer, page RH, le poids de chaque
+rôle et de chaque personne, avec un plafond de prévention.
+
+#### L'écran vide du plan invite, et l'attente se voit
+
+⚠️ **« Aucun plan n'existe encore » et « vous ne pouvez rien faire ici » se
+ressemblaient** : un texte GRIS centré (`.cv2-plan-vide`, `color: --muted`) et,
+pour toute porte, une pastille discrète au fond d'un pied de page.
+`blocVide()` porte donc l'action EN PLEIN — le rapport inversé déjà tranché sur
+les pages Temps et Carte, pastille pastel sur fond vif — avec **de quoi partir
+sous les yeux** : les activités en écart et leur écart, qui prouvent qu'il y a
+matière.
+- ⚠️ **Une seule porte** : le pied n'est pas rendu dans cet état (sa ligne de
+  provenance ne décrirait rien, et deux boutons pour un geste finissent par
+  diverger).
+- ⚠️ `plan_empty_d` parlait encore des **curseurs**, retirés le 27/11 : une clé
+  qu'on remplace, pas qu'on garde.
+
+⚠️ **L'appel IA dure trois secondes, et le bouton se contentait de passer en
+« Génération… »** : rien ne bougeait, et on cliquait une seconde fois.
+L'attente est le **SQUELETTE de la frise** — les segments se remplissent de
+gauche à droite dans les trois couleurs de nature : on voit ce qu'on attend, au
+lieu d'une roue qui pourrait tourner pour n'importe quoi. Rien ne clignote sous
+`prefers-reduced-motion`.
+- ⚠️ **L'en-tête est REBÂTI**, pas conservé : garder celui en place laissait la
+  frise de l'ANCIEN plan sous les yeux pendant qu'on en calculait un autre.
+  `teteDuPlan()` est donc écrit une fois pour les TROIS états (le plan, le
+  vide, l'attente) — trois copies finiraient par diverger, et c'est lui qui dit
+  de qui et de quel rôle on parle.
+- ⚠️ Un échec repasse par `renderPlan()` : laisser le squelette, c'est annoncer
+  un plan qui ne vient pas.
+
+#### LE MOIS d'une analyse de temps — `Code/periode.py`
+
+Une analyse de temps n'est pas vraie pour l'éternité : une charge fluctue, et
+un poids de rôle relevé en janvier ne dit rien de novembre. Les **quatre**
+analyses (projet, activité, rôle, faiblesse) portent donc le mois qu'elles
+décrivent.
+
+- **Format « YYYY-MM », VARCHAR(7)** : il se trie LEXICALEMENT (donc en SQL,
+  sans conversion) et traverse les deux dialectes tel quel. Un mois n'est pas
+  une date — stocker le 1er en TIMESTAMP inviterait à y lire un jour qui n'a
+  aucun sens ici.
+- ⚠️ **Jamais NULL après la reprise** : `periode_posee(d, actuelle)` pose le
+  mois COURANT à la création et garde celui EN PLACE à la modification. Une
+  analyse sans période ne figurerait dans aucun tableau par mois et
+  disparaîtrait de l'écran sans que personne ne l'ait retirée.
+- ⚠️ **`lire_periode` rend le DÉFAUT sur tout ce qui n'est pas un mois** : la
+  valeur vient du navigateur, et un mois inventé rangerait une analyse dans une
+  période qui n'existe pas.
+- **La reprise** (`reprendre_periodes`, au démarrage) pose la période des
+  lignes d'avant depuis `created_at`. Sans elle, chaque analyse déjà en base
+  sortirait de tous les tableaux par période, et le nouvel écran paraîtrait
+  vide sur une instance en service — ce qui se lit comme une perte de données.
+  ⚠️ **Aucun marqueur en base, et c'est voulu** : `periode IS NULL` la rend
+  idempotente par construction, et rien dans l'application ne peut ramener une
+  période à NULL. Contrairement à une reprise qui PROMEUT (`migrer_anciens_
+  champions`), elle n'a pas à se garder d'un second passage.
+  ⚠️ `TimeAnalysis` (l'analyse d'ACTIVITÉ) n'a pas de `created_at` : il n'y a
+  rien à en déduire, ses lignes d'avant restent sans période, et aucun écran ne
+  prétend le contraire.
+
+**Le champ vit dans la BANDE** du haut (`tm-periode-m` / `tm-periode-a`) :
+c'est une propriété de l'analyse ENTIÈRE, comme son nom, et la bande est le
+seul endroit commun aux quatre types — un champ dans chacun des quatre
+formulaires, c'étaient quatre occasions d'en oublier un.
+- ⚠️ **DEUX `<select>`, jamais un `<input type="month">`** : Firefox ne sait
+  pas le rendre et retombe sur un champ de texte où il faut taper « 2026-11 ».
+  Et un `<select>` de cette page est habillé par `tm_select.js` : il porte donc
+  le même panneau que ses voisins.
+- ⚠️ **En DERNIÈRE place** : posé avant le repère de modification, il glissait
+  de 180 px dès qu'on ouvrait une analyse.
+- ⚠️ Les noms de mois viennent d'`Intl`, dans la langue de la PAGE : douze clés
+  par langue dans le catalogue seraient douze occasions de divergence pour ce
+  qu'une bibliothèque standard fait déjà. ⚠️ Et l'année d'une analyse plus
+  ancienne que la plage offerte s'AJOUTE : sans cela, rouvrir une analyse de
+  2021 la rangerait en silence dans une année qui n'est pas la sienne.
+- ⚠️ On ne DÉPÊCHE pas `change` en posant la valeur : `tm_select.js` intercepte
+  `value` sur l'élément et recopie le libellé tout seul ; l'émettre réveillerait
+  les écouteurs des voisins (celui du rôle recharge ses lignes).
+- Le mois est la PREMIÈRE pastille des listes de l'accueil : c'est ce qui
+  distingue deux analyses du même rôle.
+
+#### ④ LA CHARGE DE TRAVAIL — `Code/charge_travail.py`
+
+**Tranché sur maquette** (artefact « Charge de travail RH », trois
+organisations à l'échelle réelle avec les chiffres sortis du calcul).
+L'utilisateur a retenu **le DAMIER** — contre ma recommandation, qui était le
+tableau à pistes segmentées — et **le poids d'un rôle porté EN ENTIER par
+chacun de ses titulaires**.
+
+**La règle, écrite une fois** : le poids d'une personne est la SOMME des poids
+de ses rôles, chacun en entier. ⚠️ On ne le DIVISE pas par le nombre de
+titulaires : le poids d'un rôle est le travail que ce rôle exige de qui le
+tient, et un partage serait une règle que rien dans l'application ne décide. La
+ligne du rôle affiche donc son nombre de titulaires — la question reste
+visible.
+
+**Le plafond est 80 % d'un temps plein** (`PART_PLAFOND`) : on ne planifie
+personne à 100 % de son année. C'est un plafond de PRÉVENTION — l'écran
+avertit, il ne refuse jamais : la décision d'affecter appartient à qui affecte.
+
+- ⚠️ **Tout est cadré par une PÉRIODE.** Un rôle sans analyse pour le mois
+  regardé est « non mesuré » — JAMAIS zéro — et l'écran dit en quel mois il l'a
+  été pour la dernière fois : « jamais pesé » et « pesé le mois dernier » ne se
+  corrigent pas de la même façon.
+- ⚠️ **Une mesure par (rôle, carto)** : deux analyses du même rôle sur la même
+  carto et le même mois sont deux TENTATIVES, pas deux charges — les
+  additionner compterait le travail deux fois. La plus récente l'emporte. Entre
+  CARTOS, en revanche, les poids s'additionnent : un rôle qui travaille dans
+  deux cartos porte bien les deux.
+- ⚠️ **L'entité d'une analyse se lit sur sa première ligne** : les lignes
+  viennent toutes de la même carto (`/temps/api/role_activities` les filtre sur
+  l'entité active). Une analyse bâtie autrement compterait pour sa première
+  carto — et comme l'écran NOMME l'entité, l'anomalie se voit.
+- ⚠️ **Le calendrier est celui de l'entité ACTIVE**, même quand le tableau
+  traverse plusieurs cartos : c'est celui avec lequel `_role_summary` annualise
+  déjà, donc les chiffres d'ici et ceux de la page Temps ne peuvent pas
+  diverger. L'écran nomme l'entité dont il lit le calendrier.
+- ⚠️ **`_role_summary` accepte désormais ses caches** (`params`, `durees`) : UNE
+  seule implémentation pour l'onglet Rôle, le tableau de bord et la page RH.
+  Jamais une seconde version pour aller plus vite.
+- ⚠️⚠️ **Le coût ne grandit pas avec l'effectif**, et il a fallu le mesurer :
+  `R.lines` est une relation PARESSEUSE, donc une requête par analyse — relevé
+  12 puis 16 requêtes pour quatre analyses de plus. `selectinload` la charge en
+  bloc, et `user_roles` n'est lue qu'une fois pour ses deux index. C'est le
+  défaut qui mettait le tableau des compétences à deux minutes et demie.
+- ⚠️ `GET /gestion_rh/api/charge` porte **sa propre garde** (`can_access_rh`) :
+  le `before_request` du blueprint ne ferme que les ÉCRITURES, et ce tableau
+  nomme la charge de chacun.
+
+**L'écran** (`rh_charge.js`, `#bloc-charge`) : un damier rôle × cartographie.
+La comparaison « pour un même rôle, qu'est-ce que chaque carto demande » se lit
+EN LIGNE, et la couleur donne l'ordre de grandeur sans qu'on lise un chiffre.
+
+- ⚠️ **Les COLONNES sont les cartos réellement mesurées ce mois-là**, jamais
+  toutes les entités. C'est le défaut mesuré du damier, et la raison pour
+  laquelle je ne le recommandais pas : neuf rôles pour trois cartos laisseraient
+  les deux tiers des cases vides, et un damier creux se lit comme un tableau
+  cassé. Les rôles SANS mesure sortent de la matrice — ils n'ont rien à y
+  mettre — et se rangent dessous, chacun avec son dernier mois.
+- ⚠️ **La couleur dit la part d'un TEMPS PLEIN, et la légende l'écrit** en
+  pourcentages réels : une échelle « léger → lourd » ne dirait pas combien de
+  personnes un rôle demande. Elle va du tilleul à la prune — la rampe sémantique
+  de l'application, et un rôle au-delà d'un temps plein demande VRAIMENT plus
+  d'une personne.
+- La colonne **Total** porte le chiffre ET l'image : une piste qui va jusqu'à
+  deux temps pleins, avec le trait du premier.
+- ⚠️ **La colonne des rôles est COLLÉE à gauche** : au-delà de trois ou quatre
+  cartos le damier défile, et sans elle on perd le nom de la ligne qu'on lit.
+- **L'anneau d'un titulaire dit SA charge totale** : pour un même rôle, c'est
+  ce qui permet de comparer ses tenants d'un coup d'œil — « qui performe ». Les
+  mêmes trois couleurs que les pastilles de pourcentage : un quatrième code
+  couleur sur le même écran ne se retiendrait pas.
+- ⚠️ **Aucun rôle pesé n'affiche PAS un damier à zéro colonne** : il resterait
+  trois en-têtes au-dessus de rien, ce qui se lit comme un tableau cassé — alors
+  que la vérité est « personne n'a encore pesé de rôle », et qu'elle a une
+  suite : la page Temps. Les rôles connus sont quand même listés dessous.
+
+**Dans la section ① des personnes** : une sixième colonne, la charge. Une jauge
+SEGMENTÉE par rôle avec le trait du plafond — la grammaire de la frise du plan
+de formation, pour la même question — et le nombre d'heures est un BOUTON qui
+ouvre le détail.
+- ⚠️ **La cellule naît VIDE et `rh_charge.js` la remplit**, dans les deux sens :
+  à chaque rendu de la liste (l'événement `grh:personnes`) et dès que sa lecture
+  arrive. Aucun des deux fichiers n'attend l'autre, et `gestion_rh.js` n'a pas à
+  connaître le calcul de la charge.
+- L'échelle de la jauge est la MÊME pour tout le monde (2,5 × le plafond) : des
+  jauges à l'échelle de chacun ne se compareraient pas.
+
+**L'avertissement du plafond** s'affiche DANS la ligne où l'on coche le rôle —
+une fenêtre par-dessus la fenêtre cacherait le chiffre qu'on vient lire pour
+décider (la règle des formulaires de la page Compétences). Il dit la charge
+avant, après, et le plafond ; « Ajouter quand même » rappelle `majLien`.
+
+#### ⚠️ Sept pièges, dont trois nouveaux
+
+- ⚠️⚠️ **Une propriété personnalisée ne descend qu'à ses DESCENDANTS.** La
+  rampe était déclarée sur `#bloc-charge` — or la cellule de charge vit dans le
+  bloc ① des personnes, et la fenêtre de détail comme l'avertissement vivent
+  hors de tout bloc. `var(--ch-rouge)` y était INVALIDE, donc transparent :
+  mesuré, la pastille d'alerte et le bouton « Ajouter quand même » étaient des
+  rectangles vides à texte blanc. C'est la famille de `--pg-accent-soft`, dans
+  l'autre sens — trop haut là-bas, trop bas ici.
+- ⚠️⚠️ **Un BACKTICK dans un commentaire HTML écrit à l'intérieur d'un littéral
+  de gabarit ferme la chaîne** : `gestion_rh.js` ne se compilait plus. Un
+  commentaire qui cite un nom de fichier n'a rien à faire entre deux backticks
+  de gabarit — il vit au-dessus de la fonction, en commentaire JS.
+- ⚠️⚠️ **Un défilement « doux » ne progresse pas dans le volet de mise au
+  point** — même famille que les transitions CSS figées en cours de route.
+  Mesuré : l'avertissement restait 102 px sous le bord. `behavior: 'instant'`,
+  et le signal reste la boîte rouge qui paraît, pas le mouvement.
+  ⚠️ Et `offsetTop` se mesure depuis l'`offsetParent`, pas depuis le conteneur
+  qui DÉFILE : on calcule par les rectangles.
+- ⚠️ **Une hauteur fixe sur une cellule de tableau déborde en SILENCE** : à
+  46 px, les trois étages de la colonne Total en demandaient 50, et les lignes
+  paraissaient décalées d'une demi-hauteur. `min-height` sur le bloc, et une
+  hauteur de 1 px sur la CELLULE pour rendre `height: 100%` résoluble.
+- ⚠️ **Le cliquet s'est attrapé sur son propre commentaire** — douzième
+  occurrence de cette famille : le contrôle qui interdit `type="month"` dans le
+  gabarit lisait l'explication qui cite cette forme. Les commentaires se
+  retirent AVANT la recherche, en HTML comme en CSS et en JS. ⚠️ Et une
+  TREIZIÈME dans la foulée : celui qui vérifie que la liste des personnes
+  prévient par un événement cherchait le NOM de l'événement, qui figure aussi
+  dans le commentaire expliquant la couture — il est resté VERT sur le défaut
+  remis. On vise l'appel, jamais le nom.
+- ⚠️⚠️ **Une règle non-média écrase un repli déclaré PLUS HAUT.** La carte
+  d'une personne passe à six colonnes dans la section neuve, posée à la fin de
+  la feuille — et le `@media (max-width: 900px)` qui la remet sur deux colonnes
+  est déclaré neuf cents lignes avant : à spécificité égale, c'est la dernière
+  déclaration qui gagne, donc la carte débordait aussi en étroit. Le repli est
+  REDIT après. Même famille que « remplacer une passe de style emporte aussi sa
+  mise en page », déjà payée deux fois sur la page Carte.
+
+Tests : `tests/test_171_charge_travail.py` (44 cas, NEUF) ; **28 défauts remis
+un par un**. Banc : `tools/devrun_charge.py` (port 8142) sème tous les états en
+même temps — un rôle mesuré dans DEUX cartos, un qui dépasse le temps plein,
+un mesuré le mois dernier seulement, un jamais mesuré, une personne au-delà du
+plafond, une dont le seul rôle n'est pas mesuré, et deux périodes.
+Éprouvé à l'écran de 1 200 à 1 600 px dans les deux langues : parcours complet
+(damier, pop-up de détail, avertissement, « Ajouter quand même » relu EN BASE —
+823 h / 63 % → 3 913 h / 297 %), **zéro fuite française sur l'écran anglais**
+(401 textes relevés, attributs compris), zéro débordement horizontal, zéro
+erreur console.
+
+**Reste, et c'est une décision** : « qui performe » se lit entre CARTOS, pas
+entre personnes — `user_roles` est global et ne dit pas dans quelle carto
+quelqu'un tient son rôle. Le damier compare donc les cartos et NOMME les
+titulaires ; attribuer une carto à un titulaire demanderait une colonne de plus
+sur `user_roles`.
+
 ---
 
 ## Notes importantes (suite)

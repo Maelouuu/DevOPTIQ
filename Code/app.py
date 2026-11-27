@@ -711,6 +711,11 @@ def create_app(test_config=None):
         # La probabilité d'une faiblesse, en pourcentage (« 1 sur N » restait
         # écrit dans prob_denom pour les lectures anciennes)
         _safe_add_column("time_weakness", "prob_percent", "FLOAT")
+        # Le MOIS que chaque analyse de temps décrit (Code/periode.py) : une
+        # charge fluctue, et sans lui un poids de rôle ne se situe nulle part.
+        for _t in ("time_project", "time_analysis", "time_role_analysis",
+                   "time_weakness"):
+            _safe_add_column(_t, "periode", "VARCHAR(7)")
 
         # users.password : les hashes modernes (~162 car. en scrypt) dépassaient
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE
@@ -869,6 +874,20 @@ def create_app(test_config=None):
             print("[DB] Table notes_evaluation prête")
         except Exception as e:
             print(f"[DB] notes_evaluation check: {e}")
+
+        # ⚠️ Les analyses d'AVANT la colonne : sans cette reprise, chacune
+        # sortirait de tous les tableaux par période, et le nouvel écran
+        # paraîtrait vide sur une instance en service — ce qui se lit comme
+        # une perte de données. `created_at` n'est pas une devinette : c'est
+        # le mois où l'analyse a été enregistrée.
+        try:
+            from Code.periode import reprendre_periodes
+            reprises = reprendre_periodes()
+            if reprises:
+                print(f"[DB] {reprises} analyse(s) de temps : période reprise")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] reprise des périodes: {e}")
 
         try:
             from Code.historique_notes import reprendre_notes_existantes

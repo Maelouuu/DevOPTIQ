@@ -448,6 +448,7 @@
       M_wait_added: n('#fw-m'), M_unit: v('#fw-m-unit') || 'minutes',
       N_prob_pct: probaPct(),
       delay_std: n('#fw-del'), delay_unit: v('#fw-del-unit') || 'minutes',
+      periode: periodeLue(),
       save
     };
     if (mode === 'tasks') {
@@ -815,7 +816,8 @@
       delay_unit: tr.querySelector('.cell-deu select').value,
       nb_people: parseInt(tr.querySelector('.cell-nbp').value || '1', 10)
     }));
-    const payload = { name: $('#project-name').value || 'Projet', lines: rows };
+    const payload = { name: $('#project-name').value || 'Projet', lines: rows,
+                      periode: periodeLue() };
     const modif = edition && edition.type === 'projet';
     const r = await fetch(modif ? '/temps/api/project/' + edition.id : '/temps/api/project',
                           {method: modif ? 'PUT' : 'POST',
@@ -894,7 +896,8 @@
       duration_unit: v('#act-duration-unit'),
       recurrence: v('#act-recurrence'),
       frequency: parseInt(v('#act-frequency')||'1',10),
-      nb_people: parseInt(v('#act-people')||'1',10)
+      nb_people: parseInt(v('#act-people')||'1',10),
+      periode: periodeLue()
     };
 
     let j;
@@ -1085,6 +1088,7 @@
       // ⚠️ Le nom par défaut est ENREGISTRÉ : écrit en dur, il nommait
       //    « Analyse rôle » une analyse créée depuis l'écran anglais.
       name: $('#role-name').value || tl('role_analysis_defaut', ''),
+      periode: periodeLue(),
       lines
     };
     /* ⚠️ Une analyse sans ligne ne peut apparaître NULLE PART : le tableau de
@@ -1115,7 +1119,79 @@
   // =====================================================
   // =============== OUVRIR POUR MODIFIER ================
   // =====================================================
+  /* ══ LE MOIS ANALYSÉ ═══════════════════════════════════════════════════
+     ⚠️ Une analyse de temps n'est pas vraie pour l'éternité : une charge
+     fluctue, et un poids de rôle relevé en janvier ne dit rien de novembre.
+     Chaque analyse porte donc le mois qu'elle décrit — c'est lui qui permet
+     de lire un poids « en novembre » plutôt qu'un chiffre sans date.
+
+     ⚠️ DEUX `<select>` et pas un `<input type="month">` : Firefox ne sait pas
+     le rendre et retombe sur un champ de texte où il faut taper « 2026-11 ».
+     Et un `<select>` de cette page est habillé par `tm_select.js` : il porte
+     donc le même panneau que tous ses voisins.
+
+     ⚠️ Les noms de mois viennent d'`Intl`, dans la langue de la PAGE (jamais
+     celle du navigateur) : douze clés par langue dans le catalogue seraient
+     douze occasions de divergence pour ce qu'une bibliothèque standard fait
+     déjà. */
+  const PER_AVANT = 3, PER_APRES = 1;
+
+  function periodeLue(){
+    const m = $('#tm-periode-m'), a = $('#tm-periode-a');
+    if (!m || !a || !m.value || !a.value) return null;
+    return a.value + '-' + String(m.value).padStart(2, '0');
+  }
+
+  function remplirPeriode(annee){
+    const m = $('#tm-periode-m'), a = $('#tm-periode-a');
+    if (!m || !a) return;
+    const noms = new Intl.DateTimeFormat(L.lang === 'en' ? 'en-GB' : 'fr-FR',
+                                         { month: 'long' });
+    m.innerHTML = Array.from({ length: 12 }, (_, i) => {
+      const nom = noms.format(new Date(2026, i, 1));
+      return `<option value="${i + 1}">`
+        + echap(nom.charAt(0).toUpperCase() + nom.slice(1)) + '</option>';
+    }).join('');
+    const ici = new Date().getFullYear();
+    const ans = [];
+    for (let y = ici - PER_AVANT; y <= ici + PER_APRES; y++) ans.push(y);
+    /* ⚠️ L'année d'une analyse plus ancienne que la plage s'AJOUTE : sans
+       elle, rouvrir une analyse de 2021 la rangerait en silence dans une
+       année qui n'est pas la sienne. */
+    if (annee && ans.indexOf(annee) < 0) ans.push(annee);
+    ans.sort((x, y) => y - x);
+    a.innerHTML = ans.map(y => `<option value="${y}">${y}</option>`).join('');
+  }
+
+  function posePeriode(p){
+    const m = $('#tm-periode-m'), a = $('#tm-periode-a');
+    if (!m || !a) return;
+    const d = /^(\d{4})-(\d{1,2})/.exec(String(p || ''));
+    const now = new Date();
+    const an = d ? parseInt(d[1], 10) : now.getFullYear();
+    const mo = d ? parseInt(d[2], 10) : now.getMonth() + 1;
+    remplirPeriode(an);
+    /* ⚠️ On ne DÉPÊCHE pas `change` : `tm_select.js` intercepte `value` sur
+       l'élément et recopie le libellé tout seul. L'émettre réveillerait les
+       écouteurs des voisins (celui du rôle recharge ses lignes). */
+    a.value = String(an);
+    m.value = String(mo);
+  }
+
+  /* Le mois affiché dans les listes de l'accueil : « nov. 2026 ». */
+  function moisCourt(p){
+    const d = /^(\d{4})-(\d{1,2})/.exec(String(p || ''));
+    if (!d) return '';
+    return new Intl.DateTimeFormat(L.lang === 'en' ? 'en-GB' : 'fr-FR',
+                                   { month: 'short', year: 'numeric' })
+      .format(new Date(parseInt(d[1], 10), parseInt(d[2], 10) - 1, 1));
+  }
+
   function viderSaisie(type){
+    // Une analyse neuve décrit le mois COURANT : c'est la date d'aujourd'hui
+    // qu'on pré-remplit, pas un sujet qu'on choisirait à la place de
+    // quelqu'un.
+    posePeriode(null);
     if (type === 'projet') {
       $('#project-name').value = '';
       if (projectBody) projectBody.innerHTML = '';
@@ -1151,6 +1227,7 @@
     const j = await (await fetch('/temps/api/project/' + id)).json();
     if (!j.ok) return false;
     $('#project-name').value = (j.project || {}).name || '';
+    posePeriode((j.project || {}).periode);
     if (projectBody) projectBody.innerHTML = '';
     (j.lines || []).forEach(l => addProjectRow(l));
     recalcProjectTotals();
@@ -1169,6 +1246,7 @@
     $('#act-recurrence').value = it.recurrence;
     $('#act-frequency').value = it.frequency;
     $('#act-people').value = it.nb_people;
+    posePeriode(it.periode);
     currentActivityEditId = id;
     $('#act-editing')?.classList.remove('hidden');
     majResultatActivite();
@@ -1181,6 +1259,7 @@
     const r = j.role || {};
     if ($('#role-select') && r.role_id) $('#role-select').value = String(r.role_id);
     $('#role-name').value = r.name || '';
+    posePeriode(r.periode);
     // ⚠️ Les OPTIONS du rôle seulement : `loadRoleActivities` crée aussi une
     // ligne par activité, ce qui écraserait les lignes enregistrées.
     await chargerOptionsRole(r.role_id);
@@ -1211,6 +1290,7 @@
     $('#fw-n').value = it.N_prob_pct;
     $('#fw-l').value = it.L_work_added; $('#fw-l-unit').value = 'minutes';
     $('#fw-m').value = it.M_wait_added; $('#fw-m-unit').value = 'minutes';
+    posePeriode(it.periode);
     (it.tasks || []).forEach(t => {
       const tr = $('#fw-task-rows tr[data-task="' + t.task_id + '"]');
       if (!tr) return;
@@ -1434,18 +1514,23 @@
   function lignesDepuis(d){
     const acts = (n) => fmtPhrase('tm_acts', '{n} act.', { n: n });
     return {
+      // ⚠️ Le MOIS en tête des pastilles : c'est ce qui distingue deux
+      // analyses du même rôle, et sans lui la liste en montre deux
+      // identiques sans dire laquelle est la plus récente.
       projet: (d.projets || []).map(p => ({
         id: p.id, nom: p.nom || tl('tab_project', 'Projet'),
-        chips: [acts(p.n_activites)], val: fmtH(p.charge_min) })),
+        chips: [moisCourt(p.periode), acts(p.n_activites)], val: fmtH(p.charge_min) })),
       activite: (d.par_activite || []).map(a => ({
         id: a.id, nom: a.activite,
-        chips: [a.recurrence, '× ' + a.frequence], val: fmtH(a.annuel_min) })),
+        chips: [moisCourt(a.periode), a.recurrence, '× ' + a.frequence],
+        val: fmtH(a.annuel_min) })),
       role: (d.par_role || []).map(r => ({
         id: r.id, nom: r.nom || r.role,
-        chips: [r.role, acts(r.n_activites)], val: fmtH(r.annuel_min) })),
+        chips: [moisCourt(r.periode), r.role, acts(r.n_activites)],
+        val: fmtH(r.annuel_min) })),
       faiblesse: ((d.faiblesses || {}).items || []).map(f => ({
         id: f.id, nom: f.nom || f.activite,
-        chips: [f.activite], val: fmtH(f.travail_annuel_min) }))
+        chips: [moisCourt(f.periode), f.activite], val: fmtH(f.travail_annuel_min) }))
     };
   }
 
@@ -1731,6 +1816,10 @@
 
   // ---------------------- INIT ------------------------
   (async () => {
+    // ⚠️ Les options du mois d'abord : les deux listes naissent VIDES dans le
+    // gabarit (les noms de mois viennent d'`Intl`), et une liste vide n'a pas
+    // de libellé à recopier sur son bouton habillé.
+    posePeriode(null);
     await loadCalendarParams();
 
     // Weakness: si la sous-page existe dans le DOM, init

@@ -4730,6 +4730,128 @@ button.mail:active { transform: translateY(1px); }
 .pl-pied .cv2-prop { margin: 0; }
 .pl-pied .pl-pousse { flex: 1; min-width: 8px; }
 
+/* ───────────────── L'ÉCRAN VIDE : une invitation, pas un mur ─────────────
+   ⚠️ « Aucun plan n'existe encore » et « vous ne pouvez rien faire ici » se
+   ressemblaient : un texte GRIS centré (`.cv2-plan-vide`, `color: --muted`)
+   et, pour toute porte, une pastille discrète au fond d'un pied de page.
+   L'action passe donc EN PLEIN, avec de quoi partir sous les yeux — les
+   activités en écart et leur écart, qui prouvent qu'il y a matière. */
+.pl-vide { margin-top: 18px; padding: 0; }
+.pl-vide-c {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 14px; padding: 46px 24px 40px;
+}
+.pl-vide-i {
+  width: 62px; height: 62px; border-radius: 999px; display: grid; place-items: center;
+  font-size: 25px; color: var(--pg-accent);
+  background: color-mix(in srgb, var(--pg-accent) 12%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--pg-accent) 26%, var(--card));
+  box-shadow: 0 10px 26px -14px color-mix(in srgb, var(--pg-accent) 55%, transparent);
+}
+.pl-vide-i--ok {
+  color: var(--cv-g-70);
+  background: color-mix(in srgb, var(--cv-g-40) 26%, var(--card));
+  border-color: color-mix(in srgb, var(--cv-g-40) 52%, var(--card));
+  box-shadow: 0 10px 26px -14px color-mix(in srgb, var(--cv-g-40) 70%, transparent);
+}
+.pl-vide-c b {
+  font-family: var(--pg-font-display, 'Fraunces', serif);
+  font-size: 27px; font-weight: 600; color: var(--ink); line-height: 1.15;
+}
+.pl-vide-c p { margin: 0; max-width: 440px; font-size: 16px; color: var(--ink-2); }
+
+/* Ce qu'il y a à combler, nommé : un compte seul ne prouve rien. */
+.pl-vide-chs { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.pl-vide-ch {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border-radius: 999px; font-size: 13.75px; font-weight: 600;
+  color: var(--ink-2); background: var(--card-2); border: 1px solid var(--border);
+}
+.pl-vide-ch u {
+  text-decoration: none; font-weight: 700; color: var(--cv-r-60);
+  font-variant-numeric: tabular-nums;
+}
+.pl-vide-ch--p { color: var(--muted); }
+
+/* ⚠️ Le rapport INVERSÉ, déjà tranché sur les pages Temps et Carte : l'action
+   pose une pastille PASTEL sur un fond VIF, et un éclat la traverse au
+   survol — c'est le seul mouvement de l'écran, et il ne dure que le geste. */
+.pl-go {
+  position: relative; overflow: hidden; margin-top: 4px;
+  display: inline-flex; align-items: center; gap: 11px;
+  padding: 11px 22px 11px 13px; border: 0; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 16px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+  box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--pg-accent) 85%, transparent);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.pl-go-i {
+  flex: none; width: 30px; height: 30px; border-radius: 999px; display: grid;
+  place-items: center; font-size: 14px;
+  background: rgba(255, 255, 255, .22); color: #fff;
+}
+.pl-go::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 34%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .34), transparent);
+  transform: skewX(-18deg); opacity: 0;
+}
+.pl-go:hover { transform: translateY(-1px); box-shadow: 0 18px 36px -14px color-mix(in srgb, var(--pg-accent) 90%, transparent); }
+.pl-go:hover::after { animation: plEclat .62s ease; }
+.pl-go:disabled { opacity: .62; cursor: default; transform: none; }
+@keyframes plEclat {
+  from { left: -40%; opacity: 1; }
+  to   { left: 110%; opacity: 0; }
+}
+.pl-vide-h { font-size: 13.75px; color: var(--muted); max-width: 420px; }
+
+/* ───────────────── L'ATTENTE : le SQUELETTE de la frise ──────────────────
+   ⚠️ L'appel IA dure trois secondes et le bouton se contentait de passer en
+   « Génération… » : rien ne bougeait, et on cliquait une seconde fois.
+   L'attente est donc la frise en train de se remplir — on voit CE QU'ON
+   ATTEND, au lieu d'une roue qui pourrait tourner pour n'importe quoi. */
+.pl-att { margin-top: 18px; }
+.pl-att-c { display: flex; flex-direction: column; gap: 16px; padding: 30px 6px 24px; }
+.pl-att-fr {
+  display: flex; gap: 3px; height: 52px; border-radius: 10px; overflow: hidden;
+  background: var(--card-2); border: 1px solid var(--border);
+}
+.pl-att-s { position: relative; overflow: hidden; opacity: .44; }
+.pl-att-s.t { background: var(--cv-g-40); }
+.pl-att-s.a { background: #f0bd6f; }
+.pl-att-s.f { background: #9ec1ff; }
+.pl-att-s::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 10%, rgba(255, 255, 255, .85) 50%, transparent 90%);
+  transform: translateX(-100%);
+  animation: plAtt 1.5s ease-in-out infinite;
+  animation-delay: calc(var(--i) * .13s);
+}
+@keyframes plAtt {
+  0%   { transform: translateX(-100%); }
+  55%  { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
+}
+.pl-att-l {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15.5px; font-weight: 600; color: var(--ink-2);
+}
+.pl-att-d {
+  flex: none; width: 9px; height: 9px; border-radius: 999px;
+  background: var(--pg-accent); animation: plAttD 1.1s ease-in-out infinite;
+}
+@keyframes plAttD {
+  0%, 100% { opacity: .3; transform: scale(.8); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+/* ⚠️ Rien ne CLIGNOTE sous `prefers-reduced-motion` : les segments restent
+   posés, et la ligne dit ce qui se passe. */
+@media (prefers-reduced-motion: reduce) {
+  .pl-att-s { opacity: .5; }
+  .pl-att-s::after, .pl-att-d { animation: none; }
+  .pl-att-s::after { display: none; }
+  .pl-go:hover::after { animation: none; }
+}
+
 /* ⚠️ En colonne, les RÉGLAGES passent devant le classement : ce sont eux
    qu'on vient manipuler. Le bandeau garde la frise au-dessus — c'est elle qui
    répond à la question, et elle ne coûte que 52 px de haut.

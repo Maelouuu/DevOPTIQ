@@ -816,6 +816,9 @@ class TimeAnalysis(db.Model):
     impact_unit = db.Column(db.String(20), nullable=True)
     delay_increase = db.Column(db.Float, nullable=True)
     delay_percentage = db.Column(db.Float, nullable=True)
+    # Le MOIS que l'analyse decrit (« YYYY-MM », Code/periode.py) : une
+    # charge fluctue, et un poids releve en janvier ne dit rien de novembre.
+    periode = db.Column(db.String(7), nullable=True, index=True)
 
     activity = db.relationship('Activities', backref='time_analyses')
     task = db.relationship('Task', backref='time_analyses')
@@ -863,6 +866,9 @@ class TimeProject(db.Model):
     entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True, index=True)
     name = db.Column(db.String(120))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Le MOIS que l'analyse decrit (« YYYY-MM », Code/periode.py) : une
+    # charge fluctue, et un poids releve en janvier ne dit rien de novembre.
+    periode = db.Column(db.String(7), nullable=True, index=True)
     lines = db.relationship('TimeProjectLine', backref='project', cascade="all, delete-orphan")
 
     @classmethod
@@ -889,6 +895,9 @@ class TimeRoleAnalysis(db.Model):
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
     name = db.Column(db.String(120), default='Analyse rôle')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Le MOIS que l'analyse decrit (« YYYY-MM », Code/periode.py) : une
+    # charge fluctue, et un poids releve en janvier ne dit rien de novembre.
+    periode = db.Column(db.String(7), nullable=True, index=True)
     lines = db.relationship('TimeRoleLine', backref='role_analysis', cascade="all, delete-orphan")
 
 
@@ -925,6 +934,9 @@ class TimeWeakness(db.Model):
     # lisent encore ; c'est ce pourcentage qui fait foi quand il est pose.
     prob_percent = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Le MOIS que l'analyse decrit (« YYYY-MM », Code/periode.py) : une
+    # charge fluctue, et un poids releve en janvier ne dit rien de novembre.
+    periode = db.Column(db.String(7), nullable=True, index=True)
 
 
 class SessionEvaluation(db.Model):

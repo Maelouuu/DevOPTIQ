@@ -1380,9 +1380,42 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 /* Le rail des trois temps se détache sur la teinte, pas sur du blanc. */
 #tm-travail .tm-tps-n { box-shadow: 0 0 0 4px var(--card-2, #f8fafc); }
 
+/* ───────────────── LE MOIS ANALYSÉ, dans la bande ─────────────────────
+   ⚠️ Une propriété de l'analyse ENTIÈRE, comme son nom : elle vit donc dans
+   la bande, le seul endroit commun aux quatre types — un champ dans chacun
+   des quatre formulaires, c'étaient quatre occasions d'en oublier un.
+   ⚠️ Et les CONTRÔLES RESTENT BLANCS : un champ translucide sur un fond
+   coloré ne se lit plus dès qu'on y saisit quelque chose (la leçon de la
+   section Technicité). Seul le libellé est en blanc. */
+#tm-travail .tm-barre-txt { flex: 1 1 auto; }
+.tm-per { flex: none; display: flex; flex-direction: column; gap: 5px; }
+.tm-per > label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: rgba(255, 255, 255, .84); cursor: pointer;
+}
+.tm-per-duo { display: flex; gap: 6px; }
+/* `tm_select.js` reporte les classes du `<select>` sur son enveloppe, qui
+   devient le contrôle visible : c'est elle qu'on dimensionne. */
+.tm-per-duo .tms { width: 126px; }
+.tm-per-duo .tms:last-child { width: 86px; }
+/* L'aide se lit en BLANC sur la bande, comme son libellé. */
+.tm-per > label .tm-i-g {
+  background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .4);
+  color: #fff;
+}
+
 @media (max-width: 760px) {
   .tm-barre { flex-wrap: wrap; }
   .tm-barre-sub { font-size: 12.5px; }
+}
+
+/* Sous 1 100 px RÉELS la bande se replie, et le mois passe à la ligne : à
+   quatre éléments elle déborde sinon. ⚠️ Px RÉELS — `body.pg` porte
+   `zoom: .8` et les requêtes média ignorent ce zoom. */
+@media (max-width: 1375px) {
+  .tm-barre { flex-wrap: wrap; }
+  .tm-per { margin-left: auto; }
 }
 
 

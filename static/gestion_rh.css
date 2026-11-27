@@ -2171,3 +2171,394 @@ select {
 @media (max-width: 720px) {
     .grh-droits tbody th { min-width: 190px; }
 }
+
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ④ LA CHARGE DE TRAVAIL — le damier
+
+   Un DAMIER rôle × cartographie : la comparaison « pour un même rôle,
+   qu'est-ce que chaque carto demande » se lit EN LIGNE, et la couleur donne
+   l'ordre de grandeur sans qu'on lise un chiffre.
+
+   ⚠️ L'ÉCHELLE DE CHALEUR dit la part d'un TEMPS PLEIN, et la légende l'écrit
+   en pourcentages réels : une échelle « léger → lourd » ne dirait pas combien
+   de personnes un rôle demande. Elle va du tilleul (ce qui tient) à la prune
+   (ce qui déborde) — la rampe sémantique de l'application, et un rôle au-delà
+   d'un temps plein demande VRAIMENT plus d'une personne.
+
+   ⚠️ Aucune règle d'ici ne lit `--pg-accent-soft` ni ses trois frères : ils
+   sont déclarés sur `:root`, où l'accent vaut encore le gris par défaut.
+   Les mélanges sont écrits SUR PLACE.
+════════════════════════════════════════════════════════════════════════════ */
+/* ⚠️⚠️ La rampe est déclarée sur `:root`, PAS sur `#bloc-charge`. Une
+   propriété personnalisée ne descend qu'à ses DESCENDANTS : la cellule de
+   charge vit dans le bloc ① des personnes, la fenêtre de détail et
+   l'avertissement du plafond vivent hors de tout bloc — et `var(--ch-rouge)`
+   y était INVALIDE, donc transparent. Mesuré : la pastille d'alerte et le
+   bouton « Ajouter quand même » étaient des rectangles vides à texte blanc.
+   C'est la famille de `--pg-accent-soft`, dans l'autre sens : trop haut
+   là-bas, trop bas ici. */
+:root {
+    /* la rampe : part d'un temps plein → 0 · 25 · 50 · 75 · 100 · 150 % */
+    --ch-0: #f1f7e4;  --ch-0-i: #46650f;
+    --ch-1: #cfe493;  --ch-1-i: #3b5a0c;
+    --ch-2: #a8c45e;  --ch-2-i: #253b05;
+    --ch-3: #d9a24c;  --ch-3-i: #3c2503;
+    --ch-4: #c0507a;  --ch-4-i: #fff;
+    --ch-5: #8c2246;  --ch-5-i: #fff;
+    --ch-rouge: #b02a58;
+    --ch-ambre: #b45309;
+    --ch-vert:  #557c18;
+}
+.grh-ch-per {
+    font-size: 11.5px; font-weight: 800; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--muted, #64748b);
+}
+
+/* ── les trois chiffres ─────────────────────────────────────────────────── */
+.ch-chif {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+    background: var(--border, #e2e8f0);
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    margin: -14px -16px 14px;
+}
+.ch-chif > * {
+    background: var(--card-2, #f8fafc); padding: 13px 16px; text-align: left;
+    border: 0; font: inherit; min-width: 0;
+}
+.ch-chif button { cursor: pointer; }
+.ch-chif button:hover { background: var(--card, #fff); }
+.ch-chif u {
+    display: block; text-decoration: none; font-size: 11px; font-weight: 800;
+    letter-spacing: .07em; text-transform: uppercase;
+    color: var(--faint, #94a3b8); margin-bottom: 5px;
+}
+.ch-chif b {
+    display: block; font-family: var(--pg-font-display, Georgia, serif);
+    font-size: 25px; font-weight: 600; line-height: 1;
+}
+.ch-chif i {
+    font-style: normal; font-size: 13.5px; color: var(--muted, #64748b);
+    display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ch-k-al b { color: var(--ch-rouge); }
+.ch-k-no b { color: var(--ch-ambre); }
+
+/* ── le damier ──────────────────────────────────────────────────────────── */
+/* ⚠️ Il DÉFILE horizontalement au-delà de trois ou quatre cartos, et la
+   colonne des rôles reste collée à gauche : sans elle on perd le nom de la
+   ligne qu'on est en train de lire. */
+.ch-dam { overflow-x: auto; padding-bottom: 4px; }
+table.ch-dm { border-collapse: separate; border-spacing: 4px; width: 100%; }
+table.ch-dm th {
+    font-size: 12px; font-weight: 800; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--faint, #94a3b8);
+    padding: 4px 7px; text-align: left; white-space: nowrap;
+}
+table.ch-dm th.ch-c { text-align: center; }
+table.ch-dm thead th.ch-r,
+table.ch-dm tbody th.ch-r {
+    position: sticky; left: 0; z-index: 2;
+    background: var(--card, #fff); min-width: 150px; max-width: 190px;
+    overflow: hidden; text-overflow: ellipsis;
+}
+table.ch-dm tbody th.ch-r {
+    font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none;
+    color: var(--ink, #0f172a);
+}
+.ch-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 3px;
+    margin-right: 6px; vertical-align: middle;
+}
+/* ⚠️ La hauteur se MESURE sur le contenu : à 46 px, les trois étages de la
+   colonne Total (le chiffre, la piste, le pourcentage) en demandaient 50, et
+   la case débordait en SILENCE — les lignes paraissaient décalées d'une demi
+   hauteur. Une hauteur de 1 px posée sur la CELLULE est l'astuce qui rend
+   une hauteur de 100 % résoluble pour son enfant : sans elle, chaque bloc
+   garde la sienne et les fonds ne remplissent plus la ligne. */
+table.ch-dm td { padding: 0; min-width: 104px; height: 1px; }
+table.ch-dm td > div { height: 100%; }
+.ch-t {
+    min-height: 58px; border-radius: 9px; display: grid; place-items: center; gap: 1px;
+    align-content: center;
+}
+.ch-t b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ch-t span { font-size: 13px; opacity: .82; }
+.ch-t.n0 { background: var(--ch-0); color: var(--ch-0-i); }
+.ch-t.n1 { background: var(--ch-1); color: var(--ch-1-i); }
+.ch-t.n2 { background: var(--ch-2); color: var(--ch-2-i); }
+.ch-t.n3 { background: var(--ch-3); color: var(--ch-3-i); }
+.ch-t.n4 { background: var(--ch-4); color: var(--ch-4-i); }
+.ch-t.n5 { background: var(--ch-5); color: var(--ch-5-i); }
+/* Une case VIDE n'est pas un zéro : elle ne porte aucune couleur de l'échelle. */
+.ch-t.v0 {
+    background: var(--card-2, #f8fafc); color: var(--faint, #94a3b8);
+    box-shadow: inset 0 0 0 1px var(--border, #e2e8f0); font-size: 13px;
+}
+
+/* ── la colonne Total : le chiffre, ET l'image ──────────────────────────── */
+.ch-tot {
+    min-height: 58px; border-radius: 9px; padding: 6px 10px;
+    display: grid; gap: 3px; align-content: center; justify-items: stretch;
+    background: var(--card-2, #f8fafc);
+    box-shadow: inset 0 0 0 1px var(--border-strong, #cbd5e1);
+}
+.ch-tot b { font-size: 14.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* La piste va jusqu'à DEUX temps pleins, et le trait marque le premier :
+   c'est lui qui fait lire « ce rôle demande plus d'une personne ». */
+.ch-piste {
+    position: relative; display: block; height: 6px; border-radius: 3px;
+    background: var(--border, #e2e8f0);
+}
+.ch-piste i {
+    position: absolute; inset: 0 auto 0 0; border-radius: 3px;
+    background: linear-gradient(90deg, var(--ch-2), var(--ch-4));
+}
+.ch-piste u {
+    position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 2px;
+    background: var(--ink, #0f172a); text-decoration: none;
+}
+.ch-tot em {
+    font-style: normal; font-size: 13px; font-weight: 700;
+}
+.ch-tot em.hi { color: var(--ch-rouge); }
+.ch-tot em.mi { color: var(--ch-ambre); }
+.ch-tot em.lo { color: var(--ch-vert); }
+
+/* ── les titulaires ─────────────────────────────────────────────────────── */
+.ch-tit { display: flex; align-items: center; justify-content: center; min-height: 58px; }
+.ch-av {
+    width: 26px; height: 26px; border-radius: 999px; display: grid; place-items: center;
+    font-size: 12.5px; font-weight: 700; color: #fff;
+    border: 2px solid var(--card, #fff); margin-left: -7px;
+}
+.ch-av:first-child { margin-left: 0; }
+/* L'anneau dit la charge TOTALE du titulaire : pour un même rôle, on compare
+   ses tenants d'un coup d'œil. Mêmes trois couleurs que les pastilles. */
+.ch-av.a-hi { border-color: var(--ch-rouge); }
+.ch-av.a-mi { border-color: var(--ch-ambre); }
+.ch-av.a-lo { border-color: var(--ch-vert); }
+.ch-av.a-no { border-color: var(--border-strong, #cbd5e1); }
+.ch-av--p { background: var(--border-strong, #cbd5e1); color: var(--ink-2, #334155); }
+.ch-rien { color: var(--faint, #94a3b8); }
+
+/* ── la légende : la couleur DIT la part d'un temps plein ───────────────── */
+.ch-lgd {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border, #e2e8f0);
+    font-size: 13.5px; color: var(--muted, #64748b);
+}
+.ch-lgd-t { font-weight: 700; }
+.ch-ech { display: flex; }
+.ch-l-t {
+    width: 66px; height: 20px; display: grid; place-items: center;
+}
+.ch-l-t:first-child { border-radius: 4px 0 0 4px; }
+.ch-l-t:last-child { border-radius: 0 4px 4px 0; }
+/* ⚠️ Les seuils de la légende sont la CLÉ de toute l'échelle de couleur :
+   ils se lisent, donc ils passent le plancher comme le reste. */
+.ch-l-t u {
+    text-decoration: none; font-size: 13.5px; font-weight: 700;
+}
+.ch-l-t.n0 { background: var(--ch-0); color: var(--ch-0-i); }
+.ch-l-t.n1 { background: var(--ch-1); color: var(--ch-1-i); }
+.ch-l-t.n2 { background: var(--ch-2); color: var(--ch-2-i); }
+.ch-l-t.n3 { background: var(--ch-3); color: var(--ch-3-i); }
+.ch-l-t.n4 { background: var(--ch-4); color: var(--ch-4-i); }
+.ch-l-t.n5 { background: var(--ch-5); color: var(--ch-5-i); }
+.ch-lgd-c { margin-left: auto; }
+
+/* ── les rôles SANS mesure : hors de la matrice ─────────────────────────── */
+/* ⚠️ Ils n'ont rien à mettre dans le damier : une ligne vide par rôle non
+   mesuré ferait passer un tableau juste pour un tableau cassé. */
+.ch-sans {
+    margin-top: 14px; padding: 12px 14px; border-radius: 11px;
+    background: color-mix(in srgb, var(--ch-ambre) 6%, var(--card, #fff));
+    border: 1px solid color-mix(in srgb, var(--ch-ambre) 24%, var(--card, #fff));
+}
+.ch-sans-h {
+    font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ch-ambre); margin-bottom: 8px;
+}
+.ch-sans-p {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    margin: 0 8px 6px 0; padding: 5px 11px; border-radius: 999px;
+    background: var(--card, #fff); border: 1px solid var(--border, #e2e8f0);
+}
+.ch-sans-p b { font-size: 13.5px; font-weight: 600; }
+.ch-sans-p em { font-style: normal; font-size: 13px; color: var(--muted, #64748b); }
+
+/* ── l'état vide ────────────────────────────────────────────────────────── */
+.ch-vide {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    gap: 11px; padding: 34px 20px 30px;
+}
+.ch-vide-i {
+    width: 54px; height: 54px; border-radius: 999px; display: grid; place-items: center;
+    font-size: 21px; color: var(--pg-accent);
+    background: color-mix(in srgb, var(--pg-accent) 12%, var(--card, #fff));
+    border: 1px solid color-mix(in srgb, var(--pg-accent) 28%, var(--card, #fff));
+}
+.ch-vide b { font-family: var(--pg-font-display, Georgia, serif); font-size: 21px; font-weight: 600; }
+.ch-vide p { margin: 0; max-width: 440px; font-size: 15px; color: var(--ink-2, #334155); }
+.ch-go {
+    display: inline-flex; align-items: center; gap: 9px; text-decoration: none;
+    padding: 10px 18px; border-radius: 999px; font-size: 14px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, var(--pg-accent), var(--pg-accent-deep));
+    box-shadow: 0 12px 26px -14px color-mix(in srgb, var(--pg-accent) 85%, transparent);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ① LA CHARGE DANS LA CARTE D'UNE PERSONNE
+   ⚠️ Une SIXIÈME colonne : les largeurs sont fixes parce que chaque carte est
+   sa propre grille — en `auto`, les en-têtes ne tomberaient pas au même
+   endroit d'une ligne à l'autre (c'est déjà écrit pour les cinq autres).
+════════════════════════════════════════════════════════════════════════════ */
+.grh-person {
+    grid-template-columns: 38px minmax(0, 1fr) 132px minmax(0, 1.4fr) 186px 150px;
+}
+.grh-person-ch { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ch-cell-rien { font-size: 13px; color: var(--faint, #94a3b8); font-style: italic; }
+/* La jauge est SEGMENTÉE par rôle, et porte le trait du plafond : c'est la
+   grammaire de la frise du plan de formation, pour la même question. */
+.ch-jauge {
+    position: relative; display: block; height: 15px; border-radius: 5px;
+    background: var(--card-2, #f8fafc);
+    box-shadow: inset 0 0 0 1px var(--border, #e2e8f0);
+}
+.ch-jauge .s {
+    position: absolute; top: 0; bottom: 0; display: grid; place-items: center;
+    overflow: hidden; font-size: 10px; font-weight: 700; color: #fff;
+}
+.ch-jauge .s:first-child { border-radius: 5px 0 0 5px; }
+.ch-plaf {
+    position: absolute; top: -4px; bottom: -4px; width: 2px; border-radius: 2px;
+    background: var(--ch-rouge);
+}
+.ch-heures {
+    display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap;
+    border: 0; background: none; padding: 0; cursor: pointer; font: inherit;
+    text-align: left;
+}
+.ch-heures b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ch-heures:hover b { text-decoration: underline; }
+.ch-heures em { font-style: normal; font-size: 12.5px; font-weight: 700; color: var(--ch-ambre); }
+.ch-pc {
+    font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+}
+.ch-pc.hi { background: color-mix(in srgb, var(--ch-rouge) 13%, #fff); color: var(--ch-rouge); }
+.ch-pc.mi { background: color-mix(in srgb, var(--ch-ambre) 14%, #fff); color: var(--ch-ambre); }
+.ch-pc.lo { background: color-mix(in srgb, var(--ch-vert) 13%, #fff); color: var(--ch-vert); }
+.ch-pc.no { background: var(--card-2, #f8fafc); color: var(--muted, #64748b); }
+/* Le bloc des personnes, DÉSIGNÉ quand on arrive depuis la tuile du plafond :
+   un défilement seul passe inaperçu. */
+#bloc-personnes.est-pointe {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ch-rouge) 40%, transparent);
+    transition: box-shadow .2s ease;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   LA FENÊTRE DE DÉTAIL D'UNE PERSONNE
+   ⚠️ À PART de `#grh-modal`, qui sert aux deux sens d'une même relation et
+   porte un champ de recherche. La charge se REGARDE, elle ne se coche pas.
+════════════════════════════════════════════════════════════════════════════ */
+.grh-ch-win { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; }
+.grh-ch-box {
+    position: relative; width: min(560px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px); overflow: auto;
+    background: var(--card, #fff); border-radius: 16px;
+    box-shadow: 0 30px 70px -30px rgba(15, 23, 42, .5);
+}
+.grh-ch-head {
+    display: flex; align-items: flex-start; gap: 12px; padding: 16px 18px; color: #fff;
+    background: linear-gradient(118deg, #1d2c56, #2c58b6);
+}
+.grh-ch-head h3 { margin: 0; font-size: 20px; color: #fff; }
+.grh-ch-head p { margin: 2px 0 0; font-size: 13.5px; color: rgba(255, 255, 255, .8); }
+.grh-ch-x {
+    margin-left: auto; flex: none; width: 30px; height: 30px; border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .34); background: rgba(255, 255, 255, .16);
+    color: #fff; cursor: pointer; font-size: 14px;
+}
+.grh-ch-body { padding: 4px 18px 18px; }
+.ch-pop-g { padding: 16px 0 4px; }
+.ch-jauge--xl { height: 30px; margin-bottom: 20px; }
+.ch-jauge--xl .s { font-size: 12.5px; }
+/* ⚠️ Le repère du plafond porte son chiffre SOUS SA LIGNE : il vivait dans
+   l'axe, centré entre « 0 h » et le maximum — donc jamais en face du trait
+   qu'il nomme. */
+.ch-jauge--xl .ch-plaf::after {
+    content: attr(data-l); position: absolute; top: calc(100% + 5px);
+    left: 50%; transform: translateX(-50%); white-space: nowrap;
+    font-size: 12.5px; font-weight: 700; color: var(--ch-rouge);
+}
+.ch-pop-ax {
+    display: flex; justify-content: space-between; margin-top: 14px;
+    font-size: 13px; color: var(--muted, #64748b);
+}
+.ch-pop-pl { color: var(--ch-rouge); font-weight: 700; }
+.ch-pop-h {
+    font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--faint, #94a3b8); margin: 12px 0 2px;
+}
+.ch-pl {
+    display: grid; grid-template-columns: 1fr 92px 72px; align-items: center; gap: 10px;
+    padding: 9px 0; border-top: 1px solid var(--card-2, #f8fafc); font-size: 14px;
+}
+.ch-pl b { text-align: right; font-variant-numeric: tabular-nums; }
+.ch-pl .ch-pc { justify-self: end; }
+.ch-pl-n { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.ch-pl-n u { flex: none; width: 10px; height: 10px; border-radius: 3px; text-decoration: none; }
+.ch-pl--tot { border-top: 1px solid var(--border-strong, #cbd5e1); }
+.ch-pl--tot b { font-size: 16px; }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   L'AVERTISSEMENT DU PLAFOND — dans la ligne où l'on coche
+   ⚠️ Une PRÉVENTION, jamais un refus. Et DANS la fenêtre, pas par-dessus :
+   une modale sur une modale cacherait le chiffre qu'on vient lire pour
+   décider (la règle des formulaires de la page Compétences).
+════════════════════════════════════════════════════════════════════════════ */
+.ch-alerte {
+    display: flex; gap: 11px; align-items: flex-start; margin: 8px 0 10px;
+    padding: 12px 14px; border-radius: 11px;
+    background: color-mix(in srgb, var(--ch-rouge) 7%, var(--card, #fff));
+    border: 1px solid color-mix(in srgb, var(--ch-rouge) 36%, var(--card, #fff));
+}
+.ch-al-i {
+    flex: none; width: 28px; height: 28px; border-radius: 999px; display: grid;
+    place-items: center; background: var(--ch-rouge); color: #fff; font-size: 14px;
+}
+.ch-al-c { flex: 1; min-width: 0; }
+.ch-al-c b { display: block; font-size: 14.5px; color: var(--ch-rouge); }
+.ch-al-c p { margin: 4px 0 0; font-size: 13.5px; color: var(--ink-2, #334155); }
+.ch-al-deja { font-weight: 700; color: var(--ch-rouge) !important; }
+.ch-al-b { display: flex; gap: 8px; margin-top: 10px; }
+.ch-al-b button {
+    font: inherit; font-size: 13.5px; font-weight: 600; padding: 7px 13px;
+    border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border-strong, #cbd5e1); background: var(--card, #fff);
+    color: var(--ink, #0f172a);
+}
+.ch-al-ok { background: var(--ch-rouge) !important; border-color: transparent !important; color: #fff !important; }
+
+/* ⚠️ Px RÉELS : `body.pg` porte `zoom: .8` et les requêtes média l'ignorent.
+   1 150 px réels = 1 437 px CSS. En dessous, la carte d'une personne se replie
+   déjà sur ses règles d'origine — la charge passe simplement en pleine
+   largeur, sous le reste. */
+@media (max-width: 1437px) {
+    .grh-person { grid-template-columns: 38px minmax(0, 1fr) 124px minmax(0, 1.3fr) 168px 138px; }
+}
+@media (max-width: 980px) {
+    .ch-chif { grid-template-columns: 1fr; }
+    .ch-lgd-c { margin-left: 0; }
+}
+/* ⚠️⚠️ LE REPLI ÉTROIT EST REDIT ICI. Le `@media (max-width: 900px)` qui
+   remet la carte d'une personne sur deux colonnes est déclaré neuf cents
+   lignes PLUS HAUT : à spécificité égale, c'est la dernière déclaration qui
+   gagne — ma règle à six colonnes l'écrasait donc aussi en dessous de 900 px,
+   et la carte débordait. C'est la famille « remplacer une passe de style
+   emporte aussi sa mise en page », déjà payée deux fois sur la page Carte. */
+@media (max-width: 900px) {
+    .grh-person { grid-template-columns: auto 1fr; }
+    .grh-person-ch { grid-column: 2; }
+}
