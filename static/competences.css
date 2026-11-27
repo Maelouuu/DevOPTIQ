@@ -977,61 +977,6 @@ header { position: sticky; top: 0; z-index: 30; }
    Les curseurs ne rappellent JAMAIS le serveur : le calcul est local, sinon on
    n'oserait pas les faire glisser.
    ══════════════════════════════════════════════════════════════════════════ */
-.cv2-plan-win {
-  position: fixed; top: 50%; left: 50%; z-index: 51;
-  transform: translate(-50%, -46%) scale(.97); opacity: 0; pointer-events: none;
-  /* ⚠️ 1 000 px et non 940 : les 60 px vont au panneau de droite, dont le
-     verdict (besoin / capacité / la phrase qui dit ce qui manque) est ce
-     qu'on vient lire — à 258 px il se repliait sur quatre lignes. */
-  width: min(1000px, 95vw); max-height: 92vh;
-  display: flex; flex-direction: column; overflow: hidden;
-  background: var(--card); border: 1px solid var(--border); border-radius: 18px;
-  box-shadow: var(--sh-pop);
-  transition: transform .26s cubic-bezier(.34, 1.2, .4, 1), opacity .22s;
-}
-.cv2-plan-win.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
-.cv2-ph {
-  flex: none; position: relative; overflow: hidden; color: #fff;
-  display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
-  padding: 17px 60px 16px 24px;
-  /* ⚠️ Le NUIT des deux autres surfaces sombres de la page : il était en
-     violet, et trois dégradés sombres différents sur un même écran se lisent
-     comme un défaut d'impression. */
-  background: linear-gradient(135deg, var(--nuit-1), var(--nuit-2));
-}
-.cv2-ph::after {
-  content: ""; position: absolute; right: -60px; top: -70px; width: 200px; height: 200px;
-  border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 255, 255, .16), transparent 70%);
-}
-.cv2-ph h2 {
-  margin: 0; font-family: var(--pg-font-display); font-size: 21px; font-weight: 700; line-height: 1.2;
-}
-.cv2-ph .cv2-sub {
-  display: flex; align-items: center; gap: 8px; margin: 0;
-  padding-left: 13px; border-left: 1px solid rgba(255, 255, 255, .32);
-  font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, .94);
-}
-.cv2-ph .cv2-sub .ou {
-  padding: 2px 10px; border-radius: 999px;
-  background: rgba(255, 255, 255, .2); font-size: 12.5px; font-weight: 700;
-}
-@media (max-width: 760px) {
-  .cv2-ph .cv2-sub { padding-left: 0; border-left: none; }}
-.cv2-ph .x {
-  position: absolute; right: 16px; top: 15px; z-index: 2;
-  width: 30px; height: 30px; border: none; border-radius: 9px;
-  background: rgba(255, 255, 255, .16); color: #fff; font-size: 18px; line-height: 1; cursor: pointer;
-}
-.cv2-ph .x:hover { background: rgba(255, 255, 255, .3); }
-.cv2-pb { flex: 1; overflow-y: auto; padding: 18px 24px 20px; }
-
-.cv2-plan-grille { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.5fr) minmax(318px, 1fr); }
-.cv2-plan-h {
-  display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px;
-  font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
-}
-.cv2-plan-h .tot { margin-left: auto; font-size: 15px; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
 
 /* ══ Le parcours : ce qu'il y a à faire, dans l'ordre ═══════════════════════
    ⚠️ C'était une PILE de cartes où tout se mêlait : les activités entre elles,
@@ -1046,21 +991,6 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-t--TERRAIN        { --c: var(--cv-g-60); --c-soft: var(--cv-g-05); --c-line: var(--cv-g-20); --c-deep: var(--cv-g-70); }
 .cv2-t--ACCOMPAGNEMENT { --c: #d97706; --c-soft: #fff7ed; --c-line: #fed7aa; --c-deep: #b45309; }
 .cv2-t--FORMATION      { --c: #2563eb; --c-soft: #eff6ff; --c-line: #bfdbfe; --c-deep: #1d4ed8; }
-
-/* La répartition par nature — et la légende des couleurs du même coup. */
-.cv2-mix { margin: 0 0 16px; }
-.cv2-mix-bar {
-  display: flex; gap: 2px; height: 8px; overflow: hidden;
-  border-radius: 999px; background: var(--card-2);
-}
-.cv2-mix-bar i { display: block; min-width: 4px; background: var(--c); transition: flex-basis .3s ease; }
-.cv2-mix-leg {
-  display: flex; flex-wrap: wrap; gap: 5px 16px; margin-top: 8px;
-  font-size: 14.5px; font-weight: 600; color: var(--ink-2);
-}
-.cv2-mix-leg span { display: inline-flex; align-items: center; gap: 6px; }
-.cv2-mix-leg span > i { font-size: 11px; color: var(--c); }
-.cv2-mix-leg b { font-weight: 700; color: var(--ink); }
 
 /* Une section par activité : l'écart qu'elle vient combler, en toutes lettres. */
 .cv2-etapes-g + .cv2-etapes-g { margin-top: 20px; }
@@ -1125,21 +1055,6 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-etape-t { margin-top: 9px; font-size: 18px; font-weight: 700; line-height: 1.35; color: var(--ink); }
 
-/* Les champs portent leur ÉTIQUETTE dans une colonne à part : l'œil descend
-   les libellés, puis lit la valeur qui l'intéresse. */
-.cv2-etape-d {
-  display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 9px 16px;
-  margin: 11px 0 0; padding: 13px 15px; border-radius: 11px; background: var(--card-2);
-}
-.cv2-etape-d dt {
-  padding-top: 2px; font-size: 14.5px; font-weight: 800; letter-spacing: .05em;
-  text-transform: uppercase; color: var(--muted);
-}
-.cv2-etape-d dd {
-  margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-2);
-  white-space: pre-line;   /* un critère par ligne quand il y en a plusieurs */
-}
-
 .cv2-etape-f { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
 .cv2-etape-sem {
   display: inline-flex; align-items: center; gap: 7px;
@@ -1186,136 +1101,7 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-pas:focus-within { border-color: var(--c); box-shadow: 0 0 0 3px var(--c-soft); }
 
-/* Le panneau des curseurs */
-.cv2-reglages {
-  position: sticky; top: 0; padding: 15px 16px;
-  background: linear-gradient(180deg, var(--card-2), var(--card));
-  border: 1px solid var(--border); border-radius: 14px;
-}
-.cv2-curseur { margin-bottom: 15px; }
-.cv2-curseur .cl {
-  display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px;
-  font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
-}
-.cv2-curseur .cv {
-  margin-left: auto; font-family: var(--pg-font-display); font-size: 21px;
-  text-transform: none; letter-spacing: 0; color: var(--pg-accent-deep);
-}
-.cv2-curseur input[type=range] {
-  width: 100%; height: 22px; margin: 0; padding: 0;
-  background: none; -webkit-appearance: none; appearance: none; cursor: pointer;
-}
-.cv2-curseur input[type=range]::-webkit-slider-runnable-track {
-  height: 6px; border-radius: 3px;
-  background: linear-gradient(90deg, var(--pg-accent) var(--p, 50%), var(--border) var(--p, 50%));
-}
-.cv2-curseur input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; margin-top: -6px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: #fff; border: 2px solid var(--pg-accent-deep);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, .2); transition: transform .12s;
-}
-.cv2-curseur input[type=range]:active::-webkit-slider-thumb { transform: scale(1.18); }
-.cv2-curseur input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--border); }
-.cv2-curseur input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--pg-accent); }
-.cv2-curseur input[type=range]::-moz-range-thumb {
-  width: 16px; height: 16px; border-radius: 50%;
-  background: #fff; border: 2px solid var(--pg-accent-deep); box-shadow: 0 2px 6px rgba(15, 23, 42, .2);
-}
-
-/* La SÉANCE déjà fixée. En AMBRE, comme la prochaine échéance de l'écran
-   d'évaluation : ce n'est pas un réglage, c'est une date qu'on n'a pas choisie
-   ici — et c'est la seule échéance réelle du plan.
-   ⚠️ Son bouton reprend `.cv2-juste` (le « caler au plus juste ») : deux
-   boutons qui posent la même valeur sur le même curseur ne doivent pas avoir
-   deux apparences. */
-.cv2-seance {
-  margin: 0 0 15px; padding: 11px 13px; border-radius: 11px;
-  background: #fff8ec; border: 1px solid #fadfa6;
-}
-.cv2-seance .k {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 13px; font-weight: 800; letter-spacing: .04em;
-  text-transform: uppercase; color: #92590e;
-}
-.cv2-seance .k i { font-size: 12px; }
-.cv2-seance .d {
-  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-top: 5px;
-  font-size: 14px; color: var(--ink-2);
-}
-.cv2-seance .d b { font-family: var(--pg-font-display); font-size: 19px; color: var(--ink); }
-.cv2-seance .cv2-juste {
-  margin-top: 9px; color: #92590e;
-  border-color: color-mix(in srgb, #92590e 34%, var(--card));
-}
-.cv2-seance .cv2-juste:hover { background: color-mix(in srgb, #92590e 9%, var(--card)); }
-
-/* Le verdict : une barre besoin/capacité et une phrase. La barre bouge en même
-   temps que le curseur — c'est elle qui rend le réglage jouable. */
-.cv2-verdict { margin-top: 4px; padding-top: 14px; border-top: 1px dashed var(--border); }
-.cv2-barre {
-  position: relative; height: 12px; border-radius: 6px; overflow: hidden;
-  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
-}
-.cv2-barre i {
-  position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px;
-  background: linear-gradient(90deg, var(--cv-green), var(--cv-g-60));
-  transition: width .35s cubic-bezier(.4, 1.3, .5, 1), background .3s;
-}
-.cv2-barre.tendu i { background: linear-gradient(90deg, #fbbf24, var(--cv-orange)); }
-.cv2-barre.trop i  { background: linear-gradient(90deg, var(--cv-r-40), var(--cv-red)); }
-.cv2-chiffres {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 11px;
-  font-size: 14px; font-weight: 700; color: var(--muted);
-}
-.cv2-chiffres b { font-family: var(--pg-font-display); font-size: 25px; color: var(--ink); }
-.cv2-dit { margin-top: 12px; padding: 12px 14px; border-radius: 11px; font-size: 15.5px; font-weight: 600; line-height: 1.5; }
-.cv2-dit--ok    { background: var(--cv-g-05); border: 1px solid var(--cv-g-20); color: var(--cv-green-deep); }
-.cv2-dit--tendu { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
-.cv2-dit--trop  { background: var(--cv-r-05); border: 1px solid var(--cv-r-20); color: var(--cv-red-deep); }
-.cv2-juste {
-  width: 100%; margin-top: 10px; padding: 8px 12px; cursor: pointer;
-  font-family: inherit; font-size: 14.5px; font-weight: 700; color: var(--pg-accent-deep);
-  background: var(--card); border-radius: 10px; transition: .14s;
-  border: 1px dashed color-mix(in srgb, var(--pg-accent) 34%, var(--card));
-}
-.cv2-juste:hover {
-  background: color-mix(in srgb, var(--pg-accent) 9%, var(--card)); border-style: solid;
-}
-
-/* L'échéancier : où tombe chaque action dans les semaines disponibles. */
-.cv2-semaines { display: flex; gap: 3px; margin-top: 12px; }
-.cv2-semaine {
-  flex: 1; height: 33px; border-radius: 5px; background: var(--card-2);
-  box-shadow: inset 0 0 0 1px var(--border);
-  display: flex; align-items: flex-end; overflow: hidden;
-}
-.cv2-semaine i { width: 100%; border-radius: 4px 4px 0 0; background: var(--pg-accent); transition: height .3s cubic-bezier(.4, 1.3, .5, 1); }
-.cv2-semaine.deborde i { background: var(--cv-red); }
-/* Survoler une étape allume SES semaines, dans SA couleur. */
-.cv2-semaine { transition: opacity .15s; }
-.cv2-semaines.is-lit .cv2-semaine { opacity: .32; }
-.cv2-semaines.is-lit .cv2-semaine.lit { opacity: 1; }
-.cv2-semaines[data-nature="TERRAIN"] .lit i        { background: var(--cv-g-60); }
-.cv2-semaines[data-nature="ACCOMPAGNEMENT"] .lit i { background: #d97706; }
-.cv2-semaines[data-nature="FORMATION"] .lit i      { background: #2563eb; }
-.cv2-semaines.is-lit .cv2-semaine.lit.deborde i    { background: var(--cv-red); }
-/* ⚠️ L'échéancier portait une LÉGENDE centrée (« Répartition semaine par
-   semaine ») sous un peigne muet : on voyait où ça déborde sans savoir à
-   quelle semaine. Il porte ses repères, alignés sur ses barres. */
-.cv2-semx {
-  display: flex; justify-content: space-between; margin-top: 6px;
-  font-size: 14px; font-weight: 700; color: var(--faint);
-}
-
 .cv2-plan-vide { padding: 40px 20px; text-align: center; font-size: 15.5px; font-weight: 600; color: var(--muted); }
-
-@media (max-width: 860px) {
-  .cv2-plan-grille { grid-template-columns: minmax(0, 1fr); }
-  .cv2-reglages { position: static; }
-  /* En colonne, les curseurs passent DEVANT : ce sont eux qu'on vient
-     manipuler, et ils se retrouvaient sous cinq cartes d'action. */
-  .cv2-plan-grille > div:last-child { order: -1; }}
 
 /* L'en-tête d'un bloc peut porter son propre bilan à droite : le niveau qui
    fait foi appartient à la section qui le produit, pas à un bandeau séparé qui
@@ -1484,7 +1270,7 @@ header { position: sticky; top: 0; z-index: 30; }
    On remonte les tailles secondaires des fenêtres — et d'elles seules, pour ne
    pas déformer les listes de la page.
    ══════════════════════════════════════════════════════════════════════════ */
-.cv2-db, .cv2-pb { font-size: 14px; }
+.cv2-db { font-size: 14px; }
 .cv2-bloc-h { font-size: 16px; }
 .cv2-bloc-d { font-size: 13px; } .cv2-officielle-tag { font-size: 10.5px; }
 .cv2-accord { font-size: 12.5px; }
@@ -1495,13 +1281,11 @@ header { position: sticky; top: 0; z-index: 30; }
 
 .cv2-fam .fh { font-size: 14px; }
 .cv2-fam .fd { font-size: 12.5px; }
-.cv2-dit { font-size: 13px; }
 .cv2-df .btn { font-size: 14px; }
 /* ⚠️ Le PLAN reprend les siennes : ce bloc est déclaré APRÈS la section du
    plan, donc à spécificité égale c'est lui qui tranchait — mesuré, la phrase
    du verdict (« il manque 74 h ») sortait à 10,4 px réels et la source du
    contenu à 9,2, sous le plancher de 11 de l'échelle typographique. */
-#cv2-plan-body .cv2-dit { font-size: 15.5px; }
 #cv2-plan-body .cv2-prop { font-size: 14px; }
 
 /* ── Le radar, vivant ────────────────────────────────────────────────────
@@ -4490,7 +4274,7 @@ button.mail:active { transform: translateY(1px); }
 .cv2-info .t { color: var(--cv-g-70); }
 
 /* 5 · Fermer une fenêtre passe par la PRUNE. */
-.cv2-dh .x:hover, .cv2-ph .x:hover, .cv2-ch .x:hover {
+.cv2-dh .x:hover, .cv2-ch .x:hover {
   background: color-mix(in srgb, var(--cv-r-40) 46%, transparent);
 }
 
@@ -4637,4 +4421,323 @@ button.mail:active { transform: translateY(1px); }
   .tch-tab .hd { display: none; }
   .tch-tab .cel { border-bottom: none; padding: 4px 0; }
   .tch-tab .cel.nom { padding-top: 13px; border-top: 1px solid var(--border); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE PLAN DE FORMATION — une PAGE, et deux dessins
+   ══════════════════════════════════════════════════════════════════════════
+   ⚠️ C'était une FENÊTRE de 800 × 736 px réels dans un écran de 1600 × 1000 —
+   la moitié de la largeur — avec 1 089 px à dérouler pour 794 visibles, et le
+   verdict « il manque 74 h » en SIXIÈME position de la colonne de droite.
+   L'écran pose un argument en trois temps — voilà ce qui manque · voilà ce
+   qu'on fait · voilà si ça tient — et il n'en montrait jamais deux ensemble.
+   C'est une page, comme l'évaluation l'est devenue le 14/10 pour le même
+   reproche.
+
+   ⚠️⚠️ ET LES DEUX DESSINS REMPLACENT, ils ne s'ajoutent pas. Un premier jet
+   gardait les listes ET ajoutait les images : « cela devient presque trop
+   chargé ». Donc : la FRISE remplace l'échéancier en peigne, les deux chiffres
+   d'entrée du verdict (sa longueur totale EST le besoin, son trait blanc la
+   capacité) et la barre de répartition par nature (elle colore par nature et
+   porte sa légende) ; le CLASSEMENT remplace les trois jauges et la liste de
+   détail qui redisait, activité par activité, ce que la colonne du chemin
+   écrit déjà. Le chemin reste la seule LISTE : c'est lui qui porte le texte
+   et les −/+.
+
+   ⚠️ Section posée à la FIN de la feuille : elle écrase par l'ordre de
+   déclaration ce que les générations précédentes avaient laissé.
+   ⚠️ Aucune règle d'ici ne lit `--pg-accent-soft` ni ses trois frères.
+   ══════════════════════════════════════════════════════════════════════════ */
+.pl {
+  /* les trois natures d'action, en version CLAIRE : elles sont posées sur le
+     fond de nuit, et c'est le chiffre SOMBRE du segment qui doit s'y lire. */
+  --pl-terrain: var(--cv-g-40);
+  --pl-formation: #9ec1ff;
+  --pl-accomp: #f0bd6f;
+  --pl-encre: #0b1220;
+}
+
+/* ───────────────── LE BANDEAU : la frise, le verdict, les réglages ─────── */
+.pl-nuit {
+  position: relative; overflow: hidden; border-radius: 16px; color: #fff;
+  padding: 18px 24px 20px;
+  background: linear-gradient(118deg, var(--nuit-1), var(--nuit-2));
+}
+.pl-nuit::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(120% 170% at 88% -40%, rgba(255, 255, 255, .2), transparent 62%);
+}
+.pl-nuit > * { position: relative; z-index: 1; }
+.pl-h { display: flex; align-items: center; gap: 16px; margin-bottom: 26px; }
+.pl-ch {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  font-size: 14.5px; color: rgba(255, 255, 255, .76);
+}
+.pl-ch b { color: #fff; font-weight: 600; }
+.pl-ch i { font-style: normal; opacity: .5; }
+.pl-ch span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-corps { display: flex; gap: 26px; align-items: flex-start; }
+.pl-g { flex: 1; min-width: 0; }
+
+/* ══ LA FRISE ══════════════════════════════════════════════════════════════
+   ⚠️ Les heures et les semaines sont la MÊME grandeur — une semaine, c'est
+   les heures qu'on y met — donc la longueur d'un segment dit à la fois ce
+   qu'il coûte et combien de temps il prend : une seule image répond à
+   « quand » et à « ça tient ». Le trait blanc est la capacité ; ce qui est à
+   sa droite est hachuré en prune. Le verdict n'est plus un nombre à chercher,
+   c'est l'endroit où la barre CASSE. */
+.pl-fr { position: relative; }
+.pl-fr-t {
+  position: relative; height: 52px; border-radius: 10px; overflow: hidden;
+  background: rgba(255, 255, 255, .1); box-shadow: inset 0 1px 4px rgba(0, 0, 0, .3);
+}
+.pl-fr-s {
+  position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1px; cursor: default;
+  border-right: 1px solid rgba(13, 20, 40, .3); transition: filter .12s;
+}
+.pl-fr-s b {
+  font-family: var(--pg-font-display); font-size: 15px; font-weight: 600;
+  line-height: 1; color: var(--pl-encre); font-variant-numeric: tabular-nums;
+}
+.pl-fr-s span { font-size: 13.5px; color: rgba(11, 18, 32, .72); white-space: nowrap; }
+.pl-fr-s.t { background: var(--pl-terrain); }
+.pl-fr-s.f { background: var(--pl-formation); }
+.pl-fr-s.a { background: var(--pl-accomp); }
+/* allumée AVEC sa carte, par CLASSE et sans re-rendu : un re-rendu à chaque
+   survol ferait sauter ce qu'on est en train de regarder. */
+.pl-fr-s.hi {
+  filter: brightness(1.16) saturate(1.2); z-index: 4;
+  box-shadow: 0 0 0 2px #fff, 0 0 14px rgba(255, 255, 255, .5);
+}
+.pl-fr-de {
+  position: absolute; top: 0; bottom: 0; right: 0; z-index: 3; pointer-events: none;
+  border-left: 2px solid var(--cv-r-30);
+  background: repeating-linear-gradient(135deg,
+    color-mix(in srgb, var(--cv-r-60) 30%, transparent) 0 4px, transparent 4px 14px);
+}
+/* le trait descend jusque SOUS l'axe des semaines — c'est la meme frontiere
+   dans les deux unites — mais pas jusque dans la legende, qu'il barrait. */
+.pl-fr-c {
+  position: absolute; top: -9px; height: 92px; width: 2px; z-index: 5;
+  background: #fff; pointer-events: none; box-shadow: 0 0 9px rgba(255, 255, 255, .65);
+}
+.pl-fr-cl {
+  position: absolute; top: -27px; z-index: 6; white-space: nowrap;
+  padding: 4px 9px; border-radius: 999px; background: #fff; color: var(--pl-encre);
+  font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+}
+.pl-fr-ax { position: relative; height: 30px; margin-top: 11px; }
+.pl-fr-ax i { position: absolute; top: 0; width: 1px; height: 7px; background: rgba(255, 255, 255, .4); }
+.pl-fr-ax span {
+  position: absolute; top: 10px; transform: translateX(-50%);
+  font-size: 13.5px; color: rgba(255, 255, 255, .66); font-variant-numeric: tabular-nums;
+}
+.pl-fr-ax span.de { color: var(--cv-r-30); }
+.pl-fr-leg {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px;
+  font-size: 14px; color: rgba(255, 255, 255, .78);
+}
+.pl-fr-leg span { display: inline-flex; align-items: center; gap: 6px; }
+.pl-fr-leg u { width: 11px; height: 11px; border-radius: 3px; text-decoration: none; display: block; }
+.pl-fr-leg u.t { background: var(--pl-terrain); }
+.pl-fr-leg u.f { background: var(--pl-formation); }
+.pl-fr-leg u.a { background: var(--pl-accomp); }
+.pl-fr-leg u.h {
+  background: repeating-linear-gradient(135deg, var(--cv-r-60) 0 3px, transparent 3px 6px),
+    rgba(255, 255, 255, .22);
+}
+
+/* ══ LE VERDICT : UN seul chiffre ══════════════════════════════════════════
+   ⚠️ Il en portait TROIS — « à combler », « disponibles », « il manque ». Les
+   deux premiers sont les entrées de la soustraction, et la frise les montre
+   déjà : sa longueur totale est le besoin, l'étiquette de son trait blanc la
+   capacité. Reste celui sur lequel on agit. */
+.pl-v { display: flex; align-items: flex-end; gap: 30px; flex-wrap: wrap; margin-top: 16px; }
+.pl-vn { display: flex; flex-direction: column; gap: 1px; }
+.pl-vn span {
+  font-size: 14px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255, 255, 255, .62);
+}
+.pl-vn b {
+  font-family: var(--pg-font-display); font-size: 46px; font-weight: 600; line-height: 1;
+  color: #fff; font-variant-numeric: tabular-nums;
+}
+.pl-vn.ko b { color: var(--cv-r-30); }
+.pl-vn.ok b { color: var(--cv-g-20); }
+.pl-vph {
+  margin: 0 0 3px auto; max-width: 36ch;
+  font-size: 15px; color: rgba(255, 255, 255, .84);
+}
+.pl-vph b { font-weight: 600; color: var(--cv-r-30); }
+.pl-vph.ok b { color: var(--cv-g-20); }
+
+/* ───────────────── LES RÉGLAGES, contre le verdict qu'ils font bouger ──── */
+.pl-rg {
+  flex: none; min-width: 290px; display: grid; gap: 10px;
+  padding: 13px 15px; border-radius: 13px;
+  background: rgba(9, 14, 32, .3); border: 1px solid rgba(255, 255, 255, .14);
+}
+.pl-rg-l {
+  font-size: 14px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: rgba(255, 255, 255, .62);
+}
+.pl-rg-r { display: flex; align-items: center; gap: 9px; }
+.pl-rg-r .u { font-size: 14px; color: rgba(255, 255, 255, .72); }
+.pl-nb {
+  display: inline-flex; align-items: center; overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .22); border-radius: 9px;
+  background: rgba(255, 255, 255, .1);
+}
+.pl-nb button {
+  width: 27px; height: 28px; border: 0; background: transparent; cursor: pointer;
+  color: #fff; font-family: inherit; font-size: 16px; font-weight: 600; line-height: 1;
+}
+.pl-nb button:hover { background: rgba(255, 255, 255, .2); }
+.pl-nb span {
+  min-width: 46px; text-align: center; font-variant-numeric: tabular-nums;
+  font-family: var(--pg-font-display); font-size: 17px; font-weight: 600; color: #fff;
+}
+.pl-rg hr { border: 0; border-top: 1px solid rgba(255, 255, 255, .14); margin: 1px 0; }
+.pl-bn {
+  display: flex; align-items: center; gap: 7px; text-align: left; cursor: pointer;
+  padding: 8px 11px; border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, .24); background: rgba(255, 255, 255, .1);
+  color: #fff; font-family: inherit; font-size: 14px; font-weight: 600;
+}
+.pl-bn:hover { background: rgba(255, 255, 255, .2); }
+.pl-bn em { font-style: normal; font-weight: 400; opacity: .72; }
+
+/* ───────────────── Les deux colonnes ───────────────── */
+.pl-cols {
+  display: grid; grid-template-columns: 420px minmax(0, 1fr); gap: 18px;
+  margin-top: 18px; align-items: start;
+}
+.pl-bloc {
+  padding: 16px 18px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; box-shadow: var(--sh-card);
+}
+/* ⚠️ Le classement SUIT le défilement : mesuré, il s'arrête à 400 px en face
+   d'une colonne d'actions de 919 — et c'est la référence qu'on garde sous les
+   yeux en lisant la liste, pas un en-tête qu'on lit une fois. */
+.pl-bloc--cl { position: sticky; top: 8px; }
+
+/* ⚠️ La provenance du plan était rendue à 9,2 px RÉELS : `.cv2-prop` vaut
+   11,5 px CSS, et le corps de cette page porte `zoom: .8`. */
+.pl-pied .cv2-prop { font-size: 13.75px; }
+.pl-bh {
+  display: flex; align-items: center; gap: 9px 12px; flex-wrap: wrap;
+  font-size: 14px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted);
+}
+.pl-bh em {
+  flex: none; width: 22px; height: 22px; border-radius: 999px;
+  display: grid; place-items: center; font-style: normal; letter-spacing: 0;
+  font-size: 14px; font-weight: 700; background: var(--pg-accent); color: #fff;
+}
+.pl-bh em + * { white-space: nowrap; }
+.pl-bh .q {
+  margin-left: auto; font-size: 15px; font-weight: 600; letter-spacing: 0;
+  text-transform: none; color: var(--ink); font-variant-numeric: tabular-nums;
+}
+
+/* ══ LE CLASSEMENT : les activités sur une échelle commune 0 → 4 ═══════════
+   ⚠️ Le requis est un TIRET posé sur la colonne, pas un remplissage : une
+   cible se dessine, elle ne se remplit pas — c'est le device de la vue
+   d'ensemble, repris pour la même question.
+   ⚠️ NULL ≠ 0 : une activité qu'on n'a pas notée n'entre pas dans un plan
+   (« un plan ne se bâtit que sur du MESURÉ »), donc toute colonne d'ici
+   porte un niveau — y compris 0, qui est un vrai « non démontré » et garde
+   son socle. */
+.pl-cl { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 9px; margin: 13px 0 2px; }
+.pl-cl-y { position: relative; height: 168px; }
+.pl-cl-y span {
+  position: absolute; right: 0; transform: translateY(50%);
+  font-size: 13.5px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums;
+}
+.pl-cl-p { position: relative; height: 168px; border-bottom: 2px solid var(--border-strong, #cbd5e1); }
+.pl-cl-g { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--border); }
+.pl-cl-b {
+  position: absolute; bottom: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
+}
+/* ⚠️ La barre ne fait que 58 % de sa voie : le reste est la place du NOM,
+   écrit dessous. Dans la largeur de la barre il partait sur quatre lignes. */
+.pl-cl-f {
+  display: block; width: 58%;
+  border-radius: 6px 6px 0 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3);
+  background: linear-gradient(180deg, #5b8cf5, var(--pg-accent));
+  transition: height .28s cubic-bezier(.4, 1.3, .5, 1);
+}
+.pl-cl-b.on .pl-cl-f { background: linear-gradient(180deg, var(--cv-r-40), var(--cv-r-60)); }
+.pl-cl-b:hover .pl-cl-f { filter: brightness(1.08); }
+.pl-cl-req {
+  position: absolute; left: 11%; right: 11%; height: 4px; border-radius: 2px;
+  background: var(--cv-g-50); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cv-g-70) 30%, transparent);
+}
+/* ⚠️ La zone du nom est BORNEE, et la legende reserve exactement cette
+   hauteur : mesure, le nom tient sur trois lignes (deux pour le libelle, une
+   pour les heures) et il poussait la legende de 16 px. Un nom plus long est
+   deja coupe par , et il reste entier dans l'info-bulle. */
+.pl-cl-x {
+  position: absolute; top: 100%; left: 0; right: 0; padding-top: 7px;
+  height: 61px; overflow: hidden;
+  text-align: center; font-size: 14px; line-height: 1.3; color: var(--muted);
+}
+.pl-cl-x b { font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pl-cl-ec {
+  position: absolute; left: 50%; transform: translate(-50%, -50%); white-space: nowrap;
+  padding: 3px 7px; border-radius: 999px;
+  font-size: 13.75px; font-weight: 700; background: var(--cv-r-05); color: var(--cv-red-deep);
+}
+.pl-cl-lg {
+  display: flex; gap: 16px; flex-wrap: wrap; margin: 68px 0 0;
+  font-size: 14px; color: var(--muted);
+}
+.pl-cl-lg span { display: inline-flex; align-items: center; gap: 6px; }
+.pl-cl-lg u { width: 12px; height: 12px; border-radius: 3px; text-decoration: none; display: block; }
+.pl-cl-lg u.d { background: var(--pg-accent); }
+.pl-cl-lg u.r { background: var(--cv-g-50); }
+
+/* ───────────────── La carte d'action, resserrée ─────────────────
+   ⚠️ 248 px, avec le nom du résultat écrit TROIS fois et trois étiquettes en
+   capitales rendues à 10 px réels. Le titre est l'action (une fois), la ligne
+   qui suit porte la mesure telle que le serveur la rédige, et « Réussi quand »
+   attend derrière un « ? ». « Livrable » est parti : il redisait le titre. */
+.cv2-etape-o { margin-top: 5px; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.pl-q {
+  display: inline-grid; place-items: center; vertical-align: middle;
+  width: 18px; height: 18px; border-radius: 999px; cursor: help;
+  border: 1px solid var(--border-strong, #cbd5e1); background: var(--card);
+  color: var(--muted); font-size: 11.5px; font-weight: 700;
+}
+.pl-ch-s {
+  flex: none; white-space: nowrap; padding: 5px 9px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; background: var(--card-2); color: var(--ink-2);
+}
+.pl-ch-s.ko { background: var(--cv-r-05); color: var(--cv-red-deep); }
+/* ⚠️ C'est le GROUPE qui s'estompe, pas la carte : le classement met en
+   avant une ACTIVITÉ, et une activité est une section entière. */
+.cv2-etapes-g.dim { opacity: .34; }
+/* allumée AVEC son segment de frise, par CLASSE et sans re-rendu */
+.cv2-etape.hi .cv2-etape-c {
+  border-color: var(--c); box-shadow: 0 0 0 3px var(--c-soft);
+}
+
+/* ───────────────── Le pied ───────────────── */
+.pl-pied { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.pl-pied .cv2-prop { margin: 0; }
+.pl-pied .pl-pousse { flex: 1; min-width: 8px; }
+
+/* ⚠️ En colonne, les RÉGLAGES passent devant le classement : ce sont eux
+   qu'on vient manipuler. Le bandeau garde la frise au-dessus — c'est elle qui
+   répond à la question, et elle ne coûte que 52 px de haut.
+   ⚠️ Les bornes sont en px RÉELS : `body.pg` porte `zoom: .8` et les requêtes
+   média ignorent ce zoom. 1 150 px réels = 1 437 px CSS. */
+@media (max-width: 1150px) {
+  .pl-corps { flex-direction: column; }
+  .pl-rg { width: 100%; min-width: 0; }
+  .pl-cols { grid-template-columns: minmax(0, 1fr); }
+  .pl-cl-lg { margin-top: 68px; }
 }

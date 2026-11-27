@@ -179,29 +179,34 @@ class TestLaTableSAligne:
 # ══════════════════════════════════════════════════════════════════════
 @SAUT_ECRAN
 class TestLePlanChangeDeDensite:
+    """⚠️ RÉÉCRIT (27/11) : le bandeau n'est plus l'en-tête d'une fenêtre, et
+    l'échéancier en peigne a cédé la place à la frise. Ce qui reste vrai, et
+    qui est la raison de ces deux cas : UN seul nuit sur la page, et le temps
+    se lit en SEMAINES nommées, pas sous un peigne muet."""
 
     def test_le_bandeau_prend_le_NUIT_des_deux_autres_surfaces(self):
         """⚠️ Trois dégradés sombres différents sur une même page (nuit, bleu,
         violet) se lisent comme un défaut d'impression."""
         css = _sans_commentaires_css(_lire(CSS))
-        r = _regle(css, "\n.cv2-ph {")
+        r = _regle(css, "\n.pl-nuit {")
         assert "var(--nuit-1)" in r and "var(--nuit-2)" in r
         assert "#4c1d95" not in r, "le violet est parti"
+        assert ".cv2-ph {" not in css, "l'en-tête de la fenêtre aussi"
 
-    def test_l_echeancier_PORTE_ses_semaines(self):
-        """⚠️ Il portait une LÉGENDE centrée (« Répartition semaine par
-        semaine ») sous un peigne muet : on voyait où ça déborde sans savoir à
-        quelle semaine. Et les repères sont posés sur les semaines
-        RÉELLEMENT dessinées — calés sur la seule durée visée, ils
-        décaleraient dès qu'une barre rouge s'ajoute."""
+    def test_le_temps_porte_ses_SEMAINES(self):
+        """⚠️ Le peigne portait une LÉGENDE centrée (« Répartition semaine par
+        semaine ») sous 31 barres muettes : on voyait où ça déborde sans
+        savoir à quelle semaine. La frise porte un AXE, et ce qui dépasse la
+        durée visée y est marqué."""
         js = _lire(JS)
-        assert "cv2-echlbl" not in js and "plan_sched" not in js, "la légende est partie"
-        r = _corps(js, "  function renderSemaines(c) {")
-        assert "$('#cv2-semx')" in r
-        marques = r.split("const marques", 1)[1].split(";", 1)[0]
-        assert "total" in marques and "c.sem" not in marques
-        css = _sans_commentaires_css(_lire(CSS))
-        assert "space-between" in _regle(css, "\n.cv2-semx {")
+        assert "cv2-echlbl" not in js and "plan_sched" not in js
+        assert "function renderSemaines" not in js, "le peigne est parti"
+        r = _corps(js, "  function renderFrise(c) {")
+        assert 'class="pl-fr-ax"' in r and "T('plan_wk')" in r
+        # ⚠️ L'axe est posé sur les semaines RÉELLEMENT couvertes, pas sur la
+        # seule durée visée : il décalerait dès que le besoin déborde.
+        assert "semMax = Math.max(1, Math.ceil(ech / c.hs))" in r
+        assert "w > c.sem ? 'de' : ''" in r, "ce qui dépasse se marque"
 
 
 class TestLePlanVoitCeQuiEstDejaPlanifie:
@@ -776,3 +781,199 @@ def scene(app, client):
         ent_test = Entity.query.filter_by(name="Entité Test").first()
         ent_test_id = ent_test.id if ent_test else None
     _connecte(client, admin_id, admin_mail, ent_test_id)
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  4 · LE PLAN EST UNE PAGE, ET DEUX DESSINS
+#  ⚠️ C'etait une FENETRE de 800 x 736 px reels dans un ecran de 1600 x 1000
+#  — la moitie de la largeur — avec 1 089 px a derouler pour 794 visibles, et
+#  le verdict « il manque 74 h » en SIXIEME position de sa colonne de droite.
+#  ⚠️⚠️ Et les deux dessins REMPLACENT, ils ne s'ajoutent pas : un premier
+#  jet gardait les listes ET ajoutait les images.
+# ══════════════════════════════════════════════════════════════════════
+GAB = os.path.join(RACINE, "Code", "routes", "templates", "competences_view.html")
+
+
+def _section_plan(css_brut):
+    """La section de la page, BORNÉE : la feuille fait 4 700 lignes et porte
+    presque toujours un homonyme de ce qu'on croit garder.
+
+    ⚠️⚠️ On découpe AVANT de retirer les commentaires — le repère de section
+    EST un commentaire — et on jette ensuite ce qui RESTE de ce commentaire :
+    la coupe tombe en son milieu, donc son `/*` est parti et le nettoyage ne
+    le reconnaît plus. Onzième fois que cette famille de piège se présente ;
+    le cliquet du gris s'était attrapé sur la phrase qui l'explique."""
+    tail = css_brut.split("LE PLAN DE FORMATION — une PAGE", 1)[1]
+    return _sans_commentaires_css(tail.split("*/", 1)[1])
+
+
+@SAUT_ECRAN
+class TestLePlanEstUnePage:
+
+    def test_la_fenetre_a_disparu_au_profit_d_un_ECRAN(self):
+        js, gab = _lire(JS), _lire(GAB)
+        assert "cv2-ecran-plan" in gab, "la page n'est pas dans le gabarit"
+        assert "cv2-plan-win" not in gab and "cv2-plan-win" not in js
+        assert "cv2-plan-body" not in js and "fermerPlan" not in js
+        # elle rejoint la liste des écrans, sinon rien ne la masque
+        assert "'#cv2-ecran-plan'" in js.split("const ECRANS", 1)[1].split("]", 1)[0]
+        assert "nom !== 'plan'" in js
+
+    def test_le_retour_ramene_D_OU_L_ON_VIENT(self):
+        """Le plan s'ouvre depuis la page d'évaluation ET depuis le
+        diagnostic : un retour qui tomberait toujours sur la galerie ferait
+        refaire deux clics à chaque fois."""
+        js = _lire(JS)
+        assert "state.planRetour = state.ecran" in js
+        r = _corps(js, "  function retourDuPlan() {")
+        assert "state.planRetour === 'eval'" in r and "ouvrirEvaluation" in r
+        assert "chargerSynthese()" in r
+
+    def test_LES_DEUX_DESSINS_REMPLACENT(self):
+        """⚠️ C'est le reproche qui a rouvert cette passe : « cela devient
+        presque trop chargé ». La frise prend la place de l'échéancier en
+        peigne, des deux chiffres d'entrée du verdict et de la barre de
+        répartition ; le classement celle des trois jauges et de la liste de
+        détail qui redisait la colonne du chemin."""
+        js = _lire(JS)
+        for mort in ("function majMix", "function renderSemaines", "cv2-mix",
+                     "cv2-semaines", "cv2-semx", 'cv2-barre"', 'cv2-chiffres"',
+                     "function curseur(", "cv2-plan-grille"):
+            assert mort not in js, mort + " survit"
+        css = _sans_commentaires_css(_lire(CSS))
+        for mort in (".cv2-mix", ".cv2-semaine", ".cv2-semx", ".cv2-barre {",
+                     ".cv2-chiffres", ".cv2-curseur", ".cv2-plan-win"):
+            assert mort not in css, mort + " survit dans la feuille"
+
+    def test_la_frise_porte_la_CAPACITE_et_les_semaines(self):
+        """⚠️ Les heures et les semaines sont la MÊME grandeur : la longueur
+        d'un segment dit ce qu'il coûte ET combien de temps il prend. Le trait
+        blanc est la capacité, et ce qui est à sa droite est hachuré."""
+        r = _corps(_lire(JS), "  function renderFrise(c) {")
+        assert "c.capacite / ech * 100" in r, "la coupe est posée sur la capacité"
+        assert "pl-fr-de" in r and "pl-fr-c" in r
+        assert "Math.ceil(ech / c.hs)" in r, "l'axe compte des semaines"
+        assert "T('plan_wk')" in r
+
+    def test_l_etiquette_de_coupe_ne_sort_pas_du_bandeau(self):
+        """⚠️ Le bandeau est en `overflow: hidden` : près du bord, l'étiquette
+        centrée serait coupée sans rien signaler."""
+        r = _corps(_lire(JS), "  function renderFrise(c) {")
+        assert "coupe > 88" in r and "coupe < 7" in r
+
+    def test_le_verdict_ne_porte_qu_UN_chiffre(self):
+        """⚠️ Il en portait TROIS. Les deux premiers sont les entrées de la
+        soustraction, et la frise les montre déjà : sa longueur totale est le
+        besoin, l'étiquette de son trait blanc la capacité."""
+        r = _corps(_lire(JS), "  function renderVerdict(c) {")
+        assert r.count('class="pl-vn') == 1, "un seul chiffre"
+        assert "plan_manque_k" in r and "plan_reste_k" in r
+
+    def test_une_colonne_du_classement_a_un_SOCLE(self):
+        """⚠️ À hauteur nulle, le niveau 0 se confondrait avec « pas de niveau
+        du tout » — et les deux ne se corrigent pas de la même façon. Une
+        activité non évaluée n'entre de toute façon jamais dans un plan."""
+        r = _corps(_lire(JS), "  function renderClassement() {")
+        assert "Math.max(10, dem * PAS)" in r
+
+    def test_le_requis_est_un_TIRET_pose_sur_la_colonne(self):
+        """Une cible se dessine, elle ne se remplit pas — c'est le device de
+        la vue d'ensemble, repris pour la même question."""
+        r = _corps(_lire(JS), "  function renderClassement() {")
+        assert "pl-cl-req" in r and "req * PAS - 2" in r
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "position: absolute" in _regle(css, "\n.pl-cl-req {")
+
+    def test_le_nom_d_une_activite_a_la_largeur_de_sa_VOIE(self):
+        """⚠️ Mesuré : dans la largeur de sa BARRE (62 px) il partait sur
+        quatre lignes. Le bouton prend toute la voie, la barre vit dedans."""
+        r = _corps(_lire(JS), "  function renderClassement() {")
+        assert "larg * 0.88" in r, "le bouton prend la voie"
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "width: 58%" in _regle(css, "\n.pl-cl-f {")
+        # et la zone du nom est BORNÉE, sinon elle pousse la légende
+        assert "overflow: hidden" in _regle(css, "\n.pl-cl-x {")
+
+    def test_le_segment_et_la_carte_s_allument_SANS_re_rendu(self):
+        """⚠️ Un re-rendu à chaque survol ferait sauter ce qu'on est en train
+        de regarder."""
+        r = _corps(_lire(JS), "  function eclairer(i) {")
+        assert r.count("classList.toggle('hi'") == 2, "la frise ET la carte"
+        for interdit in ("innerHTML", "render", "recalculer"):
+            assert interdit not in r, r
+
+    def test_le_classement_SUIT_le_defilement(self):
+        """⚠️ Mesuré : il s'arrête à 400 px en face d'une colonne d'actions de
+        919 — et c'est la référence qu'on garde sous les yeux en lisant la
+        liste, pas un en-tête qu'on lit une fois."""
+        css = _sans_commentaires_css(_lire(CSS))
+        assert "position: sticky" in _regle(css, "\n.pl-bloc--cl {")
+        assert "pl-bloc pl-bloc--cl" in _lire(JS)
+
+    def test_le_plancher_typographique_de_la_PAGE(self):
+        """11 px RÉELS, soit 13,75 écrits : `body.pg` porte `zoom: .8`.
+        ⚠️ Deux exceptions ASSUMÉES et nommées : les heures écrites DANS un
+        segment de frise et les repères de son axe — ce sont des graduations,
+        pas ce qu'on vient lire."""
+        css = _sans_commentaires_css(_lire(CSS))
+        sec = _section_plan(_lire(CSS))
+        # les graduations et les glyphes de pastille : ce ne sont pas des
+        # textes qu'on vient lire, et les grossir casse la boîte qui les tient
+        SECONDAIRE = (".pl-fr-s span", ".pl-fr-ax span", ".pl-cl-y span", ".pl-q")
+        trop_petit = []
+        for m in re.finditer(r"\n(\.[a-z0-9 .>:()\[\]=\"'-]*\{)([^}]*)\}", sec):
+            sel, corps = m.group(1), m.group(2)
+            if not sel.startswith(".pl-"):
+                continue
+            t = re.search(r"font-size:\s*([\d.]+)px", corps)
+            if t and float(t.group(1)) < 13.75 and not any(x in sel for x in SECONDAIRE):
+                trop_petit.append((sel.strip(), t.group(1)))
+        assert not trop_petit, trop_petit
+
+    def test_aucune_regle_de_la_page_ne_lit_le_gris_de_la_racine(self):
+        """⚠️ Les quatre dérivés sont déclarés sur `:root`, où `--pg-accent`
+        vaut encore le gris par défaut : ils rendent du GRIS."""
+        sec = _section_plan(_lire(CSS))
+        for derive in ("--pg-accent-soft", "--pg-accent-softer",
+                       "--pg-accent-border", "--pg-accent-glow"):
+            assert derive not in sec, derive
+
+    def test_les_reglages_sont_BORNES(self):
+        """⚠️ Une séance dans deux ans ne doit pas écrire une valeur qu'on ne
+        peut plus reprendre à la main."""
+        js = _lire(JS)
+        r = _corps(js, "  function renderReglages(c) {")
+        # ⚠️ LES TROIS branches : « au plus juste », la séance, et le pas des
+        # deux réglages. Un seul `assert` répété deux fois ne gardait que la
+        # première — c'est le cliquet qui est resté vert sur le défaut.
+        assert r.count("borner('semaines'") == 2, "« au plus juste » ET la séance"
+        assert "p[cle] = borner(cle," in r, "le pas des deux réglages"
+        assert "Math.min(BORNES[cle][1]" in js and "Math.max(BORNES[cle][0]" in js
+
+    def test_les_cles_de_la_page_existent_dans_les_DEUX_langues(self):
+        """⚠️ L'accesseur rend la CLÉ quand elle manque, jamais un repli
+        français : une clé absente s'affiche telle quelle, sans rien lever."""
+        js = _lire(JS)
+        blocs = dict(re.findall(r"\n    (fr|en): \{(.*?)\n    \},", js, re.S))
+        assert set(blocs) == {"fr", "en"}
+        NEUVES = ["plan_vise", "plan_hors", "plan_manque_k", "plan_reste_k",
+                  "plan_cl_t", "plan_che_t", "plan_cl_dem", "plan_cl_req",
+                  "plan_gap_n", "plan_retour", "plan_juste_b", "plan_seance_b"]
+        for lang, b in blocs.items():
+            dedans = set(re.findall(r"\b([a-z0-9_]+):", b))
+            for c in NEUVES:
+                assert c in dedans, (lang, c)
+        # et l'anglais n'est pas une recopie du français
+        for c in NEUVES:
+            fr = re.search(r"\b%s: '([^']*)'" % c, blocs["fr"]).group(1)
+            en = re.search(r"\b%s: '([^']*)'" % c, blocs["en"]).group(1)
+            assert fr != en, c
+
+    def test_les_cles_mortes_sont_parties_avec_leur_dernier_lecteur(self):
+        """Une clé qu'on retire en même temps que son seul lecteur ne laisse
+        rien derrière elle."""
+        js = _lire(JS)
+        for c in ("plan_need", "plan_capacity", "plan_need_total", "plan_cap_total",
+                  "plan_mix", "plan_target", "plan_deliv", "plan_week_step_1",
+                  "plan_juste:", "plan_seance_cal", "plan_gap_intro", "plan_seance:"):
+            assert c not in js, c

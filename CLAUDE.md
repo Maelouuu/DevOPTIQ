@@ -11819,6 +11819,182 @@ en chiffres, la séance et son bouton (12 → 2 semaines), la norme proposée pu
 posée (5 j au plus), **zéro fuite française sur l'écran anglais**, zéro erreur
 console, zéro débordement horizontal.
 
+### LE PLAN DE FORMATION : une PAGE, et deux dessins (2026-11-27)
+
+« C'est vraiment pas bon le plan de formation actuellement : la pop-up est
+trop petite, visuellement c'est pas très beau et surtout on comprend que
+dalle, c'est pas du tout intuitif. » Les trois reproches se chiffrent, et ils
+ont été chiffrés au banc **avant** de redessiner :
+
+| | relevé |
+|---|---|
+| la fenêtre | **800 × 736 px réels** dans 1600 × 1000 — **50 % de la largeur** |
+| à dérouler | **1 089 px** pour 794 visibles |
+| à l'ouverture | un cadre de 800 × 277, presque vide |
+| le verdict « il manque 74 h » | **6ᵉ élément** de la colonne de droite |
+| « Rapport d'essais » dans sa carte | écrit **trois fois** |
+| l'écart qui justifie le plan | **disparaît** dès que le plan est proposé |
+| l'échéancier | 31 barres de 3 px pour dire « ça déborde » |
+
+⚠️ **Le « on comprend que dalle » se diagnostique** : l'écran pose un argument
+en trois temps — *voilà ce qui manque · voilà ce qu'on fait · voilà si ça
+tient* — et il n'en montrait **jamais deux ensemble**. Le « pourquoi »
+n'existait que dans l'état vide, et il s'évaporait au moment où le plan
+apparaissait.
+
+**Tranché sur PROTOTYPE cliquable à l'échelle réelle** (trois organisations,
+puis deux reprises du contenu) — la treizième fois que la méthode évite une
+journée écrite pour rien. ⚠️ Et le prototype porte `zoom: .8` sur sa scène :
+sans lui, chaque valeur arrive **20 % plus petite** dans l'application, le
+piège déjà payé sur le compteur du socle.
+
+#### Une PAGE, comme l'évaluation l'est devenue le 14/10
+
+`#cv2-ecran-plan` rejoint `ECRANS` et `montrerEcran` ; `pleineLargeur` efface
+la barre des collaborateurs et le bandeau de page. Mesuré : **86 % de la
+largeur**, et plus aucun défilement INTERNE. La fenêtre, son en-tête, son
+corps et son pied quittent le gabarit.
+⚠️ `state.planRetour` retient d'où l'on vient : le plan s'ouvre depuis la page
+d'évaluation ET depuis le diagnostic, et un retour qui tomberait toujours sur
+la galerie ferait refaire deux clics à chaque fois.
+
+#### ⚠️⚠️ Les deux dessins REMPLACENT, ils ne s'ajoutent pas
+
+Le premier jet gardait les listes **et** ajoutait les images : « cela devient
+presque trop chargé et trop complexe, la version juste avant avait le seul
+avantage de paraître simple à comprendre ». C'est la règle de cette passe, et
+elle se vérifie ligne à ligne :
+
+- **la FRISE** prend la place de l'échéancier en peigne, **des deux chiffres
+  d'entrée du verdict** (sa longueur totale EST le besoin, l'étiquette de son
+  trait blanc la capacité) et **de la barre de répartition par nature** (elle
+  colore par nature et porte sa légende) ;
+- **le CLASSEMENT** prend celle des trois jauges **et de la liste de détail**
+  qui redisait, activité par activité, ce que la colonne du chemin écrit déjà ;
+- **le chemin reste la seule LISTE** : c'est lui qui porte le texte et les −/+.
+
+Partis avec : `majMix`, `renderSemaines`, `curseur`, `majCurseur`, `blocSeance`,
+`bindPlan`, `fermerPlan`, et **16 clés de catalogue** (`plan_need`,
+`plan_capacity`, `plan_need_total`, `plan_cap_total`, `plan_mix`,
+`plan_target`, `plan_deliv`, `plan_juste`, `plan_seance_cal`,
+`plan_week_step_*`, `plan_gap_intro`, `plan_seance*`). Une clé qu'on retire en
+même temps que son seul lecteur ne laisse rien derrière elle.
+
+#### LA FRISE — une seule image pour « quand » et « ça tient »
+
+⚠️ **Les heures et les semaines sont la MÊME grandeur** — une semaine, c'est
+les heures qu'on y met — donc la longueur d'un segment dit à la fois ce qu'il
+coûte et combien de temps il prend. Le trait blanc est la capacité ; ce qui est
+à sa droite est hachuré. **Le verdict n'est plus un nombre à chercher, c'est
+l'endroit où la barre CASSE.**
+
+- ⚠️ **La hachure VOILE, elle ne couvre pas.** À 46 % sur des raies de 5 px
+  pour 6 de vide, les numéros des segments qu'elle traverse ne se lisaient
+  plus — relevé **sur la capture**, pas à la mesure. 30 % sur 4 px pour 14.
+- ⚠️ **L'étiquette de coupe se borne aux deux bords** : le bandeau est en
+  `overflow: hidden`, et près du bord une étiquette centrée serait coupée sans
+  rien signaler.
+- ⚠️ **Le trait descend jusque sous l'axe des semaines** — c'est la même
+  frontière dans les deux unités — **mais pas jusque dans la légende**, qu'il
+  barrait.
+- ⚠️ **L'axe est posé sur les semaines RÉELLEMENT couvertes**, pas sur la seule
+  durée visée : il décalerait dès que le besoin déborde.
+- La légende ne nomme que les natures **réellement présentes** : une entrée
+  pour une couleur absente du dessin n'apprend rien.
+
+#### LE VERDICT — UN seul chiffre
+
+Il en portait trois (« à combler », « disponibles », « il manque »). Les deux
+premiers sont les ENTRÉES de la soustraction, et la frise les montre déjà.
+Reste celui sur lequel on agit, en 46 px, et la phrase dit l'ALTERNATIVE —
+plus le chiffre qu'on vient de lire à dix centimètres.
+
+#### LE CLASSEMENT — les activités sur une échelle commune 0 → 4
+
+- ⚠️ **Le requis est un TIRET posé sur la colonne**, pas un remplissage : une
+  cible se dessine, elle ne se remplit pas. C'est le device de la vue
+  d'ensemble, repris pour la même question.
+- ⚠️ **Un socle de 10 px** dès qu'un niveau est posé : à hauteur nulle, le
+  niveau 0 se confondrait avec « pas de niveau du tout ». (NULL n'arrive pas
+  ici : un plan ne se bâtit que sur du MESURÉ.)
+- ⚠️ **Le bouton prend toute la VOIE, pas la largeur de sa barre.** Mesuré :
+  dans 62 px, le nom de l'activité partait sur quatre lignes. La barre fait
+  58 % du bouton, le tiret 78 %, et **la zone du nom est bornée** — sinon elle
+  pousse la légende de 16 px.
+- ⚠️ **Il SUIT le défilement** (`position: sticky`) : mesuré, il s'arrête à
+  400 px en face d'une colonne d'actions de 919, et c'est la référence qu'on
+  garde sous les yeux en lisant la liste.
+- Cliquer une colonne met en avant les actions de CETTE activité dans la
+  colonne d'à côté : c'est ce qui relie les deux dessins.
+
+#### LA CARTE D'ACTION, resserrée
+
+248 px, le nom du résultat écrit **trois fois**, et trois étiquettes en
+capitales rendues à **9,2 px RÉELS** (le plancher est 11). Désormais : le titre
+est l'action — une fois — la ligne qui suit porte la mesure telle que le
+serveur la rédige (« mesuré 5 essais · norme au moins 8 essais · échéance
+24/11/2026 »), et « Réussi quand » attend derrière un « ? ».
+⚠️ **« Livrable » est parti** : dans le repli c'est le nom du résultat, donc le
+titre. Il ne revient que quand le titre ne le dit pas déjà.
+⚠️ **Le segment de frise et la carte s'allument ENSEMBLE, par CLASSE et sans
+re-rendu** : un re-rendu à chaque survol ferait sauter ce qu'on regarde.
+
+#### Les deux états VIDES, éprouvés à part
+
+C'est le seul chemin que le banc ne joue pas tout seul : aucun collaborateur
+n'a à la fois un rôle sans écart et un rôle sans action.
+- ⚠️ **Retirer la DERNIÈRE action repasse par la page entière**, qui porte
+  l'état vide et sa porte de sortie. Mesuré sans ce retour : une frise vide
+  sous un verdict qui annonce « il reste 48 h » — arithmétiquement juste, et
+  muet.
+- ⚠️ **Sans aucune activité en écart, il n'y a PAS de bouton « Proposer »** :
+  il n'y a rien à proposer. Mesuré après : divs équilibrées (9/9), zéro erreur.
+- ⚠️ **L'espace avant les deux-points est une règle FRANÇAISE** : l'info-bulle
+  du « ? » passe par `DP`, qui suit la langue. C'est `test_82` qui l'a
+  attrapée, sur la suite complète.
+
+
+
+#### Le plancher typographique, mesuré puis tenu
+
+11 px RÉELS, soit 13,75 écrits sous le `zoom: .8` du corps. Relevé avant :
+**14 textes en dessous**, dont la provenance du plan à **9,2**. Après : **4**,
+et les quatre sont nommés — deux graduations de la frise (les heures d'un
+segment, les repères de son axe), et deux classes PARTAGÉES de l'application
+(`.ev-retour`, `.btn`), identiques sur la page d'évaluation.
+
+#### ⚠️ Trois pièges, tous déjà connus
+
+- ⚠️⚠️ **Un découpage de section CSS doit jeter ce qui RESTE du commentaire
+  d'en-tête.** Le repère de section EST un commentaire : la coupe tombe en son
+  milieu, son `/*` est parti, et `_sans_commentaires_css` ne le reconnaît plus
+  — le cliquet du gris s'est attrapé sur la phrase qui l'explique. **Onzième
+  fois** que cette famille se présente.
+- ⚠️ **Un cliquet qui cherche une chaîne doit viser un nom EXACT** :
+  `cv2-barre` est un préfixe de `cv2-barres` (la vue d'ensemble), et le cliquet
+  lisait le mauvais nom.
+- ⚠️⚠️ **Et un cliquet qui boucle doit lire sa variable de boucle.**
+  `for cle in ("juste", "seance"): assert "borner('semaines'" in r` vérifiait
+  **deux fois la même chose** : la troisième branche (le pas des deux réglages)
+  n'était gardée par personne, et le cas est resté **VERT** sur le défaut remis.
+- ⚠️ **Le heredoc du shell avale les antislashs** — deux fois de plus dans
+  cette passe. Un fichier qui porte des échappements ou du texte français
+  s'écrit avec la Write tool, jamais par heredoc.
+
+Tests : `tests/test_170_fenetres_et_norme.py` gagne `TestLePlanEstUnePage`
+(16 cas) et voit `TestLePlanChangeDeDensite` RÉÉCRITE ; `test_148` voit
+`TestLaFenetreDuPlan` devenir `TestLaPageDuPlan` (5 cas réécrits) et `test_140`
+son cliquet du bouton de retour (QUATRE écrans en portent un). **22 défauts
+remis un par un, 22 cliquets tombés** — dont deux qui ne gardaient rien au
+premier essai. Éprouvé au banc (`tools/devrun_competences.py`) à 1280 et
+1600 px dans les deux langues : **frise sans trou** (somme des segments 1039,8
+pour 1039,9 de piste), tiret du requis à **0 px** de sa graduation, nom hors de
+sa voie **0 px**, **zéro fuite française** sur l'écran anglais (176 textes
+relevés, attributs compris), zéro clé brute, zéro débordement horizontal, zéro
+erreur console.
+
+---
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

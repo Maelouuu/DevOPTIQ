@@ -194,61 +194,66 @@ class TestLaFenetreTechnicite:
         assert "cv2-emptydom" in js
 
 
-class TestLaFenetreDuPlan:
-    """La structure ne bouge pas — c'est elle qui rend le plan modulable. Ce
-    qui change, c'est la densité."""
+class TestLaPageDuPlan:
+    """⚠️ RÉÉCRIT (27/11) — le plan a quitté la fenêtre. Elle faisait
+    800 × 736 px RÉELS dans un écran de 1600 × 1000, avec 1 089 px à dérouler
+    pour 794 visibles. Ce qui reste vrai de la passe de densité, c'est la
+    STRUCTURE (le besoin, la capacité, un verdict en direct) et le PLANCHER
+    typographique ; ce qui change, c'est où tout cela est posé."""
 
     def test_la_structure_ne_bouge_PAS(self):
         js = _lire(JS)
         assert "function renderActions(" in js and "function planning(" in js
         r = _corps(js, "  function renderActions(anime) {")
         assert 'class="cv2-etapes-g"' in r, "le regroupement par activité"
-        assert "<ol class=\"cv2-etapes\">" in r, "un rail NUMÉROTÉ"
-        c = _corps(js, "  function carteEtape(a, i, anime) {")
-        assert "<dl class=\"cv2-etape-d\">" in c, "les champs étiquetés"
+        assert '<ol class="cv2-etapes">' in r, "un rail NUMÉROTÉ"
 
-    def test_les_trois_champs_d_une_etape_ont_leur_air(self):
-        """⚠️ RÉÉCRIT (27/11) — la passe de densité. Relevé à l'écran : les
-        étiquettes « Objectif / Livrable / Réussi quand » étaient à 11,5 px
-        écrits, soit **9,2 px RÉELS** sous le `zoom: .8` du corps, et leur
-        valeur à 11,2. Le plancher de l'échelle typographique est 11 px réels,
-        soit 13,75 écrits. Ce sont pourtant les champs qu'on vient lire."""
+    def test_la_carte_dit_la_MESURE_au_lieu_de_trois_champs_etiquetes(self):
+        """⚠️ 248 px, le nom du résultat écrit TROIS fois et trois étiquettes
+        en capitales à 9,2 px RÉELS. Le titre est l'action — une fois — la
+        ligne qui suit porte la mesure telle que le serveur la rédige, et
+        « Réussi quand » attend derrière un « ? ». « Livrable » ne revient
+        que quand le titre ne le dit pas déjà."""
+        js = _lire(JS)
+        c = _corps(js, "  function carteEtape(a, i, anime) {")
+        assert "<dl" not in c and "cv2-etape-d" not in c, "les étiquettes sont parties"
+        assert 'class="cv2-etape-o"' in c, "la ligne de mesure"
+        assert "plan_crit" in c and 'class="pl-q"' in c, "le critère derrière un ?"
+        assert "indexOf(liv) < 0" in c, "le livrable ne redit pas le titre"
+
+    def test_le_plancher_des_champs_qui_restent(self):
+        """11 px RÉELS, soit 13,75 écrits sous le `zoom: .8` du corps."""
         css = _sans_commentaires_css(_lire(CSS))
-        PLANCHER = 13.75           # 11 px réels sous zoom .8
-        for sel in ("\n.cv2-etape-d dd {", "\n.cv2-etape-d dt {",
-                    "\n.cv2-etape-t {", "\n.cv2-chiffres {",
-                    "\n.cv2-curseur .cl {"):
+        PLANCHER = 13.75
+        for sel in ("\n.cv2-etape-t {", "\n.cv2-etape-o {", "\n.pl-ch-s {"):
             r = _regle(css, sel)
             m = re.search(r"font-size:\s*([\d.]+)px", r)
             assert m, sel
             assert float(m.group(1)) >= PLANCHER, (sel, m.group(1))
-        # ⚠️ Ces deux-là sont REDÉCLARÉES plus bas (bloc « lisibilité des
-        # fenêtres ») : on lit la taille que le navigateur applique, pas la
-        # première qu'on croise.
-        for classe in (".cv2-dit", ".cv2-prop", ".cv2-semx"):
-            v = _taille_effective(css, classe)
-            assert v and v >= PLANCHER, (classe, v)
-        assert "gap: 9px 16px" in _regle(css, "\n.cv2-etape-d {")
+        # ⚠️ La provenance du plan était rendue à 9,2 px RÉELS : `.cv2-prop`
+        # vaut 11,5 px CSS. On lit la taille que le navigateur APPLIQUE — la
+        # dernière déclarée — pas la première qu'on croise.
+        v = _taille_effective(css, ".cv2-prop")
+        assert v and v >= PLANCHER, v
+        assert "font-size: 13.75px" in _regle(css, "\n.pl-pied .cv2-prop {")
 
-    def test_le_panneau_de_droite_gagne_sa_place(self):
-        """Son verdict — besoin, capacité, et la phrase qui dit ce qui manque
-        — est ce pour quoi on ouvre la fenêtre. À 258 px il se repliait."""
+    def test_le_verdict_est_le_premier_chiffre_de_la_page(self):
+        """Son verdict — ce qui manque — est ce pour quoi on ouvre le plan.
+        Dans la fenêtre il arrivait en SIXIÈME position de la colonne de
+        droite ; il est maintenant dans le bandeau, en 46 px."""
         css = _sans_commentaires_css(_lire(CSS))
-        assert "min(1000px, 95vw)" in _regle(css, "\n.cv2-plan-win {")
-        assert "minmax(318px, 1fr)" in _regle(css, "\n.cv2-plan-grille {")
-        # ⚠️ RÉÉCRIT (27/11) : 19 px écrits font 15,2 réels pour LE chiffre
-        # qu'on vient lire. 25 → 20 réels.
-        assert "font-size: 25px" in _regle(css, "\n.cv2-chiffres b {")
+        assert "font-size: 46px" in _regle(css, "\n.pl-vn b {")
+        js = _lire(JS)
+        bandeau = js.split('class="pl-corps"', 1)[1].split("pl-cols", 1)[0]
+        assert "pl-frise" in bandeau and "pl-verdict" in bandeau
 
-    def test_caler_au_plus_juste_ne_lit_plus_le_gris_de_la_racine(self):
+    def test_rien_de_la_page_ne_lit_le_gris_de_la_racine(self):
         """⚠️ `--pg-accent-border` et `--pg-accent-soft` sont déclarés sur
         `:root`, où `--pg-accent` vaut encore le gris par défaut : le filet et
-        le survol de ce bouton étaient GRIS sur une page bleue. Le mélange
-        s'écrit SUR PLACE, comme ailleurs dans cette feuille."""
-        css = _sans_commentaires_css(_lire(CSS))
-        for sel in ("\n.cv2-juste {", "\n.cv2-juste:hover {"):
-            r = _regle(css, sel)
-            for derive in ("--pg-accent-soft", "--pg-accent-softer",
-                           "--pg-accent-border", "--pg-accent-glow"):
-                assert derive not in r, sel + " lit " + derive
-        assert "color-mix(in srgb, var(--pg-accent)" in _regle(css, "\n.cv2-juste {")
+        le survol d'un bouton y seraient GRIS sur une page bleue."""
+        css = _lire(CSS)
+        sec = _sans_commentaires_css(
+            css.split("LE PLAN DE FORMATION — une PAGE", 1)[1].split("*/", 1)[1])
+        for derive in ("--pg-accent-soft", "--pg-accent-softer",
+                       "--pg-accent-border", "--pg-accent-glow"):
+            assert derive not in sec, derive

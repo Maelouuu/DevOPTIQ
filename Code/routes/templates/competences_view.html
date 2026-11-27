@@ -129,6 +129,10 @@
     <section class="cv2-page hidden" id="cv2-ecran-eval"></section>
     <section class="cv2-page hidden" id="cv2-ecran-seance"></section>
     <section class="cv2-page hidden" id="cv2-ecran-cal"></section>
+    {# ⚠️ Le PLAN est une page lui aussi. Sa fenêtre faisait 800 px réels dans
+       un écran de 1600, et le verdict (« il manque 74 h ») arrivait en sixième
+       position de sa colonne de droite. #}
+    <section class="cv2-page hidden" id="cv2-ecran-plan"></section>
   </div>
 
   <div class="cv2-overlay" id="cv2-overlay"></div>
@@ -143,19 +147,6 @@
     <div class="cv2-db" id="cv2-drawer-body"></div>
     <div class="cv2-df" id="cv2-footer"></div>
   </aside>
-
-  {# Fenêtre du plan de formation — séparée : on n'évalue pas et on ne
-     planifie pas dans le même écran. #}
-  <aside class="cv2-plan-win" id="cv2-plan-win" role="dialog" aria-modal="true">
-    <div class="cv2-ph">
-      <button class="x" id="cv2-plan-close" aria-label="{{ t('btn.close') }}">&times;</button>
-      <h2 data-i18n="plan_title">Plan de formation</h2>
-      <div class="cv2-sub" id="cv2-plan-sub"></div>
-    </div>
-    <div class="cv2-pb" id="cv2-plan-body"></div>
-    <div class="cv2-df" id="cv2-plan-footer"></div>
-  </aside>
-
 
 
   <div class="cv2-toast" id="cv2-toast"></div>

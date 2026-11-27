@@ -1004,11 +1004,11 @@ class TestUnSeulVocabulaireDeBoutons:
         """Il dessinait son chevron en SVG : il ne pouvait pas recevoir la
         pastille ronde que portent les autres familles — et le rembourrage
         gauche de la pilule, calculé POUR cette pastille, collait le chevron
-        au bord. ⚠️ TROIS écrans en portent un (l'évaluation, la séance, le
+        au bord. ⚠️ QUATRE écrans en portent un (le plan, l'évaluation, la séance, le
         calendrier) : ils partagent la classe, donc la correction aussi."""
         js = _lire(JS)
         bouts = js.split('class="ev-retour"')[1:]
-        assert len(bouts) == 3, "évaluation, séance, calendrier"
+        assert len(bouts) == 4, "le plan, l'évaluation, la séance, le calendrier"
         for b in bouts:
             assert '<i class="fa-solid fa-chevron-left">' in b[:240], b[:90]
             assert "<svg" not in b[:240], b[:90]

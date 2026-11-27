@@ -417,35 +417,42 @@
       ia_touched: 'Corrigé à la main',
       // Plan de formation
       plan_title: 'Plan de formation', plan_open: 'Plan de formation',
+      // le plan en PAGE : la frise, le classement, le verdict unique
+      plan_vise: 'visé',
+      plan_hors: 'ne rentre pas dans la durée visée',
+      plan_manque_k: 'il manque',
+      plan_reste_k: 'il reste',
+      plan_cl_t: 'Ce qui manque',
+      plan_che_t: 'Le chemin',
+      plan_cl_dem: 'démontré',
+      plan_cl_req: 'requis par le rôle',
+      plan_gap_n: '[[n]] activités en écart',
+      plan_retour: 'Retour',
+      plan_juste_b: 'Au plus juste',
+      plan_seance_b: 'Caler sur la séance',
       plan_none_t: 'Aucun écart sur ce rôle',
       plan_none_d: "Le niveau requis est tenu partout : il n'y a rien à combler.",
       plan_empty_t: 'Pas encore de plan',
       plan_empty_d: "Partez d'une proposition, puis ajustez les charges et les curseurs jusqu'à ce que le plan tienne dans le temps disponible.",
       plan_propose: 'Proposer un plan', plan_repropose: 'Proposer à nouveau',
       plan_save: 'Enregistrer le plan', plan_saved: 'Plan enregistré',
-      plan_need: 'Ce qu’il y a à faire', plan_capacity: 'Ce qu’on peut y consacrer',
       plan_hours_week: 'Heures par semaine', plan_weeks: 'Durée visée',
       plan_week_unit: 'sem.', plan_h: 'h',
-      plan_need_total: 'Besoin', plan_cap_total: 'Capacité',
-      plan_ok: 'Le plan tient : il reste [[x]] h de marge sur la période.',
+      plan_ok: 'Le plan tient dans [[s]] semaines à [[h]] h par semaine.',
       plan_tendu: 'Ça passe de justesse — aucune marge en cas d’imprévu.',
-      plan_trop: 'Il manque [[x]] h. Il faudrait [[s]] semaines à ce rythme, ou [[h]] h par semaine sur la durée visée.',
-      plan_juste: 'Caler sur la durée juste nécessaire ([[s]] sem.)',
+      plan_trop: 'Il faudrait [[s]] semaines à ce rythme, ou [[h]] h par semaine sur la durée visée.',
       plan_source_ai: 'Proposé par l’IA — à relire et ajuster',
       plan_source_local: 'Construit depuis les capacités en écart relevées en base (aucune clé IA)',
-      plan_gap_1: 'activité sous le niveau requis', plan_gap_intro: 'activités sous le niveau requis',
+      plan_gap_1: '1 activité en écart',
       plan_del: 'Retirer cette action',
-      plan_target: 'Objectif', plan_deliv: 'Livrable', plan_crit: 'Réussi quand',
+      plan_crit: 'Réussi quand',
       plan_other: 'Autres actions',
       plan_steps_1: '1 étape', plan_steps_n: '[[n]] étapes',
       plan_week_1: 'Semaine [[a]]', plan_week_n: 'Semaines [[a]] → [[b]]',
-      plan_seance: 'Prochaine séance', plan_seance_auj: "aujourd'hui",
-      plan_seance_j_1: 'dans 1 jour', plan_seance_j_n: 'dans [[n]] jours',
-      plan_seance_cal: 'Caler sur la séance · [[s]] sem.',
       plan_week_over: 'dépasse la durée visée',
-      plan_week_step_1: 'étape [[l]]', plan_week_step_n: 'étapes [[l]]', plan_wk: 'S',
+      plan_wk: 'S',
       plan_load: 'Charge en heures', plan_less: 'Moins d’heures', plan_more: 'Plus d’heures',
-      plan_remove: 'Retirer', plan_mix: 'Répartition des heures par nature d’action',
+      plan_remove: 'Retirer',
       plan_gap_from_to: 'Niveau actuel → niveau visé',
     },
     en: {
@@ -837,35 +844,42 @@
       ia_conf_high: 'AI — confident', ia_conf_medium: 'AI — check it', ia_conf_low: 'AI — unsure',
       ia_touched: 'Edited manually',
       plan_title: 'Training plan', plan_open: 'Training plan',
+      // le plan en PAGE : la frise, le classement, le verdict unique
+      plan_vise: 'target',
+      plan_hors: 'does not fit the target duration',
+      plan_manque_k: 'short by',
+      plan_reste_k: 'slack',
+      plan_cl_t: 'What is missing',
+      plan_che_t: 'The path',
+      plan_cl_dem: 'demonstrated',
+      plan_cl_req: 'required by the role',
+      plan_gap_n: '[[n]] activities in gap',
+      plan_retour: 'Back',
+      plan_juste_b: 'Tightest fit',
+      plan_seance_b: 'Fit to the session',
       plan_none_t: 'No gap on this role',
       plan_none_d: 'The required level is met everywhere: there is nothing to close.',
       plan_empty_t: 'No plan yet',
       plan_empty_d: 'Start from a proposal, then adjust the workloads and the sliders until the plan fits the time available.',
       plan_propose: 'Propose a plan', plan_repropose: 'Propose again',
       plan_save: 'Save plan', plan_saved: 'Plan saved',
-      plan_need: 'What has to be done', plan_capacity: 'What we can put in',
       plan_hours_week: 'Hours per week', plan_weeks: 'Target duration',
       plan_week_unit: 'wk', plan_h: 'h',
-      plan_need_total: 'Need', plan_cap_total: 'Capacity',
-      plan_ok: 'The plan fits: [[x]] h of slack over the period.',
+      plan_ok: 'The plan fits in [[s]] weeks at [[h]] h per week.',
       plan_tendu: 'It just fits — no slack if anything slips.',
-      plan_trop: '[[x]] h short. You would need [[s]] weeks at this pace, or [[h]] h per week over the target duration.',
-      plan_juste: 'Snap to the duration actually needed ([[s]] wk)',
+      plan_trop: 'You would need [[s]] weeks at this pace, or [[h]] h per week over the target duration.',
       plan_source_ai: 'Proposed by AI — review and adjust',
       plan_source_local: 'Built from the capability gaps recorded in the database (no AI key)',
-      plan_gap_1: 'activity below the required level', plan_gap_intro: 'activities below the required level',
+      plan_gap_1: '1 activity in gap',
       plan_del: 'Remove this action',
-      plan_target: 'Objective', plan_deliv: 'Deliverable', plan_crit: 'Done when',
+      plan_crit: 'Done when',
       plan_other: 'Other actions',
       plan_steps_1: '1 step', plan_steps_n: '[[n]] steps',
       plan_week_1: 'Week [[a]]', plan_week_n: 'Weeks [[a]] → [[b]]',
-      plan_seance: 'Next session', plan_seance_auj: 'today',
-      plan_seance_j_1: 'in 1 day', plan_seance_j_n: 'in [[n]] days',
-      plan_seance_cal: 'Fit to the session · [[s]] wks',
       plan_week_over: 'runs past the target duration',
-      plan_week_step_1: 'step [[l]]', plan_week_step_n: 'steps [[l]]', plan_wk: 'W',
+      plan_wk: 'W',
       plan_load: 'Workload in hours', plan_less: 'Fewer hours', plan_more: 'More hours',
-      plan_remove: 'Remove', plan_mix: 'Hours by kind of action',
+      plan_remove: 'Remove',
       plan_gap_from_to: 'Current level → target level',
     },
   };
@@ -965,8 +979,7 @@
   async function boot() {
     applyStaticI18n();
     bindDrawer();
-    bindPlan();
-    const [sc, ds] = await Promise.all([api('/mastery/scale'), api('/domains/scale')]);
+        const [sc, ds] = await Promise.all([api('/mastery/scale'), api('/domains/scale')]);
     state.scale = sc.mastery || {}; state.notAssessed = sc.not_assessed || T('not_assessed');
     state.domScale = (ds && ds.scale) || {};
 
@@ -1154,7 +1167,7 @@
   }
 
   const ECRANS = ['#cv2-ecran-galerie', '#cv2-ecran-synthese', '#cv2-ecran-eval',
-                  '#cv2-ecran-seance', '#cv2-ecran-cal'];
+                  '#cv2-ecran-seance', '#cv2-ecran-cal', '#cv2-ecran-plan'];
 
   function montrerVide(msg) {
     ECRANS.forEach(s => $(s).classList.add('hidden'));
@@ -1169,6 +1182,7 @@
     $('#cv2-ecran-eval').classList.toggle('hidden', nom !== 'eval');
     $('#cv2-ecran-seance').classList.toggle('hidden', nom !== 'seance');
     $('#cv2-ecran-cal').classList.toggle('hidden', nom !== 'cal');
+    $('#cv2-ecran-plan').classList.toggle('hidden', nom !== 'plan');
     // ⚠️ La GALERIE garde le bandeau de page (elle n'ecrit le nom de personne)
     // mais pas la barre : les cartes SONT la liste.
     pleineLargeur(nom !== 'synthese' && nom !== 'galerie');
@@ -2244,22 +2258,16 @@
   // ══ Fenêtre d'évaluation ═══════════════════════════════════════════
   function bindDrawer() {
     $('#cv2-drawer-close').onclick = closeDrawer;
-    $('#cv2-overlay').onclick = () => { closeDrawer(); fermerPlan(); };
+    $('#cv2-overlay').onclick = closeDrawer;
 
     document.addEventListener('keydown', e => {
       if (e.key !== 'Escape') return;
-      if ($('#cv2-plan-win').classList.contains('open')) fermerPlan();
-      else if ($('#cv2-drawer').classList.contains('open')) closeDrawer();
+      if ($('#cv2-drawer').classList.contains('open')) closeDrawer();
     });
   }
   function closeDrawer() {
     $('#cv2-drawer').classList.remove('open');
-    // ⚠️ Le voile est partagé par les DEUX fenêtres : le retirer dès qu'une
-    // se ferme laisserait l'autre posée sur la page, sans voile et sans clic
-    // pour en sortir.
-    if (!$('#cv2-plan-win').classList.contains('open')) {
-      $('#cv2-overlay').classList.remove('open');
-    }
+    $('#cv2-overlay').classList.remove('open');
   }
 
   function setFooter(buttons, cible) {
@@ -3310,30 +3318,39 @@
   }
 
   // ══════════════════════════════════════════════════════════════════
-  //  LE PLAN DE FORMATION
-  //  Le besoin (les actions et leurs heures) d'un côté, la capacité (heures
-  //  par semaine × durée) de l'autre. Le verdict est ARITHMÉTIQUE et local :
-  //  les curseurs ne rappellent jamais le serveur, sinon on n'oserait pas les
-  //  faire glisser.
+  //  LE PLAN DE FORMATION — une PAGE, et deux dessins
+  //  ⚠️ C'était une FENÊTRE de 800 × 736 px réels dans un écran de
+  //  1600 × 1000 — la moitié de la largeur — avec 1 089 px à dérouler pour
+  //  794 visibles, et le verdict « il manque 74 h » en SIXIÈME position de la
+  //  colonne de droite. L'écran pose un argument en trois temps — voilà ce qui
+  //  manque · voilà ce qu'on fait · voilà si ça tient — et il n'en montrait
+  //  jamais deux ensemble. C'est une page, comme l'évaluation l'est devenue le
+  //  14/10 pour le même reproche.
+  //  ⚠️⚠️ Et les deux dessins REMPLACENT, ils ne s'ajoutent pas : la FRISE
+  //  prend la place de l'échéancier en peigne, des deux chiffres d'entrée du
+  //  verdict (sa longueur totale EST le besoin, son trait blanc la capacité) et
+  //  de la barre de répartition par nature ; le CLASSEMENT prend celle des
+  //  trois jauges et de la liste de détail qui redisait, activité par activité,
+  //  ce que la colonne du chemin écrit déjà. Le chemin reste la seule LISTE —
+  //  c'est lui qui porte le texte et les −/+.
+  //  Le verdict est ARITHMÉTIQUE et local : les réglages ne rappellent JAMAIS
+  //  le serveur, sinon on n'oserait pas y toucher.
   // ══════════════════════════════════════════════════════════════════
-  const BORNES = { heures_semaine: [1, 20], semaines: [1, 52] };
-
-  function bindPlan() {
-    $('#cv2-plan-close').onclick = fermerPlan;
-  }
-  function fermerPlan() {
-    $('#cv2-plan-win').classList.remove('open');
-    if (!$('#cv2-drawer').classList.contains('open')) $('#cv2-overlay').classList.remove('open');
-  }
+  const BORNES = { heures_semaine: [1, 40], semaines: [1, 60] };
+  // la lettre de chaque nature dans la frise et sa légende
+  const CLN = { TERRAIN: 't', ACCOMPAGNEMENT: 'a', FORMATION: 'f' };
+  // ⚠️ Le vrai signe moins : deux glyphes pour le même signe sur le même
+  // écran donnent l'air d'un défaut d'impression.
+  const MOINS = '\u2212';
 
   async function ouvrirPlan() {
-    $('#cv2-plan-sub').innerHTML =
-      `<span class="qui">${esc(state.cibleNom)}</span><span class="ou">${esc(state.roleName)}</span>`;
-    $('#cv2-plan-win').classList.add('open'); $('#cv2-overlay').classList.add('open');
-    showBusy(null, '#cv2-plan-body');
-    setFooter([], '#cv2-plan-footer');
+    // ⚠️ D'où l'on vient : le plan s'ouvre depuis la page d'évaluation ET
+    // depuis le diagnostic. Le retour doit ramener là, pas à la galerie.
+    state.planRetour = state.ecran;
+    montrerEcran('plan');
+    showBusy(null, '#cv2-ecran-plan');
     const d = await api(`/plan/${state.cible}/${state.roleId}`);
-    if (d.__error) { fermerPlan(); return; }
+    if (d.__error) { retourDuPlan(); return; }
     state.plan = {
       parametres: Object.assign({}, d.parametres),
       actions: (d.actions || []).map(a => Object.assign({}, a)),
@@ -3341,140 +3358,267 @@
       seance: d.seance || null,
     };
     state.plan.actions = ordonner(state.plan.actions);
+    state.planActif = null;
     renderPlan();
+  }
+
+  function retourDuPlan() {
+    if (state.planRetour === 'eval' && state.activity) ouvrirEvaluation(state.activity);
+    else chargerSynthese();
   }
 
   function renderPlan() {
     const p = state.plan;
-    const body = $('#cv2-plan-body');
-    if (!p.activites.length) {
-      body.innerHTML = `<div class="cv2-plan-vide"><div class="cv2-ia-t">${esc(T('plan_none_t'))}</div>
-        <div style="margin-top:6px">${esc(T('plan_none_d'))}</div></div>`;
-      setFooter([], '#cv2-plan-footer');
-      return;
-    }
-    if (!p.actions.length) {
-      body.innerHTML = `<div class="cv2-plan-vide">
-        <div class="cv2-ia-t">${esc(T('plan_empty_t'))}</div>
-        <div style="margin-top:6px;max-width:460px;margin-left:auto;margin-right:auto">${esc(T('plan_empty_d'))}</div>
-        <div style="margin-top:8px;font-size:12px;color:var(--faint)">
-          ${p.activites.length} ${esc(p.activites.length === 1 ? T('plan_gap_1') : T('plan_gap_intro'))}</div></div>`;
-      setFooter([{ cls: 'btn-primary', label: T('plan_propose'), on: proposerPlan, id: 'cv2-plan-prop' }],
-                '#cv2-plan-footer');
+    const z = $('#cv2-ecran-plan');
+    z.classList.add('pl');
+    const tete = `<div class="pl-nuit"><div class="pl-h">
+          <button type="button" class="ev-retour" data-pl-retour>
+            <i class="fa-solid fa-chevron-left"></i>${esc(T('plan_retour'))}</button>
+          <div class="pl-ch"><b>${esc(state.cibleNom || '')}</b><i>→</i>
+            <b>${esc(state.roleName || '')}</b><i>→</i>
+            <span>${esc(T('plan_title'))}</span></div>
+        </div>`;
+    const brancherRetour = () => {
+      const b = z.querySelector('[data-pl-retour]');
+      if (b) b.onclick = retourDuPlan;
+    };
+
+    if (!p.activites.length || !p.actions.length) {
+      const vide = p.activites.length
+        ? `<div class="cv2-ia-t">${esc(T('plan_empty_t'))}</div>
+           <div style="margin-top:6px;max-width:520px;margin-left:auto;margin-right:auto">
+             ${esc(T('plan_empty_d'))}</div>`
+        : `<div class="cv2-ia-t">${esc(T('plan_none_t'))}</div>
+           <div style="margin-top:6px">${esc(T('plan_none_d'))}</div>`;
+      z.innerHTML = tete + '</div>'
+        + `<div class="pl-bloc" style="margin-top:18px"><div class="cv2-plan-vide">${vide}</div></div>`
+        + (p.activites.length ? pied() : '');
+      brancherRetour();
+      brancherPied(z);
       return;
     }
 
-    body.innerHTML = `<div class="cv2-plan-grille">
-        <div>
-          <div class="cv2-plan-h">${esc(T('plan_need'))}<span class="tot" id="cv2-tot"></span></div>
-          ${p.source === 'AI'
-            ? `<div class="cv2-prop" style="margin:0 0 9px">${esc(T('plan_source_ai'))}</div>`
-            : `<div class="cv2-prop cv2-prop--touche" style="margin:0 0 9px">${esc(T('plan_source_local'))}</div>`}
-          <div class="cv2-mix" id="cv2-mix" title="${esc(T('plan_mix'))}"></div>
-          <div id="cv2-actions"></div>
-        </div>
-        <div>
-          <div class="cv2-plan-h">${esc(T('plan_capacity'))}</div>
-          <div class="cv2-reglages">
-            ${curseur('heures_semaine', T('plan_hours_week'), T('plan_h'))}
-            ${curseur('semaines', T('plan_weeks'), T('plan_week_unit'))}
-            ${blocSeance()}
-            <div class="cv2-verdict">
-              <div class="cv2-barre" id="cv2-barre"><i></i></div>
-              <div class="cv2-chiffres">
-                <span>${esc(T('plan_need_total'))} <b id="cv2-besoin">—</b></span>
-                <span>${esc(T('plan_cap_total'))} <b id="cv2-capacite">—</b></span>
-              </div>
-              <div class="cv2-dit" id="cv2-dit"></div>
-              <button type="button" class="cv2-juste" id="cv2-juste"></button>
-              <div class="cv2-semaines" id="cv2-semaines"></div>
-              <div class="cv2-semx" id="cv2-semx"></div>
-            </div>
-          </div>
-        </div>
-      </div>`;
-
+    z.innerHTML = tete
+      + `<div class="pl-corps">
+           <div class="pl-g"><div id="pl-frise"></div><div class="pl-v" id="pl-verdict"></div></div>
+           <div class="pl-rg" id="pl-reglages"></div>
+         </div></div>
+         <div class="pl-cols">
+           <div class="pl-bloc pl-bloc--cl">
+             <div class="pl-bh"><em>1</em>${esc(T('plan_cl_t'))}
+               <span class="q" id="pl-cl-q"></span></div>
+             <div id="pl-classement"></div>
+           </div>
+           <div class="pl-bloc">
+             <div class="pl-bh"><em>2</em>${esc(T('plan_che_t'))}
+               <span class="q" id="pl-che-q"></span></div>
+             <div id="cv2-actions"></div>
+           </div>
+         </div>` + pied();
+    brancherRetour();
+    brancherPied(z);
     renderActions(true);
-    ['heures_semaine', 'semaines'].forEach(cle => {
-      const inp = body.querySelector(`[data-curseur="${cle}"]`);
-      inp.addEventListener('input', () => {
-        p.parametres[cle] = +inp.value;
-        majCurseur(inp);
-        recalculer();
-      });
-      majCurseur(inp);
-    });
-    const cal = $('#cv2-caler-seance');
-    if (cal) cal.onclick = () => {
-      const inp = body.querySelector('[data-curseur="semaines"]');
-      // ⚠️ Borné comme le curseur : une séance dans deux ans ne doit pas
-      // écrire une valeur que le curseur ne peut pas reprendre.
-      const v = Math.min(BORNES.semaines[1],
-                         Math.max(BORNES.semaines[0], state.plan.seance.semaines));
-      inp.value = p.parametres.semaines = v;
-      majCurseur(inp); recalculer();
-    };
-    $('#cv2-juste').onclick = () => {
-      const { semainesNecessaires } = calcul();
-      const inp = body.querySelector('[data-curseur="semaines"]');
-      inp.value = p.parametres.semaines = Math.min(BORNES.semaines[1], semainesNecessaires);
-      majCurseur(inp); recalculer();
-    };
     recalculer();
-    setFooter([
-      { cls: 'btn-quiet', label: T('plan_repropose'), on: proposerPlan, id: 'cv2-plan-prop' },
-      { cls: 'btn-primary', label: T('plan_save'), on: enregistrerPlan },
-    ], '#cv2-plan-footer');
   }
 
-  // ⚠️ La SÉANCE déjà fixée. Le plan réglait une durée visée de douze
-  // semaines à côté d'un rendez-vous pris pour dans trois : la date à
-  // laquelle les chiffres seront relevés est la seule échéance réelle du
-  // plan, et elle ne se voyait nulle part ici.
-  function blocSeance() {
+  function pied() {
+    const loc = state.plan.source !== 'AI';
+    return `<div class="pl-pied">
+        <div class="cv2-prop${loc ? ' cv2-prop--touche' : ''}">${
+          esc(T(loc ? 'plan_source_local' : 'plan_source_ai'))}</div>
+        <span class="pl-pousse"></span>
+        <button type="button" class="btn btn-quiet" data-pl-prop id="cv2-plan-prop">${
+          esc(T(state.plan.actions.length ? 'plan_repropose' : 'plan_propose'))}</button>
+        ${state.plan.actions.length
+          ? `<button type="button" class="btn btn-primary" data-pl-save>${esc(T('plan_save'))}</button>`
+          : ''}
+      </div>`;
+  }
+  function brancherPied(z) {
+    const pr = z.querySelector('[data-pl-prop]'); if (pr) pr.onclick = proposerPlan;
+    const sv = z.querySelector('[data-pl-save]'); if (sv) sv.onclick = enregistrerPlan;
+  }
+
+  /* ══ LA FRISE ═══════════════════════════════════════════════════════════
+     ⚠️ Les heures et les semaines sont la MÊME grandeur — une semaine, c'est
+     les heures qu'on y met — donc la longueur d'un segment dit à la fois ce
+     qu'il coûte et combien de temps il prend : une seule image répond à
+     « quand » et à « ça tient ». Le trait blanc est la capacité ; ce qui est à
+     sa droite est hachuré. Le verdict n'est plus un nombre à chercher, c'est
+     l'endroit où la barre CASSE. */
+  function renderFrise(c) {
+    const box = $('#pl-frise'); if (!box) return;
+    const p = state.plan, pl = state.planning;
+    const ech = Math.max(c.besoin, c.capacite) || 1;
+    const coupe = Math.min(100, c.capacite / ech * 100);
+    const semMax = Math.max(1, Math.ceil(ech / c.hs));
+    const pc = x => Math.round(x * 100) / 100;
+
+    let h = '<div class="pl-fr"><div class="pl-fr-t">';
+    p.actions.forEach((a, i) => {
+      const hh = Math.max(1, +a.heures || 1), st = pl[i];
+      const w = hh / ech * 100;
+      h += `<div class="pl-fr-s ${CLN[nature(a)]}" data-i="${i}"
+              style="left:${pc(st.debut / ech * 100)}%;width:${pc(w)}%"
+              title="${esc(a.titre)} — ${hh} ${esc(T('plan_h'))}, ${esc(dateEtape(st))}">`
+        + (w > 3.4 ? `<b>${i + 1}</b>` : '')
+        + (w > 7 ? `<span>${hh} ${esc(T('plan_h'))}</span>` : '')
+        + '</div>';
+    });
+    if (coupe < 100) h += `<div class="pl-fr-de" style="left:${pc(coupe)}%"></div>`;
+    h += '</div>';
+    // ⚠️ Près du bord, l'étiquette centrée sortirait de la boîte — et le
+    // bandeau est en `overflow: hidden`, donc elle serait coupée sans rien
+    // signaler.
+    const tr = coupe > 88 ? 'translateX(-100%)' : (coupe < 7 ? 'none' : 'translateX(-50%)');
+    h += `<div class="pl-fr-c" style="left:${pc(coupe)}%"></div>`
+      + `<div class="pl-fr-cl" style="left:${pc(coupe)}%;transform:${tr}">`
+      + `${esc(T('plan_vise'))} · ${T('plan_wk')}${c.sem} · ${c.capacite} ${esc(T('plan_h'))}</div>`;
+
+    // l'axe des semaines : c'est lui qui fait de la barre une frise
+    const pas = Math.max(1, Math.round(semMax / 7));
+    h += '<div class="pl-fr-ax">';
+    const marque = w => {
+      const x = pc(Math.min(100, (w - 1) * c.hs / ech * 100));
+      return `<i style="left:${x}%"></i><span class="${w > c.sem ? 'de' : ''}"
+                style="left:${x}%">${T('plan_wk')}${w}</span>`;
+    };
+    for (let w = 1; w <= semMax; w += pas) h += marque(w);
+    h += `<i style="left:100%"></i><span class="${semMax > c.sem ? 'de' : ''}"
+            style="left:100%;transform:translateX(-100%)">${T('plan_wk')}${semMax}</span></div>`;
+
+    // la légende des couleurs : c'est elle qui remplace la barre de répartition
+    const vues = [...new Set(p.actions.map(nature))];
+    h += '<div class="pl-fr-leg">'
+      + vues.map(n => `<span><u class="${CLN[n]}"></u>${esc(p.types[n] || n)}</span>`).join('')
+      + (c.manque > 0 ? `<span><u class="h"></u>${esc(T('plan_hors'))}</span>` : '')
+      + '</div></div>';
+    box.innerHTML = h;
+    box.querySelectorAll('.pl-fr-s').forEach(s => {
+      s.addEventListener('mouseenter', () => eclairer(+s.dataset.i));
+      s.addEventListener('mouseleave', () => eclairer(null));
+    });
+  }
+
+  /* ══ LE VERDICT : UN seul chiffre ═══════════════════════════════════════
+     ⚠️ Il en portait TROIS — « à combler », « disponibles », « il manque ».
+     Les deux premiers sont les entrées de la soustraction, et la frise les
+     montre déjà : sa longueur totale est le besoin, l'étiquette de son trait
+     blanc la capacité. Reste celui sur lequel on agit. */
+  function renderVerdict(c) {
+    const box = $('#pl-verdict'); if (!box) return;
+    const ok = c.manque <= 0;
+    const phrase = c.manque > 0
+      ? Tv('plan_trop', { s: c.semainesNecessaires, h: c.heuresNecessaires })
+      : (c.marge <= Math.max(1, c.hs) ? T('plan_tendu')
+                                      : Tv('plan_ok', { s: c.sem, h: c.hs }));
+    box.innerHTML = `<div class="pl-vn ${ok ? 'ok' : 'ko'}">
+        <span>${esc(T(ok ? 'plan_reste_k' : 'plan_manque_k'))}</span>
+        <b>${ok ? c.marge : c.manque} ${esc(T('plan_h'))}</b></div>
+      <p class="pl-vph${ok ? ' ok' : ''}">${phrase}</p>`;
+  }
+
+  /* ───────────────── LES RÉGLAGES, contre le verdict qu'ils font bouger ── */
+  function renderReglages(c) {
+    const box = $('#pl-reglages'); if (!box) return;
     const sc = state.plan.seance;
-    if (!sc) return '';
-    const quand = sc.jours === 0 ? T('plan_seance_auj') : nf('plan_seance_j', sc.jours);
-    return `<div class="cv2-seance">
-        <div class="k"><i class="fa-solid fa-calendar-check"></i>${esc(T('plan_seance'))}</div>
-        <div class="d"><b>${esc(fmtDate(sc.date))}</b><span>${esc(quand)}</span></div>
-        <button type="button" class="cv2-juste" id="cv2-caler-seance">${
-          esc(Tv('plan_seance_cal', { s: sc.semaines }))}</button>
-      </div>`;
+    const nb = (cle, v) => `<span class="pl-nb">
+        <button type="button" data-r="${cle}" data-d="-1" aria-label="${esc(T('plan_less'))}">&minus;</button>
+        <span>${v}</span>
+        <button type="button" data-r="${cle}" data-d="1" aria-label="${esc(T('plan_more'))}">+</button></span>`;
+    box.innerHTML = `
+      <div><div class="pl-rg-l">${esc(T('plan_hours_week'))}</div>
+        <div class="pl-rg-r">${nb('heures_semaine', c.hs)}
+          <span class="u">${esc(T('plan_h'))}</span></div></div>
+      <div><div class="pl-rg-l">${esc(T('plan_weeks'))}</div>
+        <div class="pl-rg-r">${nb('semaines', c.sem)}
+          <span class="u">${esc(T('plan_week_unit'))}</span></div></div>
+      <hr>
+      ${sc ? `<button type="button" class="pl-bn" data-r="seance">
+          <i class="fa-solid fa-calendar-check"></i>${esc(T('plan_seance_b'))}
+          <em>· ${esc(fmtDate(sc.date))} · ${sc.semaines} ${esc(T('plan_week_unit'))}</em>
+        </button>` : ''}
+      <button type="button" class="pl-bn" data-r="juste">
+        <i class="fa-solid fa-compress"></i>${esc(T('plan_juste_b'))}
+        <em>· ${c.semainesNecessaires} ${esc(T('plan_week_unit'))}</em></button>`;
+    box.querySelectorAll('[data-r]').forEach(b => b.onclick = () => {
+      const p = state.plan.parametres, d = +b.dataset.d || 0, cle = b.dataset.r;
+      if (cle === 'juste') p.semaines = borner('semaines', calcul().semainesNecessaires);
+      // ⚠️ Borné comme le réglage : une séance dans deux ans ne doit pas
+      // écrire une valeur qu'on ne peut plus reprendre à la main.
+      else if (cle === 'seance') p.semaines = borner('semaines', state.plan.seance.semaines);
+      else p[cle] = borner(cle, (+p[cle] || 1) + d);
+      recalculer();
+    });
   }
+  const borner = (cle, v) =>
+    Math.min(BORNES[cle][1], Math.max(BORNES[cle][0], Math.round(v) || 1));
 
-  function curseur(cle, libelle, unite) {
-    const v = state.plan.parametres[cle];
-    const [min, max] = BORNES[cle];
-    return `<div class="cv2-curseur">
-        <div class="cl">${esc(libelle)}<span class="cv"><span data-val="${cle}">${v}</span> ${esc(unite)}</span></div>
-        <input type="range" min="${min}" max="${max}" value="${v}" data-curseur="${cle}">
-      </div>`;
+  /* ══ LE CLASSEMENT : les activités sur une échelle commune 0 → 4 ═════════
+     ⚠️ Il remplace les trois jauges : elles se lisaient l'une après l'autre,
+     et le niveau de l'activité est précisément ce qui se COMPARE. Le requis
+     est un tiret posé sur la colonne — une cible se dessine, elle ne se
+     remplit pas, c'est le device de la vue d'ensemble.
+     ⚠️ Cliquer une colonne met en avant les actions de CETTE activité dans la
+     colonne d'à côté : c'est ce qui relie les deux. */
+  function renderClassement() {
+    const box = $('#pl-classement'); if (!box) return;
+    const p = state.plan, H = 168, PAS = H / 4;
+    const parAct = {};
+    p.actions.forEach(a => {
+      const k = connue(a.activity_id) ? a.activity_id : '_';
+      parAct[k] = (parAct[k] || 0) + (+a.heures || 0);
+    });
+    const pc = x => Math.round(x * 100) / 100;
+    let h = '<div class="pl-cl"><div class="pl-cl-y">';
+    for (let n = 0; n <= 4; n++) h += `<span style="bottom:${n * PAS}px">${n}</span>`;
+    h += '</div><div class="pl-cl-p">';
+    for (let g = 1; g <= 4; g++) h += `<div class="pl-cl-g" style="bottom:${g * PAS}px"></div>`;
+    const larg = 100 / Math.max(1, p.activites.length);
+    p.activites.forEach((a, i) => {
+      const dem = Math.max(0, Math.min(4, +a.demonstrated_level || 0));
+      const req = Math.max(0, Math.min(4, +a.required_level || 0));
+      const on = state.planActif === a.activity_id;
+      // ⚠️ Le bouton prend toute la VOIE, pas la largeur de sa barre : le nom
+      // de l'activité est écrit dessous, et dans 62 px il partait sur quatre
+      // lignes. La barre et le tiret du requis vivent DEDANS, en pourcentage.
+      // ⚠️ Un socle de 10 px : à hauteur nulle, le niveau 0 se confondrait
+      // avec « pas de niveau du tout », et les deux ne se corrigent pas de la
+      // même façon.
+      h += `<button type="button" class="pl-cl-b${on ? ' on' : ''}" data-act="${a.activity_id}"
+              style="left:${pc(i * larg + larg * 0.06)}%;width:${pc(larg * 0.88)}%;height:${H}px"
+              title="${esc(a.activity_name)} — ${esc(a.demonstrated_label)} / ${esc(a.required_label)}">
+            <span class="pl-cl-ec" style="bottom:${req * PAS + 13}px">${
+              esc(String(a.gap).replace('-', MOINS))}</span>
+            <span class="pl-cl-f" style="height:${Math.max(10, dem * PAS)}px"></span>
+            <span class="pl-cl-req" style="bottom:${req * PAS - 2}px"></span>
+            <span class="pl-cl-x">${esc(court(a.activity_name))}<br>
+              <b>${parAct[a.activity_id] || 0} ${esc(T('plan_h'))}</b></span>
+          </button>`;
+    });
+    h += `</div></div><div class="pl-cl-lg">
+        <span><u class="d"></u>${esc(T('plan_cl_dem'))}</span>
+        <span><u class="r"></u>${esc(T('plan_cl_req'))}</span></div>`;
+    box.innerHTML = h;
+    box.querySelectorAll('[data-act]').forEach(b => b.onclick = () => {
+      const id = +b.dataset.act;
+      state.planActif = state.planActif === id ? null : id;
+      renderClassement(); majEtapes();
+    });
+    $('#pl-cl-q').textContent = p.activites.length === 1
+      ? T('plan_gap_1') : Tv('plan_gap_n', { n: p.activites.length });
   }
-  // La piste colorée d'un input[type=range] ne se remplit pas toute seule sous
-  // WebKit : on lui donne la proportion à peindre.
-  function majCurseur(inp) {
-    const min = +inp.min, max = +inp.max, v = +inp.value;
-    inp.style.setProperty('--p', ((v - min) / (max - min) * 100) + '%');
-    const lbl = inp.closest('.cv2-curseur').querySelector('[data-val]');
-    if (lbl) lbl.textContent = v;
-  }
+  // ⚠️ Sous la colonne, un nom entier passerait sur quatre lignes : il est
+  // coupé, et il reste entier dans l'info-bulle du bouton.
+  const court = s => (String(s).length > 17 ? String(s).slice(0, 16).trim() + '…' : s);
 
   /* ══ Le parcours ═══════════════════════════════════════════════════════
-     ⚠️ La liste était une PILE de cartes : les actions de toutes les activités
-     mêlées, et dans chaque carte un type minuscule, un champ d'heures et le nom
-     de l'activité posés sur une même ligne sans rien pour les distinguer, puis
-     un « Objectif » qui répétait souvent le titre. On ne savait ni POURQUOI une
-     action était là, ni DANS QUEL ORDRE les faire, ni QUAND elles tombaient —
-     alors que le panneau de droite calcule justement les semaines.
-     Désormais : une section par activité (l'écart qu'on vient combler, du
-     niveau actuel au niveau visé), des étapes NUMÉROTÉES dans l'ordre du plan,
-     et dans chaque carte trois zones qui ne se mélangent plus — la nature et la
-     charge en tête, l'action, puis ses champs étiquetés — et en pied, les
-     semaines où elle tombe. */
+     Une section par activité (l'écart qu'on vient combler), des étapes
+     NUMÉROTÉES dans l'ordre du plan, et dans chaque carte ce qui n'est écrit
+     nulle part ailleurs. */
 
   // La nature d'une action porte sa couleur et son pictogramme partout : la
-  // pastille numérotée, l'étiquette de la carte, la barre de répartition.
+  // pastille numérotée, l'étiquette de la carte, le segment de la frise.
   const NATURES = {
     TERRAIN: 'fa-briefcase',
     ACCOMPAGNEMENT: 'fa-handshake-angle',
@@ -3484,10 +3628,10 @@
   const connue = id => id != null && state.plan.activites.some(x => x.activity_id === id);
 
   /* ⚠️ Le plan est une SUITE : l'IA ordonne ses actions (« ce qui conditionne
-     le reste d'abord ») et l'échéancier remplit les semaines dans cet ordre.
+     le reste d'abord ») et la frise remplit les semaines dans cet ordre.
      On regroupe par activité en gardant l'ordre de PREMIÈRE apparition — un
-     tri par écart déferait la séquence proposée. Appliqué au chargement : l'ordre
-     affiché, l'ordre enregistré et l'ordre des semaines sont le même. */
+     tri par écart déferait la séquence proposée. Appliqué au chargement :
+     l'ordre affiché, l'ordre enregistré et l'ordre des semaines sont le même. */
   function ordonner(actions) {
     const ordre = [], paquets = {};
     actions.forEach(a => {
@@ -3500,14 +3644,16 @@
   }
 
   // Où tombe chaque action : on les enchaîne à hauteur de ce qu'on a dit
-  // pouvoir y consacrer par semaine — le même remplissage que l'échéancier.
+  // pouvoir y consacrer par semaine. `debut` est le cumul d'heures AVANT
+  // l'action — c'est l'abscisse de son segment de frise.
   function planning(c) {
     let cumul = 0;
     return state.plan.actions.map(a => {
+      const debut = cumul;
       const ws = Math.floor(cumul / c.hs) + 1;
       cumul += Math.max(1, +a.heures || 1);
-      const we = Math.ceil(cumul / c.hs);
-      return { ws, we, deborde: we > c.sem };
+      const we = Math.max(ws, Math.ceil(cumul / c.hs));
+      return { ws, we, debut, deborde: we > c.sem };
     });
   }
   const dateEtape = st => (st.ws === st.we ? Tv('plan_week_1', { a: st.ws })
@@ -3528,7 +3674,7 @@
       // ⚠️ Un <div>, pas un <header> : competences.css déclare
       // `header { position: sticky }` pour TOUTE la page — un <header> ici
       // collait en haut de la fenêtre et passait par-dessus les cartes.
-      return `<section class="cv2-etapes-g">
+      return `<section class="cv2-etapes-g" data-gact="${act ? act.activity_id : ''}">
           <div class="cv2-etapes-gh">
             <div class="l1">
               <div class="t">${esc(act ? act.activity_name : T('plan_other'))}</div>
@@ -3543,20 +3689,29 @@
         </section>`;
     }).join('');
     brancherEtapes(box);
+    $('#pl-che-q').textContent = (p.actions.length === 1
+      ? T('plan_steps_1') : Tv('plan_steps_n', { n: p.actions.length }));
   }
 
+  /* ⚠️ 248 px, avec le nom du résultat écrit TROIS fois et trois étiquettes en
+     capitales rendues à 9,2 px réels (le plancher de l'échelle est 11). Le
+     titre est l'action — une fois — la ligne qui suit porte la mesure telle
+     que le serveur la rédige (« mesuré 5 essais · norme au moins 8 essais ·
+     échéance 24/11/2026 »), et « Réussi quand » attend derrière un « ? ».
+     ⚠️ « Livrable » est parti : dans le repli c'est le nom du résultat, donc
+     le titre. Il ne revient que quand le titre ne le dit pas déjà. */
   function carteEtape(a, i, anime) {
     const n = nature(a);
-    // Seuls les champs remplis s'affichent : une étiquette suivie de rien se
-    // lit comme une information manquante.
-    const champs = [[T('plan_target'), a.objectif], [T('plan_deliv'), a.livrable],
-                    [T('plan_crit'), a.critere]].filter(([, v]) => v && String(v).trim());
+    const liv = (a.livrable || '').trim();
+    const montreLiv = liv && String(a.titre || '').indexOf(liv) < 0;
+    const crit = (a.critere || '').trim();
     return `<li class="cv2-etape cv2-t--${n}" data-i="${i}"
                 ${anime ? `style="animation-delay:${i * 35}ms"` : 'data-calme="1"'}>
         <span class="cv2-etape-n" aria-hidden="true">${i + 1}</span>
         <div class="cv2-etape-c">
           <div class="cv2-etape-h">
-            <span class="cv2-etape-type"><i class="fa-solid ${NATURES[n]}"></i>${esc(state.plan.types[n] || n)}</span>
+            <span class="cv2-etape-type"><i class="fa-solid ${NATURES[n]}"></i>${
+              esc(state.plan.types[n] || n)}</span>
             <span class="cv2-pas" role="group" aria-label="${esc(T('plan_load'))}">
               <button type="button" data-pas="-1" aria-label="${esc(T('plan_less'))}">&minus;</button>
               <input type="number" min="1" max="200" value="${Math.max(1, +a.heures || 1)}"
@@ -3565,11 +3720,12 @@
               <button type="button" data-pas="1" aria-label="${esc(T('plan_more'))}">+</button>
             </span>
           </div>
-          <div class="cv2-etape-t">${esc(a.titre)}</div>
-          ${champs.length ? `<dl class="cv2-etape-d">${champs.map(([k, v]) =>
-              `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''}
+          <div class="cv2-etape-t">${esc(a.titre)}${crit
+            ? ` <span class="pl-q" title="${esc(T('plan_crit') + DP + crit)}">?</span>` : ''}</div>
+          ${a.objectif ? `<div class="cv2-etape-o">${esc(a.objectif)}</div>` : ''}
           <div class="cv2-etape-f">
-            <span class="cv2-etape-sem"><i class="fa-regular fa-calendar"></i><span data-sem></span></span>
+            <span class="pl-ch-s" data-sem></span>
+            ${montreLiv ? `<span class="pl-ch-s">${esc(liv)}</span>` : ''}
             <button type="button" class="cv2-etape-x" title="${esc(T('plan_del'))}">
               <i class="fa-solid fa-trash-can"></i>${esc(T('plan_remove'))}</button>
           </div>
@@ -3599,61 +3755,47 @@
       }));
       li.querySelector('.cv2-etape-x').addEventListener('click', () => {
         state.plan.actions.splice(i, 1);
+        // Retirer la DERNIERE action vide le plan : on repasse par la page
+        // entiere, qui porte l'etat vide et sa porte de sortie. Mesure sans
+        // elle : une frise vide sous un verdict qui annonce 48 h de marge.
+        if (!state.plan.actions.length) return renderPlan();
         renderActions(false);
         recalculer();
       });
-      li.addEventListener('mouseenter', () => eclairer(i, nature(a)));
+      li.addEventListener('mouseenter', () => eclairer(i));
       li.addEventListener('mouseleave', () => eclairer(null));
     });
   }
 
-  // Survoler une étape allume SES semaines dans l'échéancier : la liste et les
-  // curseurs parlent enfin du même temps.
-  function eclairer(i, n) {
-    const box = $('#cv2-semaines');
-    const st = (i == null || !state.planning) ? null : state.planning[i];
-    if (!box) return;
-    box.classList.toggle('is-lit', !!st);
-    if (st) box.dataset.nature = n; else delete box.dataset.nature;
-    box.querySelectorAll('.cv2-semaine').forEach((el, w) =>
-      el.classList.toggle('lit', !!st && w + 1 >= st.ws && w + 1 <= st.we));
+  // ⚠️ Le segment de frise et la carte s'allument ENSEMBLE, par CLASSE et sans
+  // re-rendu : un re-rendu à chaque survol ferait sauter ce qu'on regarde.
+  function eclairer(i) {
+    document.querySelectorAll('#pl-frise .pl-fr-s').forEach(s =>
+      s.classList.toggle('hi', i != null && +s.dataset.i === i));
+    document.querySelectorAll('#cv2-actions .cv2-etape').forEach(li =>
+      li.classList.toggle('hi', i != null && +li.dataset.i === i));
   }
 
   // Ce qui dépend des heures se met à jour SUR PLACE : réécrire les cartes à
   // chaque frappe ferait perdre le curseur du champ qu'on est en train de taper.
-  function majEtapes(c) {
+  function majEtapes() {
     const plan = state.planning;
     document.querySelectorAll('#cv2-actions .cv2-etape').forEach(li => {
       const st = plan[+li.dataset.i];
       if (!st) return;
       li.classList.toggle('deborde', st.deborde);
-      li.querySelector('[data-sem]').textContent =
-        dateEtape(st) + (st.deborde ? ' · ' + T('plan_week_over') : '');
+      const s = li.querySelector('[data-sem]');
+      s.classList.toggle('ko', st.deborde);
+      s.textContent = dateEtape(st) + (st.deborde ? ' · ' + T('plan_week_over') : '');
     });
     document.querySelectorAll('#cv2-actions .cv2-etapes-g').forEach(g => {
       const idx = [...g.querySelectorAll('.cv2-etape')].map(li => +li.dataset.i);
       const h = idx.reduce((t, i) => t + (+state.plan.actions[i].heures || 0), 0);
-      g.querySelector('[data-gtot]').textContent =
-        (idx.length === 1 ? T('plan_steps_1') : Tv('plan_steps_n', { n: idx.length }))
-        + ` · ${h} ${T('plan_h')}`;
+      g.querySelector('[data-gtot]').textContent = `${h} ${T('plan_h')}`;
+      // la colonne choisie dans le classement met SES actions en avant
+      const a = g.dataset.gact;
+      g.classList.toggle('dim', !!state.planActif && String(state.planActif) !== a);
     });
-    majMix();
-  }
-
-  // La répartition par nature, et du même coup la légende des couleurs. Le CDC
-  // veut qu'un écart se comble D'ABORD en situation : cette barre le montre.
-  function majMix() {
-    const box = $('#cv2-mix');
-    if (!box) return;
-    const par = {};
-    state.plan.actions.forEach(a => { par[nature(a)] = (par[nature(a)] || 0) + (+a.heures || 0); });
-    const total = Object.keys(par).reduce((t, k) => t + par[k], 0) || 1;
-    const ordre = ['TERRAIN', 'ACCOMPAGNEMENT', 'FORMATION'].filter(n => par[n]);
-    box.innerHTML = `<div class="cv2-mix-bar">${ordre.map(n =>
-        `<i class="cv2-t--${n}" style="flex-basis:${par[n] / total * 100}%"></i>`).join('')}</div>
-      <div class="cv2-mix-leg">${ordre.map(n =>
-        `<span class="cv2-t--${n}"><i class="fa-solid ${NATURES[n]}"></i>${esc(state.plan.types[n] || n)}
-          <b>${par[n]} ${esc(T('plan_h'))}</b></span>`).join('')}</div>`;
   }
 
   // Le calcul : besoin, capacité, et ce qu'il faudrait pour que ça tienne.
@@ -3675,58 +3817,11 @@
   function recalculer() {
     const c = calcul();
     state.planning = planning(c);
-    $('#cv2-tot').textContent = `${c.besoin} ${T('plan_h')}`;
-    $('#cv2-besoin').textContent = `${c.besoin} ${T('plan_h')}`;
-    $('#cv2-capacite').textContent = `${c.capacite} ${T('plan_h')}`;
-
-    const barre = $('#cv2-barre');
-    const part = c.capacite ? Math.min(100, c.besoin / c.capacite * 100) : 100;
-    barre.querySelector('i').style.width = part + '%';
-    const etat = c.manque > 0 ? 'trop' : (part > 92 ? 'tendu' : 'ok');
-    barre.className = 'cv2-barre' + (etat === 'ok' ? '' : ' ' + etat);
-
-    const dit = $('#cv2-dit');
-    dit.className = 'cv2-dit cv2-dit--' + etat;
-    dit.textContent = etat === 'trop'
-      ? Tv('plan_trop', { x: c.manque, s: c.semainesNecessaires, h: c.heuresNecessaires })
-      : (etat === 'tendu' ? T('plan_tendu') : Tv('plan_ok', { x: c.marge }));
-
-    const juste = $('#cv2-juste');
-    juste.textContent = Tv('plan_juste', { s: c.semainesNecessaires });
-    juste.classList.toggle('hidden', c.semainesNecessaires === c.sem);
-
-    majEtapes(c);
-    renderSemaines(c);
-  }
-
-  // L'échéancier : on remplit les semaines l'une après l'autre, à hauteur de ce
-  // qu'on a dit pouvoir y consacrer. Ce qui dépasse se voit en rouge.
-  function renderSemaines(c) {
-    const box = $('#cv2-semaines'); box.innerHTML = '';
-    const total = Math.max(c.sem, Math.min(BORNES.semaines[1], c.semainesNecessaires));
-    let reste = c.besoin;
-    for (let i = 0; i < total; i++) {
-      const pris = Math.min(c.hs, reste);
-      reste -= pris;
-      const el = document.createElement('div');
-      el.className = 'cv2-semaine' + (i >= c.sem && pris > 0 ? ' deborde' : '');
-      const dedans = (state.planning || [])
-        .map((st, k) => (i + 1 >= st.ws && i + 1 <= st.we ? k + 1 : 0)).filter(Boolean);
-      el.title = `${T('plan_wk')}${i + 1} · ${pris} ${T('plan_h')}` + (dedans.length
-        ? ' · ' + Tv(dedans.length === 1 ? 'plan_week_step_1' : 'plan_week_step_n', { l: dedans.join(', ') })
-        : '');
-      el.innerHTML = `<i style="height:${c.hs ? (pris / c.hs * 100) : 0}%"></i>`;
-      box.appendChild(el);
-    }
-    // ⚠️ Les repères sont posés sur les semaines RÉELLEMENT dessinées (`total`,
-    // qui dépasse la durée visée quand le besoin déborde) : calés sur la seule
-    // durée visée, ils décaleraient dès qu'une barre rouge s'ajoute.
-    const rep = $('#cv2-semx');
-    if (rep) {
-      const marques = [...new Set([1, Math.round(total / 3), Math.round(total * 2 / 3), total])]
-        .filter(n => n >= 1 && n <= total);
-      rep.innerHTML = marques.map(n => `<span>${T('plan_wk')}${n}</span>`).join('');
-    }
+    renderFrise(c);
+    renderVerdict(c);
+    renderReglages(c);
+    renderClassement();
+    majEtapes();
   }
 
   async function proposerPlan() {
@@ -3741,6 +3836,7 @@
     state.plan.activites = r.activites || state.plan.activites;
     state.plan.actions = ordonner(r.actions || []);
     state.plan.source = r.source === 'AI' ? 'AI' : 'LOCAL';
+    state.planActif = null;
     // Une séance a pu être fixée entre-temps : la réponse la porte.
     if ('seance' in r) state.plan.seance = r.seance;
     renderPlan();
