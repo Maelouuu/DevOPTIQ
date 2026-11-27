@@ -132,25 +132,28 @@ class TestOuVousEtesEtLesSortiesCoteACote:
         # donc sorti du groupe des pilules. Elle n'a de sens que sur du sombre.
         assert "rgba(255, 255, 255, .18)" in _regle(css, "\n.cl-rb .ic {")
 
-    def test_la_rangee_de_reglages_est_une_GRILLE_de_TROIS(self):
-        """⚠️ À quatre pastilles pour 520 px de colonne (mesuré : 544 px de
-        contenu), le flex en laissait trois sur une ligne et une toute seule
-        en dessous — ça se lit comme un débordement, pas comme une
-        disposition. Elles ne sont plus que TROIS : « Les courbes » est parti
-        avec la fenêtre, et la dernière colonne est un peu plus large parce
-        que « Plan de formation » est le plus long des trois libellés."""
+    def test_la_rangee_de_reglages_est_une_GRILLE(self):
+        """⚠️ C'était un FLEX : à quatre pastilles pour 520 px de colonne
+        (mesuré : 544 px de contenu), il en laissait trois sur une ligne et
+        une toute seule en dessous — ça se lit comme un débordement, pas comme
+        une disposition.
+
+        ⚠️ RÉÉCRIT (27/11) : elles sont QUATRE depuis que « Configurer
+        l'activité » a retrouvé une porte — sa fenêtre était devenue
+        injoignable, et c'est là que la norme se règle. La bascule se fait sur
+        le NOMBRE d'éléments, comme `.wp-portes` : deux colonnes à deux ou
+        quatre (deux rangées pleines), trois à trois. `auto-fit` ne sait pas
+        la faire — il compte des pixels, pas des enfants."""
         css = _sans_commentaires_css(_lire(CSS))
         r = _regle(css, "\n.ou-reg {")
         assert "display: grid" in r
         assert "grid-template-columns: 1fr 1fr" in r
-        # ⚠️ Le troisième bouton n'existe que pour le développeur : la bascule
-        # se fait sur le NOMBRE d'éléments, comme `.wp-portes`. `auto-fit` ne
-        # sait pas la faire — il compte des pixels, pas des enfants.
         assert "1fr 1fr 1.15fr" in _regle(
             css, "\n.ou-reg:has(.cl-rb:nth-child(3)) {")
+        assert "1fr 1fr" in _regle(css, "\n.ou-reg:has(.cl-rb:nth-child(4)) {")
         js = _lire(JS)
         b = _corps(js, "  function reglagesOu(st) {")
-        assert b.count("chip(") == 3, "technicité, séance, plan — et plus les courbes"
+        assert b.count("chip(") == 4, "technicité, séance, plan, configurer"
         assert "ouvrirCourbes" not in b
 
     def test_le_bloc_de_nuit_SUIT_le_defilement(self):

@@ -93,12 +93,16 @@ def delete_domain(domain_id):
     return jsonify({"ok": True}), 200
 
 
-@domains_bp.route("/activity/<int:activity_id>", methods=["GET"])
-def activity_domains(activity_id):
-    """Domaines liés à une activité (+ niveau requis par rôle et démontré par user si fournis)."""
-    lang = _lang()
-    role_id = request.args.get("role_id", type=int)
-    user_id = request.args.get("user_id", type=int)
+def domaines_de_activite(activity_id, role_id=None, user_id=None, lang=None):
+    """Les domaines techniques d'une activité, avec le requis du rôle et le
+    niveau démontré de la personne quand on les demande.
+
+    ⚠️ Extrait de la route pour que le PLAN DE FORMATION puisse les lire : le
+    plan ignorait la technicité entière, et recopier la règle chez lui en
+    aurait fait une seconde implémentation — deux lectures d'un même écart
+    finissent par donner deux verdicts.
+    """
+    lang = lang or _lang()
     links = ActivityTechnicalDomain.query.filter_by(activity_id=activity_id).all()
     reqs = {r.domain_id: r.required_level for r in
             RoleActivityDomainRequirement.query.filter_by(role_id=role_id, activity_id=activity_id).all()} if role_id else {}
@@ -114,7 +118,16 @@ def activity_domains(activity_id):
                     "required_level": req, "required_label": DOMAIN_SCALE.get(req, {}).get(lang) if req is not None else None,
                     "demonstrated_level": dem, "demonstrated_label": DOMAIN_SCALE.get(dem, {}).get(lang) if dem is not None else None,
                     "gap": (dem - req) if (dem is not None and req is not None) else None})
-    return jsonify({"activity_id": activity_id, "domains": out}), 200
+    return out
+
+
+@domains_bp.route("/activity/<int:activity_id>", methods=["GET"])
+def activity_domains(activity_id):
+    """Domaines liés à une activité (+ niveau requis par rôle et démontré par user si fournis)."""
+    return jsonify({"activity_id": activity_id,
+                    "domains": domaines_de_activite(activity_id,
+                                                    request.args.get("role_id", type=int),
+                                                    request.args.get("user_id", type=int))}), 200
 
 
 @domains_bp.route("/activity/<int:activity_id>/link", methods=["POST"])

@@ -11601,6 +11601,224 @@ le retirant à la main.
 - **Rouvrir la saisie d'une carto validée** n'existe pas : cela rendrait
   l'écriture directe sur des données officielles, et personne ne l'a demandé.
 
+### LES DEUX FENÊTRES, ET LA NORME QU'ON NE DEVINE PLUS (2026-11-27)
+
+Quatre demandes : reprendre le style de la fenêtre **Technicité** (« il me
+semble que je t'avais déjà demandé de t'en charger »), celui de la fenêtre
+**Plan de formation**, revoir la **fonctionnalité** du plan (« l'app a pas mal
+évolué depuis la création de la fonctionnalité ») et se pencher sur la **norme
+de l'entreprise** (« on doit la déduire de la performance mais je n'ai pas
+l'impression que cela marche super »). Tranché sur **maquette à l'échelle
+réelle** (artefact « Compétences — les deux fenêtres et la norme », quatre
+onglets) : c'est la douzième fois que la méthode évite une journée écrite pour
+rien. Arbitrage rendu : les deux styles, **C** pour la norme (« le truc sur pas
+de devinette »), et le plan laissé à mon appréciation.
+
+#### ⚠️⚠️ La TECHNICITÉ ne s'alignait pas — 97 px d'écart entre trois lignes
+
+La passe du 24/11 avait repris cette fenêtre et n'avait pas touché son vrai
+défaut, qui se mesure : le nom du domaine était en `flex: 1 1 150px`, donc
+chaque ligne poussait ses deux échelles où elle pouvait. Relevé à l'écran, le
+« Requis » partait à **x = 472 / 513 / 569** et le « Démontré » à 622 / 664 /
+719. On ne pouvait **pas comparer deux domaines**, ce qui est tout l'objet
+d'une liste.
+
+C'est une **TABLE** (grille à quatre colonnes, `minmax(130px,1fr) auto auto
+auto` — c'est le nom qui cède, deux échelles de cinq crans ont une largeur
+fixe). Mesuré après : **0,0 px d'écart**, dans les deux langues.
+
+- Les étiquettes « Requis / Démontré » montent en **EN-TÊTE** : écrites une
+  fois au lieu de six, et c'est ce qui libère la place des crans. `domEchelle`
+  devient `domPas` — elle ne rend plus que les crans.
+- Les crans faisaient **20,8 × 16 px RÉELS, chiffre de 8,8** (`body.pg` porte
+  `zoom: .8`), sous le plancher de 11 de l'échelle typographique, à côté d'un
+  cran de notation de 76 px de haut. Ils passent à **27,2 × 22,4 @ 11,6**.
+- ⚠️ **LE TEAL**, sa couleur à elle (`--cv-t-05` … `--cv-t-80`, encre à
+  6,0:1 sur blanc). Elle emprunte(ait) le **bleu** de la note qui fait foi et
+  le **tilleul** de ce qui est tenu, alors que c'est un **axe à part**. Le teal
+  avait été écarté le 15/09 « parce qu'il se lit comme du vert » — c'était vrai
+  contre le vert FRANC d'alors ; depuis le 23/11 ce qui est tenu est TILLEUL
+  (jaune-vert), et les deux ne se confondent plus. Les **verdicts** gardent
+  prune / tilleul : « en écart » et « tenu » veulent dire la même chose
+  partout, et la colonne des verdicts n'est pas la colonne d'un axe.
+- ⚠️ **Un domaine NULL a son verdict** — « non situé », en neutre : sans lui la
+  colonne s'effondre une ligne sur trois, et « pas encore regardé » n'est ni 0
+  (« aucun ») ni « au niveau ».
+- ⚠️ **L'ajout est un BOUTON qui déplie**, et son libellé n'est plus FAUX : le
+  ternaire était inversé, on lisait « Rattacher un domaine qui existe »
+  au-dessus d'un champ « Nouveau domaine… » quand tout était déjà rattaché.
+  ⚠️ `.tch-champs[hidden]` est déclaré à la main — `[hidden]` est une règle du
+  NAVIGATEUR, une classe d'auteur qui pose un `display` l'emporte. **Huitième
+  fois** dans cette application.
+- **L'explication passe derrière un « i »** (`tech_quoi` + `tech_note`) : trois
+  lignes en tête pour une règle qu'on lit une fois, et elles prenaient la place
+  de la table. ⚠️ `brancherInfo` ÉCHAPPE son texte : les marqueurs `[[b]]` s'y
+  afficheraient en clair, on les retire.
+- **La fenêtre passe à 900 px** (`[data-vue="tech"]`, comme `evol` le fait déjà
+  à 1060) : la table mesure 818 px au plus serré. ⚠️ `ouvrirDialogue` repose
+  `vue = 'eval'` à chaque ouverture, donc la largeur ne déborde pas sur les
+  deux autres dialogues.
+
+#### Le PLAN : une passe de densité, et le piège d'une règle déclarée plus bas
+
+La structure est juste (le besoin à gauche, la capacité à droite, un verdict en
+direct) et ne bouge pas. Relevé : **14 textes sous le plancher de 11 px
+réels**, dont les trois étiquettes d'une action — « Objectif / Livrable /
+Réussi quand » — à **9,2**. Mesuré après : **plus aucun**.
+
+- ⚠️⚠️ **Et deux d'entre eux ont résisté à la passe.** Le bloc « LISIBILITÉ DES
+  FENÊTRES » (15/09) redéclare `.cv2-dit` à 13 px et `.cv2-prop` à 11,5 **deux
+  cents lignes plus bas** : à spécificité égale, c'est lui que le navigateur
+  applique, et mes retouches sur les règles d'origine ne changeaient RIEN. La
+  fenêtre du plan reprend donc les siennes (`#cv2-plan-body .cv2-dit`), après
+  ce bloc et plus spécifique. ⚠️ On ne remonte pas les deux classes en entier :
+  elles servent aussi au diagnostic et à la configuration.
+  ⚠️ **Et le cliquet du plancher restait VERT** — il lisait la première règle
+  qu'il croisait. `_taille_effective()` prend la DERNIÈRE déclaration qui vise
+  la classe : *un cliquet qui lit une règle CSS doit lire celle qui GAGNE.*
+  C'est le banc qui l'a trouvé, pas le test.
+- **Le bandeau prend le NUIT** des deux autres surfaces sombres de la page : il
+  était violet, et trois dégradés sombres différents sur un même écran se
+  lisent comme un défaut d'impression.
+- **L'échéancier porte ses semaines** (S1 · S10 · S21 · S31) au lieu d'une
+  légende centrée sous un peigne muet. ⚠️ Les repères sont posés sur les
+  semaines **RÉELLEMENT dessinées** : calés sur la seule durée visée, ils
+  décaleraient dès qu'une barre rouge s'ajoute.
+
+#### ⚠️⚠️ LE PLAN avait été écrit AVANT trois mécanismes — et les ignorait tous
+
+Relevé en cherchant « palier », « domain » et « séance » dans
+`plan_formation.py` : **zéro occurrence des trois**. Et son repli
+**dégénérait** — mesuré au banc : trois activités en écart rendaient **trois
+actions**, une par activité, toutes « Tenir « X » en situation réelle », parce
+que tout le reste dépendait de `result_capability_links`, que **seul le
+diagnostic remplit**.
+
+- **Les PALIERS** : `contexte_ecart` porte désormais, par résultat,
+  `mesurable` / `norme` / `mesure` / `palier` — et l'action parle en CHIFFRES.
+  Mesuré au banc : « Amener « Rapport d'essais » à 8 essais · mesuré 5 essais ·
+  norme au moins 8 essais · échéance 24/11/2026 ». ⚠️ La **marche posée**
+  d'abord (c'est l'engagement en cours), la norme à défaut.
+- **Les SÉANCES** : `_prochaine_seance` rend la prochaine prévue, et le panneau
+  de capacité la montre avec un bouton **« Caler sur la séance · n sem. »**. On
+  réglait une durée visée de douze semaines à côté d'un rendez-vous pris pour
+  dans trois. ⚠️ Une séance réservée à un AUTRE rôle ne concerne pas ce plan ;
+  une séance sans rôle, si.
+- **La TECHNICITÉ** : un domaine à −2 ne produisait AUCUNE action. ⚠️ Lu par la
+  MÊME fonction que la fenêtre (`domaines_de_activite`, extraite de sa route) —
+  deux lectures d'un même écart finiraient par donner deux verdicts. ⚠️ Et
+  l'action est de type **FORMATION** : un domaine technique s'apprend, c'est le
+  terrain sur lequel l'activité se joue, pas l'activité elle-même.
+- **Le repli ne dégénère plus** : une action de terrain **par RÉSULTAT** en
+  écart, chacune avec SON livrable et SON critère. Le plan parle de RÉSULTATS,
+  qui sont la chaîne du module.
+- ⚠️⚠️ **La porte d'entrée n'a PAS été élargie.** Une activité entre dans le
+  plan parce que `categorie_activite` la dit « gap » — sur sa MAÎTRISE, et rien
+  d'autre. Un écart purement technique n'ouvre donc pas le plan : élargir la
+  porte ferait diverger l'écran et le plan sur le mot « écart », ce qui a déjà
+  été corrigé une fois (15/09). La technicité ENRICHIT les activités déjà en
+  écart ; elle ne les fait pas entrer.
+- Le prompt apprend les trois (`plan_formation.system`, dans le CATALOGUE —
+  l'image client le sert chiffré), et l'IA reçoit `prochaine_seance`,
+  `domaines_techniques_en_ecart` et le bloc `mesure` de chaque résultat.
+
+#### LA NORME : elle n'est pas déduite, c'est son PRÉ-REMPLISSAGE qui ratait
+
+Bonne nouvelle d'abord : elle est **stockée, structurée et fait foi**
+(`Data.norme_valeur/unite/sens`, ce que lit `mesurable()`). La déduction ne
+sert qu'à pré-remplir. Deux défauts mesurés :
+
+1. ⚠️ **Elle lisait un champ presque toujours VIDE** : l'indicateur de
+   performance d'une connexion sortante (colonne « Performance » de la liste
+   des activités). Relevé au banc, les deux sorties de l'activité ouverte
+   rendaient `indicateur: ""` pendant que `minimum_performance_text` portait
+   « Plan d'essais couvert à 100 % » — le champ que la fenêtre de configuration
+   collecte ELLE-MÊME.
+2. ⚠️⚠️ **Elle prenait le PREMIER nombre de la phrase.** Corpus de 28
+   indicateurs plausibles : **22 justes, 6 faux — et les six d'une seule
+   cause** : un numéro d'étiquette (« Indicateur 1 — délai sous 5 jours » → 1),
+   une année (« Objectif 2026 — taux 95 % » → 2026), un « n°2 », la borne
+   BASSE d'un intervalle. Et comme l'unité doit SUIVRE immédiatement le nombre
+   retenu, la perdre faisait retomber le sens sur son défaut : **une cause,
+   trois symptômes**.
+
+**Le parseur prend le dernier nombre PORTÉ PAR UNE UNITÉ** ; à défaut le nombre
+s'il est SEUL (il n'y a rien à choisir, donc rien à deviner) ; sinon **rien** —
+mieux vaut un champ vide qu'un chiffre faux, c'est lui qui décidera du niveau de
+quelqu'un. Mesuré après : **27/28, aucune lecture fausse** ; la seule manquée ne
+propose rien (« Volume 1 500 pièces » — deux nombres non portés, et on ne
+tranche pas à la place de celui qui a écrit la phrase).
+
+**Et la norme se règle LÀ OÙ LA PHRASE S'ÉCRIT** (option C) : trois champs —
+valeur · unité · au plus/au moins — à côté de « Réussi quand… », dans la
+fenêtre de configuration.
+- ⚠️ **RIEN n'est pré-rempli.** Ce que le serveur sait lire est offert en
+  **BOUTON** (« Proposé d'après cette phrase : 5 j · au plus — Utiliser ») :
+  l'app propose, la personne pose. C'est toute la différence avec ce qu'on
+  retire. Et ce qui est ENREGISTRÉ l'emporte sur la proposition.
+- ⚠️ Les trois champs sont EXACTEMENT ceux de la fenêtre des paliers
+  (`.pal-champs`, `champUnite`, `lireUnite`), et l'écriture passe par les MÊMES
+  gardes (`_lire_norme`, `_peut_regler_la_norme`) : deux routes qui écrivent
+  les trois mêmes colonnes avec deux validateurs finissent par ne plus écrire
+  la même chose.
+- ⚠️ **La ZONE est la LIGNE**, pas la fenêtre : `lireUnite` et `brancherUnite`
+  prennent le PREMIER champ qu'ils trouvent, et il y a une ligne par sortie —
+  on réglerait l'unité de la première pour tout le monde.
+- ⚠️ **On ne touche à la norme que si la clé est ENVOYÉE** (même règle que
+  `evidence` dans `/mastery/evaluate`) : un client plus ancien effacerait sinon
+  une norme que personne n'a retirée. Une valeur VIDE, elle, rend la sortie
+  qualitative — c'est un choix, pas une suppression.
+- ⚠️ `.cv2-cf-std > label` et non `label` : les trois champs sont des `<label>`
+  eux aussi, et la règle leur posait un `display: block` — même spécificité que
+  `.pal-champs label`, donc c'est l'ORDRE du fichier qui tranchait.
+
+#### ⚠️⚠️ Et la fenêtre de configuration était devenue INJOIGNABLE
+
+Trouvé au banc, **en allant poser une norme**. Son SEUL chemin d'accès était le
+bouton de `.ev-vide`, qui ne s'affiche que si l'activité n'a **aucune** sortie
+— or `activity_mastery` appelle `get_activity_outputs`, qui **matérialise** les
+connexions sortantes : dès qu'une activité a une flèche qui en part, elle a des
+sorties, et le bouton disparaît pour toujours. Depuis « TOUTES les sorties, sans
+filtre de nature » (nov.), la nature `RESULT` ne sert plus de porte, et plus
+rien n'ouvrait cette fenêtre.
+
+C'était sans grande conséquence tant qu'elle ne portait que la nature des
+sorties (que personne ne lit) et leur phrase de réussite. **Ce ne l'est plus :
+la norme s'y règle.** La rangée des réglages porte donc une **quatrième
+pastille**, « Configurer l'activité », pour le développeur seulement — et sa
+valeur dit s'il faut l'ouvrir (« 1 sortie sans norme » / « toutes chiffrées »),
+parce que « 2 sorties » aurait répété ce que l'écran montre déjà.
+⚠️ À quatre, la rangée repasse à **deux colonnes** : à trois, le quatrième
+restait seul avec deux tiers de vide. La règle est déclarée APRÈS celle des
+trois — à spécificité égale, c'est l'ordre du fichier qui tranche.
+
+#### ⚠️ Un lien MORT dans la fenêtre de bienvenue
+
+Trouvé au banc aussi : `Code/bienvenue.py` pointait la ligne « séances à
+tenir » sur `/competences/`, qui rend **404** — la page est
+`/competences/view`. Cette fenêtre s'affiche sur **chaque page** de
+l'application. Cliquet : `test_127::TestAucunLienMort` relève tous les `href`
+que le module écrit et exige qu'ils résolvent dans `url_map`.
+
+#### Mesures
+
+Tests : `tests/test_170_fenetres_et_norme.py` (**46 cas**, NEUF) ; `test_148`
+(7 cas RÉÉCRITS sur la nouvelle structure, pas supprimés), `test_77` (3),
+`test_93` (3), `test_109` (le cliquet des pluriels apprend à lire `COMMUN`),
+`test_127` (+1). **44 gardes retirées une par une, 44 cliquets tombés** — dont
+**quatre qui ne gardaient RIEN** au premier essai, tous de la même famille :
+chercher la présence d'un nom au lieu de son EMPLOI, ne pas borner la zone, et
+lire une règle CSS que le navigateur n'applique pas.
+Suite complète : voir le commit.
+
+Éprouvé au banc (`tools/devrun_competences.py`, qui sème désormais **trois**
+domaines — les trois verdicts — un domaine libre au catalogue et un indicateur
+de performance) à 1600 px dans les deux langues : table alignée au pixel,
+plancher tenu dans tout le plan, cinq actions dont une de technicité et trois
+en chiffres, la séance et son bouton (12 → 2 semaines), la norme proposée puis
+posée (5 j au plus), **zéro fuite française sur l'écran anglais**, zéro erreur
+console, zéro débordement horizontal.
+
 ## Notes importantes (suite)
 
 - `main` = ancienne branche de production, figée depuis mai 2026.

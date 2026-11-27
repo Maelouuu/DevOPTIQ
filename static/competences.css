@@ -58,6 +58,21 @@
   /* l'ambre tel qu'il se pose SUR LE FOND DE NUIT, ecarte du tilleul */
   --cv-a-40: #ecc45f;
   --cv-a-70: #9a7620;
+  /* ══ TEAL — la TECHNICITE, un axe a part ════════════════════════════════
+     Ni le bleu de la note qui fait foi, ni le tilleul de ce qui est tenu : le
+     contexte technique n'est pas la maitrise, et il ne doit pas pouvoir se
+     confondre avec elle. Le teal avait ete ecarte le 15/09 « parce qu'il se
+     lit comme du vert » — c'etait vrai contre le vert FRANC d'alors ; depuis
+     le 23/11 ce qui est tenu est TILLEUL (jaune-vert), et les deux teintes ne
+     se touchent plus. */
+  --cv-t-05: #eefaf8;
+  --cv-t-10: #d6f2ee;
+  --cv-t-20: #a9e5de;  /* filet pale */
+  --cv-t-40: #5ccfc2;  /* encre claire SUR FOND SOMBRE */
+  --cv-t-50: #19a79a;  /* vif : crans pleins */
+  --cv-t-60: #0d8d82;
+  --cv-t-70: #0a6f67;  /* encre sur fond clair (6,0:1 sur blanc) */
+  --cv-t-80: #075049;
 
   --cv-orange: #f59e0b;
   --cv-orange-deep: #b45309;
@@ -866,7 +881,7 @@ header { position: sticky; top: 0; z-index: 30; }
    case vide ne disait pas à quoi il servait. */
 .cv2-cf-std { display: none; padding: 0 15px 14px 50px; }
 .cv2-cf-item.is-on .cv2-cf-std { display: block; }
-.cv2-cf-std label {
+.cv2-cf-std > label {
   display: block; margin-bottom: 6px; font-size: 12px; font-weight: 700;
   letter-spacing: .04em; text-transform: uppercase; color: var(--pg-accent-deep);
 }
@@ -878,6 +893,47 @@ header { position: sticky; top: 0; z-index: 30; }
   outline: none; border-color: var(--pg-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg-accent) 18%, transparent);
 }
+
+/* ══ LA NORME, LÀ OÙ LA PHRASE S'ÉCRIT ═════════════════════════════════════
+   Elle se devinait plus tard, dans l'écran d'évaluation, à partir de ce texte
+   libre. Les trois champs sont ceux de la fenêtre des paliers — une seule
+   façon de régler une norme — et ils vivent dans un cadre à part : ce n'est
+   pas la suite de la phrase, c'est la décision qu'elle permet de prendre.
+   ⚠️ Rien n'est pré-rempli. Ce que le serveur sait lire est offert en BOUTON :
+   l'app propose, la personne pose. */
+.cv2-cf-nrm {
+  margin-top: 13px; padding: 13px 14px; border-radius: 12px;
+  background: var(--card-2); border: 1px solid var(--border);
+}
+.cv2-cf-nrm .k {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  font-size: 12.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+/* ⚠️ Resserré pour que les trois champs tiennent sur une ligne — mais le
+   menu des unités garde sa largeur : à 118 px « % (pourcent) » sortait
+   tronqué en « % (pource ». Relevé sur la capture, pas à la mesure. */
+.cv2-cf-nrm .pal-champs input[type="text"] { width: 112px; }
+.cv2-cf-nrm .pal-champs select { width: auto; min-width: 118px; }
+.cv2-cf-prop {
+  display: flex; align-items: center; gap: 9px; width: 100%; margin-top: 11px;
+  padding: 9px 12px; cursor: pointer; text-align: left;
+  font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--ink-2);
+  background: var(--card); border-radius: 10px;
+  border: 1px dashed color-mix(in srgb, var(--pg-accent) 40%, var(--card));
+  transition: background .14s, border-style .14s;
+}
+.cv2-cf-prop:hover {
+  background: color-mix(in srgb, var(--pg-accent) 8%, var(--card)); border-style: solid;
+}
+.cv2-cf-prop > i { font-size: 11.5px; color: var(--faint); }
+.cv2-cf-prop > span { flex: 1; min-width: 0; }
+.cv2-cf-prop > b {
+  flex: none; padding: 3px 10px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 800;
+  color: #fff; background: var(--pg-accent-deep);
+}
+.cv2-cf-nrm-off { margin: 9px 0 0; font-size: 13px; color: var(--faint); }
 
 /* Le compte vit dans le pied, à côté du bouton qu'il conditionne. */
 .cv2-cf-compte { margin-right: auto; align-self: center; font-size: 13px; font-weight: 700; }
@@ -938,7 +994,10 @@ header { position: sticky; top: 0; z-index: 30; }
   flex: none; position: relative; overflow: hidden; color: #fff;
   display: flex; align-items: baseline; gap: 13px; flex-wrap: wrap;
   padding: 17px 60px 16px 24px;
-  background: linear-gradient(135deg, #1d4ed8, #4c1d95);
+  /* ⚠️ Le NUIT des deux autres surfaces sombres de la page : il était en
+     violet, et trois dégradés sombres différents sur un même écran se lisent
+     comme un défaut d'impression. */
+  background: linear-gradient(135deg, var(--nuit-1), var(--nuit-2));
 }
 .cv2-ph::after {
   content: ""; position: absolute; right: -60px; top: -70px; width: 200px; height: 200px;
@@ -970,9 +1029,9 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-plan-grille { display: grid; gap: 20px; grid-template-columns: minmax(0, 1.5fr) minmax(318px, 1fr); }
 .cv2-plan-h {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px;
-  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
 }
-.cv2-plan-h .tot { margin-left: auto; font-size: 12.5px; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
+.cv2-plan-h .tot { margin-left: auto; font-size: 15px; color: var(--ink-2); text-transform: none; letter-spacing: 0; }
 
 /* ══ Le parcours : ce qu'il y a à faire, dans l'ordre ═══════════════════════
    ⚠️ C'était une PILE de cartes où tout se mêlait : les activités entre elles,
@@ -997,7 +1056,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-mix-bar i { display: block; min-width: 4px; background: var(--c); transition: flex-basis .3s ease; }
 .cv2-mix-leg {
   display: flex; flex-wrap: wrap; gap: 5px 16px; margin-top: 8px;
-  font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+  font-size: 14.5px; font-weight: 600; color: var(--ink-2);
 }
 .cv2-mix-leg span { display: inline-flex; align-items: center; gap: 6px; }
 .cv2-mix-leg span > i { font-size: 11px; color: var(--c); }
@@ -1013,16 +1072,16 @@ header { position: sticky; top: 0; z-index: 30; }
 }
 .cv2-etapes-gh .l1 { display: flex; align-items: baseline; gap: 12px; }
 .cv2-etapes-gh .t {
-  flex: 1; min-width: 0; font-family: var(--pg-font-display); font-size: 16px;
+  flex: 1; min-width: 0; font-family: var(--pg-font-display); font-size: 18px;
   font-weight: 600; color: var(--ink);
 }
 .cv2-etapes-gh .tot {
   flex: none; white-space: nowrap;
-  font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+  font-size: 15px; font-weight: 700; color: var(--ink-2);
 }
 .cv2-etapes-gh .niv {
   display: flex; align-items: center; flex-wrap: wrap; gap: 3px 7px; margin-top: 3px;
-  font-size: 12.5px; font-weight: 600; color: var(--muted);
+  font-size: 14.5px; font-weight: 600; color: var(--muted);
 }
 .cv2-etapes-gh .niv i { font-size: 10px; color: var(--faint); }
 .cv2-etapes-gh .niv b { color: var(--ink); }
@@ -1044,7 +1103,7 @@ header { position: sticky; top: 0; z-index: 30; }
   position: relative; z-index: 1; flex: none;
   width: 30px; height: 30px; margin-top: 7px;
   display: grid; place-items: center; border-radius: 50%;
-  font-size: 13.5px; font-weight: 800; color: #fff; background: var(--c);
+  font-size: 15px; font-weight: 800; color: #fff; background: var(--c);
   box-shadow: 0 0 0 4px var(--card);
 }
 .cv2-etape-c {
@@ -1057,14 +1116,14 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-etape-h { display: flex; align-items: center; gap: 10px; }
 .cv2-etape-type {
   display: inline-flex; align-items: center; gap: 7px; min-width: 0;
-  font-size: 11.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: 14px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--c-deep);
 }
 .cv2-etape-type i {
   flex: none; width: 24px; height: 24px; display: grid; place-items: center;
   border-radius: 8px; font-size: 11.5px; color: var(--c); background: var(--c-soft);
 }
-.cv2-etape-t { margin-top: 9px; font-size: 16px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+.cv2-etape-t { margin-top: 9px; font-size: 18px; font-weight: 700; line-height: 1.35; color: var(--ink); }
 
 /* Les champs portent leur ÉTIQUETTE dans une colonne à part : l'œil descend
    les libellés, puis lit la valeur qui l'intéresse. */
@@ -1073,18 +1132,18 @@ header { position: sticky; top: 0; z-index: 30; }
   margin: 11px 0 0; padding: 13px 15px; border-radius: 11px; background: var(--card-2);
 }
 .cv2-etape-d dt {
-  padding-top: 2px; font-size: 11.5px; font-weight: 800; letter-spacing: .05em;
+  padding-top: 2px; font-size: 14.5px; font-weight: 800; letter-spacing: .05em;
   text-transform: uppercase; color: var(--muted);
 }
 .cv2-etape-d dd {
-  margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2);
+  margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-2);
   white-space: pre-line;   /* un critère par ligne quand il y en a plusieurs */
 }
 
 .cv2-etape-f { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
 .cv2-etape-sem {
   display: inline-flex; align-items: center; gap: 7px;
-  font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+  font-size: 14.5px; font-weight: 700; color: var(--ink-2);
 }
 .cv2-etape-sem i { font-size: 12px; color: var(--muted); }
 .cv2-etape.deborde .cv2-etape-sem,
@@ -1092,7 +1151,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-etape-x {
   margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 9px; border: none; border-radius: 8px; background: none; cursor: pointer;
-  font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--faint);
+  font-family: inherit; font-size: 14px; font-weight: 600; color: var(--faint);
   transition: background .13s, color .13s;
 }
 .cv2-etape-x:hover { background: var(--cv-r-05); color: var(--cv-red-deep); }
@@ -1123,7 +1182,7 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-pas input:focus { outline: none; background: var(--c-soft); }
 .cv2-pas .u {
   display: flex; align-items: center; padding: 0 7px 0 2px;
-  font-size: 12.5px; font-weight: 700; color: var(--muted); background: var(--card);
+  font-size: 14px; font-weight: 700; color: var(--muted); background: var(--card);
 }
 .cv2-pas:focus-within { border-color: var(--c); box-shadow: 0 0 0 3px var(--c-soft); }
 
@@ -1136,10 +1195,10 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-curseur { margin-bottom: 15px; }
 .cv2-curseur .cl {
   display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px;
-  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+  font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
 }
 .cv2-curseur .cv {
-  margin-left: auto; font-family: var(--pg-font-display); font-size: 17px;
+  margin-left: auto; font-family: var(--pg-font-display); font-size: 21px;
   text-transform: none; letter-spacing: 0; color: var(--pg-accent-deep);
 }
 .cv2-curseur input[type=range] {
@@ -1164,6 +1223,33 @@ header { position: sticky; top: 0; z-index: 30; }
   background: #fff; border: 2px solid var(--pg-accent-deep); box-shadow: 0 2px 6px rgba(15, 23, 42, .2);
 }
 
+/* La SÉANCE déjà fixée. En AMBRE, comme la prochaine échéance de l'écran
+   d'évaluation : ce n'est pas un réglage, c'est une date qu'on n'a pas choisie
+   ici — et c'est la seule échéance réelle du plan.
+   ⚠️ Son bouton reprend `.cv2-juste` (le « caler au plus juste ») : deux
+   boutons qui posent la même valeur sur le même curseur ne doivent pas avoir
+   deux apparences. */
+.cv2-seance {
+  margin: 0 0 15px; padding: 11px 13px; border-radius: 11px;
+  background: #fff8ec; border: 1px solid #fadfa6;
+}
+.cv2-seance .k {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 800; letter-spacing: .04em;
+  text-transform: uppercase; color: #92590e;
+}
+.cv2-seance .k i { font-size: 12px; }
+.cv2-seance .d {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-top: 5px;
+  font-size: 14px; color: var(--ink-2);
+}
+.cv2-seance .d b { font-family: var(--pg-font-display); font-size: 19px; color: var(--ink); }
+.cv2-seance .cv2-juste {
+  margin-top: 9px; color: #92590e;
+  border-color: color-mix(in srgb, #92590e 34%, var(--card));
+}
+.cv2-seance .cv2-juste:hover { background: color-mix(in srgb, #92590e 9%, var(--card)); }
+
 /* Le verdict : une barre besoin/capacité et une phrase. La barre bouge en même
    temps que le curseur — c'est elle qui rend le réglage jouable. */
 .cv2-verdict { margin-top: 4px; padding-top: 14px; border-top: 1px dashed var(--border); }
@@ -1180,16 +1266,16 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-barre.trop i  { background: linear-gradient(90deg, var(--cv-r-40), var(--cv-red)); }
 .cv2-chiffres {
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 11px;
-  font-size: 12px; font-weight: 700; color: var(--muted);
+  font-size: 14px; font-weight: 700; color: var(--muted);
 }
-.cv2-chiffres b { font-family: var(--pg-font-display); font-size: 19px; color: var(--ink); }
-.cv2-dit { margin-top: 12px; padding: 12px 14px; border-radius: 11px; font-size: 13.5px; font-weight: 600; line-height: 1.5; }
+.cv2-chiffres b { font-family: var(--pg-font-display); font-size: 25px; color: var(--ink); }
+.cv2-dit { margin-top: 12px; padding: 12px 14px; border-radius: 11px; font-size: 15.5px; font-weight: 600; line-height: 1.5; }
 .cv2-dit--ok    { background: var(--cv-g-05); border: 1px solid var(--cv-g-20); color: var(--cv-green-deep); }
 .cv2-dit--tendu { background: #fff8ec; border: 1px solid #fadfa6; color: #92590e; }
 .cv2-dit--trop  { background: var(--cv-r-05); border: 1px solid var(--cv-r-20); color: var(--cv-red-deep); }
 .cv2-juste {
   width: 100%; margin-top: 10px; padding: 8px 12px; cursor: pointer;
-  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--pg-accent-deep);
+  font-family: inherit; font-size: 14.5px; font-weight: 700; color: var(--pg-accent-deep);
   background: var(--card); border-radius: 10px; transition: .14s;
   border: 1px dashed color-mix(in srgb, var(--pg-accent) 34%, var(--card));
 }
@@ -1200,7 +1286,7 @@ header { position: sticky; top: 0; z-index: 30; }
 /* L'échéancier : où tombe chaque action dans les semaines disponibles. */
 .cv2-semaines { display: flex; gap: 3px; margin-top: 12px; }
 .cv2-semaine {
-  flex: 1; height: 29px; border-radius: 5px; background: var(--card-2);
+  flex: 1; height: 33px; border-radius: 5px; background: var(--card-2);
   box-shadow: inset 0 0 0 1px var(--border);
   display: flex; align-items: flex-end; overflow: hidden;
 }
@@ -1214,9 +1300,15 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-semaines[data-nature="ACCOMPAGNEMENT"] .lit i { background: #d97706; }
 .cv2-semaines[data-nature="FORMATION"] .lit i      { background: #2563eb; }
 .cv2-semaines.is-lit .cv2-semaine.lit.deborde i    { background: var(--cv-red); }
-.cv2-echlbl { margin-top: 6px; font-size: 11px; font-weight: 600; color: var(--faint); text-align: center; }
+/* ⚠️ L'échéancier portait une LÉGENDE centrée (« Répartition semaine par
+   semaine ») sous un peigne muet : on voyait où ça déborde sans savoir à
+   quelle semaine. Il porte ses repères, alignés sur ses barres. */
+.cv2-semx {
+  display: flex; justify-content: space-between; margin-top: 6px;
+  font-size: 14px; font-weight: 700; color: var(--faint);
+}
 
-.cv2-plan-vide { padding: 40px 20px; text-align: center; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.cv2-plan-vide { padding: 40px 20px; text-align: center; font-size: 15.5px; font-weight: 600; color: var(--muted); }
 
 @media (max-width: 860px) {
   .cv2-plan-grille { grid-template-columns: minmax(0, 1fr); }
@@ -1381,12 +1473,9 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-pas i { width: 18px; height: 12px; }
 .cv2-preuve-btn { margin-top: 8px; }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   LA TECHNICITÉ — un bandeau BLEU PLEIN
-   Elle était en teal, qui se lit comme du vert et entrait en conflit avec le
-   vert sémantique (« niveau tenu »). Le bandeau plein la sépare franchement de
-   l'évaluation tout en restant dans le bleu de la page.
-   ══════════════════════════════════════════════════════════════════════════ */
+/* ⚠️ La technicité est repassée au TEAL le 27/11 (voir sa fenêtre, plus bas) :
+   l'argument de 09/15 — « le teal se lit comme du vert » — valait contre le
+   vert FRANC d'alors. Ce qui est tenu est tilleul depuis le 23/11. */
 
 /* ══════════════════════════════════════════════════════════════════════════
    LISIBILITÉ DES FENÊTRES
@@ -1408,6 +1497,12 @@ header { position: sticky; top: 0; z-index: 30; }
 .cv2-fam .fd { font-size: 12.5px; }
 .cv2-dit { font-size: 13px; }
 .cv2-df .btn { font-size: 14px; }
+/* ⚠️ Le PLAN reprend les siennes : ce bloc est déclaré APRÈS la section du
+   plan, donc à spécificité égale c'est lui qui tranchait — mesuré, la phrase
+   du verdict (« il manque 74 h ») sortait à 10,4 px réels et la source du
+   contenu à 9,2, sous le plancher de 11 de l'échelle typographique. */
+#cv2-plan-body .cv2-dit { font-size: 15.5px; }
+#cv2-plan-body .cv2-prop { font-size: 14px; }
 
 /* ── Le radar, vivant ────────────────────────────────────────────────────
    Trois gestes sans clic : survoler une légende met SA couche au premier plan,
@@ -2060,6 +2155,13 @@ button.cal-case:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba
    sous le plancher de l'échelle typographique. La fenêtre s'élargit pour
    cette vue, et pour elle seule. */
 .cv2-drawer[data-vue="evol"] { width: min(1060px, 96vw); }
+.cv2-drawer[data-vue="tech"] .cv2-dh {
+  background: linear-gradient(135deg, var(--cv-t-60), var(--cv-t-80));
+}
+/* ⚠️ La TECHNICITÉ s'élargit aussi, et pour la même raison que le relief :
+   mesuré, la table fait 818 px au plus serré — deux échelles de cinq crans
+   alignées ne tiennent pas dans 720 px, et à 860 il resterait 2 px. */
+.cv2-drawer[data-vue="tech"] { width: min(900px, 96vw); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    LA PAGE D'ÉVALUATION, ET LA SÉANCE
@@ -3218,6 +3320,11 @@ button.mail:active { transform: translateY(1px); }
    dernière colonne est un peu plus large : « Plan de formation » est le plus
    long des trois libellés. */
 .ou-reg:has(.cl-rb:nth-child(3)) { grid-template-columns: 1fr 1fr 1.15fr; }
+/* ⚠️ Et QUATRE repassent à deux colonnes, donc deux rangées pleines : à trois
+   colonnes, le quatrième restait seul avec deux tiers de vide à sa droite.
+   Déclaré APRÈS la règle des trois — à spécificité égale, c'est l'ordre du
+   fichier qui tranche. */
+.ou-reg:has(.cl-rb:nth-child(4)) { grid-template-columns: 1fr 1fr; }
 .cl-rb {
   display: flex; align-items: center; gap: 10px; min-width: 0; text-align: left;
   padding: 10px 13px; border-radius: 13px; cursor: pointer;
@@ -4387,96 +4494,147 @@ button.mail:active { transform: translateY(1px); }
   background: color-mix(in srgb, var(--cv-r-40) 46%, transparent);
 }
 
-/* ══ LA FENÊTRE TECHNICITÉ ════════════════════════════════════
-   Un formulaire nu — un nom, deux menus déroulants du système, une pastille.
-   Elle dit d'abord À QUOI ÇA SERT, puis montre chaque domaine avec ses deux
-   échelles, et range l'ajout en bas — là où l'on va quand les domaines
-   existants ne suffisent pas.
+/* ══════════════════════════════════════════════════════════════════════════
+   LA FENÊTRE TECHNICITÉ — une TABLE, et le TEAL
 
-   ⚠️ CINQ crans, et non la jauge à quatre pas de la maquette : l'échelle
-   technique distingue le niveau 0 (« aucun ») de l'absence de niveau
-   (NULL, « pas encore regardé ») — c'est la distinction que tout le module
-   tient, et une jauge à quatre pas ne sait pas l'exprimer. Avec la gomme,
-   chaque valeur du modèle est atteignable.
+   ⚠️⚠️ Les trois lignes ne s'ALIGNAIENT PAS. Le nom du domaine était en
+   `flex: 1 1 150px`, donc chaque ligne poussait ses deux échelles où elle
+   pouvait : mesuré, le « Requis » partait à x = 472 / 513 / 569 — **97 px
+   d'écart**, et le « Démontré » à 622 / 664 / 719. On ne pouvait pas comparer
+   deux domaines, ce qui est tout l'objet d'une liste. Une GRILLE : les quatre
+   colonnes tombent au même pixel sur toutes les lignes.
+
+   ⚠️ Et les crans faisaient 20,8 × 16 px RÉELS, chiffre de 8,8 px — `body.pg`
+   porte `zoom: .8` — sous le plancher de 11 px de l'échelle typographique, à
+   côté d'un cran de notation de 76 px de haut. Ils passent à 34 × 28 (27 × 22
+   réels) et leur chiffre en Fraunces à 11,6 réels.
+
+   ⚠️ Les étiquettes « Requis / Démontré » montent en EN-TÊTE : écrites une
+   fois au lieu de six, et c'est ce qui libère la place des crans.
+
+   ⚠️ LE TEAL, sa couleur à elle (voir le jeton). Les VERDICTS, eux, gardent
+   prune / tilleul : « en écart » et « tenu » veulent dire la même chose
+   partout, et la colonne des verdicts n'est pas la colonne d'un axe.
+
+   ⚠️ CINQ crans, et non la jauge à quatre pas : l'échelle technique distingue
+   le niveau 0 (« aucun ») de l'absence de niveau (NULL, « pas encore
+   regardé ») — la distinction que tout le module tient. Avec la gomme, posée
+   À L'ÉCART (effacer n'est pas un niveau de plus), chaque valeur du modèle
+   est atteignable. Et un domaine sans verdict porte « non situé » en neutre :
+   sans lui la colonne s'effondre une ligne sur trois.
    ⚠️ Le REQUIS est en creux, le DÉMONTRÉ en plein : une cible se dessine,
    elle ne se remplit pas. C'est le vocabulaire de la page.
-   ═══════════════════════════════════════════════════════════════════ */
-.tch-exp {
-  display: flex; gap: 12px; padding: 13px 15px; border-radius: 13px; margin-bottom: 18px;
-  background: color-mix(in srgb, var(--cv-g-40) 16%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--cv-g-40) 36%, var(--card));
-}
-.tch-exp > i {
-  flex: none; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center;
-  font-size: 12px; background: var(--cv-g-40); color: var(--cv-g-80);
-}
-.tch-exp p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
-.tch-exp p strong { color: var(--ink); font-weight: 700; }
-.tch-k {
-  margin: 0 0 9px; font-size: 11px; font-weight: 800; letter-spacing: .1em;
+   ══════════════════════════════════════════════════════════════════════════ */
+/* ⚠️ `.cv2-db` vaut `padding: 0 0 18px` : chaque vue du tiroir pose le
+   sien. Sans lui, la table touchait le bandeau et le bord gauche. */
+.cv2-tech-z { padding: 18px 22px 4px; }
+.tch-h { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; }
+.tch-h .t {
+  font-size: 13px; font-weight: 800; letter-spacing: .09em;
   text-transform: uppercase; color: var(--muted);
 }
-.tch-d {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 13px 15px; border-radius: 14px; border: 1px solid var(--border);
-  background: var(--card); margin-bottom: 10px;
+.tch-h .cv2-i {
+  background: var(--cv-t-05); border-color: var(--cv-t-20); color: var(--cv-t-70);
 }
-.tch-d .nm { flex: 1 1 150px; min-width: 0; }
-.tch-d .nm b {
-  display: block; font-family: var(--pg-font-display); font-size: 16px; font-weight: 600;
-  line-height: 1.2;
+.tch-h .cv2-i:hover, .tch-h .cv2-i:focus-visible {
+  background: var(--cv-t-20); border-color: transparent; color: var(--cv-t-80);
 }
-.tch-e { display: flex; flex-direction: column; gap: 5px; flex: none; }
-.tch-e .k {
-  font-size: 10.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--muted);
+
+/* La table. `auto` sur les trois dernières colonnes : deux échelles de cinq
+   crans ont une largeur FIXE, c'est le nom qui cède. */
+.tch-tab {
+  display: grid; grid-template-columns: minmax(130px, 1fr) auto auto auto;
+  gap: 0 18px; align-items: center;
 }
-.tch-e .pas { display: flex; gap: 3px; align-items: center; }
-.tch-e .pas button {
-  width: 26px; height: 20px; border-radius: 4px; border: 0; cursor: pointer; padding: 0;
-  font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
-  background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
+.tch-tab .hd {
+  font-size: 12.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); padding-bottom: 9px; border-bottom: 1px solid var(--border);
 }
-.tch-e .pas button:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--b5); }
-.tch-e .pas button:disabled { cursor: default; }
-.tch-e .pas button.on { background: var(--b6); color: #fff; box-shadow: none; }
+.tch-tab .hd.c { text-align: center; }
+.tch-tab .cel { padding: 11px 0; border-bottom: 1px solid var(--border); }
+.tch-tab .cel.nom {
+  min-width: 0; font-family: var(--pg-font-display);
+  font-size: 17px; font-weight: 600; line-height: 1.25; color: var(--ink);
+}
+
+.tch-pas { display: flex; gap: 4px; align-items: center; }
+.tch-pas button {
+  width: 34px; height: 28px; border-radius: 7px; border: 0; cursor: pointer; padding: 0;
+  font-family: var(--pg-font-display); font-size: 14.5px; font-weight: 600;
+  color: var(--faint); background: var(--card-2); box-shadow: inset 0 0 0 1px var(--border);
+  transition: background .13s, color .13s, box-shadow .13s;
+}
+.tch-pas button:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px var(--cv-t-40); }
+.tch-pas button:disabled { cursor: default; }
+.tch-pas button.on {
+  background: linear-gradient(180deg, var(--cv-t-50), var(--cv-t-60)); color: #fff;
+  box-shadow: 0 2px 7px -2px color-mix(in srgb, var(--cv-t-60) 60%, transparent);
+}
 /* la CIBLE se dessine, elle ne se remplit pas */
-.tch-e.cible .pas button { background: transparent; }
-.tch-e.cible .pas button.on {
-  background: var(--cv-g-05); color: var(--cv-g-70);
-  box-shadow: inset 0 0 0 1.5px var(--cv-g-70);
+.tch-pas.cible button { background: transparent; }
+.tch-pas.cible button.on {
+  background: var(--cv-t-05); color: var(--cv-t-70);
+  box-shadow: inset 0 0 0 2px var(--cv-t-60);
 }
-/* ⚠️ La gomme est À L'ÉCART des crans : effacer n'est pas un niveau de plus,
-   et NULL (« pas encore regardé ») ne se confond pas avec 0 (« aucun »). */
-.tch-e .pas .gom {
-  width: 22px; margin-left: 5px; color: var(--muted); background: transparent;
-  box-shadow: inset 0 0 0 1px var(--border);
+.tch-pas .gom {
+  width: 26px; margin-left: 7px; background: transparent; color: var(--faint);
+  font-size: 11px; box-shadow: inset 0 0 0 1px var(--border);
 }
+.tch-pas .gom:hover { background: var(--cv-r-05); color: var(--cv-red-deep); }
+
 .tch-v {
-  flex: none; padding: 4px 11px; border-radius: 999px;
-  font-size: 11.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  display: inline-block; padding: 4px 11px; border-radius: 999px; white-space: nowrap;
+  font-size: 13px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
 }
 .tch-v.ko { background: var(--cv-r-05); color: var(--cv-r-60); box-shadow: inset 0 0 0 1px var(--cv-r-20); }
 .tch-v.ok { background: var(--cv-g-05); color: var(--cv-g-70); box-shadow: inset 0 0 0 1px var(--cv-g-20); }
+.tch-v.nul { background: var(--card-2); color: var(--faint); box-shadow: inset 0 0 0 1px var(--border); }
+
 .tch-vide {
   padding: 24px 20px; text-align: center; border-radius: 14px;
   border: 1.5px dashed var(--border); background: var(--card-2);
-  font-size: 13.5px; color: var(--ink-2);
+  font-size: 14px; color: var(--ink-2);
 }
-.tch-add {
-  display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 16px;
-  padding: 15px 16px; border-radius: 14px; background: var(--card-2);
-  border: 1px solid var(--border);
+
+/* L'ajout est un BOUTON qui déplie ses deux champs : la zone dépliée en
+   permanence se lisait comme une ligne de la liste, et son libellé était faux
+   quand tout était déjà rattaché (le ternaire était inversé). */
+.tch-add { margin-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.tch-add .pl {
+  display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 17px;
+  border: none; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-size: 14px; font-weight: 700; color: #fff;
+  background: linear-gradient(135deg, var(--cv-t-50), var(--cv-t-70));
+  box-shadow: 0 3px 12px -4px color-mix(in srgb, var(--cv-t-70) 70%, transparent);
 }
-.tch-add .ch { min-width: 0; }
-.tch-add .ch > span {
+.tch-add .pl i {
+  width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center;
+  font-size: 11px; background: rgba(255, 255, 255, .26);
+}
+.tch-add .hint { font-size: 13px; color: var(--muted); }
+.tch-champs[hidden] { display: none; }
+.tch-champs {
+  display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 14px;
+  padding: 15px 16px; border-radius: 14px; background: var(--cv-t-05);
+  border: 1px solid var(--cv-t-20);
+}
+.tch-champs .ch { min-width: 0; }
+.tch-champs .ch > span {
   display: block; margin-bottom: 5px;
-  font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-  color: var(--muted);
+  font-size: 12px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--cv-t-70);
 }
-.tch-add select, .tch-add input {
-  height: 38px; min-width: 190px; border-radius: 10px; border: 1px solid var(--border);
-  background: var(--card); color: var(--ink); font: inherit; font-size: 13.5px; padding: 0 12px;
+.tch-champs select, .tch-champs input {
+  height: 38px; min-width: 190px; border-radius: 10px; border: 1px solid var(--cv-t-20);
+  background: var(--card); color: var(--ink); font: inherit; font-size: 14px; padding: 0 12px;
 }
-.tch-add select:focus, .tch-add input:focus { outline: none; border-color: var(--b6); }
-.tch-note { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); }
+.tch-champs select:focus, .tch-champs input:focus { outline: none; border-color: var(--cv-t-60); }
+.tch-champs .pal-b--prim {
+  background: linear-gradient(135deg, var(--cv-t-50), var(--cv-t-70));
+}
+@media (max-width: 760px) {
+  .tch-tab { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .tch-tab .hd { display: none; }
+  .tch-tab .cel { border-bottom: none; padding: 4px 0; }
+  .tch-tab .cel.nom { padding-top: 13px; border-top: 1px solid var(--border); }
+}

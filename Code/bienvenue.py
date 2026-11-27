@@ -387,7 +387,11 @@ def attentes(user=None, lang=None):
         if n:
             liste.append({"cle": "seances", "n": n, "ton": "neutre",
                           "libelle": t('welcome.wait.sessions', lang),
-                          "href": "/competences/"})
+                          # ⚠️ `/competences/` rend 404 : la page est
+                          # `/competences/view`. Trouvé au banc — le clic de
+                          # la fenêtre tombait sur une page d'erreur, et elle
+                          # s'affiche sur CHAQUE page.
+                          "href": "/competences/view"})
     except Exception:
         pass
 

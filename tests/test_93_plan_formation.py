@@ -114,25 +114,37 @@ class TestFonctionsPures:
         from Code.routes.plan_formation import _critere
         assert _critere("Devis", None) == ""
 
-    def test_plan_local_une_action_par_capacite_plus_une_mise_en_situation(self):
+    def test_plan_local_une_action_par_capacite_puis_une_par_RESULTAT(self):
+        """⚠️ RÉÉCRIT (27/11) : le repli n'émettait, par activité, qu'UNE
+        action de terrain — « Tenir « X » en situation réelle » — parce que
+        tout le reste dépendait de `result_capability_links`, que seul le
+        diagnostic remplit. Mesuré au banc : trois activités en écart rendaient
+        trois actions, et aucune ne disait sur quoi travailler. Il y a
+        désormais une action par RÉSULTAT en écart."""
         from Code.routes.plan_formation import _plan_local
         actions = _plan_local(ACTIVITES, "fr")
-        assert [a["type"] for a in actions] == ["FORMATION", "TERRAIN"]
+        assert [a["type"] for a in actions] == ["FORMATION", "TERRAIN", "TERRAIN"]
         assert actions[0]["titre"] == "Se former : Calcul de marge"
         assert actions[0]["heures"] == 7          # 7 h × un pas de niveau (gap capacité -1)
-        assert actions[1]["heures"] == 24         # 12 h × 2 pas (gap activité -2)
+        # ⚠️ Le pas est celui du RÉSULTAT quand il est connu, et celui de
+        # l'activité à défaut : ce décor ne porte pas de `manque`.
+        assert actions[1]["heures"] == 12
 
-    def test_plan_local_livrable_et_critere_portes_par_la_mise_en_situation(self):
+    def test_plan_local_chaque_action_porte_SON_resultat(self):
+        """⚠️ RÉÉCRIT (27/11) : le livrable était la liste de TOUS les
+        résultats et le critère les enchaînait. Une action qui promet trois
+        livrables ne se fait pas, elle se contemple."""
         from Code.routes.plan_formation import _plan_local
-        terrain = _plan_local(ACTIVITES, "fr")[-1]
-        assert terrain["livrable"] == "Devis, Sans standard"
-        assert terrain["critere"] == "« Devis » : Marge < 3 %"   # pas de ligne sans standard
+        terrain = [a for a in _plan_local(ACTIVITES, "fr") if a["type"] == "TERRAIN"]
+        assert [a["livrable"] for a in terrain] == ["Devis", "Sans standard"]
+        assert terrain[0]["critere"] == "« Devis » : Marge < 3 %"
+        assert terrain[1]["critere"] == "", "pas de standard, pas de critère"
 
     def test_plan_local_en_anglais(self):
         from Code.routes.plan_formation import _plan_local
         actions = _plan_local(ACTIVITES, "en")
         assert actions[0]["titre"] == "Learn: Calcul de marge"
-        assert actions[1]["titre"] == "Perform “Chiffrer” in real conditions"
+        assert actions[1]["titre"] == "Produce “Devis” at the expected standard"
 
     def test_plan_local_sans_activite_est_vide(self):
         from Code.routes.plan_formation import _plan_local

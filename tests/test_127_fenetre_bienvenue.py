@@ -1185,3 +1185,35 @@ def test_l_habillage_de_la_section_ne_lit_pas_l_accent_de_la_RACINE():
     for jeton in ("--pg-accent-soft", "--pg-accent-softer",
                   "--pg-accent-border", "--pg-accent-glow"):
         assert jeton not in sans_commentaires[i:], jeton
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  ⚠️ Les liens qu'elle sert doivent MENER quelque part
+# ══════════════════════════════════════════════════════════════════════
+class TestAucunLienMort:
+    """Trouvé au banc (27/11) : la ligne « séances à tenir » pointait
+    `/competences/`, qui rend **404** — la page est `/competences/view`. Cette
+    fenêtre s'affiche sur CHAQUE page de l'application : un lien mort y est vu
+    par tout le monde, et rien ne le disait."""
+
+    def test_chaque_href_de_la_fenetre_resout(self, app):
+        import re
+        from werkzeug.routing import RequestRedirect
+        from Code import bienvenue
+        import inspect
+
+        # On relève les chemins écrits en dur dans le module, plutôt que de
+        # monter un décor pour chaque ligne : c'est l'écriture qu'on garde.
+        src = inspect.getsource(bienvenue)
+        hrefs = set(re.findall(r'"href":\s*"(/[^"]*)"', src))
+        assert len(hrefs) >= 3, "on doit en relever plusieurs (%d)" % len(hrefs)
+        with app.test_request_context():
+            cartes = app.url_map.bind("localhost")
+            for h in sorted(hrefs):
+                chemin = h.split("?", 1)[0]
+                try:
+                    cartes.match(chemin)
+                except RequestRedirect:
+                    pass                      # une redirection mène quelque part
+                except Exception as e:
+                    raise AssertionError("lien mort : %s (%s)" % (h, e))

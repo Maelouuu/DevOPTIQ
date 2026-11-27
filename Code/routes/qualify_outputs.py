@@ -10,6 +10,8 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, session
 from Code.prompts import get_prompt, prompts_available
 from Code.extensions import db
+from Code.paliers import norme_depuis_indicateur
+from Code.permissions import current_user
 from Code.models.models import Data, Link, Task, Activities
 from Code.routes.propose_common import ai_model, openai_client_or_none
 
@@ -230,6 +232,13 @@ def get_activity_outputs(activity_id):
 def _serialize_output(d, lang=None):
     return {
         "data_id": d.id,
+        # ⚠️ LA NORME SE RÈGLE ICI — là où la phrase « réussi quand… » s'écrit.
+        # Elle se devinait plus tard, dans l'écran d'évaluation, à partir d'un
+        # texte libre : tant qu'on LIT une phrase humaine, on devine, et ce
+        # qu'on devine ici décide du niveau de quelqu'un.
+        "norme_valeur": d.norme_valeur,
+        "norme_unite": d.norme_unite or "",
+        "norme_sens": d.norme_sens or "",
         "name": d.name,
         "flux_type": d.type,                       # type de flux (≠ nature sémantique)
         "nature": d.semantic_nature,               # code interne (peut être None)
@@ -312,8 +321,17 @@ def outputs(activity_id):
     outs = get_activity_outputs(activity_id)
     vers = _destinataires(activity)
 
+    indicateurs = indicateurs_de_sortie(activity_id)
+
     def _avec_destination(d):
         o = _serialize_output(d, lang)
+        # Ce qu'on peut PROPOSER, et jamais pré-remplir : d'abord la phrase de
+        # réussite (celle que cet écran collecte lui-même et qui porte le
+        # chiffre), puis l'indicateur de performance de la liste des activités.
+        # ⚠️ Lu par la MÊME fonction partout : une seconde lecture de la même
+        # phrase finirait par proposer autre chose.
+        o["norme_proposee"] = (norme_depuis_indicateur(d.minimum_performance_text)
+                               or norme_depuis_indicateur(indicateurs.get(_norm(d.name), "")))
         cible = vers.get(_norm(d.name))
         o["vers"] = cible
         # ⚠️ Toujours faux désormais : une flèche sans libellé ne produit plus
@@ -378,6 +396,10 @@ def analyze(activity_id):
                 "confidence": o.get("confidence") or "medium",
                 "justification": (o.get("justification") or "").strip(),
                 "suggested_minimum_performance": (o.get("suggested_minimum_performance") or "").strip(),
+                # La phrase que l'IA propose porte souvent le chiffre : on en
+                # tire la même proposition de norme, du même côté.
+                "norme_proposee": norme_depuis_indicateur(
+                    (o.get("suggested_minimum_performance") or "").strip()),
             })
         # sorties non traitées par l'IA → à qualifier
         done = {p["data_id"] for p in props}
@@ -396,6 +418,39 @@ def analyze(activity_id):
     except Exception as e:
         current_app.logger.exception(e)
         return jsonify({"outputs": _fallback_proposals(outs), "source": "error", "error": str(e)}), 200
+
+
+def _poser_norme(d, it, warnings):
+    """La norme de la sortie, telle que la fenêtre de configuration l'envoie.
+
+    ⚠️ On ne touche à la norme que si la clé est ENVOYÉE — même règle que
+    `evidence` dans /mastery/evaluate : un client plus ancien, qui ne connaît
+    pas ces champs, effacerait sinon une norme que personne n'a retirée.
+    ⚠️ Et on passe par `_lire_norme` / `_peut_regler_la_norme`, les MÊMES que
+    `/paliers/norme` : deux routes qui écrivent les trois mêmes colonnes avec
+    deux validateurs finissent par ne plus écrire la même chose.
+    """
+    if "norme_valeur" not in it:
+        return
+    from Code.routes.paliers_routes import _lire_norme, _peut_regler_la_norme
+    acteur = current_user()
+    if acteur is None or not _peut_regler_la_norme(acteur):
+        warnings.append({"data_id": d.id, "name": d.name, "code": "norme_forbidden"})
+        return
+    if it.get("norme_valeur") in (None, ""):
+        # ⚠️ Effacer la norme REND la sortie qualitative : elle repasse au
+        # jugement 0→4. C'est un choix légitime, pas une suppression.
+        d.norme_valeur = d.norme_unite = d.norme_sens = None
+        return
+    norme, err = _lire_norme({"valeur": it.get("norme_valeur"),
+                              "unite": it.get("norme_unite"),
+                              "sens": it.get("norme_sens")})
+    if err:
+        warnings.append({"data_id": d.id, "name": d.name, "code": err})
+        return
+    d.norme_valeur = norme["valeur"]
+    d.norme_unite = norme["unite"]
+    d.norme_sens = norme["sens"]
 
 
 @qualify_bp.route("/save/<int:activity_id>", methods=["POST"])
@@ -429,6 +484,7 @@ def save(activity_id):
                                          "This data was a result: check related evaluations/links.")})
         d.semantic_nature = nature
         d.minimum_performance_text = (it.get("minimum_performance_text") or "").strip() or None
+        _poser_norme(d, it, warnings)
         d.qualification_source = "MANUAL" if it.get("source") == "MANUAL" else ("AI" if nature else None)
         d.qualification_updated_at = now
         saved += 1

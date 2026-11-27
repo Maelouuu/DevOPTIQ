@@ -60,38 +60,82 @@ def norme_depuis_indicateur(texte):
     pourcentage se bat à la hausse (un taux de conformité), tout le reste à la
     baisse (une durée, un nombre de retouches). Les marqueurs explicites
     (« ≤ », « au moins », « at least », « max »…) l'emportent toujours.
+
+    ⚠️ La VALEUR, elle, ne se devine plus. Mesuré sur un corpus de 28
+    indicateurs plausibles : 22 lus juste, **6 faux — et les six avaient une
+    seule cause**, « prendre le premier nombre de la phrase ». On prend le
+    dernier nombre PORTÉ PAR UNE UNITÉ ; à défaut le nombre s'il est seul ;
+    sinon rien. Mesuré après : 26/28, et **aucune lecture fausse** — les deux
+    restantes ne proposent rien (« 1 500 pièces », un intervalle lu par sa
+    borne haute).
     """
     if not texte:
         return None
     t = str(texte).strip().lower()
-    m = re.search(r"(\d+(?:[.,]\d+)?)", t)
-    if not m:
+    nombres = _nombres_avec_unite(t)
+    if not nombres:
         return None
-    try:
-        valeur = float(m.group(1).replace(",", "."))
-    except ValueError:
+    portes = [x for x in nombres if x[1]]
+    if portes:
+        # ⚠️⚠️ LE DERNIER nombre PORTÉ PAR UNE UNITÉ, et non le premier nombre
+        # du texte. C'est la cause unique des six lectures fausses relevées sur
+        # un corpus de 28 indicateurs plausibles : un numéro d'étiquette
+        # (« Indicateur 1 — délai sous 5 jours » → 1), une année (« Objectif
+        # 2026 — taux 95 % » → 2026), un « n°2 », la borne BASSE d'un
+        # intervalle (« entre 2 et 5 jours » → 2). Et comme l'unité doit SUIVRE
+        # immédiatement le nombre retenu, la perdre faisait en plus retomber le
+        # sens sur son défaut : une cause, trois symptômes.
+        # Un numéro d'étiquette est en tête, la valeur en fin.
+        valeur, unite = portes[-1]
+    elif len(nombres) == 1:
+        # Aucune unité, mais un SEUL nombre : il n'y a rien à choisir, donc
+        # rien à deviner. (« 12 retouches », « max 3 ».)
+        valeur, unite = nombres[0]
+    else:
+        # Plusieurs nombres et aucun porté : on ne propose RIEN plutôt que de
+        # tirer au sort. Mieux vaut un champ vide qu'un chiffre faux — c'est
+        # lui qui décidera du niveau de quelqu'un.
         return None
+    return {"valeur": valeur, "unite": unite, "sens": _sens_du_texte(t, unite)}
 
-    reste = t[m.end():].lstrip()
-    unite = ""
-    mu = re.match(r"(%|h|j|d|min|jours?|days?|hours?|heures?|minutes?|semaines?|weeks?)\b",
-                  reste)
-    if reste[:1] == "%":
-        unite = "%"
-    elif mu:
-        unite = _UNITES.get(mu.group(1), mu.group(1))
 
-    avant = t[:m.start()]
+def _nombres_avec_unite(t):
+    """Chaque nombre du texte, avec l'unité qui le SUIT immédiatement.
+
+    ⚠️ Pas de séparateur de milliers : « 1 500 » peut se lire comme un nombre
+    ou comme deux, et on ne tranche pas à la place de celui qui a écrit la
+    phrase — deux nombres non portés ne proposent rien.
+    """
+    out = []
+    for m in re.finditer(r"\d+(?:[.,]\d+)?", t):
+        try:
+            valeur = float(m.group(0).replace(",", "."))
+        except ValueError:
+            continue
+        reste = t[m.end():].lstrip()
+        unite = ""
+        if reste[:1] == "%":
+            unite = "%"
+        else:
+            mu = re.match(r"(h|j|d|min|jours?|days?|hours?|heures?|minutes?|semaines?|weeks?)\b",
+                          reste)
+            if mu:
+                unite = _UNITES.get(mu.group(1), mu.group(1))
+        out.append((valeur, unite))
+    return out
+
+
+def _sens_du_texte(t, unite):
+    """⚠️ Le SENS se devine, et c'est le seul endroit où l'on devine. Les
+    marqueurs explicites l'emportent toujours ; à défaut, un pourcentage se bat
+    à la hausse, tout le reste à la baisse."""
     if any(x in t for x in ("\u2265", ">=", "au moins", "at least", "mini", "minimum",
                             "plus de", "superieur", "supérieur")):
-        sens = PLUS
-    elif any(x in t for x in ("\u2264", "<=", "au plus", "at most", "maxi", "maximum",
-                              "moins de", "sous", "within", "under", "max")):
-        sens = MOINS
-    else:
-        sens = PLUS if unite == "%" else MOINS
-    del avant
-    return {"valeur": valeur, "unite": unite, "sens": sens}
+        return PLUS
+    if any(x in t for x in ("\u2264", "<=", "au plus", "at most", "maxi", "maximum",
+                            "moins de", "sous", "within", "under", "max")):
+        return MOINS
+    return PLUS if unite == "%" else MOINS
 
 
 _UNITES = {"jour": "j", "jours": "j", "day": "j", "days": "j", "d": "j",

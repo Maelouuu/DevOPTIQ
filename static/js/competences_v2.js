@@ -83,6 +83,8 @@
       cl_tech_0: 'aucun domaine',
       cl_tech_1: '1 domaine',
       cl_tech_n: '[[n]] domaines',
+      tech_cat_1: '1 domaine dans le catalogue',
+      tech_cat_n: '[[n]] domaines dans le catalogue',
       cl_tech_ecart_1: '1 en écart',
       cl_tech_ecart_n: '[[n]] en écart',
       grv_mesure: 'mesuré [[x]]',
@@ -336,7 +338,18 @@
       conf_q_d: 'Cochez ce qu’elle doit produire, puis dites à quoi on voit que c’est réussi : c’est le repère de l’évaluation.',
       conf_list: 'Ce que l’activité produit', conf_list_d: 'les flèches qui en partent sur la carte',
       conf_vers: 'vers « [[x]] »', conf_fleche: 'Flèche vers « [[x]] »',
+      conf_open: "Configurer l'activité",
+      conf_sans_norme_1: '1 sortie sans norme', conf_sans_norme_n: '[[n]] sorties sans norme',
+      conf_tout_norme: 'toutes chiffrées',
       conf_std: 'Réussi quand…', conf_std_lu: 'Réussi quand :', conf_std_ph: 'ex. : validé par le client sans reprise',
+      conf_norme: "La norme de l'entreprise",
+      conf_norme_i: "Un chiffre et un sens. Avec eux, le niveau de cette sortie se "
+        + "DÉDUIT de ce qu'on relève en séance, et il n'y a plus de note à poser à la "
+        + "main. Sans eux, elle se juge de 0 à 4. La norme appartient à l'activité, "
+        + "pas à la personne : elle est la même pour tous ceux qui la tiennent.",
+      conf_norme_off: 'Laissez la valeur vide : cette sortie se jugera à la main, de 0 à 4.',
+      conf_prop: 'Proposé d\u2019après cette phrase : [[x]]',
+      conf_prop_ok: 'Utiliser',
       conf_ia_on: 'L’IA a pré-coché ce qui lui semble juste. Vérifiez avant d’enregistrer.',
       conf_ia_off: 'Pas d’IA sur cette instance : cochez vous-même.',
       conf_ia_tag: 'IA', conf_ia_check: 'à vérifier',
@@ -418,7 +431,6 @@
       plan_tendu: 'Ça passe de justesse — aucune marge en cas d’imprévu.',
       plan_trop: 'Il manque [[x]] h. Il faudrait [[s]] semaines à ce rythme, ou [[h]] h par semaine sur la durée visée.',
       plan_juste: 'Caler sur la durée juste nécessaire ([[s]] sem.)',
-      plan_sched: 'Répartition semaine par semaine',
       plan_source_ai: 'Proposé par l’IA — à relire et ajuster',
       plan_source_local: 'Construit depuis les capacités en écart relevées en base (aucune clé IA)',
       plan_gap_1: 'activité sous le niveau requis', plan_gap_intro: 'activités sous le niveau requis',
@@ -427,6 +439,9 @@
       plan_other: 'Autres actions',
       plan_steps_1: '1 étape', plan_steps_n: '[[n]] étapes',
       plan_week_1: 'Semaine [[a]]', plan_week_n: 'Semaines [[a]] → [[b]]',
+      plan_seance: 'Prochaine séance', plan_seance_auj: "aujourd'hui",
+      plan_seance_j_1: 'dans 1 jour', plan_seance_j_n: 'dans [[n]] jours',
+      plan_seance_cal: 'Caler sur la séance · [[s]] sem.',
       plan_week_over: 'dépasse la durée visée',
       plan_week_step_1: 'étape [[l]]', plan_week_step_n: 'étapes [[l]]', plan_wk: 'S',
       plan_load: 'Charge en heures', plan_less: 'Moins d’heures', plan_more: 'Plus d’heures',
@@ -495,6 +510,8 @@
       cl_tech_0: 'no domain',
       cl_tech_1: '1 domain',
       cl_tech_n: '[[n]] domains',
+      tech_cat_1: '1 domain in the catalogue',
+      tech_cat_n: '[[n]] domains in the catalogue',
       cl_tech_ecart_1: '1 short',
       cl_tech_ecart_n: '[[n]] short',
       grv_mesure: 'measured [[x]]',
@@ -747,7 +764,19 @@
       conf_q_d: 'Tick what it must produce, then say how you can tell it is done well: that is the benchmark for assessment.',
       conf_list: 'What the activity produces', conf_list_d: 'the arrows leaving it on the map',
       conf_vers: 'to “[[x]]”', conf_fleche: 'Arrow to “[[x]]”',
+      conf_open: 'Configure the activity',
+      conf_sans_norme_1: '1 output without a standard',
+      conf_sans_norme_n: '[[n]] outputs without a standard',
+      conf_tout_norme: 'all quantified',
       conf_std: 'Done well when…', conf_std_lu: 'Done well when:', conf_std_ph: 'e.g. approved by the client with no rework',
+      conf_norme: 'The company standard',
+      conf_norme_i: 'A figure and a direction. With them, this output\u2019s level is '
+        + 'DERIVED from what is measured in a session, and there is no level left to set '
+        + 'by hand. Without them, it is judged from 0 to 4. The standard belongs to the '
+        + 'activity, not to the person: it is the same for everyone who holds it.',
+      conf_norme_off: 'Leave the value empty: this output will be judged by hand, from 0 to 4.',
+      conf_prop: 'Suggested from this sentence: [[x]]',
+      conf_prop_ok: 'Use it',
       conf_ia_on: 'The AI has pre-ticked what it thinks fits. Check before saving.',
       conf_ia_off: 'No AI on this instance: tick them yourself.',
       conf_ia_tag: 'AI', conf_ia_check: 'check this',
@@ -822,7 +851,6 @@
       plan_tendu: 'It just fits — no slack if anything slips.',
       plan_trop: '[[x]] h short. You would need [[s]] weeks at this pace, or [[h]] h per week over the target duration.',
       plan_juste: 'Snap to the duration actually needed ([[s]] wk)',
-      plan_sched: 'Week by week',
       plan_source_ai: 'Proposed by AI — review and adjust',
       plan_source_local: 'Built from the capability gaps recorded in the database (no AI key)',
       plan_gap_1: 'activity below the required level', plan_gap_intro: 'activities below the required level',
@@ -831,6 +859,9 @@
       plan_other: 'Other actions',
       plan_steps_1: '1 step', plan_steps_n: '[[n]] steps',
       plan_week_1: 'Week [[a]]', plan_week_n: 'Weeks [[a]] → [[b]]',
+      plan_seance: 'Next session', plan_seance_auj: 'today',
+      plan_seance_j_1: 'in 1 day', plan_seance_j_n: 'in [[n]] days',
+      plan_seance_cal: 'Fit to the session · [[s]] wks',
       plan_week_over: 'runs past the target duration',
       plan_week_step_1: 'step [[l]]', plan_week_step_n: 'steps [[l]]', plan_wk: 'W',
       plan_load: 'Workload in hours', plan_less: 'Fewer hours', plan_more: 'More hours',
@@ -840,10 +871,6 @@
   };
   // Clés communes aux deux langues, déclarées une fois.
   const COMMUN = {
-    tech_exp: {
-      fr: "Fixez le niveau technique requis par le rôle et le niveau démontré par le collaborateur.",
-      en: 'Set the technical level required by the role and the level demonstrated by the team member.' },
-    tech_required: { fr: 'Requis', en: 'Required' },
     tech_demonstrated: { fr: 'Démontré', en: 'Demonstrated' },
     tech_add_ph: { fr: 'Nouveau domaine (ex. Plastique)…', en: 'New domain (e.g. Plastic)…' },
     tech_link: { fr: 'Ajouter', en: 'Add' },
@@ -862,6 +889,11 @@
     tech_note: {
       fr: 'Les niveaux se posent ici ; ils ne touchent pas à l\u2019évaluation de l\u2019activité.',
       en: 'Levels are set here; they do not affect the activity\u2019s evaluation.' },
+    tech_dom: { fr: 'Domaine', en: 'Domain' },
+    // ⚠️ Sans verdict pour un domaine NULL, la colonne s'effondre une ligne sur
+    // trois — et « pas encore regardé » n'est pas « au niveau ».
+    tech_nonsitue: { fr: 'non situé', en: 'not set' },
+    tech_ajouter: { fr: 'Ajouter un domaine', en: 'Add a domain' },
   };
   Object.keys(COMMUN).forEach(k => { I18N.fr[k] = COMMUN[k].fr; I18N.en[k] = COMMUN[k].en; });
 
@@ -2770,11 +2802,9 @@
   // ⚠️ CINQ crans : l'échelle technique distingue 0 (« aucun ») de NULL
   // (« pas encore regardé »), et c'est la distinction que tout le module tient.
   // La gomme est à l'écart — effacer n'est pas un niveau de plus.
-  function domEchelle(cle, val, cible, onchange) {
-    const z = document.createElement('div');
-    z.className = 'tch-e' + (cible ? ' cible' : '');
-    z.innerHTML = `<span class="k">${esc(T(cle))}</span><div class="pas"></div>`;
-    const pas = z.querySelector('.pas');
+  function domPas(cle, val, cible, onchange) {
+    const pas = document.createElement('div');
+    pas.className = 'tch-pas' + (cible ? ' cible' : '');
     const dev = jeSuisLeDev();
     Object.keys(state.domScale).forEach(k => {
       const b = document.createElement('button');
@@ -2794,7 +2824,7 @@
       g.onclick = () => onchange(null);
       pas.appendChild(g);
     }
-    return z;
+    return pas;
   }
   // ⚠️ UNE source pour les domaines : `state.tech`. La pastille de la bande et
   // le dialogue la relisent tous deux — deux chargements finiraient par
@@ -2810,30 +2840,50 @@
     renderDomList(zone.querySelector('.cv2-domlist'), aid, state.tech.domains);
     if (jeSuisLeDev()) renderDomAdd(zone, aid, state.tech.all, state.tech.domains);
   }
+  // ⚠️⚠️ UNE TABLE, parce que les trois lignes ne s'ALIGNAIENT PAS : le nom du
+  // domaine était en `flex: 1 1 150px`, donc chaque ligne poussait ses deux
+  // échelles où elle pouvait — mesuré, le « Requis » partait à x = 472 / 513 /
+  // 569, soit 97 px d'écart. On ne pouvait comparer deux domaines, ce qui est
+  // tout l'objet d'une liste. Et les étiquettes montent en en-tête : écrites
+  // UNE fois au lieu de six, ce qui libère la place des crans.
   function renderDomList(list, aid, domains) {
     list.innerHTML = '';
-    if (!domains.length) { list.innerHTML = `<div class="tch-vide">${esc(T('tech_empty'))}</div>`; return; }
+    if (!domains.length) {
+      list.className = 'cv2-domlist';
+      list.innerHTML = `<div class="tch-vide">${esc(T('tech_empty'))}</div>`;
+      return;
+    }
+    list.className = 'cv2-domlist tch-tab';
+    list.insertAdjacentHTML('beforeend',
+      `<div class="hd">${esc(T('tech_dom'))}</div>
+       <div class="hd c">${esc(T('tech_requis_role'))}</div>
+       <div class="hd c">${esc(T('tech_demonstrated'))}</div>
+       <div class="hd"></div>`);
+    const cel = (cls, enfant) => {
+      const c = document.createElement('div');
+      c.className = 'cel' + (cls ? ' ' + cls : '');
+      if (enfant) c.appendChild(enfant);
+      list.appendChild(c);
+      return c;
+    };
     domains.forEach(d => {
-      const row = document.createElement('div'); row.className = 'tch-d';
-      const dn = document.createElement('div'); dn.className = 'nm';
-      dn.innerHTML = `<b>${esc(d.name)}</b>`;
-      row.appendChild(dn);
-      row.appendChild(domEchelle('tech_requis_role', d.required_level, true,
+      cel('nom').textContent = d.name;
+      cel('', domPas('tech_requis_role', d.required_level, true,
         v => setDom('/domains/required',
           { role_id: state.roleId, activity_id: aid, domain_id: d.domain_id, required_level: v },
           list, aid)));
-      row.appendChild(domEchelle('tech_demonstrated', d.demonstrated_level, false,
+      cel('', domPas('tech_demonstrated', d.demonstrated_level, false,
         v => setDom('/domains/user_level',
           { user_id: state.cible, domain_id: d.domain_id, demonstrated_level: v }, list, aid)));
       // Le verdict dit ce qu'il EST, pas un nombre nu : « en écart · −2 » ou
       // « tenu ». Un « +1 » vert ne se lit pas comme un verdict.
-      if (!estNul(d.gap)) {
-        const g = document.createElement('span');
-        g.className = 'tch-v ' + (d.gap < 0 ? 'ko' : 'ok');
-        g.textContent = d.gap < 0 ? Tv('tech_ecart', { n: -d.gap }) : T('tech_tenu');
-        row.appendChild(g);
-      }
-      list.appendChild(row);
+      // ⚠️ Et NULL a le SIEN — « non situé », en neutre : sans lui la colonne
+      // s'effondre, et « pas encore regardé » n'est pas « au niveau ».
+      const g = document.createElement('span');
+      if (estNul(d.gap)) { g.className = 'tch-v nul'; g.textContent = T('tech_nonsitue'); }
+      else if (d.gap < 0) { g.className = 'tch-v ko'; g.textContent = Tv('tech_ecart', { n: -d.gap }); }
+      else { g.className = 'tch-v ok'; g.textContent = T('tech_tenu'); }
+      cel('', g);
     });
   }
   async function setDom(url, body, list, aid) {
@@ -2845,15 +2895,39 @@
     renderDomList(list, aid, state.tech.domains);
     refreshDashboard();
   }
-  // ⚠️ L'ajout est RANGÉ EN BAS, dans son cadre : c'est là qu'on va quand les
-  // domaines existants ne suffisent pas, et il ne doit pas se lire comme une
-  // ligne de la liste. Ses deux champs portent enfin leur étiquette — un
-  // `placeholder` disparaît dès qu'on tape.
+  // ⚠️ L'ajout est un BOUTON qui DÉPLIE ses champs : la zone dépliée en
+  // permanence se lisait comme une ligne de plus de la liste.
+  // ⚠️⚠️ Et son libellé était FAUX quand tout était déjà rattaché : le ternaire
+  // était inversé, on lisait « Rattacher un domaine qui existe » au-dessus d'un
+  // champ « Nouveau domaine… ». Chaque champ porte désormais le sien, et celui
+  // qui n'a rien à proposer n'est pas rendu.
   function renderDomAdd(zone, aid, allDomains, linked) {
     const add = zone.querySelector('.cv2-domadd');
-    add.className = 'cv2-domadd tch-add'; add.innerHTML = '';
+    add.className = 'cv2-domadd'; add.innerHTML = '';
     const linkedIds = new Set(linked.map(d => d.domain_id));
     const avail = allDomains.filter(d => !linkedIds.has(d.id));
+
+    const rangee = document.createElement('div');
+    rangee.className = 'tch-add';
+    const pl = document.createElement('button');
+    pl.type = 'button'; pl.className = 'pl';
+    pl.innerHTML = `<i class="fa-solid fa-plus"></i>${esc(T('tech_ajouter'))}`;
+    rangee.appendChild(pl);
+    if (avail.length) {
+      const h = document.createElement('span'); h.className = 'hint';
+      h.textContent = nf('tech_cat', avail.length);
+      rangee.appendChild(h);
+    }
+    add.appendChild(rangee);
+
+    const champs = document.createElement('div');
+    champs.className = 'tch-champs'; champs.hidden = true;
+    add.appendChild(champs);
+    pl.onclick = () => {
+      champs.hidden = !champs.hidden;
+      if (!champs.hidden) (sel || inp).focus();
+    };
+
     let sel = null;
     if (avail.length) {
       const ch = document.createElement('div'); ch.className = 'ch';
@@ -2861,12 +2935,12 @@
       sel = document.createElement('select');
       sel.innerHTML = `<option value="">${esc(T('tech_pick'))}</option>` +
         avail.map(d => `<option value="${d.id}">${esc(d.name)}</option>`).join('');
-      ch.appendChild(sel); add.appendChild(ch);
+      ch.appendChild(sel); champs.appendChild(ch);
     }
     const ch2 = document.createElement('div'); ch2.className = 'ch';
-    ch2.innerHTML = `<span>${esc(avail.length ? T('tech_creer_t') : T('tech_lier_t'))}</span>`;
+    ch2.innerHTML = `<span>${esc(T('tech_creer_t'))}</span>`;
     const inp = document.createElement('input'); inp.placeholder = T('tech_add_ph');
-    ch2.appendChild(inp); add.appendChild(ch2);
+    ch2.appendChild(inp); champs.appendChild(ch2);
 
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'pal-b pal-b--prim';
@@ -2880,7 +2954,7 @@
       }
       if (sel && sel.value) { await linkDom(aid, +sel.value); await loadTech(zone); }
     };
-    add.appendChild(b);
+    champs.appendChild(b);
   }
   async function linkDom(aid, did) {
     await api(`/domains/activity/${aid}/link`, { method: 'POST', body: JSON.stringify({ domain_id: did }) });
@@ -2982,7 +3056,9 @@
       <div class="cv2-cf-std">
         <label>${esc(T('conf_std'))}</label>
         <input type="text" class="cv2-cf-in" value="${esc(std)}" placeholder="${esc(T('conf_std_ph'))}">
+        ${blocNorme(o, p)}
       </div>`;
+    brancherNorme(el, o, p);
     const cb = el.querySelector('input[type=checkbox]');
     cb.addEventListener('change', () => {
       el.classList.toggle('is-on', cb.checked);
@@ -2995,6 +3071,76 @@
       }
     });
     return el;
+  }
+
+  /* ══ LA NORME SE RÈGLE ICI ════════════════════════════════════════════
+     ⚠️⚠️ Elle se DEVINAIT, plus tard, dans l'écran d'évaluation, à partir d'un
+     texte libre — et elle ratait pour deux raisons mesurées. Elle lisait
+     l'indicateur de performance d'une connexion sortante, vide sur les deux
+     sorties du banc, en ignorant « réussi quand… » qui porte le chiffre ; et
+     son parseur prenait le PREMIER nombre de la phrase (22 justes sur 28, les
+     six faux d'une seule cause). Le second défaut est corrigé côté serveur,
+     mais le premier est de FOND : tant qu'on LIT une phrase humaine, on
+     devine — et ce qu'on devine ici décide du niveau de quelqu'un.
+     Elle se pose donc À CÔTÉ de la phrase, au moment où on l'écrit.
+     ⚠️ Les trois champs sont EXACTEMENT ceux de la fenêtre des paliers
+     (`.pal-champs`, `champUnite`, `lireUnite`) : deux façons de régler la même
+     norme finiraient par ne plus écrire la même chose.
+     ⚠️ Rien n'est PRÉ-REMPLI. Ce que le serveur sait lire dans la phrase est
+     offert en BOUTON : l'app propose, la personne pose. C'est toute la
+     différence avec ce qu'on vient de retirer. */
+  function blocNorme(o, p) {
+    const a = !estNul(o.norme_valeur);
+    // Ce qui est ENREGISTRÉ l'emporte sur la proposition : on ne revient pas
+    // sur un chiffre posé par quelqu'un.
+    const prop = a ? null : (o.norme_proposee || p.norme_proposee || null);
+    return `<div class="cv2-cf-nrm">
+        <div class="k">${esc(T('conf_norme'))}
+          <span class="cv2-i" tabindex="0" role="button" aria-label="${esc(T('conf_norme'))}"
+            ><i class="fa-solid fa-info"></i></span></div>
+        <div class="pal-champs">
+          <label><span>${esc(T('pal_valeur'))}</span>
+            <input type="text" data-v inputmode="decimal"
+                   value="${esc(a ? fmtNb(o.norme_valeur) : '')}"></label>
+          ${champUnite(a ? (o.norme_unite || '') : null)}
+          <label><span>${esc(T('pal_sens'))}</span>
+            <select data-s>
+              <option value="moins"${o.norme_sens === 'plus' ? '' : ' selected'}>${esc(T('pal_moins'))}</option>
+              <option value="plus"${o.norme_sens === 'plus' ? ' selected' : ''}>${esc(T('pal_plus'))}</option>
+            </select></label>
+        </div>
+        ${prop ? `<button type="button" class="cv2-cf-prop" data-prop>
+            <i class="fa-solid fa-arrow-turn-down"></i>
+            <span>${esc(Tv('conf_prop', { x: fmtVal(prop.valeur, prop.unite) + ' · '
+              + (prop.sens === 'plus' ? T('pal_au_moins') : T('pal_au_plus')) }))}</span>
+            <b>${esc(T('conf_prop_ok'))}</b></button>` : ''}
+        <p class="cv2-cf-nrm-off">${esc(T('conf_norme_off'))}</p>
+      </div>`;
+  }
+
+  function brancherNorme(el, o, p) {
+    // ⚠️ La ZONE est la LIGNE, pas la fenêtre : `lireUnite` et `brancherUnite`
+    // prennent le PREMIER champ qu'ils trouvent, et il y a une ligne par
+    // sortie — on réglerait l'unité de la première pour tout le monde.
+    brancherUnite(el);
+    brancherInfo(el.querySelector('.cv2-cf-nrm .cv2-i'), T('conf_norme'), T('conf_norme_i'));
+    const b = el.querySelector('[data-prop]');
+    if (!b) return;
+    const prop = o.norme_proposee || p.norme_proposee;
+    b.onclick = () => {
+      el.querySelector('[data-v]').value = fmtNb(prop.valeur);
+      const sel = el.querySelector('[data-us]'), libre = el.querySelector('[data-u]');
+      if (sel) {
+        const connue = UNITES.indexOf(prop.unite || '') >= 0;
+        sel.value = connue ? prop.unite : '*';
+        if (libre) {
+          libre.classList.toggle('hidden', connue);
+          libre.value = connue ? '' : (prop.unite || '');
+        }
+      }
+      el.querySelector('[data-s]').value = prop.sens === 'plus' ? 'plus' : 'moins';
+      b.remove();                       // posé : il n'y a plus rien à proposer
+    };
   }
 
   // Ce qui manque, dit AVANT le clic, à côté du bouton qu'il conditionne.
@@ -3014,10 +3160,20 @@
     const lignes = [...document.querySelectorAll('#cv2-drawer-body .cv2-cf-item')];
     const outputs = lignes.map(l => {
       const on = l.classList.contains('is-on');
-      return { data_id: +l.dataset.dataId,
-               nature: on ? 'RESULT' : (l.dataset.autre || null),
-               minimum_performance_text: on ? l.querySelector('.cv2-cf-in').value : '',
-               source: 'MANUAL' };
+      const o = { data_id: +l.dataset.dataId,
+                  nature: on ? 'RESULT' : (l.dataset.autre || null),
+                  minimum_performance_text: on ? l.querySelector('.cv2-cf-in').value : '',
+                  source: 'MANUAL' };
+      // ⚠️ La norme ne part QUE pour ce qui est coché : le serveur n'y touche
+      // pas si la clé est absente, donc décocher une sortie ne lui retire pas
+      // la norme que l'entreprise lui a donnée.
+      if (on) {
+        const v = lireNb(l, '[data-v]');
+        o.norme_valeur = isFinite(v) ? v : '';
+        o.norme_unite = lireUnite(l);
+        o.norme_sens = l.querySelector('[data-s]').value;
+      }
+      return o;
     });
     if (!outputs.some(o => o.nature === 'RESULT')) { majCompteQualif(); return; }
 
@@ -3182,6 +3338,7 @@
       parametres: Object.assign({}, d.parametres),
       actions: (d.actions || []).map(a => Object.assign({}, a)),
       activites: d.activites || [], source: d.source, types: d.types || {},
+      seance: d.seance || null,
     };
     state.plan.actions = ordonner(state.plan.actions);
     renderPlan();
@@ -3221,6 +3378,7 @@
           <div class="cv2-reglages">
             ${curseur('heures_semaine', T('plan_hours_week'), T('plan_h'))}
             ${curseur('semaines', T('plan_weeks'), T('plan_week_unit'))}
+            ${blocSeance()}
             <div class="cv2-verdict">
               <div class="cv2-barre" id="cv2-barre"><i></i></div>
               <div class="cv2-chiffres">
@@ -3230,7 +3388,7 @@
               <div class="cv2-dit" id="cv2-dit"></div>
               <button type="button" class="cv2-juste" id="cv2-juste"></button>
               <div class="cv2-semaines" id="cv2-semaines"></div>
-              <div class="cv2-echlbl">${esc(T('plan_sched'))}</div>
+              <div class="cv2-semx" id="cv2-semx"></div>
             </div>
           </div>
         </div>
@@ -3246,6 +3404,16 @@
       });
       majCurseur(inp);
     });
+    const cal = $('#cv2-caler-seance');
+    if (cal) cal.onclick = () => {
+      const inp = body.querySelector('[data-curseur="semaines"]');
+      // ⚠️ Borné comme le curseur : une séance dans deux ans ne doit pas
+      // écrire une valeur que le curseur ne peut pas reprendre.
+      const v = Math.min(BORNES.semaines[1],
+                         Math.max(BORNES.semaines[0], state.plan.seance.semaines));
+      inp.value = p.parametres.semaines = v;
+      majCurseur(inp); recalculer();
+    };
     $('#cv2-juste').onclick = () => {
       const { semainesNecessaires } = calcul();
       const inp = body.querySelector('[data-curseur="semaines"]');
@@ -3257,6 +3425,22 @@
       { cls: 'btn-quiet', label: T('plan_repropose'), on: proposerPlan, id: 'cv2-plan-prop' },
       { cls: 'btn-primary', label: T('plan_save'), on: enregistrerPlan },
     ], '#cv2-plan-footer');
+  }
+
+  // ⚠️ La SÉANCE déjà fixée. Le plan réglait une durée visée de douze
+  // semaines à côté d'un rendez-vous pris pour dans trois : la date à
+  // laquelle les chiffres seront relevés est la seule échéance réelle du
+  // plan, et elle ne se voyait nulle part ici.
+  function blocSeance() {
+    const sc = state.plan.seance;
+    if (!sc) return '';
+    const quand = sc.jours === 0 ? T('plan_seance_auj') : nf('plan_seance_j', sc.jours);
+    return `<div class="cv2-seance">
+        <div class="k"><i class="fa-solid fa-calendar-check"></i>${esc(T('plan_seance'))}</div>
+        <div class="d"><b>${esc(fmtDate(sc.date))}</b><span>${esc(quand)}</span></div>
+        <button type="button" class="cv2-juste" id="cv2-caler-seance">${
+          esc(Tv('plan_seance_cal', { s: sc.semaines }))}</button>
+      </div>`;
   }
 
   function curseur(cle, libelle, unite) {
@@ -3534,6 +3718,15 @@
       el.innerHTML = `<i style="height:${c.hs ? (pris / c.hs * 100) : 0}%"></i>`;
       box.appendChild(el);
     }
+    // ⚠️ Les repères sont posés sur les semaines RÉELLEMENT dessinées (`total`,
+    // qui dépasse la durée visée quand le besoin déborde) : calés sur la seule
+    // durée visée, ils décaleraient dès qu'une barre rouge s'ajoute.
+    const rep = $('#cv2-semx');
+    if (rep) {
+      const marques = [...new Set([1, Math.round(total / 3), Math.round(total * 2 / 3), total])]
+        .filter(n => n >= 1 && n <= total);
+      rep.innerHTML = marques.map(n => `<span>${T('plan_wk')}${n}</span>`).join('');
+    }
   }
 
   async function proposerPlan() {
@@ -3548,6 +3741,8 @@
     state.plan.activites = r.activites || state.plan.activites;
     state.plan.actions = ordonner(r.actions || []);
     state.plan.source = r.source === 'AI' ? 'AI' : 'LOCAL';
+    // Une séance a pu être fixée entre-temps : la réponse la porte.
+    if ('seance' in r) state.plan.seance = r.seance;
     renderPlan();
   }
 
@@ -5224,6 +5419,18 @@
          ech ? fmtDate(ech.quand) : '').onclick = () => ouvrirCalendrier();
     if (jeSuisLeDev()) {
       chip('', 'fa-file-lines', T('plan_open')).onclick = () => ouvrirPlan();
+      // ⚠️⚠️ CONFIGURER n'était plus joignable : son seul chemin était le
+      // bouton de `.ev-vide`, qui ne s'affiche que sur une activité SANS
+      // sortie — et `activity_mastery` matérialise les connexions sortantes,
+      // donc une activité qui a une flèche en a toujours. C'était sans
+      // conséquence tant que la fenêtre ne portait que la nature des sorties
+      // (que personne ne lit) ; ce ne l'est plus : la NORME s'y règle.
+      // ⚠️ La valeur dit s'il faut l'ouvrir — combien de sorties n'ont pas de
+      // norme chiffrée. « 2 sorties » aurait répété ce que l'écran montre.
+      const sans = (st.results || []).filter(r => !r.mesurable).length;
+      chip('', 'fa-sliders', T('conf_open'),
+           sans ? nf('conf_sans_norme', sans) : T('conf_tout_norme'))
+        .onclick = () => ouvrirConfiguration(state.activity);
     }
     majChipTech();
   }
@@ -5473,20 +5680,29 @@
 
   function ouvrirTechnicite() {
     ouvrirDialogue(T('ev_tech'), true);
+    // ⚠️ `ouvrirDialogue` repose `vue = 'eval'` à chaque ouverture : la
+    // largeur de la table ne déborde donc pas sur les deux autres dialogues.
+    $('#cv2-drawer').dataset.vue = 'tech';
     const b = $('#cv2-drawer-body');
-    // ⚠️ L'explication d'abord : rien, dans la fenêtre d'avant, ne disait ce
-    // QU'EST un domaine technique ni pourquoi on en poserait un. Elle est en
-    // tilleul — c'est une aide, pas un avertissement.
+    // ⚠️ L'explication passe derrière un « i » : trois lignes en tête de
+    // fenêtre pour une règle qu'on lit une fois, et elles prenaient la place
+    // de la table. C'est le motif de la maison — une phrase se range derrière
+    // un « i », elle ne disparaît pas.
     b.innerHTML = `<div class="cv2-tech-z">
-      <div class="tch-exp"><i class="fa-solid fa-circle-question"></i>
-        <p>${gras(T('tech_quoi'))}</p></div>
-      <p class="tch-k">${esc(T('tech_les'))}</p>
+      <div class="tch-h"><span class="t">${esc(T('tech_les'))}</span>
+        <span class="cv2-i" tabindex="0" role="button" aria-label="${esc(T('ev_tech'))}"
+          ><i class="fa-solid fa-info"></i></span></div>
       <div class="cv2-domlist"></div>
       <div class="cv2-domadd"></div>
-      <p class="tch-note">${esc(T('tech_note'))}</p>
     </div>`;
     setFooter([]);
     const z = b.querySelector('.cv2-tech-z');
+    // ⚠️ `brancherInfo` ÉCHAPPE son texte : les marqueurs [[b]] s'y
+    // afficheraient en clair. On les retire, et `tech_note` suit — c'est
+    // l'autre moitié de ce que la fenêtre disait en tête.
+    brancherInfo(z.querySelector('.cv2-i'), T('ev_tech'),
+      T('tech_quoi').split('[[b]]').join('').split('[[/b]]').join('')
+      + '\n\n' + T('tech_note'));
     const aid = state.activity.activity_id;
     const t = state.tech || { domains: [], all: [] };
     renderDomList(z.querySelector('.cv2-domlist'), aid, t.domains);

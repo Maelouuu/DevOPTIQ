@@ -733,6 +733,11 @@ class TestLePlurielNeSeDevinePas:
         fr = js.split("    fr: {", 1)[1].split("\n    },", 1)[0]
         cle = lambda b: set(_re.findall(r"(?:^\s+|,\s+)([a-z0-9_]+):\s*['\"]", b, _re.M))
         cles = cle(fr)
+        # ⚠️ Et les clés COMMUNES aux deux langues, déclarées `{ fr:…, en:… }` :
+        # une clé de pluriel posée là échappait ENTIÈREMENT au contrôle — c'est
+        # arrivé (`tech_cat_1/_n`), et rien ne l'aurait dit.
+        commun = js.split("  const COMMUN = {", 1)[1].split("\n  };", 1)[0]
+        cles |= set(_re.findall(r"(?:^\s+|,\s+)([a-z0-9_]+):\s*\{", commun, _re.M))
         bases = set(_re.findall(r"\bnf\('([a-z0-9_]+)'", js))
         assert len(bases) >= 4, "on doit en relever plusieurs (%d)" % len(bases)
         for b in bases:

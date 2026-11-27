@@ -287,23 +287,53 @@ with app.app_context():
     from Code.models.models import Link
     actes = Activities.query.order_by(Activities.id).all()
     a_configurer = next(a for a in actes if a.name == "Industrialiser la piece")
+    liens_config = []
     for cible, libelle in ((actes[5], "Gamme de fabrication"), (actes[0], "Dossier d'industrialisation")):
-        db.session.add(Link(entity_id=ent.id, source_activity_id=a_configurer.id,
-                            target_activity_id=cible.id, type="flux", description=libelle))
+        lk = Link(entity_id=ent.id, source_activity_id=a_configurer.id,
+                  target_activity_id=cible.id, type="flux", description=libelle)
+        db.session.add(lk)
+        liens_config.append(lk)
     db.session.commit()
 
-    # Un domaine technique en ecart, pour que la colonne Technicite ne soit pas vide.
+    # ⚠️ UN indicateur de performance, et un seul : c'est ce que l'entreprise a
+    # noté dans la liste des activités, et c'est de là que la fenêtre de
+    # configuration tire sa PROPOSITION de norme. Sans lui, le bouton
+    # « Proposé… » ne se voit jamais — et c'est précisément le geste neuf.
+    from Code.models.models import Performance
+    db.session.add(Performance(link_id=liens_config[0].id,
+                               name="Delai de mise a disposition",
+                               description="sous 5 jours"))
+    db.session.commit()
+
+    # ⚠️ TROIS domaines, et les TROIS verdicts : tenu, en écart, non situé.
+    # Avec un seul on ne voit jamais que le cas malheureux — et c'est justement
+    # l'ALIGNEMENT des trois lignes qui était le défaut de cette fenêtre.
+    # Plus un domaine LIBRE au catalogue : sans lui, ni le sélecteur de l'ajout
+    # ni le compte « n domaines dans le catalogue » ne se montrent.
     try:
         from Code.models.models import (TechnicalDomain, ActivityTechnicalDomain,
                                                    RoleActivityDomainRequirement, UserDomainLevel)
         acts = Activities.query.order_by(Activities.id).all()
-        dom = TechnicalDomain(entity_id=ent.id, name_fr="Plastique", name_en="Plastic")
-        db.session.add(dom)
-        db.session.commit()
-        db.session.add(ActivityTechnicalDomain(activity_id=acts[0].id, domain_id=dom.id))
-        db.session.add(RoleActivityDomainRequirement(
-            role_id=metier.id, activity_id=acts[0].id, domain_id=dom.id, required_level=3))
-        db.session.add(UserDomainLevel(user_id=noe.id, domain_id=dom.id, demonstrated_level=1))
+        DOMAINES = [
+            ("Plastique", "Plastic", 3, 3),      # tenu
+            ("Usinage CN", "CNC machining", 4, 2),   # en ecart
+            ("Metrologie 3D", "3D metrology", 2, None),   # non situe
+        ]
+        for nom_fr, nom_en, requis, demontre in DOMAINES:
+            dom = TechnicalDomain(entity_id=ent.id, name_fr=nom_fr, name_en=nom_en)
+            db.session.add(dom)
+            db.session.commit()
+            db.session.add(ActivityTechnicalDomain(activity_id=acts[0].id, domain_id=dom.id))
+            db.session.add(RoleActivityDomainRequirement(
+                role_id=metier.id, activity_id=acts[0].id, domain_id=dom.id,
+                required_level=requis))
+            if demontre is not None:
+                db.session.add(UserDomainLevel(user_id=noe.id, domain_id=dom.id,
+                                               demonstrated_level=demontre))
+            db.session.commit()
+        # au catalogue, rattache a rien
+        db.session.add(TechnicalDomain(entity_id=ent.id, name_fr="Soudure",
+                                       name_en="Welding"))
         db.session.commit()
     except Exception as e:                  # le module bouge, l'outil ne doit pas bloquer
         print("[devrun] technicite sautee : %s" % e)

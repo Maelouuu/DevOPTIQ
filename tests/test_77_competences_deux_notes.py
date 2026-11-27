@@ -1073,34 +1073,49 @@ class TestLeRepliDitQuoiFaire:
     def test_le_critere_vit_sur_la_mise_en_situation_seulement(self):
         """⚠️ Recopié sur chaque capacité, le standard du résultat se lisait
         trois fois de suite — et laissait croire qu'une formation suffit à le
-        tenir. Il se vérifie EN SITUATION."""
+        tenir. Il se vérifie EN SITUATION.
+
+        ⚠️ RÉÉCRIT (27/11) : il y a désormais une action de terrain PAR
+        RÉSULTAT, et non une seule par activité — c'est ce qui a corrigé la
+        dégénérescence du repli (trois activités en écart ne rendaient que
+        trois actions). Chacune porte SON standard, et lui seul.
+        """
         plan = self._plan()
         for a in plan:
             if a["type"] != "TERRAIN":
                 assert a["critere"] == ""
         terrain = [a for a in plan if a["type"] == "TERRAIN"]
-        assert len(terrain) == 1
+        assert len(terrain) == 2, "une par résultat en écart"
         assert "Écart de marge" in terrain[0]["critere"]
+        assert "Chaque poste" in terrain[1]["critere"]
+        # Le standard d'un résultat ne part PAS sur l'action d'un autre.
+        assert "Chaque poste" not in terrain[0]["critere"]
 
-    def test_la_mise_en_situation_produit_les_resultats_de_l_activite(self):
-        t = next(a for a in self._plan() if a["type"] == "TERRAIN")
-        assert t["livrable"] == "Devis chiffré, Hypothèses de coût"
-        assert "En acquisition" in t["objectif"] and "Maîtrise étendue" in t["objectif"]
+    def test_la_mise_en_situation_produit_SON_resultat(self):
+        """⚠️ RÉÉCRIT (27/11) : le livrable d'une action est LE résultat
+        qu'elle vise, plus la liste de tous ceux de l'activité. Une action qui
+        promet trois livrables ne se fait pas, elle se contemple."""
+        terrain = [a for a in self._plan() if a["type"] == "TERRAIN"]
+        assert [a["livrable"] for a in terrain] == ["Devis chiffré", "Hypothèses de coût"]
+        for a in terrain:
+            assert a["objectif"], "chaque action dit d'où à où elle mène"
+            assert "Maîtrise étendue" in a["objectif"]
 
-    def test_un_standard_par_ligne(self):
-        """Enchaînés, ils se lisaient « … 3 %. ; Chaque poste… »."""
-        t = next(a for a in self._plan() if a["type"] == "TERRAIN")
-        lignes = t["critere"].split("\n")
-        assert len(lignes) == 2
-        assert lignes[0].startswith("« Devis chiffré »")
-        assert " ; " not in t["critere"]
+    def test_un_standard_par_action(self):
+        """⚠️ RÉÉCRIT (27/11) : enchaînés sur une seule action ils se lisaient
+        « … 3 %. ; Chaque poste… ». Chaque action n'en porte plus qu'un."""
+        terrain = [a for a in self._plan() if a["type"] == "TERRAIN"]
+        for a in terrain:
+            assert len(a["critere"].split("\n")) == 1
+            assert " ; " not in a["critere"]
+        assert terrain[0]["critere"].startswith("« Devis chiffré »")
 
     def test_l_anglais_n_a_pas_de_guillemets_francais(self):
         for a in self._plan("en"):
             for champ in ("titre", "objectif", "livrable", "critere"):
                 assert "«" not in a[champ] and "»" not in a[champ], (champ, a[champ])
         t = next(a for a in self._plan("en") if a["type"] == "TERRAIN")
-        assert t["critere"].split("\n")[0].startswith("“Devis chiffré”: ")
+        assert t["critere"].startswith("“Devis chiffré”: ")
 
     def test_chaque_action_a_une_charge(self):
         """Une action sans charge ne s'ordonnance pas dans les semaines."""
