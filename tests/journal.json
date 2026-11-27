@@ -2,7 +2,7 @@
   "plan": {
     "title": "Plan de couverture & fiabilisation des tests",
     "objective": "À chaque exécution, la routine répartit sa capacité : ~70% pour étendre la couverture (nouveaux tests) et ~30% pour repérer et corriger les tests défaillants, en traçant chaque correctif.",
-    "updated_at": "23/11/2026",
+    "updated_at": "27/11/2026",
     "steps": [
       {
         "id": "coverage",
@@ -16,7 +16,7 @@
         "title": "Maintien à 100% de réussite",
         "status": "in_progress",
         "progress": 100,
-        "note": "Suite complète verte : 4982 réussis, 1 sauté, 0 échec."
+        "note": "Suite complète verte : 5242 réussis, 1 sauté, 0 échec."
       },
       {
         "id": "isolation",
@@ -49,6 +49,26 @@
     ]
   },
   "entries": [
+    {
+      "id": "2026-11-27-socle-examen-replis",
+      "at": "2026-11-27T03:37:27",
+      "date": "27/11/2026 · 03:37",
+      "author": "routine",
+      "title": "Socle — refus des transitions, file d examen et replis",
+      "summary": "Suite déjà verte (5209/5209) : aucun correctif nécessaire, tout le run va à la couverture. 33 tests ciblent les dernières lignes non couvertes du socle et de ses voisins.",
+      "new_tests": 33,
+      "tests_fixed": 0,
+      "patches": 0,
+      "page": "Socle",
+      "highlights": [
+        "socle_activites.py 92 % → 100 % (refus deja_soumis / pas_commune / deja_valide, file a_examiner)",
+        "Fenêtre de bienvenue : ligne « socle » du coordinateur, replis de signature_vue / marquer_vue",
+        "Page Activités : panneau du socle et liaisons de tâches qui tombent sans emporter la page",
+        "can_fill refusé à un champion qui ne lit pas la carto",
+        "Suite complète : 5242 réussis, 1 sauté, 0 échec"
+      ],
+      "next": "competences.py (chemin de reprise sur conflit), cartography_editor.py, app.py."
+    },
     {
       "at": "2026-11-23T03:40:53",
       "date": "23/11/2026 · 03:40",
