@@ -367,3 +367,89 @@ class TestLesTablesSansModeleSontINVENTORIEES:
         assert not doublons, (
             "ces tables ont desormais un MODELE : les retirer de CONNUES, "
             "sinon le cliquet cesse de les surveiller — %s" % doublons)
+
+
+
+
+class TestLesCELLULESDeCreateAppNeSeReECRIVENTPas:
+    """⚠️⚠️ Une boucle `for _t in (...)` a mis TOUTE l'application a terre.
+
+    `create_app` relie `from Code.translations import t as _t`, et le
+    processeur de contexte rend `{'t': _t, ...}`. `_t` est donc une CELLULE
+    de `create_app`, partagee avec la fonction imbriquee — pas une variable
+    locale ordinaire. Une boucle de migration nommee `_t`, 480 lignes plus
+    bas, a reecrit cette cellule : a la fin de `create_app`, `t` valait la
+    chaine « time_weakness », et `{{ t('login.heading') }}` rendait
+    « TypeError: 'str' object is not callable » sur CHAQUE page — connexion
+    comprise, donc l'application entiere.
+
+    ⚠️ Et la suite ne pouvait PAS le voir : tout le bloc de migration vit
+    APRES `if test_config is not None: ... return app`, donc aucune des
+    5300 lignes de la suite ne l'atteint jamais. Le defaut n'existait que la
+    ou personne ne regarde — exactement comme les deux 500 du 25/11.
+
+    D'ou un controle sur le CODE OBJET et non sur la source : il tourne aussi
+    dans l'arbre d'image (bytecode seul), ou `inspect.getsource` echoue.
+    L'invariant : un nom qu'une fonction imbriquee FERME est relie
+    exactement UNE fois par `create_app`. Mesure : 18 fonctions imbriquees,
+    8 noms fermes, et `_t` etait le seul relie deux fois.
+    """
+
+    @staticmethod
+    def _liaisons(code):
+        import dis
+        from collections import Counter
+        return Counter(i.argval for i in dis.get_instructions(code)
+                       if i.opname in ("STORE_DEREF", "STORE_FAST"))
+
+    @staticmethod
+    def _imbriquees(code):
+        return [c for c in code.co_consts if hasattr(c, "co_freevars")]
+
+    def test_le_processeur_de_contexte_garde_SA_fonction_de_traduction(self):
+        """Le cas exact : `t` doit rester la fonction, pas un nom de table."""
+        from Code.app import create_app
+        code = create_app.__code__
+        imbriquees = [c for c in self._imbriquees(code)
+                      if c.co_name == "inject_translation"]
+        assert imbriquees, ("le processeur de contexte n'est plus une fonction "
+                            "imbriquee de create_app — adapter ce cliquet")
+        liaisons = self._liaisons(code)
+        for nom in imbriquees[0].co_freevars:
+            assert liaisons[nom] == 1, (
+                "create_app relie %d fois le nom « %s », que le processeur de "
+                "contexte FERME : la derniere valeur gagne, et chaque gabarit "
+                "qui l'emploie tombe. Renommer la variable qui le reecrit."
+                % (liaisons[nom], nom))
+
+    def test_aucune_cellule_de_create_app_n_est_reecrite(self):
+        """La famille entiere, pas seulement la traduction."""
+        from Code.app import create_app
+        code = create_app.__code__
+        liaisons = self._liaisons(code)
+        fautifs = []
+        for imbriquee in self._imbriquees(code):
+            for nom in imbriquee.co_freevars:
+                if liaisons[nom] > 1:
+                    fautifs.append("%s (ferme par %s, relie %d fois)"
+                                   % (nom, imbriquee.co_name, liaisons[nom]))
+        assert not fautifs, (
+            "ces noms sont des CELLULES partagees avec une fonction "
+            "imbriquee et create_app les relie plusieurs fois : %s"
+            % sorted(set(fautifs)))
+
+    def test_le_bloc_de_migration_est_HORS_DE_PORTEE_de_la_suite(self):
+        """⚠️ La raison pour laquelle ce cliquet lit du bytecode.
+
+        Si ce retour anticipe disparaissait un jour, le bloc deviendrait
+        joignable et un vrai controle comportemental serait possible — il
+        faudrait alors le preferer a celui-ci. Tant qu'il est la, ce fichier
+        est le seul filet sur ces 400 lignes.
+        """
+        import dis
+        from Code.app import create_app
+        noms = [i.argval for i in dis.get_instructions(create_app.__code__)
+                if i.opname == "LOAD_FAST" and i.argval == "test_config"]
+        assert noms, ("create_app ne lit plus `test_config` : si le retour "
+                      "anticipe a disparu, le bloc de migration est devenu "
+                      "joignable — ecrire un controle comportemental.")

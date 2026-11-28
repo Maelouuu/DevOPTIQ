@@ -713,9 +713,16 @@ def create_app(test_config=None):
         _safe_add_column("time_weakness", "prob_percent", "FLOAT")
         # Le MOIS que chaque analyse de temps décrit (Code/periode.py) : une
         # charge fluctue, et sans lui un poids de rôle ne se situe nulle part.
-        for _t in ("time_project", "time_analysis", "time_role_analysis",
-                   "time_weakness"):
-            _safe_add_column(_t, "periode", "VARCHAR(7)")
+        # ⚠️⚠️ La variable de boucle ne doit porter AUCUN des noms que le
+        # processeur de contexte ferme (voir plus haut) : ce sont des CELLULES
+        # de `create_app`, partagées avec la fonction imbriquée. Une boucle
+        # nommée `_t` a réécrit la cellule de la fonction de traduction, et
+        # `{{ t('…') }}` a rendu « 'str' object is not callable » sur CHAQUE
+        # page — invisible pour la suite, qui n'atteint jamais ce bloc
+        # (`if test_config is not None: … return app`, bien plus haut).
+        for _table in ("time_project", "time_analysis", "time_role_analysis",
+                       "time_weakness"):
+            _safe_add_column(_table, "periode", "VARCHAR(7)")
 
         # users.password : les hashes modernes (~162 car. en scrypt) dépassaient
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE

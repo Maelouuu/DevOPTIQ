@@ -12228,6 +12228,53 @@ quelqu'un tient son rôle. Le damier compare donc les cartos et NOMME les
 titulaires ; attribuer une carto à un titulaire demanderait une colonne de plus
 sur `user_roles`.
 
+#### ⚠️⚠️ UNE BOUCLE A MIS TOUTE L'APPLICATION À TERRE — `for _t in (…)` (2026-11-28)
+
+« J'ai un internal server error lorsque je vais sur l'app. » Mesuré :
+`/login` **500** et `/parametres/` **500** sur staging, pendant que
+`/testpanel/` et `/health` rendaient 200 — et que l'officielle comme le pilote
+rendaient `/login` 200. Le défaut était donc dans le code de staging, livré la
+nuit même avec la charge de travail.
+
+**La cause, en une ligne.** `create_app` relie
+`from Code.translations import t as _t`, et son processeur de contexte rend
+`{'t': _t, …}`. **`_t` est donc une CELLULE de `create_app`**, partagée avec la
+fonction imbriquée — pas une variable locale ordinaire. La boucle de migration
+que j'avais ajoutée 480 lignes plus bas s'appelait `for _t in ("time_project",
+…)` : elle a **réécrit cette cellule**. À la fin de `create_app`, `t` valait la
+chaîne « time_weakness », et `{{ t('login.heading') }}` rendait
+**`TypeError: 'str' object is not callable`** — sur CHAQUE page, connexion
+comprise, donc l'application entière.
+
+⚠️⚠️ **Et aucune des 5 319 lignes de la suite ne pouvait le voir.** Tout le
+bloc de migration vit **APRÈS** `if test_config is not None: … return app`
+(`Code/app.py`, ~400 lignes plus bas) : la suite, le conftest et tout banc qui
+passe `test_config` **retournent avant**. C'est la même zone aveugle que les
+deux 500 du 25/11 (la sonde de `get_calendar_params`, la DDL en SQLite pur) —
+troisième défaut qui s'y loge. Mon propre contrôle local passait
+`test_config` : il rendait 200 et ne prouvait rien.
+
+**Le cliquet lit du BYTECODE**, pas la source — `inspect.getsource` échoue dans
+l'arbre d'image, et un contrôle qui rougit toujours n'est plus lu (septième
+occurrence de ce piège). L'invariant, vérifié sur le code objet :
+**un nom qu'une fonction imbriquée FERME est relié exactement UNE fois par
+`create_app`**. Mesuré : 18 fonctions imbriquées, 8 noms fermés, et `_t` était
+le seul relié deux fois — l'invariant est donc propre, et il tombe sur le
+défaut remis. Un troisième cas garde la RAISON de lire du bytecode : si le
+retour anticipé disparaissait, le bloc deviendrait joignable et un contrôle
+comportemental serait alors préférable.
+
+⚠️ **Ce que la mesure a écarté en chemin**, pour ne pas le rechercher : ce
+n'était ni une transaction PostgreSQL avortée (le suspect naturel, et la
+famille du 25/11), ni une colonne `periode` manquante (les quatre ALTER
+passent : vérifié, `periode=True` sur les quatre tables), ni le déploiement
+(le workflow est vert), ni l'instance (les trois révisions répondent).
+Balayage complet après correctif sur un **PostgreSQL 16 vierge** monté par le
+démarrage NORMAL : **103 routes GET sans paramètre, 0 en erreur**.
+
+Tests : `tests/test_165_base_neuve.py::TestLesCELLULESDeCreateAppNeSeReECRIVENTPas`
+(3 cas ; **2 vérifiés rouges** en remettant la boucle fautive).
+
 ---
 
 ## Notes importantes (suite)
