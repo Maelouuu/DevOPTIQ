@@ -68,13 +68,20 @@ ORDER BY e.id;
 --   • `n_mois`    : combien de mois en arrière, le mois courant compris.
 --   • `n_roles`   : combien de rôles mesurer. Les autres restent « sans
 --                   mesure », et c'est voulu — voir l'en-tête.
---   • `purger`    : à `true`, efface d'abord les analyses de rôle de cette
---                   carto. À n'employer que sur une carto de démonstration.
+--   • `purger`    : à `true`, efface d'abord CE QUE CE SEMIS A SEMÉ sur
+--                   cette carto. À n'employer que sur une carto de
+--                   démonstration.
 --
 -- ⚠️ IL REFUSE DE REJOUER. Un second passage empilerait une deuxième analyse
 --    par (rôle, mois) : le damier n'en retient qu'une — la plus récente —
 --    mais la liste des analyses de la page Temps, elle, les montre toutes, et
 --    on ne sait plus laquelle est la vraie. `purger := true` pour recommencer.
+--
+-- ⚠️⚠️ MAIS IL NE REGARDE QUE SES PROPRES LIGNES. Ce qu'il crée porte le
+--    préfixe `marque` ci-dessous ; une analyse faite À LA MAIN ne le porte
+--    pas, donc elle ne bloque pas le semis et la purge ne l'efface pas.
+--    Sans cette distinction, une seule analyse écrite par quelqu'un fermait
+--    le semis, et la seule sortie offerte était de la détruire.
 -- ─────────────────────────────────────────────────────────────────────────
 DO $$
 DECLARE
@@ -82,10 +89,17 @@ DECLARE
   n_mois    int     := 4;        -- ←←← mois à couvrir (courant compris)
   n_roles   int     := 9;        -- ←←← rôles à mesurer
   purger    boolean := false;    -- ←←← true = on efface d'abord
+  -- ⚠️ LA MARQUE DU SEMIS, écrite à UN seul endroit : l'insertion la pose en
+  --    tête du nom, le refus de rejouer et la purge la cherchent. Deux
+  --    écritures de ce préfixe finiraient par diverger, et la purge se
+  --    mettrait alors à effacer ce qu'elle doit épargner.
+  marque    text    := 'Charge · ';
   carto_nom text;
   n_act     int;
   n_dispo   int;
   deja      int;
+  a_la_main int;
+  ra_ids    int[];
   plein_min numeric;
   cal_j     int;
   cal_s     int;
@@ -118,28 +132,39 @@ BEGIN
                     carto_id, carto_nom;
   END IF;
 
-  -- 2. Purge, ou refus de rejouer.
+  -- 2. Purge, ou refus de rejouer — SUR SES PROPRES LIGNES, jamais au-delà.
+  --
+  -- ⚠️ Les identifiants sont relevés AVANT toute suppression : une fois les
+  --    lignes parties, plus rien ne rattache l'analyse à cette carto, et il
+  --    faudrait retomber sur « toute analyse sans ligne », qui balaie la base
+  --    entière.
+  SELECT count(*) INTO a_la_main
+    FROM time_role_analysis ra
+   WHERE ra.periode IS NOT NULL
+     AND ra.name NOT LIKE marque || '%'
+     AND EXISTS (SELECT 1 FROM time_role_line rl
+                   JOIN activities a ON a.id = rl.activity_id
+                  WHERE rl.role_analysis_id = ra.id AND a.entity_id = carto_id);
+
+  SELECT array_agg(DISTINCT ra.id) INTO ra_ids
+    FROM time_role_analysis ra
+    JOIN time_role_line rl ON rl.role_analysis_id = ra.id
+    JOIN activities a ON a.id = rl.activity_id
+   WHERE a.entity_id = carto_id
+     AND ra.name LIKE marque || '__/____';
+
+  deja := COALESCE(array_length(ra_ids, 1), 0);
+
   IF purger THEN
-    DELETE FROM time_role_line rl USING time_role_analysis ra
-     WHERE ra.id = rl.role_analysis_id
-       AND EXISTS (SELECT 1 FROM time_role_line x
-                     JOIN activities a ON a.id = x.activity_id
-                    WHERE x.role_analysis_id = ra.id AND a.entity_id = carto_id);
-    DELETE FROM time_role_analysis ra
-     WHERE NOT EXISTS (SELECT 1 FROM time_role_line x
-                        WHERE x.role_analysis_id = ra.id);
-  ELSE
-    SELECT count(*) INTO deja
-      FROM time_role_analysis ra
-     WHERE ra.periode IS NOT NULL
-       AND EXISTS (SELECT 1 FROM time_role_line rl
-                     JOIN activities a ON a.id = rl.activity_id
-                    WHERE rl.role_analysis_id = ra.id AND a.entity_id = carto_id);
-    IF deja > 0 THEN
-      RAISE EXCEPTION 'La carto #% (%) porte déjà % analyse(s) de rôle datée(s). '
-                      'Relancer empilerait des doublons : mettre purger := true '
-                      'pour repartir de zéro.', carto_id, carto_nom, deja;
+    IF ra_ids IS NOT NULL THEN
+      DELETE FROM time_role_line     WHERE role_analysis_id = ANY(ra_ids);
+      DELETE FROM time_role_analysis WHERE id               = ANY(ra_ids);
     END IF;
+  ELSIF deja > 0 THEN
+    RAISE EXCEPTION 'La carto #% (%) porte déjà % analyse(s) semée(s) par ce '
+                    'script. Relancer empilerait des doublons : mettre '
+                    'purger := true pour repartir de zéro.',
+                    carto_id, carto_nom, deja;
   END IF;
 
   -- 3. Le calendrier de travail. Sans lui la page lit son repli, et « 36 %
@@ -199,8 +224,11 @@ BEGIN
   ), creees AS (
     INSERT INTO time_role_analysis (role_id, name, periode, created_at)
     SELECT v.role_id,
-           'Charge · ' || to_char(date_trunc('month', now())
-                                  - (m.k || ' months')::interval, 'MM/YYYY'),
+           -- ⚠️ `marque` et rien d'autre : c'est ce préfixe que la purge et le
+           --    refus de rejouer cherchent. Un nom écrit en dur ici les
+           --    rendrait aveugles à ce que le semis vient de créer.
+           marque || to_char(date_trunc('month', now())
+                             - (m.k || ' months')::interval, 'MM/YYYY'),
            m.periode,
            now() - (m.k || ' months')::interval
       FROM vises v CROSS JOIN mois m
@@ -268,6 +296,15 @@ BEGIN
                '% titulaire(s) situé(s). % rôle(s) laissé(s) sans mesure.',
                carto_id, carto_nom, n_ra, n_mois, n_li, n_tit,
                GREATEST(n_dispo - n_roles, 0);
+  IF a_la_main > 0 THEN
+    -- ⚠️ Deux analyses du même rôle sur le même mois sont deux TENTATIVES,
+    --    pas deux charges : le damier n'en retient qu'une, la plus récente.
+    --    Celles du semis venant d'être écrites, ce sont elles qu'il montrera.
+    RAISE NOTICE '% analyse(s) faite(s) à la main laissée(s) intacte(s). Sur '
+                 'un même rôle et un même mois, le damier montre la plus '
+                 'récente — donc celle du semis ; la vôtre reste dans la '
+                 'liste de la page Temps.', a_la_main;
+  END IF;
 END $$;
 
 
@@ -280,7 +317,12 @@ WITH p AS (SELECT 0 AS carto_id)          -- ←←← L'IDENTIFIANT DE LA CARTO
 SELECT ra.periode                                   AS mois,
        r.name                                       AS role,
        count(rl.id)                                 AS activites,
-       round(sum(rl.duration_minutes) / 60.0, 1)    AS minutes_par_occurrence_h,
+       -- ⚠️ `duration_minutes` est un FLOAT (db.Float → double precision), et
+       --    `round(double precision, integer)` N'EXISTE PAS en PostgreSQL —
+       --    seule la forme à un argument accepte un flottant. D'où la
+       --    conversion en `numeric` AVANT d'arrondir.
+       round((sum(rl.duration_minutes) / 60.0)::numeric, 1)
+                                                    AS heures_par_occurrence,
        (SELECT count(*) FROM user_roles ur
          WHERE ur.role_id = r.id AND ur.entity_id = (SELECT carto_id FROM p))
                                                     AS titulaires_situes

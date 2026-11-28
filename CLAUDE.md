@@ -12510,6 +12510,65 @@ BANC qu'on aligne, par le curseur du pilote. Et le découpage sur
 sans ses deux tirets) n'est plus un commentaire pour PostgreSQL, il faut
 recoller le préfixe. Même famille que le découpage des sections CSS.
 
+#### ⚠️⚠️ Le semis était INFRANCHISSABLE, et son issue de secours détruisait (2026-11-28)
+
+Rapporté le jour même : « la requête 2 ne passe pas lorsque je mets l'id de la
+carto (16) ». Elle répondait
+
+    ERROR: La carto #16 (PAlier test) porte déjà 1 analyse(s) de rôle datée(s).
+
+**UNE seule analyse, écrite à la main, fermait tout le semis** — et la seule
+sortie que le message offrait, `purger := true`, l'aurait effacée (la purge
+supprimait TOUTE analyse de rôle touchant la carto, datée ou non). On ne
+proposait donc que de détruire le travail de quelqu'un pour pouvoir semer.
+
+⚠️ **Le garde-fou protège d'un REJEU, pas de l'existence d'une analyse.** Ce
+qu'il lui manquait, c'est de savoir distinguer ce que le semis a créé. Chaque
+analyse semée porte désormais un préfixe, `marque`, **déclaré à UN seul
+endroit** : l'insertion le pose, le refus et la purge le cherchent. Deux
+écritures de ce préfixe finiraient par diverger, et la purge se mettrait alors
+à effacer ce qu'elle doit épargner.
+
+- ⚠️ **Les identifiants sont relevés AVANT toute suppression** (`ra_ids`) :
+  une fois les lignes parties, plus rien ne rattache l'analyse à sa carto, et
+  il faudrait retomber sur « toute analyse sans ligne » — ce que faisait le
+  second DELETE, qui **balayait donc la base entière**, y compris les analyses
+  orphelines d'une autre carto.
+- ⚠️ Le compte rendu dit en toutes lettres ce qu'il a laissé intact, et que
+  sur un même rôle et un même mois le damier montre la plus récente — donc
+  celle du semis, l'analyse faite à la main restant dans la liste de la page
+  Temps.
+
+⚠️⚠️ **Et la requête 3 n'avait JAMAIS tourné : `round(double precision,
+integer)` n'existe pas.** `time_role_line.duration_minutes` est un `db.Float`,
+donc `sum(...)` rend un `double precision` — et seule la forme à UN argument
+de `round` accepte un flottant. La relecture tombait sur
+`function round(double precision, integer) does not exist`. Le « éprouvé sur
+un vrai PostgreSQL 16 » écrit la veille ne couvrait donc que les requêtes 1
+et 2 : **un semis se prouve requête par requête, pas en bloc.** Conversion en
+`numeric` avant d'arrondir, et un cliquet relit **les quatre semis** : tout
+`round` à deux arguments dont le premier touche une colonne flottante doit
+porter la conversion.
+⚠️ Il lit les colonnes flottantes dans **`db.metadata`**, jamais dans le
+source des modèles : l'arbre d'image n'a pas les `.py` — et il refuse de
+passer s'il n'en relève aucune, sinon il verdirait sans rien lire.
+⚠️ Et il équilibre les parenthèses au lieu de chercher un motif : une
+expression régulière s'arrête à la PREMIÈRE parenthèse fermante, donc elle
+tronque `round(sum(x) / 60.0, 1)` à `round(sum(x)` et ne voit jamais le
+second argument, celui qui décide.
+
+⚠️ `_sans_commentaires_sql` rejoint ses deux sœurs : les commentaires de ce
+semis CITENT les formes qu'ils interdisent (le préfixe, et la phrase qui
+explique que `round` à deux arguments refuse un flottant). **Onzième
+occurrence** de cette famille.
+
+Éprouvé sur un **vrai PostgreSQL 16**, sur le scénario exact du signalement —
+une carto portant une analyse datée faite à la main : le semis passe, elle
+survit, le rejeu reste refusé, la purge n'efface que les 16 analyses semées,
+et la requête 3 relit.
+Tests : `test_171` passe de 83 à **88 cas** ; **six défauts remis un par un,
+six cliquets tombés**.
+
 #### ⚠️ Quatre cliquets qui ne gardaient rien, et c'est trois fois la même faute
 
 Vérifiés rouges un par un, quatre sont restés VERTS au premier essai :

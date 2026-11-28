@@ -35,6 +35,52 @@ def _sans_commentaires_css(css):
     return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 
 
+def _sans_commentaires_sql(sql):
+    """⚠️ Onzième fois, et en SQL cette fois : les commentaires de ce semis
+    CITENT les formes qu'ils interdisent — « round(double precision, integer)
+    n'existe pas », le préfixe que la purge cherche. Sans ce nettoyage, un
+    cliquet s'attrape sur l'explication du défaut qu'il garde."""
+    return re.sub(r"(?m)--.*$", "", sql)
+
+
+def _appels(sql, nom):
+    """Chaque appel à `nom(...)`, parenthèses équilibrées.
+
+    Une expression régulière s'arrête à la PREMIÈRE parenthèse fermante, donc
+    elle tronque `round(sum(x) / 60.0, 1)` à `round(sum(x)` — et le contrôle
+    ne voit jamais le second argument, celui qui décide.
+    """
+    out = []
+    for m in re.finditer(re.escape(nom) + r"\s*\(", sql):
+        prof, i = 0, m.end() - 1
+        while i < len(sql):
+            if sql[i] == "(":
+                prof += 1
+            elif sql[i] == ")":
+                prof -= 1
+                if prof == 0:
+                    out.append(sql[m.start():i + 1])
+                    break
+            i += 1
+    return out
+
+
+def _arguments(appel):
+    """Les arguments de premier niveau d'un appel rendu par `_appels`."""
+    corps = appel[appel.index("(") + 1:-1]
+    args, prof, debut = [], 0, 0
+    for i, c in enumerate(corps):
+        if c == "(":
+            prof += 1
+        elif c == ")":
+            prof -= 1
+        elif c == "," and prof == 0:
+            args.append(corps[debut:i])
+            debut = i + 1
+    args.append(corps[debut:])
+    return args
+
+
 def _section_charge(css_brut):
     """La section ④ SEULE, commentaires retirés.
 
@@ -1234,12 +1280,96 @@ class TestLesSemisDATENTCeQuIlsCreent:
             "égale (504 h en une fois)")
 
     def test_seed_charge_REFUSE_de_rejouer(self):
-        sql = _lire("tools/db/seed_charge.sql")
-        i = sql.index("ELSE")
-        assert "RAISE EXCEPTION" in sql[i:i + 900], (
+        sql = _sans_commentaires_sql(_lire("tools/db/seed_charge.sql"))
+        i = sql.index("ELSIF deja > 0 THEN")
+        assert "RAISE EXCEPTION" in sql[i:i + 400], (
             "un second passage empilerait une analyse par (rôle, mois), et "
             "la liste de la page Temps les montrerait toutes")
         assert "purger" in sql
+
+    def test_le_refus_ne_compte_QUE_ce_que_le_semis_a_seme(self):
+        """⚠️ Le défaut signalé : une SEULE analyse écrite à la main sur la
+        carto fermait le semis, et la seule sortie offerte était
+        `purger := true`, qui l'aurait détruite. Le garde-fou protège d'un
+        REJEU, pas de l'existence d'une analyse."""
+        sql = _sans_commentaires_sql(_lire("tools/db/seed_charge.sql"))
+        i = sql.index("SELECT array_agg(DISTINCT ra.id) INTO ra_ids")
+        bloc = sql[i:sql.index(";", i)]
+        assert "ra.name LIKE marque" in bloc, (
+            "sans la marque, le refus compte aussi les analyses faites à la "
+            "main et le semis devient infranchissable")
+        assert "deja := COALESCE(array_length(ra_ids, 1), 0);" in sql, (
+            "le compte du refus doit sortir de ce relevé, et de lui seul")
+
+    def test_la_purge_n_efface_QUE_ce_que_le_semis_a_seme(self):
+        """Et elle est BORNÉE : avant, le second DELETE visait « toute
+        analyse sans ligne », donc la base entière."""
+        sql = _sans_commentaires_sql(_lire("tools/db/seed_charge.sql"))
+        for table in ("time_role_line", "time_role_analysis"):
+            m = re.search(r"DELETE FROM " + table + r"\b[^;]*;", sql)
+            assert m, "plus de suppression dans %s" % table
+            assert "ANY(ra_ids)" in m.group(0), (
+                "la purge de %s doit se borner aux identifiants relevés, "
+                "sinon elle efface ce qu'elle doit épargner" % table)
+
+    def test_les_identifiants_sont_releves_AVANT_la_suppression(self):
+        """Une fois les lignes parties, plus rien ne rattache l'analyse à sa
+        carto : il faudrait retomber sur « toute analyse sans ligne »."""
+        sql = _sans_commentaires_sql(_lire("tools/db/seed_charge.sql"))
+        assert (sql.index("INTO ra_ids")
+                < sql.index("DELETE FROM time_role_line"))
+
+    def test_la_marque_du_semis_est_ecrite_a_UN_seul_endroit(self):
+        """Deux écritures du préfixe finiraient par diverger, et la purge se
+        mettrait alors à effacer ce qu'elle doit épargner."""
+        sql = _sans_commentaires_sql(_lire("tools/db/seed_charge.sql"))
+        m = re.search(r"marque\s+text\s+:=\s+'([^']+)'", sql)
+        assert m, "la marque doit être déclarée une fois, en variable"
+        assert sql.count("'" + m.group(1) + "'") == 1, (
+            "le préfixe est réécrit en dur ailleurs : l'insertion et la "
+            "purge peuvent alors ne plus parler du même nom")
+        i = sql.index("INSERT INTO time_role_analysis")
+        assert "marque ||" in sql[i:i + 400], (
+            "l'insertion doit POSER la marque, pas un nom écrit en dur")
+
+    def test_aucun_round_a_deux_arguments_sur_un_FLOTTANT(self):
+        """⚠️ `round(double precision, integer)` N'EXISTE PAS en PostgreSQL —
+        seule la forme à UN argument accepte un flottant. La requête 3 tombait
+        donc sur `duration_minutes`, qui est un `db.Float`. Invisible à l'œil,
+        et invisible aussi à un contrôle qui ne jouerait que les deux
+        premières requêtes : un semis se prouve requête par requête.
+
+        ⚠️ Les colonnes flottantes se lisent dans `db.metadata`, jamais dans
+        le source des modèles : l'arbre d'image n'a pas les `.py`.
+        """
+        from sqlalchemy import Float
+
+        flottantes = set()
+        for table in db.metadata.tables.values():
+            for col in table.columns:
+                if isinstance(col.type, Float):
+                    flottantes.add(col.name)
+        assert len(flottantes) >= 5, (
+            "aucune colonne flottante relevée : le contrôle ne lirait plus "
+            "rien et passerait au vert sans rien vérifier")
+
+        semis = sorted(f for f in os.listdir(os.path.join(RACINE, "tools", "db"))
+                       if f.endswith(".sql"))
+        assert len(semis) >= 3, "les semis ont disparu : contrôle creux"
+        for nom in semis:
+            sql = _sans_commentaires_sql(_lire("tools/db/" + nom))
+            for appel in _appels(sql, "round"):
+                args = _arguments(appel)
+                if len(args) < 2:
+                    continue                       # round(x) accepte un float
+                touche = [c for c in flottantes
+                          if re.search(r"\b" + re.escape(c) + r"\b", args[0])]
+                if not touche:
+                    continue
+                assert "::numeric" in args[0], (
+                    "%s : %s — %s est un FLOAT, convertir en numeric avant "
+                    "d'arrondir" % (nom, " ".join(appel.split())[:60],
+                                    touche[0]))
 
     def test_seed_charge_ne_DEPLACE_aucune_attache(self):
         """Déplacer l'attache de quelqu'un changerait sa charge mesurée :
