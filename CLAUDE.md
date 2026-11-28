@@ -12671,6 +12671,51 @@ Tests : `test_171` passe de 88 à **105 cas** ; **17 défauts remis un par un,
 17 cliquets tombés** — dont un qui ne gardait rien au premier essai, et que
 le banc a corrigé (voir `Entity.get_active` ci-dessus).
 
+#### Les 5 cliquets rouges de l'arbre d'image, RÉÉCRITS sur le comportement (2026-11-28)
+
+Relevés par `tools/repet_image.sh` : quatre cas de `test_170` et un de
+`test_127` rougissaient **à chaque exécution** depuis le 27/11 — donc sur le
+panel de staging. Tous lisaient `inspect.getsource(...)` d'un module de
+`Code/`, qui n'a aucun `.py` dans l'arbre d'image. **Septième et huitième
+occurrence** de cette famille.
+
+⚠️ **Réécrits, pas sautés.** « Un contrôle qui saute ne garde rien ; un
+contrôle réécrit sur le comportement y gagne » — et les cinq y gagnent
+vraiment : ils éprouvaient une ÉCRITURE, ils éprouvent maintenant ce que le
+code FAIT.
+
+| ce qu'il lisait | ce qu'il mesure |
+|---|---|
+| `'categorie_activite(row) != "gap"' in src` | la scène porte un domaine technique **en écart**, la maîtrise est au niveau, et le plan reste VIDE |
+| `"domaines_de_activite" in src` ×2 | un **espion** sur la fonction partagée : le plan ET la fenêtre Technicité y passent |
+| les trois clés dans le source de `_plan_ia` | un **faux client** capture le message, et on lit ce qui part VRAIMENT au modèle |
+| `"_lire_norme" in src` | des **espions** sur les deux gardes de `/paliers/norme` : la fenêtre y passe, et ne les appelle pas quand la clé est absente |
+| le source de `Code/bienvenue` au `re.findall` | les **constantes du BYTECODE** : même couverture (3 chemins), et portable |
+
+- ⚠️ **Le cliquet de la porte du plan ne gardait RIEN avant cette passe** —
+  pas à cause du source, mais de son DÉCOR : la scène n'avait aucun domaine
+  technique, donc sa moitié comportementale restait verte même la porte
+  élargie. Il en crée un, et vérifie d'abord qu'il est bien en écart : sans
+  cette vérification, le cas ne prouverait rien.
+- ⚠️ **Deux espions tiennent parce que l'import est DANS la fonction**
+  (`_domaines_en_ecart`, `_poser_norme`) : c'est l'attribut du module qui est
+  résolu à l'appel. Un import en tête de fichier y échapperait — et le
+  contrôle le dirait, puisqu'il ne verrait alors aucun appel.
+- ⚠️ **`_domaines_en_ecart` AVALE ses exceptions** : appelé hors requête, il
+  rend `[]` sans rien dire, et le contrôle aurait verdi sur une liste vide
+  sans avoir rien éprouvé. D'où `test_request_context` et non `app_context` —
+  `_lang()` lit la session. (Même piège que `get_active_id`, le même jour.)
+- ⚠️ Le scan de bytecode descend dans les **code-objets imbriqués**
+  (`co_consts` porte le code des fonctions internes et des compréhensions) :
+  s'arrêter au premier niveau raterait la moitié des lignes de la fenêtre.
+- ⚠️ Et le contrôle de l'IA exige d'abord `assert envoye` : sans lui, un
+  `_plan_ia` qui retomberait sur son repli local passerait au vert en
+  n'appelant jamais le modèle.
+
+Mesuré : **5 cliquets remis en défaut un par un, 5 tombés** ; `test_170`
+62 cas, `test_127` 57. Et `tools/repet_image.sh` rend **5 288 passés, 129
+sautés, ZÉRO rouge** — contre 5 avant.
+
 ---
 
 ## Notes importantes (suite)

@@ -1196,16 +1196,42 @@ class TestAucunLienMort:
     fenêtre s'affiche sur CHAQUE page de l'application : un lien mort y est vu
     par tout le monde, et rien ne le disait."""
 
+    @staticmethod
+    def _chemins(module):
+        """Les chemins écrits en dur dans un module, lus dans son BYTECODE.
+
+        ⚠️ `inspect.getsource` ÉCHOUE dans l'arbre d'image, compilé en
+        bytecode-only : ce contrôle y rougissait à chaque exécution, et un
+        contrôle qui rougit toujours n'est plus lu. Les CONSTANTES, elles,
+        survivent à la compilation — même couverture, et portable.
+        ⚠️ On descend dans les code-objets imbriqués (`co_consts` porte le
+        code des fonctions internes et des compréhensions) : s'arrêter au
+        premier niveau raterait la moitié des lignes de la fenêtre.
+        """
+        import types
+        a_voir = [v.__code__ for v in vars(module).values()
+                  if isinstance(v, types.FunctionType)
+                  and v.__module__ == module.__name__]
+        vus, out = set(), set()
+        while a_voir:
+            code = a_voir.pop()
+            if id(code) in vus:
+                continue
+            vus.add(id(code))
+            for k in code.co_consts:
+                if isinstance(k, types.CodeType):
+                    a_voir.append(k)
+                elif isinstance(k, str) and k.startswith("/") and " " not in k:
+                    out.add(k)
+        return out
+
     def test_chaque_href_de_la_fenetre_resout(self, app):
-        import re
         from werkzeug.routing import RequestRedirect
         from Code import bienvenue
-        import inspect
 
         # On relève les chemins écrits en dur dans le module, plutôt que de
         # monter un décor pour chaque ligne : c'est l'écriture qu'on garde.
-        src = inspect.getsource(bienvenue)
-        hrefs = set(re.findall(r'"href":\s*"(/[^"]*)"', src))
+        hrefs = self._chemins(bienvenue)
         assert len(hrefs) >= 3, "on doit en relever plusieurs (%d)" % len(hrefs)
         with app.test_request_context():
             cartes = app.url_map.bind("localhost")

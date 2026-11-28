@@ -283,17 +283,50 @@ class TestLePlanVoitCeQuiEstDejaPlanifie:
         la dit « gap » — sur sa MAÎTRISE, et rien d'autre. Un écart purement
         TECHNIQUE n'ouvre pas le plan : élargir la porte ferait diverger
         l'écran et le plan sur le mot « écart », ce qui a déjà été corrigé une
-        fois (15/09). La technicité ENRICHIT ; elle ne fait pas entrer."""
-        import inspect
+        fois (15/09). La technicité ENRICHIT ; elle ne fait pas entrer.
 
-        from Code.routes import plan_formation as pf
-        src = inspect.getsource(pf.contexte_ecart)
-        assert 'categorie_activite(row) != "gap"' in src
-        # de bout en bout : au niveau requis, rien à combler même avec un
-        # domaine en écart
-        _au_niveau(client, app, scene)
-        d = client.get("/plan/%s/%s" % (scene["collab"], scene["role"])).get_json()
-        assert d["activites"] == []
+        ⚠️ Mesuré de BOUT EN BOUT, et la scène porte pour ce cas un domaine
+        technique EN ÉCART : sans lui la porte pouvait être élargie sans que
+        rien ne rougisse — il n'y avait aucune technicité à faire entrer.
+        """
+        from Code.extensions import db
+        from Code.models.models import (ActivityTechnicalDomain,
+                                        RoleActivityDomainRequirement,
+                                        TechnicalDomain, UserDomainLevel)
+        from Code.routes.technical_domains import domaines_de_activite
+        with app.app_context():
+            dom = TechnicalDomain(entity_id=scene["entity"], name_fr="Domaine 170")
+            db.session.add(dom)
+            db.session.commit()
+            did = dom.id
+            db.session.add_all([
+                ActivityTechnicalDomain(activity_id=scene["act"], domain_id=did),
+                RoleActivityDomainRequirement(role_id=scene["role"],
+                                              activity_id=scene["act"],
+                                              domain_id=did, required_level=4),
+                UserDomainLevel(user_id=scene["collab"], domain_id=did,
+                                demonstrated_level=1)])
+            db.session.commit()
+        try:
+            # ⚠️ `test_request_context` et non `app_context` : la lecture passe
+            #    par `_lang()`, qui lit la SESSION et lève hors requête.
+            with app.test_request_context():
+                vus = domaines_de_activite(scene["act"], scene["role"],
+                                           scene["collab"])
+            assert [v["gap"] for v in vus] == [-3], (
+                "sans écart technique, ce cas ne prouverait rien")
+            # La MAÎTRISE est au niveau requis : seule la technicité manque.
+            _au_niveau(client, app, scene)
+            d = client.get("/plan/%s/%s" % (scene["collab"], scene["role"])).get_json()
+            assert d["activites"] == [], (
+                "un écart purement technique a ouvert le plan")
+        finally:
+            with app.app_context():
+                UserDomainLevel.query.filter_by(domain_id=did).delete()
+                RoleActivityDomainRequirement.query.filter_by(domain_id=did).delete()
+                ActivityTechnicalDomain.query.filter_by(domain_id=did).delete()
+                TechnicalDomain.query.filter_by(id=did).delete()
+                db.session.commit()
 
     def test_la_SEANCE_voyage_avec_le_plan(self, client, app, scene):
         """On réglait une durée visée de douze semaines à côté d'un rendez-vous
@@ -348,31 +381,82 @@ class TestLePlanVoitCeQuiEstDejaPlanifie:
                 Role.query.filter_by(id=aid).delete()
                 db.session.commit()
 
-    def test_les_domaines_sont_lus_par_la_MEME_fonction_que_la_fenetre(self):
+    def test_les_domaines_sont_lus_par_la_MEME_fonction_que_la_fenetre(
+            self, client, app, scene, monkeypatch):
         """⚠️ Deux lectures d'un même écart finiraient par donner deux
-        verdicts. La route de la fenêtre Technicité délègue, elle aussi."""
-        import inspect
+        verdicts. On l'ESPIONNE à l'exécution : le plan ET la fenêtre
+        Technicité doivent tous deux passer par la fonction partagée.
 
+        ⚠️ `pf._domaines_en_ecart` importe DANS la fonction, donc c'est
+        l'attribut du module qui est résolu à l'appel et l'espion s'applique.
+        Un import en tête de fichier y échapperait — et le contrôle le dirait,
+        puisqu'il ne verrait alors aucun appel.
+        """
         from Code.routes import plan_formation as pf
         from Code.routes import technical_domains as td
-        assert hasattr(td, "domaines_de_activite")
-        assert "domaines_de_activite" in inspect.getsource(pf._domaines_en_ecart)
-        assert "domaines_de_activite(" in inspect.getsource(td.activity_domains)
 
-    def test_l_IA_recoit_les_chiffres_les_domaines_et_la_seance(self):
+        appels = []
+        vrai = td.domaines_de_activite
+
+        def espion(*a, **k):
+            appels.append(tuple(a[:3]))
+            return vrai(*a, **k)
+
+        monkeypatch.setattr(td, "domaines_de_activite", espion)
+        # ⚠️ `test_request_context` : `_domaines_en_ecart` passe `_lang()`, qui
+        #    lit la SESSION — et il AVALE l'exception, donc hors requête le
+        #    contrôle verdirait sur une liste vide sans rien avoir éprouvé.
+        with app.test_request_context():
+            pf._domaines_en_ecart(scene["act"], scene["role"], scene["collab"])
+        assert appels == [(scene["act"], scene["role"], scene["collab"])], (
+            "le plan lit la technicité ailleurs que par la fonction partagée")
+
+        _connecte(client, scene["admin"], "test@devoptiq.com", scene["entity"])
+        r = client.get("/domains/activity/%s?role_id=%s&user_id=%s"
+                       % (scene["act"], scene["role"], scene["collab"]))
+        assert r.status_code == 200
+        assert len(appels) == 2, "la fenêtre Technicité doit y passer aussi"
+
+    def test_l_IA_recoit_les_chiffres_les_domaines_et_la_seance(self, app,
+                                                                monkeypatch):
         """Sans eux, elle ne pouvait proposer qu'une progression abstraite —
-        elle ne savait pas qu'une sortie pouvait être mesurée."""
-        import inspect
+        elle ne savait pas qu'une sortie pouvait être mesurée.
 
+        ⚠️ On lit ce qui PART vraiment au modèle, pas le source de la route :
+        un faux client capture le message. Un contrôle qui relit le source
+        rougit de toute façon dans l'arbre d'image, compilé en bytecode.
+        """
         from Code.routes import plan_formation as pf
-        src = inspect.getsource(pf._plan_ia)
-        assert '"prochaine_seance"' in src
-        assert '"domaines_techniques_en_ecart"' in src
-        assert "_resultat_ia(r)" in src
-        bloc = pf._resultat_ia(_ecart_mesure()["results_in_gap"][0])
-        assert bloc["mesure"]["norme"] == 48
-        assert bloc["mesure"]["palier_en_cours"] == 55
-        assert bloc["mesure"]["sens"] == "au plus"
+
+        envoye = {}
+
+        class _Faux:
+            class chat:
+                class completions:
+                    @staticmethod
+                    def create(**kw):
+                        envoye.update(kw)
+                        msg = type("M", (), {"content": '{"actions": []}'})()
+                        return type("R", (), {
+                            "choices": [type("C", (), {"message": msg})()]})()
+
+        monkeypatch.setattr(pf, "openai_client_or_none",
+                            lambda: (_Faux(), None))
+        act = dict(_ecart_mesure(),
+                   domaines=[{"name": "Soudure", "demonstrated_label": "Notions",
+                              "required_label": "Maîtrise"}])
+        with app.app_context():
+            pf._plan_ia([act], {"heures_semaine": 3, "semaines": 8}, "fr",
+                        seance={"date": "2026-12-10"})
+        assert envoye, "le modèle n'a pas été appelé : le cas ne prouve rien"
+        ctx = json.loads(envoye["messages"][1]["content"])
+        assert ctx["prochaine_seance"] == "2026-12-10"
+        a0 = ctx["activites"][0]
+        assert [d["nom"] for d in a0["domaines_techniques_en_ecart"]] == ["Soudure"]
+        mesure = a0["resultats_en_ecart"][0]["mesure"]
+        assert mesure["norme"] == 48
+        assert mesure["palier_en_cours"] == 55
+        assert mesure["sens"] == "au plus"
 
     def test_le_prompt_du_plan_apprend_les_trois(self):
         """⚠️ Un prompt vit dans le CATALOGUE, jamais en dur dans une route :
@@ -531,15 +615,50 @@ class TestLaNormeSeRegleLaOuLaPhraseSEcrit:
             d1 = db.session.get(Data, scene["d1"])
             assert d1.norme_valeur is None and d1.norme_sens is None
 
-    def test_elle_passe_par_les_MEMES_gardes_que_la_route_des_paliers(self):
+    def test_elle_passe_par_les_MEMES_gardes_que_la_route_des_paliers(
+            self, client, app, scene, monkeypatch):
         """⚠️ Deux routes qui écrivent les trois mêmes colonnes avec deux
-        validateurs finissent par ne plus écrire la même chose."""
-        import inspect
+        validateurs finissent par ne plus écrire la même chose. On ESPIONNE
+        les deux gardes de `/paliers/norme` : la fenêtre de configuration doit
+        y passer — et ne pas les appeler du tout quand la clé est absente."""
+        from Code.routes import paliers_routes as pr
 
-        from Code.routes import qualify_outputs as qo
-        src = inspect.getsource(qo._poser_norme)
-        assert "_lire_norme" in src and "_peut_regler_la_norme" in src
-        assert '"norme_valeur" not in it' in src, "la clé absente ne touche à rien"
+        vus = []
+        for nom in ("_lire_norme", "_peut_regler_la_norme"):
+            def espion(*a, _n=nom, _v=getattr(pr, nom), **k):
+                vus.append(_n)
+                return _v(*a, **k)
+            monkeypatch.setattr(pr, nom, espion)
+
+        _connecte(client, scene["admin"], "test@devoptiq.com", scene["entity"])
+
+        def envoie(extra):
+            sortie = {"data_id": scene["d1"], "nature": "RESULT",
+                      "source": "MANUAL", "minimum_performance_text": "x"}
+            sortie.update(extra)
+            return client.post("/qualify/save/%s" % scene["act"],
+                               data=json.dumps({"outputs": [sortie]}),
+                               content_type="application/json")
+
+        try:
+            envoie({"norme_valeur": "9", "norme_unite": "j",
+                    "norme_sens": "moins"})
+            assert sorted(set(vus)) == ["_lire_norme", "_peut_regler_la_norme"], (
+                "la fenêtre écrit la norme sans passer par les gardes partagées")
+
+            vus[:] = []
+            envoie({})
+            assert vus == [], "la clé absente ne doit toucher à rien"
+        finally:
+            # ⚠️ Ce cas ÉCRIT, contrairement à celui qu'il remplace : on rend
+            #    la sortie telle qu'on l'a trouvée. La base est partagée, et
+            #    l'ordre des tests ne l'est pas.
+            from Code.extensions import db
+            from Code.models.models import Data
+            with app.app_context():
+                d1 = db.session.get(Data, scene["d1"])
+                d1.norme_valeur = d1.norme_unite = d1.norme_sens = None
+                db.session.commit()
 
 
 @SAUT_ECRAN
