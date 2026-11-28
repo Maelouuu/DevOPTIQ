@@ -51,6 +51,7 @@ PAGE_LABELS = {
     "test_164_prompts_ia": "Prompts IA — revue un par un",
     "test_165_base_neuve": "Base neuve — démarrage PostgreSQL vierge",
     "test_166_ecritures_exemptees": "Porte d'écriture — routes exemptées balayées par un compte user (RH, comptes)",
+    "test_172_charge_travail_residuel": "Charge de travail — Branches résiduelles (analyses atypiques, verdict sans objet, gardes RH, lignes sans activité, replis du plan de formation)",
     "test_91_noms_uniques_et_historique": "Cartographie — Noms uniques et historique",
     "test_94_page_carte_scene": "Page Carte — Tuiles, dessin et liste",
     "test_102_porte_ecriture": "Sécurité — Porte d'écriture (contrôle d'accès des écritures)",
