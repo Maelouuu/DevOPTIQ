@@ -59,6 +59,9 @@
                        tab_activity:  {{ t('time.tab_activity')|tojson }},
                        tab_role:      {{ t('time.tab_role')|tojson }},
                        periode_col:   {{ t('time.periode_col')|tojson }},
+                       periode_ce_mois: {{ t('time.periode_ce_mois')|tojson }},
+                       periode_an_prec: {{ t('time.periode_an_prec')|tojson }},
+                       periode_an_suiv: {{ t('time.periode_an_suiv')|tojson }},
                        tab_weakness:  {{ t('time.tab_weakness')|tojson }},
                        tm_faib_aucune: {{ t('time.tm_faib_aucune')|tojson }},
                        tm_par_jour:   {{ t('time.tm_par_jour')|tojson }},
@@ -428,28 +431,37 @@
           <i class="fa-solid fa-xmark"></i>
         </button>
       </span>
-      <!-- ⚠️ LE MOIS ANALYSÉ, et il vit dans la BANDE : c'est une propriété
-           de l'analyse ENTIÈRE, comme son nom, et la bande est le seul
-           endroit commun aux quatre types — quatre champs dans quatre
-           formulaires, c'étaient quatre occasions d'en oublier un.
-           ⚠️ DERNIER de la bande, donc à une place FIXE : posé avant le
-           repère de modification, il glissait de 180 px dès qu'on
-           ouvrait une analyse pour la modifier.
-           ⚠️ DEUX `<select>`, pas un `<input type="month">` : Firefox ne
-           sait pas le rendre et retombe sur un champ de texte où il faut
-           taper « 2026-11 ». Et un `<select>` de cette page est habillé par
-           `tm_select.js`, donc il porte le même panneau que ses voisins. -->
-      <span class="tm-per">
-        <label for="tm-periode-m">{{ t('time.periode_label') }}{{ aide('time.periode_aide') }}</label>
-        <span class="tm-per-duo">
-          <select id="tm-periode-m" class="input" aria-label="{{ t('time.periode_label') }}"></select>
-          <select id="tm-periode-a" class="input" aria-label="{{ t('time.periode_label') }}"></select>
-        </span>
-      </span>
     </div>
 
     <div class="tm-cols">
       <div class="tm-saisie">
+
+        <!-- ⚠️ LE MOIS ANALYSÉ vit DANS LE FORMULAIRE, et plus dans la bande.
+             Il y était posé parce que c'est une propriété de l'analyse
+             ENTIÈRE, comme son nom, et que la bande est le seul endroit
+             commun aux quatre types. Mais la bande est un BANDEAU de titre :
+             le champ s'y lisait comme un réglage d'écran, isolé de ce qu'on
+             remplit. Il est donc ici, premier bloc de la colonne de saisie —
+             écrit UNE fois, au-dessus des quatre panneaux, donc toujours une
+             seule implémentation.
+             ⚠️ Ni `<input type="month">` (Firefox ne sait pas le rendre et
+             retombe sur un champ texte où il faut taper « 2026-11 »), ni deux
+             menus déroulants : un MINI CALENDRIER, douze mois dans une année
+             qu'on fait défiler — le même vocabulaire que le calendrier des
+             séances, en miniature. -->
+        <div class="tm-mois">
+          <span class="tm-mois-l" id="tm-mois-l">{{ t('time.periode_label') }}{{ aide('time.periode_aide') }}</span>
+          <div class="tm-mois-w">
+            <button type="button" id="tm-mois-b" class="tm-mois-b"
+                    aria-haspopup="dialog" aria-expanded="false">
+              <i class="fa-solid fa-calendar-days"></i>
+              <span id="tm-mois-t"></span>
+              <i class="fa-solid fa-chevron-down tm-mois-c"></i>
+            </button>
+            <div id="tm-mois-p" class="tm-mois-p" role="dialog"
+                 aria-labelledby="tm-mois-l" hidden></div>
+          </div>
+        </div>
 
         <!-- ─────────────────────────── PROJET ─────────────────────────── -->
         <div id="subtab-projet" class="subtab-panel">

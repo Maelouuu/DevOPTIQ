@@ -60,6 +60,8 @@ DECLARE
   n_chif     int;
   n_faib     int;
   n_proj     int;
+  -- Le mois que ces analyses décrivent : celui d'aujourd'hui.
+  mois_courant text := to_char(now(), 'YYYY-MM');
 BEGIN
   -- 1. La carto existe-t-elle ?
   SELECT e.name INTO carto_nom FROM entities e WHERE e.id = carto_id;
@@ -93,13 +95,17 @@ BEGIN
    WHERE NOT EXISTS (SELECT 1 FROM entreprise_settings s WHERE s.entity_id = carto_id);
 
   -- 4. Analyses d'activité : trois sur cinq, pas plus.
+  -- ⚠️ `periode` sur TOUT ce qu'on crée : une analyse sans mois ne figure
+  --    dans aucun tableau par période — ni le damier de la page RH, ni le
+  --    sélecteur de la page Temps. Semée sans date, elle est invisible, et
+  --    on cherche longtemps pourquoi l'écran reste vide.
   INSERT INTO time_analysis
          (type, activity_id, task_id, duration, recurrence, frequency,
-          nb_people, delay, impact_unit)
+          nb_people, delay, impact_unit, periode)
   SELECT 'activity', x.id, NULL,
          round(x.duree)::int,
          (ARRAY['journalier','hebdomadaire','mensuel','hebdomadaire','annuel'])[(x.i % 5) + 1],
-         1 + (x.i % 3), 1 + (x.i % 2), NULL, 'minutes'
+         1 + (x.i % 3), 1 + (x.i % 2), NULL, 'minutes', mois_courant
     FROM (SELECT a.id,
                  COALESCE(NULLIF(a.duration_minutes, 0), 60) AS duree,
                  (row_number() OVER (ORDER BY a.id))::int - 1 AS i
@@ -118,8 +124,8 @@ BEGIN
      ORDER BY count(*) DESC
      LIMIT 4
   ), nouvelles AS (
-    INSERT INTO time_role_analysis (role_id, name, created_at)
-    SELECT v.id, 'Charge d''un ' || lower(v.name), now()
+    INSERT INTO time_role_analysis (role_id, name, created_at, periode)
+    SELECT v.id, 'Charge d''un ' || lower(v.name), now(), mois_courant
       FROM vises v
     RETURNING id AS ra_id, role_id
   ), lignes AS (
@@ -143,12 +149,12 @@ BEGIN
   INSERT INTO time_weakness
          (activity_id, task_id, duration_std_minutes, delay_std_minutes,
           recurrence, frequency, weakness, work_added_qty, work_added_unit,
-          wait_added_qty, wait_added_unit, prob_denom, created_at)
+          wait_added_qty, wait_added_unit, prob_denom, created_at, periode)
   SELECT a.id, NULL,
          COALESCE(NULLIF(a.duration_minutes, 0), 60),
          COALESCE(a.delay_minutes, 0),
          p.rec, p.freq, p.libelle,
-         p.travail, 'minutes', p.attente, 'minutes', p.denom, now()
+         p.travail, 'minutes', p.attente, 'minutes', p.denom, now(), mois_courant
     FROM (VALUES
             (1, 'Données d''entrée incomplètes', 'hebdomadaire', 2,  3, 45,  240),
             (2, 'Interlocuteur indisponible',    'hebdomadaire', 1,  4, 20, 1440),
@@ -162,8 +168,8 @@ BEGIN
 
   -- 7. Deux projets. Ponctuels : ils ne pèsent pas dans la charge annuelle.
   WITH projets AS (
-    INSERT INTO time_project (name, entity_id, created_at)
-    SELECT v.titre, carto_id, now() - make_interval(days => v.k * 3)
+    INSERT INTO time_project (name, entity_id, created_at, periode)
+    SELECT v.titre, carto_id, now() - make_interval(days => v.k * 3), mois_courant
       FROM (VALUES (1, 'Refonte du catalogue'),
                    (2, 'Campagne de renégociation')) AS v(k, titre)
     RETURNING id AS pid

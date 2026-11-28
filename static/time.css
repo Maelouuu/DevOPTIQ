@@ -1380,42 +1380,107 @@ td .input[type="number"], td select { width: 100%; max-width: 100%; }
 /* Le rail des trois temps se détache sur la teinte, pas sur du blanc. */
 #tm-travail .tm-tps-n { box-shadow: 0 0 0 4px var(--card-2, #f8fafc); }
 
-/* ───────────────── LE MOIS ANALYSÉ, dans la bande ─────────────────────
-   ⚠️ Une propriété de l'analyse ENTIÈRE, comme son nom : elle vit donc dans
-   la bande, le seul endroit commun aux quatre types — un champ dans chacun
-   des quatre formulaires, c'étaient quatre occasions d'en oublier un.
-   ⚠️ Et les CONTRÔLES RESTENT BLANCS : un champ translucide sur un fond
-   coloré ne se lit plus dès qu'on y saisit quelque chose (la leçon de la
-   section Technicité). Seul le libellé est en blanc. */
+/* ─────────── LE MOIS ANALYSÉ — un mini calendrier, DANS le formulaire ───
+   ⚠️ Il vivait dans la BANDE, au nom d'un argument juste (une propriété de
+   l'analyse entière, et le seul endroit commun aux quatre types) et d'une
+   conséquence fausse : la bande est un BANDEAU DE TITRE, le champ s'y lisait
+   comme un réglage d'écran, isolé de ce qu'on remplit. Posé en tête de la
+   colonne de saisie, il reste écrit UNE fois — donc toujours une seule
+   implémentation — et il est DANS le formulaire.
+   ⚠️ Le même vocabulaire que le calendrier des séances (page Compétences) :
+   un en-tête avec ses deux flèches, une grille de cases arrondies, le repère
+   du moment présent. En miniature, et sur douze MOIS au lieu de trente et un
+   jours — un mois se choisit dans une année, il ne se compose pas en deux
+   temps. */
 #tm-travail .tm-barre-txt { flex: 1 1 auto; }
-.tm-per { flex: none; display: flex; flex-direction: column; gap: 5px; }
-.tm-per > label {
+
+.tm-mois {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: 0 0 12px; padding: 11px 15px;
+  border: 1px solid var(--border, #e2e8f0); border-radius: 13px;
+  /* La teinte du TYPE d'analyse, comme la zone de saisie en dessous : le
+     mois appartient au formulaire, pas à l'écran. */
+  background: color-mix(in srgb, var(--tm-c, #64748b) 5%, #fff);
+  border-left: 3px solid var(--tm-c, #64748b);
+}
+.tm-mois-l {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12.5px; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; color: rgba(255, 255, 255, .84); cursor: pointer;
+  text-transform: uppercase; color: var(--muted, #64748b);
 }
-.tm-per-duo { display: flex; gap: 6px; }
-/* `tm_select.js` reporte les classes du `<select>` sur son enveloppe, qui
-   devient le contrôle visible : c'est elle qu'on dimensionne. */
-.tm-per-duo .tms { width: 126px; }
-.tm-per-duo .tms:last-child { width: 86px; }
-/* L'aide se lit en BLANC sur la bande, comme son libellé. */
-.tm-per > label .tm-i-g {
-  background: rgba(255, 255, 255, .2); border-color: rgba(255, 255, 255, .4);
-  color: #fff;
+/* ⚠️ Le repère du panneau : il est posé en `absolute` DEDANS, et non sur le
+   body en `fixed` — `body.pg` porte `zoom: .8`, et tout élément posé sur le
+   body doit alors convertir ses coordonnées. Ici il n'y a rien à convertir. */
+.tm-mois-w { position: relative; }
+.tm-mois-b {
+  display: inline-flex; align-items: center; gap: 9px;
+  font: inherit; font-size: 14px; font-weight: 600;
+  padding: 8px 13px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border-strong, #cbd5e1);
+  background: var(--card, #fff); color: var(--ink, #0f172a);
+  min-width: 210px;
 }
+.tm-mois-b:hover { border-color: var(--tm-c, #64748b); }
+.tm-mois-b > span { flex: 1; text-align: left; }
+.tm-mois-b > i:first-child { color: var(--tm-c, #64748b); font-size: 13px; }
+.tm-mois-c { font-size: 10px; color: var(--muted, #64748b); transition: transform .16s; }
+.tm-mois-b[aria-expanded="true"] .tm-mois-c { transform: rotate(180deg); }
+
+.tm-mois-p {
+  position: absolute; top: calc(100% + 7px); left: 0; z-index: 40;
+  width: 268px; padding: 11px; border-radius: 13px;
+  background: var(--card, #fff);
+  border: 1px solid var(--border-strong, #cbd5e1);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, .16), 0 2px 6px rgba(15, 23, 42, .07);
+}
+/* ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose un
+   `display` l'emporte. Neuvième fois que ce piège se présente. */
+.tm-mois-p[hidden] { display: none; }
+/* Vers le haut quand il n'y a pas la place dessous. */
+.tm-mois-p.est-haut { top: auto; bottom: calc(100% + 7px); }
+
+.tm-m-h { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+.tm-m-h b {
+  flex: 1; text-align: center; font-family: var(--pg-font-display, inherit);
+  font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.tm-m-nav {
+  width: 27px; height: 27px; flex: none; cursor: pointer;
+  border: 1px solid var(--border-strong, #cbd5e1); border-radius: 8px;
+  background: var(--card, #fff); color: var(--ink-2, #334155);
+  font-size: 15px; line-height: 1;
+}
+.tm-m-nav:hover { border-color: var(--tm-c, #64748b); color: var(--tm-c, #64748b); }
+
+.tm-m-g { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.tm-m-c {
+  padding: 9px 2px; cursor: pointer; font: inherit; font-size: 13px;
+  border: 1px solid #eef1f6; border-radius: 9px;
+  background: var(--card, #fff); color: var(--ink-2, #334155);
+}
+.tm-m-c:hover { border-color: var(--tm-c, #64748b); }
+/* Le mois COURANT se marque même quand il n'est pas choisi : sans lui, une
+   année qu'on fait défiler n'a plus aucun point fixe. */
+.tm-m-c.est-auj { font-weight: 700; box-shadow: inset 0 0 0 1px var(--ink, #0f172a); }
+.tm-m-c.est-pris {
+  background: var(--tm-c, #64748b); border-color: var(--tm-c, #64748b);
+  color: #fff; font-weight: 700;
+}
+.tm-m-auj {
+  display: block; width: 100%; margin-top: 9px; padding: 7px; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  border: 0; border-radius: 9px;
+  background: color-mix(in srgb, var(--tm-c, #64748b) 10%, #fff);
+  color: var(--tm-c, #64748b);
+}
+.tm-m-auj:hover { background: color-mix(in srgb, var(--tm-c, #64748b) 18%, #fff); }
 
 @media (max-width: 760px) {
   .tm-barre { flex-wrap: wrap; }
   .tm-barre-sub { font-size: 12.5px; }
 }
-
-/* Sous 1 100 px RÉELS la bande se replie, et le mois passe à la ligne : à
-   quatre éléments elle déborde sinon. ⚠️ Px RÉELS — `body.pg` porte
-   `zoom: .8` et les requêtes média ignorent ce zoom. */
 @media (max-width: 1375px) {
   .tm-barre { flex-wrap: wrap; }
-  .tm-per { margin-left: auto; }
 }
 
 

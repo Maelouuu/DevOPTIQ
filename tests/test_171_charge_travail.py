@@ -23,6 +23,14 @@ def _lire(chemin):
     return io.open(os.path.join(RACINE, chemin), encoding="utf-8").read()
 
 
+def _sans_commentaires_js(js):
+    """⚠️ Dixième fois que ce piège se présente : un contrôle qui cherche une
+    chaîne s'attrape sur le COMMENTAIRE qui l'explique — et un commentaire
+    qui justifie un marqueur le CITE forcément."""
+    js = re.sub(r"/\*.*?\*/", "", js, flags=re.S)
+    return re.sub(r"^\s*//.*$", "", js, flags=re.M)
+
+
 def _sans_commentaires_css(css):
     return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
 
@@ -722,40 +730,6 @@ class TestLEcranVideDuPlanInvite:
         assert "plan_empty_d" not in js
 
 
-class TestLeMoisDansLaPageTemps:
-
-    def test_le_champ_vit_dans_la_BANDE_et_en_derniere_place(self):
-        """Une propriété de l'analyse ENTIÈRE, comme son nom — et à une place
-        FIXE : posé avant le repère de modification, il glissait de 180 px dès
-        qu'on ouvrait une analyse."""
-        h = _lire("Code/routes/templates/time_dashboard.html")
-        barre = h.split('<div class="tm-barre">', 1)[1].split("</div>\n\n", 1)[0]
-        assert 'id="tm-periode-m"' in barre and 'id="tm-periode-a"' in barre
-        assert barre.index('id="tm-mod"') < barre.index('id="tm-periode-m"')
-
-    def test_DEUX_selects_jamais_un_input_month(self):
-        """⚠️ Firefox ne sait pas le rendre et retombe sur un champ de texte où
-        il faut taper le mois à la main.
-
-        ⚠️ Les COMMENTAIRES sont retirés d'abord : celui qui explique ce choix
-        cite forcément la forme qu'il interdit, et le cliquet s'attrapait sur
-        sa propre explication."""
-        h = _lire("Code/routes/templates/time_dashboard.html")
-        h = re.sub(r"<!--.*?-->", "", h, flags=re.S)
-        h = re.sub(r"\{#.*?#\}", "", h, flags=re.S)
-        assert 'type=' + chr(34) + 'month' + chr(34) not in h
-
-    def test_les_quatre_enregistrements_envoient_la_periode(self):
-        js = _lire("static/js/time.js")
-        assert js.count("periode: periodeLue()") == 4
-
-    def test_les_quatre_lectures_la_reposent(self):
-        js = _lire("static/js/time.js")
-        assert js.count("posePeriode(") >= 6   # 4 lectures + vider + démarrage
-
-
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 #  OÙ UNE PERSONNE TIENT SON RÔLE — « qui performe »
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1099,3 +1073,185 @@ class TestLEcranSitueEtCompare:
         assert m and int(m.group(1)) >= 84, (
             "trois lignes (chiffre, compte, pastilles) ne tiennent pas dans "
             "la hauteur d'origine")
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  LE MOIS SE CHOISIT DANS UN MINI CALENDRIER, DANS LE FORMULAIRE
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: `tools/` est retiré de l'arbre d'image (bytecode seul) : les cas qui lisent
+#  un semis y sautent franchement plutôt que de rougir à chaque exécution.
+_SEMIS_ABSENT = not os.path.exists(os.path.join(RACINE, "tools", "db",
+                                                "seed_charge.sql"))
+
+
+class TestLeMoisEstUnMiniCalendrier:
+    """⚠️ Il vivait dans la BANDE, au nom d'un argument juste — une propriété
+    de l'analyse entière, et le seul endroit commun aux quatre types — et
+    d'une conséquence fausse : la bande est un BANDEAU DE TITRE, le champ s'y
+    lisait comme un réglage d'écran, isolé de ce qu'on remplit.
+
+    Posé en tête de la colonne de saisie, il reste écrit UNE fois (donc
+    toujours une seule implémentation, ce qui était tout l'argument) et il
+    est DANS le formulaire.
+    """
+
+    HTML = "Code/routes/templates/time_dashboard.html"
+    JS = "static/js/time.js"
+    CSS = "static/time.css"
+
+    def _html_nu(self):
+        h = _lire(self.HTML)
+        h = re.sub(r"<!--.*?-->", "", h, flags=re.S)
+        return re.sub(r"\{#.*?#\}", "", h, flags=re.S)
+
+    def test_le_champ_vit_dans_le_FORMULAIRE_et_plus_dans_la_bande(self):
+        h = self._html_nu()
+        barre = h.split('<div class="tm-barre">', 1)[1].split("</div>", 1)[0]
+        assert "tm-mois" not in barre, (
+            "le mois est reparti dans la bande : c'est un bandeau de TITRE, "
+            "le champ s'y lit comme un réglage d'écran")
+        saisie = h.split('<div class="tm-saisie">', 1)[1]
+        assert 'id="tm-mois-b"' in saisie.split('subtab-projet', 1)[0], (
+            "il doit être le PREMIER bloc de la colonne de saisie — écrit une "
+            "fois, au-dessus des quatre panneaux")
+
+    def test_ni_input_month_ni_deux_menus_deroulants(self):
+        """⚠️ Firefox ne rend pas `type=month` et retombe sur un champ texte
+        où il faut taper « 2026-11 ». Et deux menus déroulants composaient un
+        mois en deux temps, alors qu'un mois se CHOISIT dans une année.
+
+        ⚠️ Les COMMENTAIRES sont retirés d'abord : celui qui explique ce choix
+        cite forcément les formes qu'il écarte."""
+        h = self._html_nu()
+        assert 'type=' + chr(34) + 'month' + chr(34) not in h
+        assert 'id="tm-periode-m"' not in h and 'id="tm-periode-a"' not in h
+
+    def test_douze_mois_et_une_annee_qu_on_fait_defiler(self):
+        """⚠️ Trois pièges dans un seul cas, tous mesurés en le vérifiant
+        rouge :
+        · `est-auj` survit dans le COMMENTAIRE qui l'explique — d'où
+          `_sans_commentaires_js` (dixième occurrence de cette famille) ;
+        · `data-an` est une SOUS-CHAÎNE de `data-analyse`, que ce fichier
+          emploie trois fois : on vise les deux flèches et leur sélecteur ;
+        · la grille se vérifie sur son APPEL, pas sur un nom qui traîne."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        assert "{ length: 12 }" in js, "les douze mois d'une année"
+        assert 'data-an="-1"' in js and 'data-an="1"' in js, "les deux flèches"
+        assert "querySelectorAll('[data-an]')" in js, "et leur câblage"
+        assert "cls.push('est-auj')" in js, (
+            "le mois COURANT se marque même quand il n'est pas choisi : sans "
+            "lui, une année qu'on fait défiler n'a plus aucun point fixe")
+
+    def test_le_panneau_est_pose_DANS_son_champ(self):
+        """⚠️ Et jamais sur le body en `fixed` : `body.pg` porte `zoom: .8`,
+        et tout élément posé sur le body doit alors convertir ses
+        coordonnées — sept fois que ce piège se présente."""
+        css = _sans_commentaires_css(_lire(self.CSS))
+        i = css.index(".tm-mois-p {")
+        bloc = css[i:css.index("}", i)]
+        assert "position: absolute" in bloc
+        assert "position: fixed" not in bloc
+        j = css.index(".tm-mois-w")
+        assert "position: relative" in css[j:css.index("}", j)], (
+            "sans ancêtre positionné, l'`absolute` remonterait jusqu'au body")
+
+    def test_le_panneau_declare_son_hidden(self):
+        """⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui
+        pose un `display` l'emporte. Neuvième fois."""
+        css = _sans_commentaires_css(_lire(self.CSS))
+        assert ".tm-mois-p[hidden]" in css
+
+    def test_un_clic_dans_le_panneau_ne_le_ferme_pas(self):
+        """⚠️ Et la cible d'un clic sur une case est DÉTACHÉE quand
+        l'événement remonte (la grille vient d'être réécrite) : `closest()`
+        ne trouverait plus rien. On arrête la remontée au panneau."""
+        # ⚠️ Sur la LIGNE du panneau, pas sur la fonction : `stopPropagation`
+        # y figure aussi pour le bouton et pour Échap, et le cas restait vert
+        # en retirant celui qui compte.
+        js = _sans_commentaires_js(_lire(self.JS))
+        assert "z.addEventListener('click', (e) => e.stopPropagation())" in js
+
+    def test_les_quatre_enregistrements_envoient_toujours_la_periode(self):
+        js = _lire(self.JS)
+        assert js.count("periode: periodeLue()") == 4
+
+    def test_les_lectures_la_reposent_toujours(self):
+        js = _lire(self.JS)
+        assert js.count("posePeriode(") >= 6
+
+    def test_les_libelles_existent_dans_les_DEUX_langues(self):
+        from Code.translations import TRANSLATIONS
+        for cle in ("time.periode_ce_mois", "time.periode_an_prec",
+                    "time.periode_an_suiv"):
+            for lang in ("fr", "en"):
+                assert TRANSLATIONS[lang].get(cle), "%s manque en %s" % (cle, lang)
+            assert TRANSLATIONS["fr"][cle] != TRANSLATIONS["en"][cle]
+
+    def test_elles_sont_INJECTEES(self):
+        """L'accesseur rend le défaut FRANÇAIS quand la clé manque : une
+        injection oubliée ne lève rien, elle affiche du français."""
+        h = _lire(self.HTML)
+        for cle in ("periode_ce_mois", "periode_an_prec", "periode_an_suiv"):
+            assert cle + ":" in h, "%s n'est pas injectée" % cle
+
+
+@pytest.mark.skipif(_SEMIS_ABSENT, reason="tools/ est retiré de l'arbre d'image")
+class TestLesSemisDATENTCeQuIlsCreent:
+    """⚠️ Une analyse sans mois ne figure dans AUCUN tableau par période — ni
+    le damier de la page RH, ni le sélecteur de la page Temps. Semée sans
+    date elle est invisible, et on cherche longtemps pourquoi l'écran reste
+    vide. C'est exactement ce qui manquait sur la carto de démonstration.
+    """
+
+    def test_seed_temps_pose_une_periode_sur_ses_quatre_tables(self):
+        sql = _lire("tools/db/seed_temps.sql")
+        assert "mois_courant text :=" in sql, "le mois doit être déclaré"
+        for table in ("time_analysis", "time_role_analysis", "time_weakness",
+                      "time_project"):
+            # ⚠️ `\b` : « time_project » est un PRÉFIXE de
+            # « time_project_line », qui n'a pas de période et n'en veut pas.
+            m = re.search(r"INSERT INTO " + table + r"\b", sql)
+            assert m, "plus d'insertion dans %s" % table
+            entete = sql[m.start():sql.index("SELECT", m.start())]
+            assert "periode" in entete, (
+                "%s est semée SANS mois : elle n'apparaîtra nulle part" % table)
+        assert sql.count("mois_courant") >= 5
+
+    def test_seed_charge_vise_une_PART_de_temps_plein(self):
+        """⚠️ Et non une durée « plausible ». Mesuré sur un premier jet : les
+        parts sortaient entre 0 et 49 % quand l'échelle de couleur va de 25 %
+        à plus de 150 % — toutes les cases dans les deux premières teintes,
+        et la couleur, qui est toute l'information du damier, ne disait plus
+        rien. La récurrence écrase tout : facteur 225 entre « journalier » et
+        « annuel », que nulle durée raisonnable ne rattrape."""
+        sql = _lire("tools/db/seed_charge.sql")
+        assert "plein_min * d.cible" in sql, (
+            "la durée se DÉDUIT de la part visée, pas l'inverse")
+        assert "'trimestriel'" not in sql and "'annuel'" not in sql, (
+            "ces deux récurrences demanderaient des durées absurdes à part "
+            "égale (504 h en une fois)")
+
+    def test_seed_charge_REFUSE_de_rejouer(self):
+        sql = _lire("tools/db/seed_charge.sql")
+        i = sql.index("ELSE")
+        assert "RAISE EXCEPTION" in sql[i:i + 900], (
+            "un second passage empilerait une analyse par (rôle, mois), et "
+            "la liste de la page Temps les montrerait toutes")
+        assert "purger" in sql
+
+    def test_seed_charge_ne_DEPLACE_aucune_attache(self):
+        """Déplacer l'attache de quelqu'un changerait sa charge mesurée :
+        c'est une décision de la page RH, pas d'un semis."""
+        sql = _lire("tools/db/seed_charge.sql")
+        i = sql.index("UPDATE user_roles")
+        assert "entity_id IS NULL" in sql[i:i + 400]
+
+    def test_seed_charge_ecrit_les_colonnes_NOT_NULL(self):
+        """⚠️ `delay_minutes` et `nb_people` n'ont de défaut que dans le
+        MODÈLE : un INSERT en SQL brut doit les écrire lui-même."""
+        sql = _lire("tools/db/seed_charge.sql")
+        i = sql.index("INSERT INTO time_role_line")
+        entete = sql[i:sql.index("SELECT", i)]
+        assert "delay_minutes" in entete and "nb_people" in entete

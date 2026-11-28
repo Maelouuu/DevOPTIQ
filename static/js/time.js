@@ -1119,71 +1119,150 @@
   // =====================================================
   // =============== OUVRIR POUR MODIFIER ================
   // =====================================================
-  /* ══ LE MOIS ANALYSÉ ═══════════════════════════════════════════════════
+  /* ══ LE MOIS ANALYSÉ — un mini calendrier ══════════════════════════════
      ⚠️ Une analyse de temps n'est pas vraie pour l'éternité : une charge
      fluctue, et un poids de rôle relevé en janvier ne dit rien de novembre.
-     Chaque analyse porte donc le mois qu'elle décrit — c'est lui qui permet
-     de lire un poids « en novembre » plutôt qu'un chiffre sans date.
+     Chaque analyse porte donc le mois qu'elle décrit.
 
-     ⚠️ DEUX `<select>` et pas un `<input type="month">` : Firefox ne sait pas
-     le rendre et retombe sur un champ de texte où il faut taper « 2026-11 ».
-     Et un `<select>` de cette page est habillé par `tm_select.js` : il porte
-     donc le même panneau que tous ses voisins.
+     ⚠️ Ni `<input type="month">` (Firefox ne sait pas le rendre et retombe
+     sur un champ texte où il faut taper « 2026-11 »), ni deux menus
+     déroulants : DOUZE MOIS dans une année qu'on fait défiler — le même
+     vocabulaire que le calendrier des séances de la page Compétences, en
+     miniature. Un mois se CHOISIT dans une année, il ne se compose pas en
+     deux temps.
 
      ⚠️ Les noms de mois viennent d'`Intl`, dans la langue de la PAGE (jamais
      celle du navigateur) : douze clés par langue dans le catalogue seraient
      douze occasions de divergence pour ce qu'une bibliothèque standard fait
-     déjà. */
-  const PER_AVANT = 3, PER_APRES = 1;
+     déjà.
 
-  function periodeLue(){
-    const m = $('#tm-periode-m'), a = $('#tm-periode-a');
-    if (!m || !a || !m.value || !a.value) return null;
-    return a.value + '-' + String(m.value).padStart(2, '0');
+     ⚠️ Le panneau est posé en `position: absolute` DANS son champ, pas sur
+     le body en `fixed` : `body.pg` porte `zoom: .8`, et tout élément posé sur
+     le body doit alors convertir ses coordonnées (sept fois que ce piège se
+     présente dans cette application). Ici le repère est le champ lui-même —
+     il n'y a rien à convertir. */
+  const LOC = () => (L.lang === 'en' ? 'en-GB' : 'fr-FR');
+  const capi = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+  //: « 2026-11 » — le mois en cours de saisie. La SEULE source.
+  let moisChoisi = null;
+  let anneeVue = new Date().getFullYear();
+
+  function moisDAujourdhui(){
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   }
 
-  function remplirPeriode(annee){
-    const m = $('#tm-periode-m'), a = $('#tm-periode-a');
-    if (!m || !a) return;
-    const noms = new Intl.DateTimeFormat(L.lang === 'en' ? 'en-GB' : 'fr-FR',
-                                         { month: 'long' });
-    m.innerHTML = Array.from({ length: 12 }, (_, i) => {
-      const nom = noms.format(new Date(2026, i, 1));
-      return `<option value="${i + 1}">`
-        + echap(nom.charAt(0).toUpperCase() + nom.slice(1)) + '</option>';
-    }).join('');
-    const ici = new Date().getFullYear();
-    const ans = [];
-    for (let y = ici - PER_AVANT; y <= ici + PER_APRES; y++) ans.push(y);
-    /* ⚠️ L'année d'une analyse plus ancienne que la plage s'AJOUTE : sans
-       elle, rouvrir une analyse de 2021 la rangerait en silence dans une
-       année qui n'est pas la sienne. */
-    if (annee && ans.indexOf(annee) < 0) ans.push(annee);
-    ans.sort((x, y) => y - x);
-    a.innerHTML = ans.map(y => `<option value="${y}">${y}</option>`).join('');
-  }
+  function periodeLue(){ return moisChoisi; }
 
   function posePeriode(p){
-    const m = $('#tm-periode-m'), a = $('#tm-periode-a');
-    if (!m || !a) return;
     const d = /^(\d{4})-(\d{1,2})/.exec(String(p || ''));
-    const now = new Date();
-    const an = d ? parseInt(d[1], 10) : now.getFullYear();
-    const mo = d ? parseInt(d[2], 10) : now.getMonth() + 1;
-    remplirPeriode(an);
-    /* ⚠️ On ne DÉPÊCHE pas `change` : `tm_select.js` intercepte `value` sur
-       l'élément et recopie le libellé tout seul. L'émettre réveillerait les
-       écouteurs des voisins (celui du rôle recharge ses lignes). */
-    a.value = String(an);
-    m.value = String(mo);
+    moisChoisi = d ? (d[1] + '-' + String(parseInt(d[2], 10)).padStart(2, '0'))
+                   : moisDAujourdhui();
+    anneeVue = parseInt(moisChoisi.slice(0, 4), 10);
+    majBoutonMois();
+    if (!$('#tm-mois-p').hidden) rendreMois();
+  }
+
+  function majBoutonMois(){
+    const t = $('#tm-mois-t');
+    if (t) t.textContent = capi(moisLong(moisChoisi));
+  }
+
+  /* « Novembre 2026 ». */
+  function moisLong(p){
+    const d = /^(\d{4})-(\d{1,2})/.exec(String(p || ''));
+    if (!d) return '';
+    return new Intl.DateTimeFormat(LOC(), { month: 'long', year: 'numeric' })
+      .format(new Date(parseInt(d[1], 10), parseInt(d[2], 10) - 1, 1));
+  }
+
+  function rendreMois(){
+    const z = $('#tm-mois-p');
+    if (!z) return;
+    const courts = new Intl.DateTimeFormat(LOC(), { month: 'short' });
+    const auj = moisDAujourdhui();
+    const cases = Array.from({ length: 12 }, (_, i) => {
+      const cle = anneeVue + '-' + String(i + 1).padStart(2, '0');
+      const cls = ['tm-m-c'];
+      /* ⚠️ Le mois COURANT se marque même quand il n'est pas choisi : c'est
+         le repère du calendrier des séances (`est-auj`), et sans lui une
+         année qu'on fait défiler n'a plus aucun point fixe. */
+      if (cle === auj) cls.push('est-auj');
+      if (cle === moisChoisi) cls.push('est-pris');
+      return `<button type="button" class="${cls.join(' ')}" data-mois="${cle}"
+                ${cle === moisChoisi ? 'aria-current="true"' : ''}
+                >${echap(capi(courts.format(new Date(anneeVue, i, 1))))}</button>`;
+    }).join('');
+    z.innerHTML = `
+      <div class="tm-m-h">
+        <button type="button" class="tm-m-nav" data-an="-1"
+                aria-label="${echap(tl('periode_an_prec', 'Année précédente'))}">‹</button>
+        <b>${anneeVue}</b>
+        <button type="button" class="tm-m-nav" data-an="1"
+                aria-label="${echap(tl('periode_an_suiv', 'Année suivante'))}">›</button>
+      </div>
+      <div class="tm-m-g">${cases}</div>
+      <button type="button" class="tm-m-auj" data-mois="${auj}"
+        >${echap(tl('periode_ce_mois', 'Ce mois-ci'))}</button>`;
+    z.querySelectorAll('[data-an]').forEach((b) => {
+      b.onclick = () => { anneeVue += parseInt(b.dataset.an, 10); rendreMois(); };
+    });
+    z.querySelectorAll('[data-mois]').forEach((b) => {
+      b.onclick = () => { posePeriode(b.dataset.mois); fermerMois(); };
+    });
+  }
+
+  function ouvrirMois(){
+    const z = $('#tm-mois-p'), b = $('#tm-mois-b');
+    if (!z || !b) return;
+    anneeVue = parseInt((moisChoisi || moisDAujourdhui()).slice(0, 4), 10);
+    rendreMois();
+    z.classList.remove('est-haut');
+    z.hidden = false;
+    b.setAttribute('aria-expanded', 'true');
+    /* ⚠️ Vers le HAUT quand il n'y a pas la place dessous — mesuré APRÈS
+       l'affichage, sinon le panneau n'a pas de hauteur. Et c'est une CLASSE,
+       pas un pixel calculé : écrire une coordonnée dans un repère que
+       `body.pg` zoome à .8 demanderait une conversion, et la feuille sait
+       faire la bascule toute seule (`bottom` au lieu de `top`). */
+    if (z.getBoundingClientRect().bottom > window.innerHeight - 8) {
+      z.classList.add('est-haut');
+    }
+  }
+
+  function fermerMois(){
+    const z = $('#tm-mois-p'), b = $('#tm-mois-b');
+    if (!z || !b) return;
+    z.hidden = true;
+    b.setAttribute('aria-expanded', 'false');
+    b.focus();
+  }
+
+  function brancherMois(){
+    const b = $('#tm-mois-b'), z = $('#tm-mois-p');
+    if (!b || !z) return;
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (z.hidden) ouvrirMois(); else fermerMois();
+    });
+    /* ⚠️ Un clic DANS le panneau ne le ferme pas — et la cible d'un clic sur
+       une case est DÉTACHÉE quand l'événement remonte (`rendreMois` réécrit
+       la grille) : `closest()` ne trouverait plus rien. On arrête donc la
+       remontée au panneau plutôt que de tester la cible depuis le document.
+       Même piège que le panneau du développeur de compétences. */
+    z.addEventListener('click', (e) => e.stopPropagation());
+    document.addEventListener('click', () => { if (!z.hidden) fermerMois(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !z.hidden) { e.stopPropagation(); fermerMois(); }
+    });
   }
 
   /* Le mois affiché dans les listes de l'accueil : « nov. 2026 ». */
   function moisCourt(p){
     const d = /^(\d{4})-(\d{1,2})/.exec(String(p || ''));
     if (!d) return '';
-    return new Intl.DateTimeFormat(L.lang === 'en' ? 'en-GB' : 'fr-FR',
-                                   { month: 'short', year: 'numeric' })
+    return new Intl.DateTimeFormat(LOC(), { month: 'short', year: 'numeric' })
       .format(new Date(parseInt(d[1], 10), parseInt(d[2], 10) - 1, 1));
   }
 
@@ -1816,10 +1895,10 @@
 
   // ---------------------- INIT ------------------------
   (async () => {
-    // ⚠️ Les options du mois d'abord : les deux listes naissent VIDES dans le
-    // gabarit (les noms de mois viennent d'`Intl`), et une liste vide n'a pas
-    // de libellé à recopier sur son bouton habillé.
+    // ⚠️ Le mois d'abord : le bouton naît VIDE dans le gabarit (son libellé
+    // vient d'`Intl`), et une analyse neuve décrit le mois COURANT.
     posePeriode(null);
+    brancherMois();
     await loadCalendarParams();
 
     // Weakness: si la sous-page existe dans le DOM, init

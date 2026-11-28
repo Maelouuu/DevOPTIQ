@@ -417,6 +417,9 @@ TRANSLATIONS = {
                                      'C\u2019est lui qui permet de lire le poids d\u2019un rôle à une '
                                      'période donnée, au lieu d\u2019un chiffre sans date.',
         'time.periode_col':          'Mois',
+        'time.periode_ce_mois':      'Ce mois-ci',
+        'time.periode_an_prec':      'Année précédente',
+        'time.periode_an_suiv':      'Année suivante',
         'time.tm_maj':               'Analyse mise à jour.',
         'time.tm_vide_grp':          'Rien ici pour le moment.',
         'time.tm_acts':              '{n} act.',
@@ -2969,6 +2972,9 @@ TRANSLATIONS = {
                                      'That is what lets a role\u2019s weight be read for a given '
                                      'period, instead of a figure with no date.',
         'time.periode_col':          'Month',
+        'time.periode_ce_mois':      'This month',
+        'time.periode_an_prec':      'Previous year',
+        'time.periode_an_suiv':      'Next year',
         'time.tm_maj':               'Analysis updated.',
         'time.tm_vide_grp':          'Nothing here yet.',
         'time.tm_acts':              '{n} act.',

@@ -12402,6 +12402,135 @@ un jamais mesuré). Éprouvé à l'écran dans les deux langues : parcours compl
 fuite française sur l'écran anglais (396 textes relevés, attributs compris),
 zéro débordement horizontal.
 
+#### LE MOIS SE CHOISIT DANS UN MINI CALENDRIER, et il vit DANS le formulaire (2026-11-28)
+
+« L'intégration dégueu que tu m'as faite dans le formulaire c'est non, en plus
+le truc se trouve en haut dans un nav, isolé du formulaire. »
+
+⚠️⚠️ **La note d'hier défendait un argument JUSTE et en tirait une conséquence
+FAUSSE.** Elle disait : « le mois vit dans la BANDE : c'est une propriété de
+l'analyse ENTIÈRE, comme son nom, et la bande est le seul endroit commun aux
+quatre types — quatre champs dans quatre formulaires, c'étaient quatre
+occasions d'en oublier un. » Les deux prémisses tiennent. Mais la bande est un
+**BANDEAU DE TITRE** : un champ posé là se lit comme un réglage d'écran, isolé
+de ce qu'on remplit. Et « une seule implémentation » ne demandait pas la
+bande — seulement un endroit écrit UNE fois. La tête de la colonne de saisie
+en est un, et il est DANS le formulaire.
+
+**Le contrôle, lui, change de nature.** Ni `<input type="month">` (Firefox ne
+le rend pas et retombe sur un champ texte où il faut taper « 2026-11 »), ni
+deux menus déroulants : **douze mois dans une année qu'on fait défiler**, le
+vocabulaire du calendrier des séances de la page Compétences (`cal-mois-h`,
+`cal-grille`, `cal-case`, le repère `est-auj`) en miniature. Un mois se
+CHOISIT dans une année ; il ne se compose pas en deux temps.
+
+- ⚠️ **Le panneau est posé en `absolute` DANS son champ**, jamais sur le body
+  en `fixed` : `body.pg` porte `zoom: .8`, et tout élément posé sur le body
+  doit alors convertir ses coordonnées — **septième fois** que ce piège se
+  présente. Ici le repère est le champ lui-même, il n'y a rien à convertir.
+  Vérifié : aucun ancêtre ne le découpe, 6 px sous son bouton, 0 case hors
+  cadre.
+- ⚠️ La bascule vers le HAUT quand la place manque est une **CLASSE**, pas un
+  pixel calculé (`bottom` au lieu de `top`) — pour la même raison. Et elle se
+  mesure APRÈS l'affichage, sinon le panneau n'a pas de hauteur.
+- ⚠️ `[hidden]` est une règle du NAVIGATEUR : `.tm-mois-p` pose un `display`,
+  donc `.tm-mois-p[hidden]` est déclaré à la main. **Neuvième fois.**
+- ⚠️ **Un clic DANS le panneau ne le ferme pas**, et la remontée s'arrête au
+  panneau plutôt que de tester la cible depuis le document : choisir un mois
+  réécrit la grille, donc la cible est DÉTACHÉE quand l'événement remonte et
+  `closest()` ne trouverait plus rien. Même piège que le panneau du
+  développeur de compétences.
+- ⚠️ Le mois COURANT se marque même quand il n'est pas choisi : sans lui, une
+  année qu'on fait défiler n'a plus aucun point fixe.
+- Les noms de mois viennent d'`Intl`, dans la langue de la PAGE : douze clés
+  par langue seraient douze occasions de divergence pour ce qu'une
+  bibliothèque standard fait déjà. Trois clés neuves seulement
+  (`periode_ce_mois`, `periode_an_prec`, `periode_an_suiv`).
+
+Partis avec : `.tm-per`, `.tm-per-duo`, `#tm-periode-m`, `#tm-periode-a`,
+`remplirPeriode`, `PER_AVANT`/`PER_APRES`. Éprouvé au banc dans les deux
+langues : ouvrir, changer d'année, choisir, « Ce mois-ci », clic dehors,
+Échap, et l'aller-retour complet — mois enregistré **relu en base**
+(`2025-08`) puis retrouvé à la réouverture de l'analyse.
+
+#### Des analyses DATÉES pour voir le damier — `tools/db/seed_charge.sql`
+
+« Je manque cruellement d'analyse datée. » C'était exact, et le damier disait
+vrai : il n'affichait que trois cases et cent rôles « jamais mesuré ».
+
+⚠️ **Et la cause était dans l'outillage** : `seed_temps.sql` a été écrit AVANT
+la colonne `periode` et créait donc des analyses **sans mois**. Une analyse
+sans mois ne figure dans AUCUN tableau par période — ni le damier, ni le
+sélecteur de la page Temps : elle est invisible, et on cherche longtemps
+pourquoi l'écran reste vide. Ses quatre insertions datent désormais ce
+qu'elles créent (`mois_courant`), vérifié sur PostgreSQL : 16 lignes, 0 sans
+mois.
+
+**Le semis neuf** (trois requêtes, comme ses voisins : inventaire en lecture
+seule, bloc atomique, relecture) donne au damier de quoi parler — plusieurs
+mois, des poids très inégaux, des titulaires situés, et des rôles laissés sans
+mesure.
+
+- ⚠️⚠️ **IL VISE UNE PART DE TEMPS PLEIN, et en DÉDUIT la durée** — l'inverse
+  de ce qu'on ferait spontanément. Mesuré sur un premier jet qui posait des
+  durées « plausibles » : les parts sortaient entre **0 et 49 %** quand
+  l'échelle de couleur du damier va de 25 % à plus de 150 %. Toutes les cases
+  tombaient dans les deux premières teintes, et la couleur — qui est TOUTE
+  l'information de ce tableau — ne disait plus rien. La raison est
+  arithmétique : la RÉCURRENCE écrase tout le reste, avec un facteur **225**
+  entre « journalier » et « annuel » que nulle durée raisonnable ne rattrape.
+  Une ligne annuelle pèse zéro quoi qu'on y mette. Après correctif, mesuré :
+  **8 % → 192 %, les six teintes couvertes**, sur n'importe quelle carto et
+  quel que soit son calendrier.
+- ⚠️ `trimestriel` et `annuel` sont donc **écartés** : à part égale ils
+  demanderaient des durées absurdes (504 h en une fois). Trois récurrences
+  suffisent à varier sans mentir.
+- ⚠️ **Il REFUSE de rejouer** : un second passage empilerait une analyse par
+  (rôle, mois) — le damier n'en retient qu'une, la plus récente, mais la liste
+  de la page Temps les montre toutes et on ne sait plus laquelle est la vraie.
+  `purger := true` pour recommencer.
+- ⚠️ **Il ne DÉPLACE aucune attache** : il ne remplit que les `entity_id`
+  vides. Déplacer celle de quelqu'un changerait sa charge mesurée, et c'est
+  une décision de la page RH, pas d'un semis.
+- ⚠️ Seuls les rôles qui portent une activité de CETTE carto : un rôle est
+  commun à l'entreprise, mesuré ailleurs il irait grossir une autre colonne.
+- ⚠️ `delay_minutes` et `nb_people` sont NOT NULL et leur défaut vit dans le
+  MODÈLE, pas dans le schéma : un INSERT en SQL brut doit les écrire lui-même.
+
+Éprouvé sur un **vrai PostgreSQL 16** (conteneur jetable, schéma monté par le
+démarrage NORMAL de l'application) : 36 analyses sur 4 mois, rejeu refusé,
+purge qui relance à l'identique, 9 rôles mesurés et 3 laissés, 5 titulaires
+situés, et le damier relu mois par mois.
+
+⚠️ **Deux pièges de banc**, tous deux déjà connus : `text()` de SQLAlchemy
+prend les `%` du script (modulos, marqueurs de `RAISE NOTICE`) pour des
+paramètres liés — l'éditeur SQL de Neon envoie le texte brut, c'est donc le
+BANC qu'on aligne, par le curseur du pilote. Et le découpage sur
+`-- REQUÊTE n` coupe au MILIEU d'un commentaire : ce qui reste (« — SEMER »
+sans ses deux tirets) n'est plus un commentaire pour PostgreSQL, il faut
+recoller le préfixe. Même famille que le découpage des sections CSS.
+
+#### ⚠️ Quatre cliquets qui ne gardaient rien, et c'est trois fois la même faute
+
+Vérifiés rouges un par un, quatre sont restés VERTS au premier essai :
+
+- `est-auj` survivait dans le **COMMENTAIRE** qui l'explique — un commentaire
+  qui justifie un marqueur le CITE forcément. **Dixième occurrence** de cette
+  famille ; d'où `_sans_commentaires_js` dans ce fichier ;
+- `data-an` est une **SOUS-CHAÎNE** de `data-analyse`, que le même fichier
+  emploie trois fois : retirer les deux flèches laissait le cas vert ;
+- `stopPropagation` figure **trois fois** dans la fonction visée : retirer
+  celui qui compte ne changeait rien ;
+- et une injection qui ne reproduisait pas le défaut que le cas garde.
+
+La règle, maintenant écrite trois fois dans ce fichier : **un cliquet vise
+l'EMPLOI exact, dans un texte dont les commentaires sont retirés, et sur un
+fragment qui n'est la sous-chaîne de rien d'autre.**
+
+Tests : `tests/test_171_charge_travail.py` passe de 72 à **83 cas** (la classe
+qui affirmait le champ dans la bande est RÉÉCRITE, pas supprimée) ; **19
+défauts remis un par un, 19 cliquets tombés**.
+
 ---
 
 ## Notes importantes (suite)
