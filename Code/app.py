@@ -723,6 +723,11 @@ def create_app(test_config=None):
         for _table in ("time_project", "time_analysis", "time_role_analysis",
                        "time_weakness"):
             _safe_add_column(_table, "periode", "VARCHAR(7)")
+        # OÙ une personne tient son rôle : sans cette attache, le poids d'un
+        # titulaire somme TOUTES les cartos, donc il est le même pour tous les
+        # titulaires du rôle — deux personnes ne se comparent pas.
+        # ⚠️ NULL = « pas rattaché » = le comportement d'avant, à l'identique.
+        _safe_add_column("user_roles", "entity_id", "INTEGER")
 
         # users.password : les hashes modernes (~162 car. en scrypt) dépassaient
         # une colonne créée étroite avant l'élargissement du modèle → l'UPDATE

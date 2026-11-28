@@ -678,6 +678,63 @@ def api_charge():
     return jsonify(charge(request.args.get('periode') or None))
 
 
+@gestion_rh_bp.route('/role_carto', methods=['POST'])
+def role_carto():
+    """OÙ cette personne tient ce rôle — l'attache, posée explicitement.
+
+    ⚠️ C'est le SEUL endroit qui DÉPLACE une attache. Cocher un rôle depuis
+    une carto (`post_role_holders`) n'en remplit qu'une vide : ce clic-là dit
+    « cette personne tient ce rôle », et l'attache est un second fait, plus
+    lourd — c'est lui qui décide de sa charge mesurée.
+
+    ⚠️ `entity_id: null` détache : sans ce retour, une attache posée par
+    mégarde ne s'enlèverait plus, et la personne resterait comptée sur une
+    carto où elle ne travaille pas. Détachée, elle reprend la somme de toutes
+    les cartos du rôle — le comportement d'avant l'attache.
+    """
+    from Code.models.models import Entity
+    from Code.permissions import can_access_rh, current_user
+
+    moi = current_user()
+    if moi is None:
+        return jsonify({'error': 'Non connecté'}), 401
+    if not can_access_rh(moi):
+        return jsonify({'error': 'Accès refusé', 'code': 'lecture_seule'}), 403
+
+    data = request.get_json(silent=True) or {}
+    try:
+        user_id = int(data.get('user_id'))
+        role_id = int(data.get('role_id'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Paramètres invalides'}), 400
+
+    lien = UserRole.query.filter_by(user_id=user_id, role_id=role_id).first()
+    if lien is None:
+        # ⚠️ On ne situe pas quelqu'un sur un rôle qu'il ne tient pas : il n'y
+        # a aucune ligne pour porter l'attache, et l'écran doit le dire plutôt
+        # que d'offrir un réglage qui échoue.
+        return jsonify({'error': 'Ce compte ne tient pas ce rôle',
+                        'code': 'sans_lien'}), 404
+
+    brut = data.get('entity_id')
+    if brut in (None, '', 'null'):
+        lien.entity_id = None
+    else:
+        try:
+            eid = int(brut)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Carto invalide'}), 400
+        # ⚠️ L'identifiant vient du navigateur : une carto inconnue ferait une
+        # attache qui ne désigne rien, et la personne sortirait de tous les
+        # comptages sans que rien ne le dise.
+        if db.session.get(Entity, eid) is None:
+            return jsonify({'error': 'Carto introuvable'}), 404
+        lien.entity_id = eid
+    db.session.commit()
+    return jsonify({'ok': True, 'user_id': user_id, 'role_id': role_id,
+                    'entity_id': lien.entity_id})
+
+
 @gestion_rh_bp.route('/api/competences')
 def api_competences():
     """Le tableau global : chaque personne × chacun de ses rôles.

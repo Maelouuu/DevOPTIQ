@@ -799,6 +799,13 @@ def delete_entity(entity_id):
         # ── Utilisateurs : on DÉTACHE de l'entité (on ne supprime pas les comptes) ──
         User.query.filter_by(entity_id=entity_id).update(
             {User.entity_id: None}, synchronize_session=False)
+        # ⚠️ Et l'attache « où cette personne tient ce rôle » : c'est une clé
+        # étrangère vers `entities`, donc PostgreSQL refuserait la suppression
+        # (SQLite non — le défaut ne se verrait qu'en production). On détache,
+        # on ne retire pas le rôle : la personne le tient toujours, on ne sait
+        # simplement plus où.
+        UserRole.query.filter_by(entity_id=entity_id).update(
+            {UserRole.entity_id: None}, synchronize_session=False)
 
         # ── Entité ──
         Entity.query.filter_by(id=entity_id).delete(synchronize_session=False)

@@ -60,12 +60,23 @@ ANALYSES = [
     ("Maintenance", "FluidClip", MOIS_AVANT, 3, 45, "hebdomadaire", 2),
 ]
 
-#: qui tient quoi — « Réseau » n'est jamais mesuré
+#: qui tient quoi, et OÙ — « Réseau » n'est jamais mesuré.
+#
+#  ⚠️ Les CINQ états doivent être présents en même temps, sinon on ne regarde
+#  que le cas heureux :
+#   · « Qualité » tenu par DEUX personnes sur DEUX cartos — c'est la
+#     comparaison « qui performe », et sans elle la nouveauté ne se voit pas ;
+#   · un rôle tenu SANS attache (le comportement d'avant : toutes les cartos
+#     sommées) ;
+#   · une attache sur une carto où le rôle n'est PAS mesuré (« pas mesuré là »,
+#     NUL et non zéro) ;
+#   · un rôle mesuré seulement le mois d'avant ;
+#   · un rôle jamais mesuré.
 TENUS = [
-    ("Hubert", ("Qualité", "Achats")),
-    ("Madhuri", ("Logistique",)),
-    ("Vaishali", ("Méthodes", "Maintenance")),
-    ("Priya", ("Réseau",)),
+    ("Hubert",   (("Qualité", "FluidClip"), ("Achats", None))),
+    ("Madhuri",  (("Qualité", "END_DT"), ("Méthodes", "END_DT"))),
+    ("Vaishali", (("Logistique", None), ("Maintenance", None))),
+    ("Priya",    (("Réseau", None),)),
 ]
 
 with app.app_context():
@@ -151,8 +162,10 @@ with app.app_context():
     db.session.commit()
 
     for qui, rs in TENUS:
-        for r in rs:
-            db.session.add(UserRole(user_id=gens[qui].id, role_id=roles[r].id))
+        for r, ou in rs:
+            db.session.add(UserRole(
+                user_id=gens[qui].id, role_id=roles[r].id,
+                entity_id=cartos[ou].id if ou else None))
     db.session.commit()
 
     from Code.charge_travail import charge
@@ -172,6 +185,11 @@ with app.app_context():
                   % (p["nom"],
                      "—" if p["annuel_min"] is None else "%.0f h" % (p["annuel_min"] / 60),
                      "—" if p["part_plafond"] is None else "%.0f %%" % (p["part_plafond"] * 100)))
+            for r in p["roles"]:
+                print("[devrun]       %-13s %7s  %s"
+                      % (r["nom"],
+                         "—" if r["annuel_min"] is None else "%.0f h" % (r["annuel_min"] / 60),
+                         r["entite"] or "non situé"))
     print("[devrun] http://127.0.0.1:%d/gestion_rh/   (/devrun/en pour l'anglais)" % PORT)
 
 

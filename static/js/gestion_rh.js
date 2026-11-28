@@ -926,8 +926,13 @@
            `rh_charge.js` déplie l'avertissement DANS la ligne et prend la
            main — il rappellera `majLien` si l'on valide quand même. Il rend
            `false` quand il n'y a rien à dire, et l'ajout part aussitôt. */
+        /* ⚠️ La carto part AVEC : `majLien` coche depuis `D.entite`, et le
+           lien sera attaché là (`post_role_holders`). Sans elle, le verdict
+           annoncerait la somme de toutes les cartos du rôle alors que la
+           personne n'en portera qu'une. */
+        const ou = D.entite ? D.entite.id : null;
         if (el.checked && window.RHCharge
-            && window.RHCharge.avertir(u, r, el, () => majLien(u, r, true))) return;
+            && window.RHCharge.avertir(u, r, el, () => majLien(u, r, true), ou)) return;
         majLien(u, r, el.checked);
       }));
     document.querySelectorAll('.grh-devpick[data-role]').forEach((b) =>

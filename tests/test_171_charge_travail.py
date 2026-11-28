@@ -94,8 +94,13 @@ class _Decor:
                  status="user")
         db.session.add(u)
         db.session.commit()
-        for nom in roles:
-            db.session.add(UserRole(user_id=u.id, role_id=self.roles[nom].id))
+        # Une entrée est soit « rôle », soit (« rôle », carto) : OÙ la
+        # personne le tient. Sans attache, elle porte la somme de toutes les
+        # cartos — le comportement d'avant.
+        for item in roles:
+            nom, ou = item if isinstance(item, tuple) else (item, None)
+            db.session.add(UserRole(user_id=u.id, role_id=self.roles[nom].id,
+                                    entity_id=ou.id if ou is not None else None))
         db.session.commit()
         self.gens[prenom] = u
         return u
@@ -630,7 +635,12 @@ class TestLaSectionEstBranchee:
         corps = c.split("function avertir(", 1)[1].split("\n  }", 1)[0]
         assert "ch-al-ok" in corps and "suite()" in corps
         g = _lire("static/js/gestion_rh.js")
-        assert "window.RHCharge.avertir(u, r, el, () => majLien(u, r, true))" in g
+        # ⚠️ La carto cochée part AVEC depuis que le poids d'un titulaire suit
+        # son attache : le verdict doit porter sur CETTE carto, pas sur la
+        # somme de toutes celles du rôle. On vise donc l'appel ET sa suite,
+        # sans épingler la signature entière — c'est le GESTE qui compte.
+        assert "window.RHCharge.avertir(u, r, el, () => majLien(u, r, true)" in g
+        assert "majLien(u, r, true), ou)" in g
 
     def test_le_defilement_de_l_avertissement_est_INSTANTANE(self):
         """⚠️ Une animation ne progresse pas dans un volet qui ne peint pas —
@@ -742,3 +752,350 @@ class TestLeMoisDansLaPageTemps:
     def test_les_quatre_lectures_la_reposent(self):
         js = _lire("static/js/time.js")
         assert js.count("posePeriode(") >= 6   # 4 lectures + vider + démarrage
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  OÙ UNE PERSONNE TIENT SON RÔLE — « qui performe »
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLePoidsSuitLAttache:
+    """⚠️ Un rôle est COMMUN à l'entreprise et peut porter des activités dans
+    plusieurs cartos. Sans attache, le poids d'un titulaire était la SOMME de
+    toutes les cartos — donc le même chiffre pour tous les titulaires du rôle,
+    et deux personnes ne se comparaient pas. C'est la question posée :
+    « pour un même rôle, la charge de différents champions ».
+    """
+
+    def test_sans_attache_c_est_la_SOMME_des_cartos(self):
+        """⚠️ Le comportement d'AVANT, à l'identique : c'est ce qui rend la
+        colonne sûre sur une instance en service. Rien ne bouge tant que
+        personne n'a situé qui que ce soit."""
+        from Code.charge_travail import poids_du_role
+        poids = {7: 300.0}
+        carto = {7: {1: 200.0, 2: 100.0}}
+        assert poids_du_role(poids, carto, 7, None) == 300.0
+
+    def test_attachee_c_est_SA_carto_et_elle_seule(self):
+        from Code.charge_travail import poids_du_role
+        poids = {7: 300.0}
+        carto = {7: {1: 200.0, 2: 100.0}}
+        assert poids_du_role(poids, carto, 7, 1) == 200.0
+        assert poids_du_role(poids, carto, 7, 2) == 100.0
+
+    def test_attachee_la_ou_le_role_n_est_PAS_mesure_rend_NUL(self):
+        """⚠️ NUL, pas zéro — même si le rôle est mesuré ailleurs. Elle
+        travaille là où personne n'a pesé ce rôle : « on ne sait pas » et
+        « rien à faire » ne demandent pas le même geste."""
+        from Code.charge_travail import poids_du_role
+        assert poids_du_role({7: 300.0}, {7: {1: 300.0}}, 7, 99) is None
+
+
+class TestDeuxTitulairesDuMemeRoleSeComparent:
+
+    def test_chacun_porte_le_poids_de_SA_carto(self, auth_client, ids):
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=4, duree=60, carto=d.ent)
+            d.analyse("Q", "2026-11", n=2, duree=60, carto=d.ent2)
+            un = d.personne("Un", (("Q", d.ent),))
+            deux = d.personne("Deux", (("Q", d.ent2),))
+            p = charge("2026-11")
+            gens = {x["id"]: x for x in p["personnes"]}
+            a, b = gens[un.id]["annuel_min"], gens[deux.id]["annuel_min"]
+            assert a and b and a != b, (
+                "deux titulaires du même rôle sur deux cartos doivent porter "
+                "des charges DIFFÉRENTES : %s / %s" % (a, b))
+            # Et chacune est bien celle de sa carto, pas la moitié du total.
+            role = next(r for r in p["roles"] if r["id"] == d.roles["Q"].id)
+            par = {m["entite_id"]: m["annuel_min"] for m in role["mesures"]}
+            assert a == par[d.ent.id] and b == par[d.ent2.id]
+            assert role["annuel_min"] == a + b
+
+    def test_sans_attache_les_DEUX_portent_le_total(self, auth_client, ids):
+        """Le filet de sécurité, dans l'autre sens : rien n'a changé pour qui
+        n'est pas situé."""
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=4, duree=60, carto=d.ent)
+            d.analyse("Q", "2026-11", n=2, duree=60, carto=d.ent2)
+            un = d.personne("Un", ("Q",))
+            deux = d.personne("Deux", ("Q",))
+            p = charge("2026-11")
+            gens = {x["id"]: x for x in p["personnes"]}
+            role = next(r for r in p["roles"] if r["id"] == d.roles["Q"].id)
+            assert gens[un.id]["annuel_min"] == role["annuel_min"]
+            assert gens[deux.id]["annuel_min"] == role["annuel_min"]
+
+
+class TestPersonneNeDisparaitDeSaLigne:
+    """⚠️ Le défaut vu à l'écran : attachée à une carto où le rôle n'est pas
+    mesuré, une personne ne tombait dans AUCUNE case — ni dans « non situés »,
+    puisqu'elle EST située. Elle disparaissait de la ligne de son propre rôle.
+    """
+
+    def test_elle_est_posee_dans_la_case_de_SA_carto_meme_sans_mesure(
+            self, auth_client, ids):
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("M")
+            d.analyse("M", "2026-11", n=3, duree=60, carto=d.ent)  # ent seule
+            qui = d.personne("Perdue", (("M", d.ent2),))           # ailleurs
+            role = next(r for r in charge("2026-11")["roles"]
+                        if r["id"] == d.roles["M"].id)
+            place = role["titulaires_carto"].get(str(d.ent2.id)) or []
+            assert [t["id"] for t in place] == [qui.id], (
+                "une personne située sur une carto sans mesure doit rester "
+                "visible dans la case de SA carto")
+            assert not role["sans_carto"], "elle EST située : pas « non situé »"
+
+    def test_les_cles_de_titulaires_carto_sont_du_TEXTE(self, auth_client, ids):
+        """⚠️ C'est ce que le navigateur compare (`String(entite_id)`) : une
+        clé entière ne tomberait sur aucune colonne, en silence."""
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=3, carto=d.ent)
+            d.personne("Un", (("Q", d.ent),))
+            role = next(r for r in charge("2026-11")["roles"]
+                        if r["id"] == d.roles["Q"].id)
+            assert all(isinstance(k, str) for k in role["titulaires_carto"])
+
+    def test_sans_carto_ne_porte_QUE_les_non_situes(self, auth_client, ids):
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=3, carto=d.ent)
+            situe = d.personne("Situe", (("Q", d.ent),))
+            libre = d.personne("Libre", ("Q",))
+            role = next(r for r in charge("2026-11")["roles"]
+                        if r["id"] == d.roles["Q"].id)
+            assert [t["id"] for t in role["sans_carto"]] == [libre.id]
+            places = [t["id"] for v in role["titulaires_carto"].values() for t in v]
+            assert places == [situe.id]
+
+
+class TestLeVerdictSuitLaCarto:
+
+    def test_il_annonce_le_poids_de_LA_CARTO_cochee(self, auth_client, ids):
+        """⚠️ Sans la carto, l'avertissement annoncerait la somme de toutes
+        les cartos du rôle alors que la personne n'en portera qu'une : un
+        plafond franchi sur le papier et pas en vrai."""
+        from Code.charge_travail import charge, verdict_ajout
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=8, duree=60, carto=d.ent)
+            d.analyse("Q", "2026-11", n=2, duree=60, carto=d.ent2)
+            qui = d.personne("Un", ())
+            p = charge("2026-11")
+            role = next(r for r in p["roles"] if r["id"] == d.roles["Q"].id)
+            par = {m["entite_id"]: m["annuel_min"] for m in role["mesures"]}
+            petit = verdict_ajout(p, qui.id, d.roles["Q"].id, d.ent2.id)
+            assert petit["ajout_min"] == par[d.ent2.id]
+            tout = verdict_ajout(p, qui.id, d.roles["Q"].id, None)
+            assert tout["ajout_min"] == role["annuel_min"]
+            assert petit["ajout_min"] < tout["ajout_min"]
+
+    def test_une_carto_sans_mesure_ne_previent_de_RIEN(self, auth_client, ids):
+        """On ne prévient pas d'un dépassement qu'on ne sait pas calculer."""
+        from Code.charge_travail import charge, verdict_ajout
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            d.analyse("Q", "2026-11", n=8, duree=60, carto=d.ent)
+            qui = d.personne("Un", ())
+            p = charge("2026-11")
+            assert verdict_ajout(p, qui.id, d.roles["Q"].id, d.ent2.id) is None
+
+
+class TestLaRouteQuiSitue:
+
+    def _poser(self, client, u, r, e):
+        return client.post("/gestion_rh/role_carto",
+                           json={"user_id": u, "role_id": r, "entity_id": e})
+
+    def test_elle_pose_et_elle_DETACHE(self, auth_client, ids):
+        from Code.models.models import UserRole
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            qui = d.personne("Un", ("Q",))
+            rid = d.roles["Q"].id
+            assert self._poser(auth_client, qui.id, rid, d.ent.id).status_code == 200
+            db.session.expire_all()
+            assert UserRole.query.filter_by(
+                user_id=qui.id, role_id=rid).first().entity_id == d.ent.id
+            # ⚠️ Le retour : sans lui, une attache posée par mégarde ne
+            # s'enlèverait plus, et la personne resterait comptée sur une
+            # carto où elle ne travaille pas.
+            assert self._poser(auth_client, qui.id, rid, None).status_code == 200
+            db.session.expire_all()
+            assert UserRole.query.filter_by(
+                user_id=qui.id, role_id=rid).first().entity_id is None
+
+    def test_une_carto_inconnue_est_REFUSEE(self, auth_client, ids):
+        """L'identifiant vient du navigateur : une attache qui ne désigne rien
+        ferait sortir la personne de tous les comptages sans rien dire."""
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            qui = d.personne("Un", ("Q",))
+            r = self._poser(auth_client, qui.id, d.roles["Q"].id, 99999999)
+            assert r.status_code == 404
+
+    def test_un_role_qu_elle_ne_tient_PAS_est_refuse(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            qui = d.personne("Un", ())
+            r = self._poser(auth_client, qui.id, d.roles["Q"].id, d.ent.id)
+            assert r.status_code == 404
+            assert (r.get_json() or {}).get("code") == "sans_lien"
+
+    def test_elle_est_fermee_a_qui_n_ouvre_pas_la_page_RH(self, app, ids):
+        """⚠️ Un client ANONYME : `client` et `auth_client` sont le même objet
+        en portée session, et il arrive connecté."""
+        c = app.test_client()
+        r = c.post("/gestion_rh/role_carto",
+                   json={"user_id": 1, "role_id": 1, "entity_id": None})
+        assert r.status_code in (401, 403)
+
+
+class TestCocherRemplitMaisNeDEPLACEPas:
+    """⚠️ Cocher un rôle depuis une carto dit « cette personne tient ce
+    rôle ». L'attache est un SECOND fait, plus lourd — c'est lui qui décide de
+    sa charge mesurée. Un second fait ne s'écrit pas par un geste qui visait
+    le premier, surtout depuis la page RH où la carto du bandeau peut n'être
+    que celle qu'on regardait.
+    """
+
+    def test_un_lien_neuf_est_attache_a_la_carto_du_geste(self, auth_client, ids):
+        from Code.models.models import UserRole
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            qui = d.personne("Un", ())
+            r = auth_client.post(
+                "/cartography/api/access/%d/roles/%d/holders"
+                % (d.ent.id, d.roles["Q"].id), json={"add": [qui.id]})
+            assert r.status_code == 200
+            db.session.expire_all()
+            lien = UserRole.query.filter_by(user_id=qui.id,
+                                            role_id=d.roles["Q"].id).first()
+            assert lien is not None and lien.entity_id == d.ent.id
+
+    def test_une_attache_DEJA_posee_ne_bouge_pas(self, auth_client, ids):
+        from Code.models.models import UserRole
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            qui = d.personne("Un", (("Q", d.ent2),))
+            auth_client.post("/cartography/api/access/%d/roles/%d/holders"
+                             % (d.ent.id, d.roles["Q"].id), json={"add": [qui.id]})
+            db.session.expire_all()
+            lien = UserRole.query.filter_by(user_id=qui.id,
+                                            role_id=d.roles["Q"].id).first()
+            assert lien.entity_id == d.ent2.id, (
+                "cocher depuis une autre carto ne doit pas DÉPLACER une "
+                "attache posée : seul /gestion_rh/role_carto la déplace")
+
+
+class TestSupprimerUneCartoDETACHE:
+    """⚠️ `user_roles.entity_id` est une clé étrangère vers `entities` :
+    PostgreSQL refuserait la suppression (SQLite non — le défaut ne se verrait
+    qu'en production). On détache, on ne retire pas le rôle : la personne le
+    tient toujours, on ne sait simplement plus où."""
+
+    def test_la_personne_garde_son_role_sans_sa_carto(self, auth_client, ids):
+        from Code.models.models import Entity, UserRole
+        with _Decor(auth_client, ids) as d:
+            d.role("Q")
+            qui = d.personne("Un", (("Q", d.ent2),))
+            rid, eid = d.roles["Q"].id, d.ent2.id
+            r = auth_client.delete("/activities/api/entities/%d" % eid)
+            assert r.status_code == 200, r.get_data(as_text=True)[:200]
+            db.session.expire_all()
+            lien = UserRole.query.filter_by(user_id=qui.id, role_id=rid).first()
+            assert lien is not None, "le rôle ne doit pas partir avec la carto"
+            assert lien.entity_id is None
+            assert db.session.get(Entity, eid) is None
+            # ⚠️ Le décor ne doit plus toucher à ce qui vient d'être supprimé :
+            # lire `.id` sur une instance effacée lève (SQLAlchemy tente de la
+            # rafraîchir). On retire la carto ET ses activités de l'inventaire.
+            d.actes.pop(eid, None)
+            d.ent2 = d.ent
+
+
+class TestLEcranSitueEtCompare:
+
+    JS = "static/js/rh_charge.js"
+
+    def test_la_case_lit_titulaires_carto_du_SERVEUR(self):
+        js = _lire(self.JS)
+        assert "titulaires_carto" in js, (
+            "le placement vient du serveur : un second calcul de l'attache "
+            "dans le navigateur finirait par ne plus dire la même chose")
+
+    def test_une_case_VIDE_porte_quand_meme_ses_titulaires(self):
+        """Sinon la personne disparaît de la ligne de son propre rôle."""
+        js = _lire(self.JS)
+        i = js.index("const pastilles")
+        j = js.index("const n = niveau", i)
+        assert "pastilles" in js[i:j].split("if (!m)", 1)[-1], (
+            "la branche « pas de mesure » doit poser les pastilles")
+
+    def test_la_colonne_non_situes_DISPARAIT_quand_tout_est_situe(self):
+        js = _lire(self.JS)
+        assert "const libres = roles.some" in js
+        # ⚠️ Les deux fragments EXACTS, pas le nom du drapeau : « libres ? »
+        # est une SOUS-CHAÎNE de « !libres ? », donc retirer la garde de
+        # l'en-tête laissait ce cas au VERT — il ne gardait rien.
+        assert "${libres ? `<th" in js, "l'en-tête de la colonne doit suivre"
+        assert "${!libres ? '' : `<td" in js, "les cellules doivent suivre"
+
+    def test_le_verdict_prend_la_carto(self):
+        js = _lire(self.JS)
+        assert "function verdict(userId, roleId, entiteId)" in js
+        grh = _lire("static/js/gestion_rh.js")
+        assert "RHCharge.avertir(u, r, el" in grh and ", ou)" in grh, (
+            "la carto cochée doit partir avec l'avertissement")
+
+    def test_les_libelles_existent_dans_les_DEUX_langues(self):
+        from Code.translations import TRANSLATIONS
+        for cle in ("rh.ch_holders_free", "rh.ch_where", "rh.ch_where_none",
+                    "rh.ch_where_nomes", "rh.ch_where_empty", "rh.ch_nomes_ici"):
+            for lang in ("fr", "en"):
+                assert TRANSLATIONS[lang].get(cle), "%s manque en %s" % (cle, lang)
+            assert TRANSLATIONS["fr"][cle] != TRANSLATIONS["en"][cle], (
+                "%s : l'anglais recopie le français" % cle)
+
+    def test_elles_sont_INJECTEES_dans_le_gabarit(self):
+        html = _lire("Code/routes/templates/gestion_rh.html")
+        for cle in ("ch_holders_free", "ch_where", "ch_where_none",
+                    "ch_where_nomes", "ch_where_empty", "ch_nomes_ici"):
+            assert cle + ":" in html, (
+                "%s n'est pas injectée : l'accesseur rendrait la CLÉ, et rien "
+                "ne lève d'erreur" % cle)
+
+    def test_pas_d_espace_avant_le_pourcent_en_anglais(self):
+        """Une convention FRANÇAISE, à côté des « 162% » que `pct()` écrit
+        déjà sans espace — deux formes du même signe sur un écran."""
+        from Code.translations import TRANSLATIONS
+        assert " %" not in TRANSLATIONS["en"]["rh.ch_pct_full"]
+
+    def test_la_pastille_de_case_garde_la_taille_du_marqueur(self):
+        """⚠️ Essayée à 20 px, elle rendait ses initiales à 8,4 px RÉELS :
+        `body.pg` porte `zoom: .8` et le plancher de l'échelle est 11."""
+        css = _sans_commentaires_css(_lire("static/gestion_rh.css"))
+        i = css.index(".ch-t-av .ch-av")
+        bloc = css[i:css.index("}", i)]
+        assert "width:" not in bloc and "font-size:" not in bloc, (
+            "la pastille de case ne redéfinit ni sa taille ni sa police : "
+            "c'est le MÊME marqueur que dans la colonne")
+
+    def test_la_case_a_trois_lignes_monte_son_plancher(self):
+        """Un `min-height` trop court déborde EN SILENCE."""
+        css = _sans_commentaires_css(_lire("static/gestion_rh.css"))
+        i = css.index(".ch-t:has(.ch-t-av)")
+        bloc = css[i:css.index("}", i)]
+        m = re.search(r"min-height:\s*(\d+)px", bloc)
+        assert m and int(m.group(1)) >= 84, (
+            "trois lignes (chiffre, compte, pastilles) ne tiennent pas dans "
+            "la hauteur d'origine")

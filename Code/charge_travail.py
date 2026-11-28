@@ -154,6 +154,30 @@ def _derniers_mois():
     return out
 
 
+def poids_du_role(poids_role, poids_carto, role_id, entite_id):
+    """Ce que ce rôle pèse POUR CETTE PERSONNE, selon où elle le tient.
+
+    ⚠️ C'est la règle, et elle vit à UN seul endroit : le tableau, la pop-up
+    de détail et l'avertissement du plafond la lisent tous ici. Deux calculs
+    d'un même poids finissent par afficher deux chiffres — c'est la leçon de
+    `dashboard_rows`, payée une fois.
+
+    - **pas rattachée** (`entite_id` NUL) → la somme de toutes les cartos où
+      le rôle est mesuré. C'est EXACTEMENT le comportement d'avant l'attache :
+      une instance en service ne voit aucun chiffre bouger tant que personne
+      n'a situé qui que ce soit.
+    - **rattachée** → le poids du rôle DANS SA CARTO, et lui seul. C'est ce
+      qui rend deux titulaires comparables.
+    - ⚠️ **rattachée à une carto où le rôle n'est pas mesuré** → NUL, pas
+      zéro, même si le rôle est mesuré ailleurs. Elle travaille là où personne
+      n'a pesé ce rôle : « on ne sait pas » et « rien à faire » ne demandent
+      pas le même geste, et tout ce module tient cette distinction.
+    """
+    if entite_id is None:
+        return poids_role.get(role_id)
+    return (poids_carto.get(role_id) or {}).get(entite_id)
+
+
 def charge(periode=None):
     """Le poids de chaque rôle et de chaque personne, pour un mois.
 
@@ -179,10 +203,12 @@ def charge(periode=None):
     # ⚠️ UNE seule lecture de `user_roles`, pour les deux index : la lire deux
     # fois, c'est une requête de plus pour la même chose.
     liens = UserRole.query.all()
-    titulaires, roles_de = {}, {}
+    titulaires, roles_de, attache = {}, {}, {}
     for ur in liens:
         titulaires.setdefault(ur.role_id, []).append(ur.user_id)
         roles_de.setdefault(ur.user_id, []).append(ur.role_id)
+        # OÙ cette personne tient ce rôle. NULL = pas rattachée.
+        attache[(ur.user_id, ur.role_id)] = getattr(ur, "entity_id", None)
     comptes = {u.id: u for u in User.query.order_by(User.last_name, User.first_name).all()}
 
     def _nom(u):
@@ -191,10 +217,16 @@ def charge(periode=None):
     # ── Les rôles ────────────────────────────────────────────────────────
     roles_json = []
     poids_role = {}
+    #: {role_id: {entite_id: annuel_min}} — le poids d'un rôle CARTO PAR CARTO.
+    #  C'est lui qui permet de comparer deux titulaires du même rôle : sans
+    #  lui, chacun portait la somme de toutes les cartos, donc le même chiffre.
+    poids_carto = {}
     for r in roles:
         mes = par_role.get(r.id) or []
         total = sum(m["annuel_min"] for m in mes)
         poids_role[r.id] = total if mes else None
+        poids_carto[r.id] = {m["entite_id"]: m["annuel_min"] for m in mes
+                             if m["entite_id"]}
         roles_json.append({
             "id": r.id,
             "nom": nom_affiche(r),
@@ -204,7 +236,9 @@ def charge(periode=None):
             "part": (total / plein_min) if (mes and plein_min) else None,
             "mesures": mes,
             "derniere_periode": derniers.get(r.id),
-            "titulaires": [{"id": i, "nom": _nom(comptes[i])}
+            "titulaires": [{"id": i, "nom": _nom(comptes[i]),
+                            "entite_id": attache.get((i, r.id)),
+                            "entite": noms_entites.get(attache.get((i, r.id))) or ""}
                            for i in titulaires.get(r.id, []) if i in comptes],
         })
     # Le plus lourd d'abord ; les non mesurés en fin de liste — un rôle sans
@@ -222,12 +256,21 @@ def charge(periode=None):
         for rid in roles_de.get(u.id, []):
             if rid not in noms_roles:
                 continue
-            p = poids_role.get(rid)
+            ent = attache.get((u.id, rid))
+            p = poids_du_role(poids_role, poids_carto, rid, ent)
             if p is None:
                 sans += 1
             else:
                 total += p
-            siens.append({"id": rid, "nom": noms_roles[rid], "annuel_min": p})
+            siens.append({"id": rid, "nom": noms_roles[rid], "annuel_min": p,
+                          "entite_id": ent,
+                          "entite": noms_entites.get(ent) or "",
+                          # Les cartos où CE rôle est mesuré : de quoi changer
+                          # l'attache sans deviner ce qui existe.
+                          "cartos": [{"id": m["entite_id"], "nom": m["entite"],
+                                      "annuel_min": m["annuel_min"]}
+                                     for m in (par_role.get(rid) or [])
+                                     if m["entite_id"]]})
         siens.sort(key=lambda x: (x["annuel_min"] is None, -(x["annuel_min"] or 0)))
         personnes.append({
             "id": u.id,
@@ -243,6 +286,35 @@ def charge(periode=None):
         })
     personnes.sort(key=lambda x: (x["annuel_min"] is None,
                                   -(x["annuel_min"] or 0), x["nom"].lower()))
+
+    # ── Qui performe : les titulaires, posés dans LEUR carto ─────────────
+    # ⚠️ Le placement se décide ICI, pas dans le navigateur : c'est la même
+    # règle que le poids ci-dessus, et deux lectures d'une même attache
+    # finiraient par ne plus dire la même chose.
+    charges = {p["id"]: p for p in personnes}
+    for r in roles_json:
+        # ⚠️ Par CARTO, et non par MESURE. Une personne peut être située sur
+        # une carto où ce rôle n'est pas mesuré : attachée aux mesures, elle
+        # ne tombait dans AUCUNE case — ni dans « non situés », puisqu'elle
+        # EST située. Elle disparaissait de la ligne de son propre rôle.
+        # Posée dans la case VIDE de sa carto, elle dit la seule chose vraie :
+        # quelqu'un travaille là, et personne n'y a pesé ce rôle.
+        # ⚠️ Clés en TEXTE : c'est ce que le navigateur compare (`String(id)`).
+        par_carto = {}
+        for t in r["titulaires"]:
+            if not t["entite_id"]:
+                continue
+            par_carto.setdefault(str(t["entite_id"]), []).append(
+                {"id": t["id"], "nom": t["nom"],
+                 # Sa charge TOTALE, tous rôles confondus : c'est elle qui dit
+                 # si la personne est déjà chargée par ailleurs.
+                 "total_min": charges.get(t["id"], {}).get("annuel_min"),
+                 "part_plafond": charges.get(t["id"], {}).get("part_plafond")})
+        r["titulaires_carto"] = par_carto
+        # Ceux que personne n'a situés : ils ne se comparent pas, et l'écran
+        # doit le dire plutôt que de les ranger au hasard dans une colonne.
+        r["sans_carto"] = [{"id": t["id"], "nom": t["nom"]}
+                           for t in r["titulaires"] if not t["entite_id"]]
 
     entite_calendrier = None
     try:
@@ -265,12 +337,17 @@ def charge(periode=None):
     }
 
 
-def verdict_ajout(charge_payload, user_id, role_id):
+def verdict_ajout(charge_payload, user_id, role_id, entite_id=None):
     """Ce que l'ajout d'un rôle ferait à la charge d'une personne.
 
     ⚠️ Le MÊME calcul que l'écran affiche, servi depuis la même source : le
     navigateur n'a pas à le refaire, et deux implémentations d'un même
     verdict finissent par diverger (c'est la leçon de `dashboard_rows`).
+
+    ⚠️ `entite_id` est la carto DEPUIS LAQUELLE on coche — celle à laquelle le
+    lien va être attaché (`post_role_holders`). Sans elle, l'avertissement
+    annoncerait la somme de toutes les cartos du rôle alors que la personne
+    n'en portera qu'une : un plafond franchi sur le papier et pas en vrai.
     """
     plafond = charge_payload.get("plafond_min") or 0
     gens = {p["id"]: p for p in charge_payload.get("personnes", [])}
@@ -278,9 +355,16 @@ def verdict_ajout(charge_payload, user_id, role_id):
     moi, role = gens.get(user_id), roles.get(role_id)
     if not moi or not role or not plafond:
         return None
-    ajout = role.get("annuel_min")
+    if entite_id is None:
+        ajout = role.get("annuel_min")
+    else:
+        ajout = next((m["annuel_min"] for m in role.get("mesures") or []
+                      if m["entite_id"] == entite_id), None)
     if ajout is None:
-        return None          # un rôle non mesuré n'ajoute rien de connu
+        # Un rôle non mesuré — ou non mesuré SUR CETTE CARTO — n'ajoute rien
+        # de connu : on ne prévient pas d'un dépassement qu'on ne sait pas
+        # calculer.
+        return None
     avant = moi.get("annuel_min") or 0.0
     apres = avant + ajout
     return {

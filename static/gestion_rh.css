@@ -2552,6 +2552,48 @@ table.ch-dm td > div { height: 100%; }
     .ch-chif { grid-template-columns: 1fr; }
     .ch-lgd-c { margin-left: 0; }
 }
+
+/* ══ QUI PERFORME : les titulaires dans LEUR carto ══════════════════════
+   ⚠️ Une TROISIÈME ligne dans la case : la hauteur plancher monte avec elle.
+   Un `min-height` trop court déborde EN SILENCE — c'est ce qui avait décalé
+   les lignes d'une demi-hauteur quand la colonne Total est passée à trois
+   étages. Mesuré : 20 px d'avatar + 5 px d'écart. */
+.ch-t:has(.ch-t-av) { min-height: 90px; padding: 7px 4px; }
+.ch-t-av { display: flex; align-items: center; margin-top: 4px; }
+/* ⚠️ La MÊME pastille que dans la colonne, pas une version réduite. Essayée
+   à 20 px, elle rendait ses initiales à 8,4 px RÉELS — `body.pg` porte
+   `zoom: .8`, et le plancher de l'échelle typographique est 11. Celle de la
+   colonne est déjà à 10 : descendre encore ferait deux tailles de marqueur
+   pour un seul sens. Mesuré : trois pastilles font 64 px dans une case qui
+   en offre 195. */
+.ch-t-av .ch-av { border-color: rgba(255, 255, 255, .55); }
+/* ⚠️ Sur une case COLORÉE, l'anneau blanc du fond disparaît : c'est la
+   couleur sémantique qui doit se voir, et elle n'est posée que sur les
+   titulaires dont on connaît la charge. */
+.ch-t-av .ch-av.a-hi { border-color: var(--ch-rouge); }
+.ch-t-av .ch-av.a-mi { border-color: var(--ch-ambre); }
+.ch-t-av .ch-av.a-lo { border-color: var(--ch-vert); }
+
+/* ══ OÙ CETTE PERSONNE TIENT CE RÔLE ════════════════════════════════════
+   Sous la ligne du rôle, dans la pop-up de détail : c'est là qu'on lit la
+   charge, donc là que se règle ce qui la décide. */
+.ch-ou {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 0 10px 9px 26px; margin-top: -4px;
+}
+.ch-ou-l {
+    font-size: 12.5px; color: var(--muted, #64748b); display: inline-flex;
+    align-items: center; gap: 5px;
+}
+.ch-ou-l i { font-size: 11px; opacity: .7; }
+.ch-ou-s {
+    font: inherit; font-size: 13px; padding: 4px 8px; border-radius: 7px;
+    border: 1px solid var(--border-strong, #cbd5e1);
+    background: var(--card, #fff); color: var(--ink, #0f172a);
+    max-width: 230px;
+}
+.ch-ou-s:disabled { opacity: .6; }
+.ch-ou-rien { font-size: 12px; color: var(--faint, #94a3b8); font-style: italic; }
 /* ⚠️⚠️ LE REPLI ÉTROIT EST REDIT ICI. Le `@media (max-width: 900px)` qui
    remet la carte d'une personne sur deux colonnes est déclaré neuf cents
    lignes PLUS HAUT : à spécificité égale, c'est la dernière déclaration qui

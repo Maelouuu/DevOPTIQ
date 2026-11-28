@@ -12275,6 +12275,133 @@ démarrage NORMAL : **103 routes GET sans paramètre, 0 en erreur**.
 Tests : `tests/test_165_base_neuve.py::TestLesCELLULESDeCreateAppNeSeReECRIVENTPas`
 (3 cas ; **2 vérifiés rouges** en remettant la boucle fautive).
 
+#### OÙ une personne tient son rôle — et « qui performe » (2026-11-28)
+
+« Je rattache un titulaire à sa carto, pour comparer les personnes d'un même
+rôle ? Si cela améliore le tout oui. » Cela l'améliore, et c'est mesurable :
+`Qualité` pèse 3 090 h réparties sur deux cartos, et **ses deux titulaires
+portaient tous les deux 3 090 h**. Le damier comparait des CARTOS ; deux
+personnes du même rôle, jamais. Or c'est la question posée au départ — « pour
+un même rôle, la charge de travail de différents champions afin d'analyser
+qui performe ».
+
+`UserRole.entity_id` (migration à chaud) dit OÙ la personne tient ce rôle.
+Mesuré après, au banc : **Hubert 1 939 h (FluidClip), Madhuri 1 152 h
+(END_DT)** — la ligne « Qualité » du damier porte les deux, chacun dans sa
+colonne.
+
+⚠️ **NULL n'est pas « la carto 0 » : c'est « pas rattaché »**, et cela garde
+EXACTEMENT le comportement d'avant (toutes les cartos sommées). C'est ce qui
+rend la colonne sûre sur une instance en service — **aucune reprise à jouer**,
+aucun marqueur en base, et aucun chiffre déjà affiché ne bouge tant que
+personne n'a situé qui que ce soit.
+
+⚠️ **La clé primaire reste (user_id, role_id)** : une personne ne tient donc
+ce rôle QU'À UN endroit. Ce n'est pas un oubli — c'est ce qui fait de l'attache
+une réponse unique à « où cette personne fait-elle ce rôle ».
+
+#### La règle, écrite à UN seul endroit
+
+`charge_travail.poids_du_role(poids_role, poids_carto, role_id, entite_id)` —
+le tableau, la pop-up de détail et l'avertissement du plafond la lisent tous
+là. Deux calculs d'un même poids finissent par afficher deux chiffres.
+
+- **pas rattachée** → la somme de toutes les cartos (le comportement d'avant) ;
+- **rattachée** → le poids du rôle DANS SA CARTO, et lui seul ;
+- ⚠️ **rattachée à une carto où le rôle n'est pas mesuré** → **NUL, pas zéro**,
+  même si le rôle est mesuré ailleurs. Elle travaille là où personne n'a pesé
+  ce rôle : « on ne sait pas » et « rien à faire » ne demandent pas le même
+  geste, et tout ce module tient cette distinction.
+
+#### Qui écrit l'attache, et qui ne l'écrit PAS
+
+⚠️⚠️ **Cocher un rôle REMPLIT une attache vide, il n'en DÉPLACE jamais une
+posée.** `majLien` (page RH) et la page Partage postent déjà sur
+`/cartography/api/access/<e>/roles/<r>/holders` — **la carto est donc déjà
+dans l'appel**, et l'attache se remplit toute seule, sans écran de plus. Mais
+ce clic dit « cette personne tient ce rôle » ; l'attache est un SECOND fait,
+plus lourd, puisqu'il décide de sa charge mesurée. Un second fait ne s'écrit
+pas par un geste qui visait le premier — surtout depuis la page RH, où la
+carto du bandeau peut n'être que celle qu'on regardait.
+
+Le déplacement se fait donc explicitement : **`POST /gestion_rh/role_carto`**,
+un sélecteur sous chaque rôle dans la pop-up de détail — là où on LIT la
+charge, donc là où se règle ce qui la décide. `entity_id: null` détache (sans
+ce retour, une attache posée par mégarde ne s'enlèverait plus).
+⚠️ Elle refuse une carto inconnue (l'identifiant vient du navigateur) et un
+rôle que la personne ne tient pas (aucune ligne pour porter l'attache).
+
+⚠️ `_appliquer_roles` (fiche de compte) travaille déjà PAR PAIRE et ne touche
+à rien d'autre : une attache y survit. Les deux routes `/assign_roles` et
+`/collaborateur_roles`, elles, remplacent TOUS les rôles d'une personne et
+effaceraient les attaches — elles ne sont appelées par **aucun gabarit ni
+aucun JS** (vérifié), et sont laissées telles quelles.
+
+⚠️ **`delete_entity` DÉTACHE** (`UserRole.entity_id → NULL`), à côté du
+détachement de `User.entity_id` qui existait déjà : c'est une clé étrangère
+vers `entities`, donc PostgreSQL refuserait la suppression — et SQLite non,
+le défaut ne se verrait qu'en production. On détache, on ne retire pas le
+rôle : la personne le tient toujours, on ne sait simplement plus où.
+
+#### L'écran
+
+Les titulaires sont posés **DANS LEUR CASE**, et le placement vient du serveur
+(`titulaires_carto`), pas d'un second calcul de l'attache. La dernière colonne
+ne porte plus que les **non situés**, et elle **disparaît** quand tout le monde
+est placé — le damier devient alors une pure comparaison. Sur une instance qui
+vient de prendre ce code, où aucune attache n'existe, elle est intacte : rien
+ne bouge tant qu'on n'a rien situé.
+
+⚠️⚠️ **Et une personne ne doit JAMAIS disparaître de la ligne de son rôle.**
+Premier jet : les titulaires étaient attachés aux MESURES. Madhuri, située sur
+END_DT où « Méthodes » n'est pas mesuré, ne tombait alors dans aucune case —
+ni dans « non situés », puisqu'elle EST située. Vu à l'écran, pas déduit. Elle
+est désormais posée dans la case VIDE de sa carto, qui dit la seule chose
+vraie : quelqu'un travaille là, et personne n'y a pesé ce rôle.
+⚠️ Les clés de `titulaires_carto` sont du **TEXTE** : c'est ce que le
+navigateur compare (`String(entite_id)`), et une clé entière ne tomberait sur
+aucune colonne, en silence.
+
+⚠️ **Le verdict du plafond prend la carto cochée.** Sans elle, il annoncerait
+la somme de toutes les cartos du rôle alors que la personne n'en portera
+qu'une : un plafond franchi sur le papier et pas en vrai. Et une carto où le
+rôle n'est pas mesuré ne prévient de **RIEN** — on ne prévient pas d'un
+dépassement qu'on ne sait pas calculer.
+
+⚠️ **La pastille de case est la MÊME que dans la colonne.** Essayée à 20 px,
+elle rendait ses initiales à **8,4 px RÉELS** (`body.pg` porte `zoom: .8`, et
+le plancher de l'échelle est 11) ; celle de la colonne est déjà à 10 —
+descendre encore ferait deux tailles de marqueur pour un seul sens. Et la case
+passe à trois lignes, donc son plancher monte : un `min-height` trop court
+déborde EN SILENCE, c'est ce qui avait décalé les lignes d'une demi-hauteur
+quand la colonne Total est passée à trois étages.
+
+⚠️ Relevé au passage sur l'écran anglais : `rh.ch_pct_full` écrivait
+« 188 % of a full-time » — l'espace avant le % est une convention FRANÇAISE, à
+côté des « 162% » que `pct()` écrit déjà sans espace. Deux formes du même signe
+sur un seul écran.
+
+#### Deux pièges, tous deux déjà connus
+
+- ⚠️ **Un cliquet qui cherche une chaîne doit viser un fragment qui ne soit
+  pas une SOUS-CHAÎNE d'un autre.** `"libres ?"` est contenu dans
+  `"!libres ?"` : retirer la garde de l'en-tête de colonne laissait le cas au
+  VERT. Il vise maintenant les deux fragments exacts.
+- ⚠️ **Lire `.id` sur une instance supprimée lève** (SQLAlchemy tente de la
+  rafraîchir) : le décor d'un test qui supprime une carto doit la retirer de
+  son inventaire, et capturer l'identifiant AVANT.
+
+Tests : `tests/test_171_charge_travail.py` passe de 44 à **72 cas** ;
+**19 défauts remis un par un, 19 cliquets tombés** — dont un qui ne gardait
+rien au premier essai. Banc : `tools/devrun_charge.py` sème les CINQ états en
+même temps (deux titulaires du même rôle sur deux cartos, un rôle tenu sans
+attache, une attache sur une carto sans mesure, un rôle mesuré le mois d'avant,
+un jamais mesuré). Éprouvé à l'écran dans les deux langues : parcours complet
+(déplacement d'une attache **relu en base** — Hubert 2 131 h / 162 % → 1 344 h
+/ 102 %, et HG qui passe de la colonne FluidClip à END_DT, à côté de MP), zéro
+fuite française sur l'écran anglais (396 textes relevés, attributs compris),
+zéro débordement horizontal.
+
 ---
 
 ## Notes importantes (suite)

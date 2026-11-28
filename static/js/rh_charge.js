@@ -216,6 +216,7 @@
   }
 
   function damier(roles, cols, plein) {
+    const libres = roles.some((r) => (r.sans_carto || []).length);
     const tete = cols.map((c) =>
       `<th class="ch-c"><span class="ch-dot" style="background:hsl(${
         teinte(c.nom)} 62% 48%)"></span>${esc(c.nom)}</th>`).join('');
@@ -224,11 +225,30 @@
       r.mesures.forEach((m) => { par[m.entite_id == null ? '_' : String(m.entite_id)] = m; });
       const cases = cols.map((c) => {
         const m = par[c.cle];
-        if (!m) return `<td><div class="ch-t v0">—</div></td>`;
+        /* ⚠️ C'EST ICI que « qui performe » se lit : les titulaires posés
+           dans LEUR carto. Un rôle commun à deux cartos pesait pareil pour
+           tous ses tenants — on comparait des cartos, jamais des personnes.
+           Le placement vient du SERVEUR (`titulaires_carto`), pas d'un second
+           calcul de l'attache. */
+        const qui = (r.titulaires_carto || {})[c.cle] || [];
+        const pastilles = !qui.length ? '' : `<span class="ch-t-av">${
+          qui.slice(0, 3).map(avatar).join('')}${
+          qui.length > 3 ? `<span class="ch-av ch-av--p">+${
+            qui.length - 3}</span>` : ''}</span>`;
+        /* ⚠️ Une case VIDE porte quand même ses titulaires : quelqu'un
+           travaille là et personne n'y a pesé ce rôle. Sans cela la personne
+           disparaissait de la ligne de son propre rôle — elle n'était ni
+           dans une case (aucune mesure) ni dans « non situés » (elle EST
+           située). La case dit alors ce qu'il y a à faire. */
+        if (!m) {
+          return `<td><div class="ch-t v0">${
+            qui.length ? esc(L('ch_nomes_ici')) : '—'}${pastilles}</div></td>`;
+        }
         const n = niveau(plein ? m.annuel_min / plein : null);
         return `<td><div class="ch-t n${n}">
             <b>${heures(m.annuel_min)}</b>
             <span>${esc(nf('ch_acts', m.n_activites))}</span>
+            ${pastilles}
           </div></td>`;
       }).join('');
       const part = r.part;
@@ -243,18 +263,25 @@
             <em class="${part > 1 ? 'hi' : (part > 0.5 ? 'mi' : 'lo')}"
               >${esc(V('ch_pct_full', { n: fmt(Math.round((part || 0) * 100)) }))}</em>
           </div></td>
-          <td><div class="ch-tit">${
-            r.titulaires.length
-              ? r.titulaires.slice(0, 4).map(avatar).join('')
-                + (r.titulaires.length > 4 ? `<span class="ch-av ch-av--p">+${
-                    r.titulaires.length - 4}</span>` : '')
-              : `<span class="ch-rien">—</span>`}</div></td>
+          ${!libres ? '' : `<td><div class="ch-tit">${
+            (r.sans_carto || []).length
+              ? (r.sans_carto || []).slice(0, 4).map(avatar).join('')
+                + (r.sans_carto.length > 4 ? `<span class="ch-av ch-av--p">+${
+                    r.sans_carto.length - 4}</span>` : '')
+              : `<span class="ch-rien">—</span>`}</div></td>`}
         </tr>`;
     }).join('');
+    /* ⚠️ La dernière colonne ne porte que les titulaires que PERSONNE n'a
+       situés : les autres sont dans leur case, et les redire ici les
+       compterait deux fois à l'œil. Elle DISPARAÎT quand tout le monde est
+       situé — le damier devient alors une pure comparaison — et elle est
+       intacte sur une instance qui vient de prendre ce code, où aucune
+       attache n'existe encore : rien ne bouge tant qu'on n'a rien situé. */
     return `<div class="ch-dam"><table class="ch-dm">
         <thead><tr><th class="ch-r">${esc(L('ch_role'))}</th>${tete}
           <th class="ch-c">${esc(L('ch_total'))}</th>
-          <th class="ch-c">${esc(L('ch_holders'))}</th></tr></thead>
+          ${libres ? `<th class="ch-c">${esc(L('ch_holders_free'))}</th>` : ''}
+          </tr></thead>
         <tbody>${lignes}</tbody></table></div>`;
   }
 
@@ -336,6 +363,54 @@
       </button>`;
   }
 
+  /* ══ OÙ CETTE PERSONNE TIENT CE RÔLE ═══════════════════════════════════
+     ⚠️ Le SEUL endroit qui déplace une attache. Cocher un rôle depuis une
+     carto n'en remplit qu'une vide : ce clic dit « cette personne tient ce
+     rôle », et l'attache est un second fait, plus lourd — c'est lui qui
+     décide de sa charge mesurée. Il se pose donc là où on lit cette charge.
+     ⚠️ Et il est ÉCRIT, jamais deviné : sans cette ligne, une personne
+     rattachée sortait des comptages d'une carto sans que rien ne le dise. */
+
+  function ligneOu(p, r) {
+    /* ⚠️ La carto d'attache figure dans la liste MÊME si le rôle n'y est pas
+       mesuré : c'est le cas qui demande une correction, et un sélecteur qui
+       ne montre pas la valeur en place dit le contraire de la vérité. */
+    const choix = (r.cartos || []).slice();
+    if (r.entite_id && !choix.some((c) => c.id === r.entite_id)) {
+      choix.push({ id: r.entite_id, nom: r.entite, annuel_min: null });
+    }
+    const opts = [`<option value=""${r.entite_id ? '' : ' selected'}>${
+      esc(L('ch_where_none'))}</option>`].concat(choix.map((c) =>
+      `<option value="${c.id}"${c.id === r.entite_id ? ' selected' : ''}>${
+        esc(c.nom)}${c.annuel_min == null ? '' : ' · ' + heures(c.annuel_min)}</option>`));
+    return `<div class="ch-ou">
+        <span class="ch-ou-l"><i class="fa-solid fa-location-dot"></i>
+          ${esc(L('ch_where'))}</span>
+        <select class="ch-ou-s" data-ou="${p.id}:${r.id}">${opts.join('')}</select>
+        ${choix.length ? '' : `<em class="ch-ou-rien">${esc(L('ch_where_empty'))}</em>`}
+      </div>`;
+  }
+
+  async function poserOu(userId, roleId, entiteId, champ) {
+    champ.disabled = true;
+    try {
+      const rep = await fetch('/gestion_rh/role_carto', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, role_id: roleId,
+                               entity_id: entiteId || null }),
+      });
+      const j = await rep.json();
+      if (!j || !j.ok) { champ.disabled = false; return; }
+      /* ⚠️ On RECHARGE : l'attache change le poids de la personne, celui de
+         ses voisins dans le damier et la colonne « non situés ». Redresser
+         ces trois choses à la main donnerait une seconde règle pour un seul
+         verdict — c'est la leçon de `dashboard_rows`. La pop-up se rouvre
+         sur la personne, donc le réglage suivant est à un clic. */
+      await charger(periode);
+      ouvrirDetail(userId);
+    } catch (_) { champ.disabled = false; }
+  }
+
   /* ══ LA FENÊTRE DE DÉTAIL ══════════════════════════════════════════════ */
 
   function ouvrirDetail(userId) {
@@ -369,14 +444,22 @@
           <b>${heures(r.annuel_min)}</b>
           <span class="ch-pc ${r.annuel_min == null ? 'no'
             : (plafond && r.annuel_min / plafond > 1 ? 'hi' : 'lo')}">${
-            r.annuel_min == null ? esc(L('ch_nomes'))
+            r.annuel_min == null
+              ? esc(L(r.entite_id ? 'ch_where_nomes' : 'ch_nomes'))
               : pct(plafond ? r.annuel_min / plafond : null)}</span>
-        </div>`).join('')}
+        </div>
+        ${ligneOu(p, r)}`).join('')}
       <div class="ch-pl ch-pl--tot">
         <span class="ch-pl-n">${esc(L('ch_total'))}</span>
         <b>${heures(p.annuel_min)}</b>
         <span class="ch-pc ${p.part_plafond > 1 ? 'hi' : 'lo'}">${pct(p.part_plafond)}</span>
       </div>`;
+    $$('[data-ou]', $('#grh-ch-body')).forEach((s) => {
+      s.onchange = () => {
+        const [u, r] = s.dataset.ou.split(':');
+        poserOu(+u, +r, s.value ? +s.value : null, s);
+      };
+    });
     $('#grh-ch-win').classList.remove('hidden');
   }
 
@@ -389,22 +472,33 @@
      pour décider (la règle déjà posée pour les formulaires de la page
      Compétences). */
 
-  function verdict(userId, roleId) {
+  /* ⚠️ `entiteId` est la carto DEPUIS LAQUELLE on coche — celle à laquelle le
+     lien va être attaché. Sans elle, l'avertissement annoncerait la somme de
+     toutes les cartos du rôle alors que la personne n'en portera qu'une : un
+     plafond franchi sur le papier et pas en vrai. C'est la MÊME règle que
+     `charge_travail.poids_du_role`, et le serveur sert déjà le poids carto
+     par carto (`r.mesures`) pour qu'elle ne soit pas réécrite ici. */
+  function verdict(userId, roleId, entiteId) {
     if (!D) return null;
     const p = (D.personnes || []).find((x) => x.id === userId);
     const r = (D.roles || []).find((x) => x.id === roleId);
     const plafond = D.plafond_min || 0;
-    if (!p || !r || !plafond || r.annuel_min == null) return null;
+    if (!p || !r || !plafond) return null;
+    const ajout = entiteId == null ? r.annuel_min
+      : ((r.mesures || []).find((m) => m.entite_id === entiteId) || {}).annuel_min;
+    /* Un rôle non mesuré — ou non mesuré SUR CETTE CARTO — n'ajoute rien de
+       connu : on ne prévient pas d'un dépassement qu'on ne sait pas calculer. */
+    if (ajout == null) return null;
     const avant = p.annuel_min || 0;
-    const apres = avant + r.annuel_min;
+    const apres = avant + ajout;
     return {
       role: r.nom, qui: p.nom, avant: avant, apres: apres, plafond: plafond,
       depasse: apres > plafond, deja: avant > plafond,
     };
   }
 
-  function avertir(userId, roleId, coche, suite) {
-    const v = verdict(userId, roleId);
+  function avertir(userId, roleId, coche, suite, entiteId) {
+    const v = verdict(userId, roleId, entiteId);
     if (!v || !v.depasse) return false;
     const ligne = coche.closest('.grh-row') || coche.parentElement;
     if (!ligne) return false;

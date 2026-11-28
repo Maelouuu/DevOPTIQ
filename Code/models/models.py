@@ -596,6 +596,23 @@ class UserRole(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), primary_key=True)
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    #: OÙ cette personne tient ce rôle (migration à chaud).
+    #
+    #  ⚠️ Un rôle est COMMUN à l'entreprise (`Code/roles_communs.py`) et peut
+    #  porter des activités dans plusieurs cartos : sans cette colonne, le
+    #  poids d'un titulaire était la somme de TOUTES les cartos, donc le même
+    #  pour tous ses titulaires — on ne pouvait pas comparer deux personnes du
+    #  même rôle, ce qui est pourtant la question (« qui performe »).
+    #
+    #  ⚠️ NULL n'est pas « la carto 0 » : c'est « pas rattaché », et cela garde
+    #  EXACTEMENT le comportement d'avant (toutes les cartos sommées). C'est ce
+    #  qui rend la colonne sûre sur une instance en service — aucune reprise à
+    #  jouer, et aucun chiffre déjà affiché ne change tout seul.
+    #
+    #  ⚠️ La clé primaire reste (user_id, role_id) : une personne ne tient donc
+    #  ce rôle QU'À UN endroit. Ce n'est pas un oubli — c'est ce qui fait de
+    #  l'attache une réponse unique à « où cette personne fait-elle ce rôle ».
+    entity_id = db.Column(db.Integer, db.ForeignKey('entities.id'), nullable=True)
 
     user = db.relationship('User', backref='user_roles', foreign_keys=[user_id])
     role = db.relationship('Role', backref='user_roles')

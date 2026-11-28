@@ -601,8 +601,23 @@ def post_role_holders(entity_id, role_id):
     for uid in a_ajouter:
         if db.session.get(User, uid) is None:
             continue
-        if not UserRole.query.filter_by(user_id=uid, role_id=role.id).first():
-            db.session.add(UserRole(user_id=uid, role_id=role.id))
+        lien = UserRole.query.filter_by(user_id=uid, role_id=role.id).first()
+        if not lien:
+            # ⚠️ On attache à CETTE carto : le geste la nomme, et sans attache
+            # le poids du titulaire sommerait toutes les cartos du rôle — donc
+            # le même chiffre pour tous ses titulaires.
+            db.session.add(UserRole(user_id=uid, role_id=role.id,
+                                    entity_id=entity.id))
+        elif lien.entity_id is None:
+            # ⚠️ On REMPLIT une attache vide, on n'en DÉPLACE jamais une
+            # posée : ce clic dit « cette personne tient ce rôle », et
+            # l'attache est un second fait, plus lourd (il décide de sa charge
+            # mesurée). Un second fait ne s'écrit pas par un geste qui visait
+            # le premier — surtout depuis la page RH, où la carto du bandeau
+            # peut n'être que celle qu'on regardait. Le déplacement se fait
+            # explicitement (`POST /gestion_rh/role_carto`), et l'écran montre
+            # l'attache pour que rien ne soit invisible.
+            lien.entity_id = entity.id
     if a_retirer:
         UserRole.query.filter(UserRole.role_id == role.id,
                               UserRole.user_id.in_(a_retirer)).delete(
