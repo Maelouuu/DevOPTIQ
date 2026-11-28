@@ -175,6 +175,7 @@
           <a class="ch-go" href="/temps/"><i class="fa-solid fa-stopwatch"></i>
             ${esc(L('ch_empty_go'))}</a>
         </div>` + (sans.length ? zoneSansMesure(sans) : '');
+      brancherSans(corps);
       return;
     }
 
@@ -197,9 +198,14 @@
           <b>${trop.length ? esc(nf('ch_pers', trop.length)) : esc(L('ch_pers_0'))}</b>
           <i>${trop.length ? esc(trop.slice(0, 2).map((p) => p.nom).join(' · ')) : ''}</i>
         </button>
-        <div class="ch-k-no"><u>${esc(L('ch_tile_no'))}</u>
+        <button type="button" class="ch-k-al ch-k-no" data-aller="sans">
+          <u>${esc(L('ch_tile_no'))}</u>
           <b>${esc(nf('ch_nb_roles', sans.length))}</b>
-          <i>${esc(sans.slice(0, 3).map((r) => r.nom).join(' · '))}</i></div>
+          <i>${esc(V('ch_sans_bilan', {
+            a: fmt(sans.filter((r) => (r.cartos_possibles || []).length).length),
+            m: fmt(sans.filter((r) => !(r.cartos_possibles || []).length).length),
+          }))}</i>
+        </button>
       </div>
       ${damier(mes, cols, plein)}
       ${legende(plein)}
@@ -212,6 +218,19 @@
       bloc.scrollIntoView({ behavior: 'smooth', block: 'start' });
       bloc.classList.add('est-pointe');
       setTimeout(() => bloc.classList.remove('est-pointe'), 1600);
+    };
+
+    brancherSans(corps);
+    /* ⚠️ La tuile DÉPLIE la zone en plus d'y mener : repliée par défaut,
+       elle conduirait sinon à un en-tête fermé, c'est-à-dire à rien. */
+    const vers = $('[data-aller="sans"]', corps);
+    if (vers) vers.onclick = () => {
+      const zone = $('.ch-sans', corps);
+      if (!zone) return;
+      if (zone.dataset.ouvert !== '1') $('[data-sans-plier]', zone)?.click();
+      zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      zone.classList.add('est-pointe');
+      setTimeout(() => zone.classList.remove('est-pointe'), 1600);
     };
   }
 
@@ -300,16 +319,121 @@
       </div>`;
   }
 
+  /* ══ SANS MESURE : une liste de TRAVAIL, pas un mur ═══════════════════
+     Mesuré chez le pilote : 108 rôles, une pastille chacun, « jamais
+     mesuré » répété cent huit fois — plus haut que le damier qu'ils
+     suivent, et rien pour les replier. Trois choses la rendent utilisable.
+
+     ⚠️ 1. « À MESURER » et « AUCUNE ACTIVITÉ » ne se corrigent pas de la
+        même façon. La page Temps n'offre que les rôles qui tiennent une
+        activité de la carto regardée (`roles_de_la_carto`) : un rôle qui
+        n'en tient aucune ne peut être pesé NULLE PART. Mêlés, ils font
+        croire qu'il reste cent mesures à faire quand il y en a neuf.
+     ⚠️ 2. REPLIÉE par défaut, le compte dans son en-tête : c'est le compte
+        qu'on vient lire, pas les cent noms.
+     ⚠️ 3. Chaque rôle à mesurer est une PORTE vers son analyse. Une liste
+        qui dit ce qui manque sans permettre d'y aller reste un rapport.
+     ══════════════════════════════════════════════════════════════════ */
+
+  const CLE_SANS = 'rh.charge.sans';
+
+  function sansEstOuvert() {
+    try { return localStorage.getItem(CLE_SANS) === '1'; } catch (e) { return false; }
+  }
+  function poserSansOuvert(v) {
+    try { localStorage.setItem(CLE_SANS, v ? '1' : '0'); } catch (e) { /* refusé */ }
+  }
+
+  const sansAccent = (s) => String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+  function pastilleSans(r) {
+    const cartos = r.cartos_possibles || [];
+    const quand = r.derniere_periode
+      ? V('ch_last', { m: moisCourt(r.derniere_periode) }) : L('ch_never');
+    /* Rien à mesurer : pas de porte. Un bouton qui mène à un écran où le
+       rôle n'existe pas est pire qu'une ligne qui dit pourquoi. */
+    if (!cartos.length) {
+      return `<span class="ch-sans-p est-muet">
+          <b>${esc(r.nom)}</b><em>${esc(quand)}</em></span>`;
+    }
+    /* ⚠️ La pastille NOMME la carto où elle mène : avec plusieurs cartos
+       candidates, un clic muet choisirait à la place de l'utilisateur. */
+    const c = cartos[0];
+    const ou = cartos.length > 1
+      ? V('ch_sans_ou_n', { c: c.nom, n: fmt(cartos.length - 1) }) : c.nom;
+    return `<a class="ch-sans-p est-porte"
+        href="/temps/?analyse=role&amp;role=${r.id}&amp;carto=${c.id}"
+        title="${esc(V('ch_sans_aller', { r: r.nom, c: c.nom }))}">
+        <b>${esc(r.nom)}</b><em>${esc(quand)}</em>
+        <u><i class="fa-solid fa-stopwatch"></i>${esc(ou)}</u></a>`;
+  }
+
   function zoneSansMesure(sans) {
-    return `<div class="ch-sans">
-        <div class="ch-sans-h">${esc(L('ch_nomes_zone'))}</div>
-        ${sans.map((r) => `<span class="ch-sans-p">
-            <b>${esc(r.nom)}</b>
-            <em>${esc(r.derniere_periode
-              ? V('ch_last', { m: moisCourt(r.derniere_periode) })
-              : L('ch_never'))}</em>
-          </span>`).join('')}
+    const faire = sans.filter((r) => (r.cartos_possibles || []).length);
+    const muets = sans.filter((r) => !(r.cartos_possibles || []).length);
+    const ouv = sansEstOuvert();
+    const groupe = (g, cle, liste, dit) => (liste.length
+      ? `<div class="ch-sans-g" data-g="${g}">
+        <u>${esc(nf(cle, liste.length))}</u>
+        ${dit ? `<p>${esc(dit)}</p>` : ''}
+        <div class="ch-sans-l">${liste.map(pastilleSans).join('')}</div>
+      </div>` : '');
+    return `<div class="ch-sans" data-ouvert="${ouv ? '1' : '0'}">
+        <button type="button" class="ch-sans-h" data-sans-plier
+                aria-expanded="${ouv ? 'true' : 'false'}">
+          <i class="fa-solid fa-chevron-right ch-sans-c"></i>
+          <span>${esc(L('ch_nomes_zone'))}</span>
+          <b>${esc(nf('ch_nb_roles', sans.length))}</b>
+          <em>${esc(V('ch_sans_bilan', { a: fmt(faire.length),
+                                         m: fmt(muets.length) }))}</em>
+        </button>
+        <div class="ch-sans-b">
+          <label class="ch-sans-q">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" data-sans-q
+                   placeholder="${esc(L('ch_sans_cherche'))}"
+                   aria-label="${esc(L('ch_sans_cherche'))}">
+          </label>
+          ${groupe('faire', 'ch_sans_faire', faire, '')}
+          ${groupe('muet', 'ch_sans_muet', muets, L('ch_sans_muet_d'))}
+          <p class="ch-sans-rien" hidden>${esc(L('ch_sans_rien'))}</p>
+        </div>
       </div>`;
+  }
+
+  function brancherSans(corps) {
+    const zone = $('.ch-sans', corps);
+    if (!zone) return;
+    const plier = $('[data-sans-plier]', zone);
+    if (plier) plier.onclick = () => {
+      const o = zone.dataset.ouvert !== '1';
+      zone.dataset.ouvert = o ? '1' : '0';
+      plier.setAttribute('aria-expanded', o ? 'true' : 'false');
+      poserSansOuvert(o);
+    };
+    const q = $('[data-sans-q]', zone);
+    if (!q) return;
+    /* ⚠️ Il MASQUE, il ne re-rend pas : réécrire la liste à chaque frappe
+       ferait perdre le curseur du champ qu'on tape.
+       ⚠️ Et `input`, pas `change` : sur `change` il ne filtrerait rien
+       pendant la frappe, sans la moindre erreur pour le dire. */
+    q.addEventListener('input', () => {
+      const t = sansAccent(q.value.trim());
+      let vus = 0;
+      $$('.ch-sans-p', zone).forEach((p) => {
+        const ok = !t || sansAccent(p.textContent).indexOf(t) >= 0;
+        p.hidden = !ok;
+        if (ok) vus += 1;
+      });
+      // Un groupe dont toutes les pastilles sont masquées se masque aussi,
+      // sinon on lit son titre au-dessus de rien.
+      $$('.ch-sans-g', zone).forEach((g) => {
+        g.hidden = !$$('.ch-sans-p', g).some((p) => !p.hidden);
+      });
+      const rien = $('.ch-sans-rien', zone);
+      if (rien) rien.hidden = vus > 0;
+    });
   }
 
   /* ══ LA COLONNE DE LA SECTION ① ════════════════════════════════════════

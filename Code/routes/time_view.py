@@ -1,5 +1,5 @@
 # Code/routes/time_view.py
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, session
 from datetime import datetime
 from sqlalchemy import text
 from Code.extensions import db
@@ -328,7 +328,17 @@ def roles_de_la_carto(activity_ids):
 
 @time_bp.route('/', methods=['GET'])
 def page():
-    # MODIFIÉ: Filtrer par entité active
+    # Arriver de la page RH pour peser un rôle : la carto vient avec, sinon
+    # `#role-select` — qui n'offre que les rôles de la carto ACTIVE — ne le
+    # porterait pas, et on tomberait sur un formulaire où le rôle demandé
+    # n'existe pas.
+    #
+    # ⚠️ Un identifiant venu de l'URL n'est pas un droit : on ne rend active
+    #    qu'une carto que ce compte peut ouvrir.
+    cible = request.args.get('carto', type=int)
+    if cible and any(e.id == cible for e in Entity.accessible()):
+        session['active_entity_id'] = cible
+
     activities = Activities.for_active_entity().order_by(Activities.name.asc()).all()
     roles = roles_de_la_carto([a.id for a in activities])
     return render_template('time_dashboard.html', activities=activities, roles=roles)

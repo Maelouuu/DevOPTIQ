@@ -1893,6 +1893,36 @@
 
   // ---------------------- INIT ------------------------  }
 
+  /* ══ ARRIVER DE LA PAGE RH POUR PESER UN RÔLE ════════════════════════
+     La zone « sans mesure » du damier y mène. Un rôle qu'on y clique est un
+     rôle à peser : il arrive ici DÉJÀ choisi, ses activités chargées. Sans
+     cela on retombait sur l'accueil, devant une liste déroulante qui porte
+     tous les rôles de la carto et rien pour dire lequel on venait mesurer.
+
+     ⚠️ L'écran s'ouvre DANS TOUS LES CAS, même quand le rôle n'est pas de
+     cette carto : le message qui l'explique vit dans ce panneau, et laissé
+     sur l'accueil il ne se verrait nulle part.
+     ⚠️ Le rôle se pose APRÈS `ouvrirNeuve`, jamais avant : `viderSaisie`
+     remet `#role-select` à vide et l'écraserait.
+     ⚠️ Et l'adresse se nettoie : sinon un rafraîchissement rouvre la saisie
+     par-dessus ce qu'on est en train d'écrire. */
+  async function arriveeParURL() {
+    const q = new URLSearchParams(location.search);
+    if (q.get('analyse') !== 'role') return;
+    const rid = q.get('role');
+    history.replaceState(null, '', location.pathname);
+    if (!rid) return;
+    ouvrirNeuve('role');
+    const sel = $('#role-select');
+    if (!sel || !$$('#role-select option').some(o => o.value === String(rid))) {
+      flashFeedback('role-feedback', false, tl('role_hors_carto', ''));
+      return;
+    }
+    sel.value = String(rid);
+    await loadRoleActivities(rid);
+    recalcRoleTotals();
+  }
+
   // ---------------------- INIT ------------------------
   (async () => {
     // ⚠️ Le mois d'abord : le bouton naît VIDE dans le gabarit (son libellé
@@ -1934,6 +1964,8 @@
       await loadRoleActivities($('#role-select').value);
       setTimeout(recalcRoleTotals, 0);
     }
+
+    await arriveeParURL();
   })();
 
 })();

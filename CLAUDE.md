@@ -12590,6 +12590,87 @@ Tests : `tests/test_171_charge_travail.py` passe de 72 à **83 cas** (la classe
 qui affirmait le champ dans la bande est RÉÉCRITE, pas supprimée) ; **19
 défauts remis un par un, 19 cliquets tombés**.
 
+#### « SANS MESURE » devient une liste de TRAVAIL, pas un mur (2026-11-28)
+
+« On a encore énormément de pas remplis dans la page RH, ça fait une énorme
+liste non réductible ; ce serait top que cliquer sur ceux sans mesure nous
+amène direct dans la page Temps pour compléter l'analyse en question. »
+
+Relevé chez le pilote : **108 rôles « jamais mesuré »**, une pastille chacun,
+plus haut que le damier qu'ils suivent, et rien pour les replier.
+
+⚠️⚠️ **Et la plupart ne menaient NULLE PART.** La page Temps n'offre que les
+rôles qui tiennent une activité de la carto regardée (`roles_de_la_carto`,
+corrigé le 14/11) : un rôle du catalogue d'entreprise qui n'en tient aucune ne
+peut être pesé sur aucun écran. Mêlés aux autres, ces rôles-là faisaient
+croire qu'il restait cent mesures à faire quand il y en avait neuf. C'est le
+défaut de FOND, pas la hauteur de la liste.
+
+- **`_cartos_par_role`** (`Code/charge_travail.py`) rend, par rôle, les cartos
+  où il porte au moins une activité — en **UNE** requête sur la table
+  d'association. La zone se sépare alors en deux familles qui ne se corrigent
+  pas de la même façon : **à mesurer** (une porte) et **aucune activité** (une
+  phrase qui dit pourquoi). Mesuré au banc : 21 rôles, **2 à mesurer**.
+- **Repliée par défaut**, le compte dans son en-tête : c'est le compte qu'on
+  vient lire, pas les cent noms. Mesuré : **39 px repliée, 322 ouverte**.
+  L'état vit dans `localStorage`, chaque accès en try/catch.
+- ⚠️ **Un PLAFOND de hauteur sur le catalogue, et sur lui seul** : dépliée,
+  une liste de 99 rôles qu'on ne peut pas peser redevenait le mur qu'on vient
+  de retirer. Ce qu'il y a À FAIRE est au-dessus et n'est jamais coupé.
+  Même parti que la galerie de la page Partage.
+- **La recherche MASQUE**, elle ne re-rend pas (le curseur du champ qu'on
+  tape), écoute `input` et non `change`, et ignore les accents. Un groupe dont
+  tout est masqué se masque aussi, sinon on lit son titre au-dessus de rien.
+- ⚠️ `[hidden]` est une règle du NAVIGATEUR : `.ch-sans-p`, `.ch-sans-g` et
+  `.ch-sans-rien` posent un `display`, leurs `[hidden]` sont déclarés à la
+  main. **Dixième fois** que ce piège se présente.
+- **La tuile « Sans mesure » devient un bouton** qui DÉPLIE la zone avant d'y
+  mener — repliée par défaut, elle conduirait sinon à un en-tête fermé — et
+  son sous-titre dit enfin quelque chose : « 2 à mesurer · 19 sans activité »
+  au lieu de trois noms pris au hasard.
+
+**La porte : `/temps/?analyse=role&role=<id>&carto=<id>`.**
+
+- ⚠️ **La carto part dans l'adresse**, et `time_view.page()` la rend active :
+  sans elle, `#role-select` — qui n'offre que les rôles de la carto active —
+  ne porterait pas le rôle demandé.
+- ⚠️ **Un identifiant venu de l'URL n'est pas un droit** : seule une carto que
+  le compte peut OUVRIR devient active. Et le refus ne se mesure PAS sur « la
+  carto demandée n'est pas devenue active » — `Entity.get_active` rattrape de
+  toute façon une carto illisible, mais **en retombant sur « sa première
+  entité »** : sans la garde, un lien fabriqué DÉPLACE l'utilisateur, juste
+  pas là où l'adresse le demandait. Ce qui doit tenir est que RIEN ne bouge.
+- ⚠️ **La pastille NOMME la carto où elle mène**, et la **carto ouverte passe
+  en premier** : cliquer change la carto active, on ne déplace pas quelqu'un
+  qui pouvait rester où il est. L'alphabet ne départage que le reste.
+- ⚠️ **`get_active_id` lit la SESSION : hors requête, elle LÈVE.** Relevé au
+  BANC, pas en test — la suite appelle `charge()` à travers un client HTTP,
+  qui en a toujours une, tandis que `tools/devrun_charge.py` l'appelle dans un
+  simple `app_context` pour son résumé de démarrage, et il est mort dessus.
+  `has_request_context()` ; sans contexte le tri retombe sur l'alphabet, et
+  c'est juste : il n'y a alors aucune carto ouverte à préférer.
+- ⚠️ Côté `time.js`, le rôle se pose **APRÈS** `ouvrirNeuve` (`viderSaisie`
+  remet `#role-select` à vide et l'écraserait), l'adresse se **nettoie**
+  (sinon un rafraîchissement rouvre la saisie par-dessus ce qu'on écrit), et
+  l'écran s'ouvre **même quand le rôle n'est pas de cette carto** : le message
+  qui l'explique vit dans ce panneau, et laissé sur l'accueil il ne se
+  verrait nulle part.
+
+⚠️ **Le banc ne montrait que le cas malheureux** : il n'attachait d'activités
+qu'à « Qualité » et « Logistique », donc le groupe « à mesurer » était VIDE et
+la moitié de l'écran ne se voyait pas. Il sème désormais **18 rôles de
+catalogue sans activité** (ce que le pilote a sous les yeux), des rôles qui en
+portent et ne sont pas mesurés, et un rôle mesurable sur **deux** cartos —
+le cas où la pastille doit dire laquelle elle vise.
+
+⚠️ Et un cliquet a mordu sur lui-même : deux cas découpaient `time.js` sur le
+repère `// ---------------------- INIT`, que `_sans_commentaires_js` venait de
+retirer. **Une borne de découpe est du CODE, jamais un commentaire.**
+
+Tests : `test_171` passe de 88 à **105 cas** ; **17 défauts remis un par un,
+17 cliquets tombés** — dont un qui ne gardait rien au premier essai, et que
+le banc a corrigé (voir `Entity.get_active` ci-dessus).
+
 ---
 
 ## Notes importantes (suite)

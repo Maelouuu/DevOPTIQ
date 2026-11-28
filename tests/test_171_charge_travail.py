@@ -140,6 +140,21 @@ class _Decor:
         self.roles[nom] = r
         return r
 
+    def porte(self, nom, carto=None, n=1):
+        """Rattache des activités de `carto` au rôle `nom`.
+
+        C'est ce qui décide si un rôle PEUT être pesé : la page Temps n'offre
+        que les rôles qui tiennent une activité de la carto regardée. Un rôle
+        créé par `role()` seul n'en tient aucune — et c'est volontaire, les
+        deux cas doivent pouvoir se jouer.
+        """
+        from Code.models.models import activity_roles
+        e = carto or self.ent
+        for a in self.actes[e.id][:n]:
+            db.session.execute(activity_roles.insert().values(
+                activity_id=a.id, role_id=self.roles[nom].id, status="Acteur"))
+        db.session.commit()
+
     def personne(self, prenom, roles=()):
         from Code.models.models import User, UserRole
         from Code.security import hash_password
@@ -194,6 +209,14 @@ class _Decor:
             for ur in UserRole.query.filter_by(user_id=u.id).all():
                 db.session.delete(ur)
             db.session.delete(db.session.get(User, u.id))
+        # ⚠️ Les lignes d'association AVANT les rôles : PostgreSQL applique
+        # les clés étrangères (SQLite non), et le ménage échouerait là-bas
+        # sans qu'un test d'ici puisse le voir.
+        from Code.models.models import activity_roles
+        for r in self.roles.values():
+            db.session.execute(activity_roles.delete().where(
+                activity_roles.c.role_id == r.id))
+        db.session.commit()
         for r in self.roles.values():
             obj = db.session.get(Role, r.id)
             if obj:
@@ -1128,6 +1151,259 @@ class TestLEcranSitueEtCompare:
 
 #: `tools/` est retiré de l'arbre d'image (bytecode seul) : les cas qui lisent
 #  un semis y sautent franchement plutôt que de rougir à chaque exécution.
+# ═══════════════════════════════════════════════════════════════════════════
+#  SANS MESURE : une liste de TRAVAIL, pas un mur
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLaZoneSansMesureEstUneListeDeTravail:
+    """⚠️ Mesuré chez le pilote : **108 rôles** « jamais mesuré », une
+    pastille chacun, plus haut que le damier qu'ils suivent, et rien pour les
+    replier. Et surtout, la plupart ne menaient nulle part : la page Temps
+    n'offre que les rôles qui tiennent une activité de la carto regardée.
+    """
+
+    JS = "static/js/rh_charge.js"
+    CSS = "static/gestion_rh.css"
+
+    def test_le_payload_dit_OU_un_role_peut_etre_pese(self, auth_client, ids):
+        """C'est ce qui sépare « à mesurer » de « rien à mesurer » — mêlés,
+        ils font croire qu'il reste cent mesures à faire quand il y en a
+        neuf."""
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("M")
+            d.porte("M", d.ent, n=3)
+            d.analyse("M", "2026-11", n=3)
+            d.role("Porteur")
+            d.porte("Porteur", d.ent, n=2)
+            d.role("Vide")
+            roles = {r["id"]: r for r in charge("2026-11")["roles"]}
+            p = roles[d.roles["Porteur"].id]
+            v = roles[d.roles["Vide"].id]
+            assert [c["id"] for c in p["cartos_possibles"]] == [d.ent.id]
+            assert p["cartos_possibles"][0]["nom"] == d.ent.name
+            assert v["cartos_possibles"] == [], (
+                "un rôle qui ne tient aucune activité ne peut être pesé "
+                "NULLE PART : le dire est tout l'objet de ce champ")
+
+    def test_les_DEUX_cartos_d_un_role_sont_rendues(self, auth_client, ids):
+        """Un rôle est commun à l'entreprise : il peut porter des activités
+        sur plusieurs cartos, et c'est autant d'endroits où le peser."""
+        from Code.charge_travail import charge
+        with _Decor(auth_client, ids) as d:
+            d.role("M")
+            d.porte("M", d.ent, n=2)
+            d.analyse("M", "2026-11", n=2)
+            d.role("Deux")
+            d.porte("Deux", d.ent, n=1)
+            d.porte("Deux", d.ent2, n=1)
+            role = next(r for r in charge("2026-11")["roles"]
+                        if r["id"] == d.roles["Deux"].id)
+            assert ({c["id"] for c in role["cartos_possibles"]}
+                    == {d.ent.id, d.ent2.id})
+
+    def test_le_cout_ne_grandit_pas_avec_les_roles(self, auth_client, ids):
+        """⚠️ UNE requête sur la table d'association : lire les activités de
+        chaque rôle en boucle, c'est le défaut que tout ce module évite."""
+        from sqlalchemy import event
+        from Code.charge_travail import charge
+
+        def compter():
+            n = [0]
+
+            def avant(*_a, **_k):
+                n[0] += 1
+            event.listen(db.engine, "before_cursor_execute", avant)
+            try:
+                charge("2026-11")
+            finally:
+                event.remove(db.engine, "before_cursor_execute", avant)
+            return n[0]
+
+        with _Decor(auth_client, ids) as d:
+            d.role("M")
+            d.porte("M", d.ent, n=2)
+            d.analyse("M", "2026-11", n=2)
+            avant = compter()
+            for nom in ("R1", "R2", "R3", "R4", "R5"):
+                d.role(nom)
+                d.porte(nom, d.ent, n=2)
+            assert compter() == avant, (
+                "cinq rôles de plus ne doivent pas coûter une requête de plus")
+
+    def test_la_zone_est_REPLIEE_par_defaut(self):
+        """C'est le COMPTE qu'on vient lire, pas les cent noms."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("function sansEstOuvert")
+        assert "catch (e) { return false; }" in js[i:i + 220], (
+            "un stockage refusé doit rendre « replié », pas lever")
+        assert "localStorage.getItem(CLE_SANS) === '1'" in js[i:i + 220], (
+            "dépliée que sur un choix mémorisé")
+
+    def test_les_deux_familles_ne_se_melent_pas(self):
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("function zoneSansMesure")
+        bloc = js[i:i + 900]
+        assert "(r.cartos_possibles || []).length" in bloc
+        assert "const muets" in bloc and "const faire" in bloc, (
+            "« à mesurer » et « aucune activité » se comptent séparément")
+
+    def test_un_role_sans_activite_n_est_PAS_une_porte(self):
+        """Un bouton qui mène à un écran où le rôle n'existe pas est pire
+        qu'une ligne qui dit pourquoi."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("function pastilleSans")
+        muet = js[i:js.index("const c = cartos[0]", i)]
+        assert "if (!cartos.length)" in muet
+        assert "<span class=\"ch-sans-p est-muet\"" in muet
+        assert "href=" not in muet, "pas de porte sans rien à mesurer"
+
+    def test_la_porte_NOMME_la_carto_ou_elle_mene(self):
+        """⚠️ Avec plusieurs cartos candidates, un clic muet choisirait à la
+        place de l'utilisateur."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("const c = cartos[0]")
+        bloc = js[i:i + 700]
+        assert "analyse=role&amp;role=${r.id}&amp;carto=${c.id}" in bloc, (
+            "la carto part dans l'adresse, sinon la page Temps n'offre pas "
+            "ce rôle")
+        assert "esc(ou)" in bloc and "ch_sans_ou_n" in bloc, (
+            "la pastille écrit la carto où elle mène")
+
+    def test_la_recherche_MASQUE_au_lieu_de_re_rendre(self):
+        """Réécrire la liste à chaque frappe ferait perdre le curseur du
+        champ qu'on tape."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("q.addEventListener('input'")
+        bloc = js[i:js.index("function ", i)]
+        assert "p.hidden = !ok" in bloc
+        assert "innerHTML" not in bloc, "il masque, il ne re-rend pas"
+        assert "g.hidden" in bloc, (
+            "un groupe dont tout est masqué se masque : sinon on lit son "
+            "titre au-dessus de rien")
+
+    def test_la_recherche_ecoute_input_et_non_change(self):
+        """Sur `change` elle ne filtrerait rien pendant la frappe, sans la
+        moindre erreur pour le dire."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("const q = $('[data-sans-q]'")
+        bloc = js[i:i + 900]
+        assert "addEventListener('input'" in bloc
+        assert "addEventListener('change'" not in bloc
+
+    def test_hidden_est_declare_a_la_main(self):
+        """⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui
+        pose un `display` l'emporte. Dixième fois que ce piège se présente."""
+        css = _sans_commentaires_css(_lire(self.CSS))
+        for cls in (".ch-sans-p", ".ch-sans-g", ".ch-sans-rien"):
+            assert cls + "[hidden]" in css, (
+                "%s pose un display : sans cette règle, le masquage ne "
+                "masque rien" % cls)
+        assert '.ch-sans[data-ouvert="0"] .ch-sans-b' in css
+
+    def test_la_tuile_DEPLIE_la_zone_avant_d_y_mener(self):
+        """Repliée par défaut, elle conduirait sinon à un en-tête fermé,
+        c'est-à-dire à rien."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index('$(\'[data-aller="sans"]\'')
+        bloc = js[i:i + 500]
+        assert "[data-sans-plier]" in bloc and ".click()" in bloc
+        assert "scrollIntoView" in bloc
+
+    def test_les_libelles_existent_dans_les_DEUX_langues(self):
+        from Code.translations import TRANSLATIONS
+        cles = ("rh.ch_sans_bilan", "rh.ch_sans_cherche", "rh.ch_sans_faire_1",
+                "rh.ch_sans_faire_n", "rh.ch_sans_muet_1", "rh.ch_sans_muet_n",
+                "rh.ch_sans_muet_d", "rh.ch_sans_rien", "rh.ch_sans_ou_n",
+                "rh.ch_sans_aller", "time.role_hors_carto")
+        gab = _lire("Code/routes/templates/gestion_rh.html")
+        for c in cles:
+            for lg in ("fr", "en"):
+                assert TRANSLATIONS[lg].get(c), "%s manque en %s" % (c, lg)
+            if c.startswith("rh."):
+                assert c in gab, (
+                    "%s n'est injectée nulle part : l'accesseur rendrait la "
+                    "CLÉ BRUTE à l'écran, sans rien lever" % c)
+
+
+class TestLeClicMeneALAnalyse:
+    """Une liste qui dit ce qui manque sans permettre d'y aller reste un
+    rapport. Cliquer un rôle sans mesure ouvre SON analyse dans la page
+    Temps, sur la bonne carto."""
+
+    JS = "static/js/time.js"
+
+    def test_la_carto_de_l_URL_devient_active(self, auth_client, ids):
+        with _Decor(auth_client, ids) as d:
+            r = auth_client.get("/temps/?analyse=role&carto=%d" % d.ent2.id)
+            assert r.status_code == 200
+            with auth_client.session_transaction() as sess:
+                assert sess.get("active_entity_id") == d.ent2.id, (
+                    "sans elle, `#role-select` n'offre pas le rôle demandé")
+
+    def test_une_carto_INACCESSIBLE_ne_change_RIEN(self, auth_client, ids):
+        """⚠️ Un identifiant venu de l'URL n'est pas un droit — et le refus ne
+        se mesure PAS sur « la carto demandée n'est pas devenue active ».
+
+        Mesuré en retirant la garde : `Entity.get_active` rattrape bien une
+        carto illisible, mais en retombant sur « sa première entité ». Un
+        lien fabriqué DÉPLACE donc l'utilisateur, simplement pas là où
+        l'adresse le demandait. Ce qui doit tenir est que RIEN ne bouge.
+        """
+        from Code.models.models import Entity, User
+        from Code.security import hash_password
+        with _Decor(auth_client, ids) as d:
+            autre = User(email="ch171-autre-%d@t.local" % id(d),
+                         first_name="A", last_name="B",
+                         password=hash_password("x"), status="user")
+            db.session.add(autre)
+            db.session.commit()
+            # ⚠️ Avec un propriétaire : une entité SANS `owner_id` est
+            # lisible par tout le monde, et le cas ne prouverait rien.
+            close = Entity(name="CH171-close-%d" % id(d), owner_id=autre.id)
+            db.session.add(close)
+            db.session.commit()
+            try:
+                with auth_client.session_transaction() as sess:
+                    avant = sess.get("active_entity_id")
+                auth_client.get("/temps/?analyse=role&carto=%d" % close.id)
+                with auth_client.session_transaction() as sess:
+                    assert sess.get("active_entity_id") == avant, (
+                        "un lien fabriqué a déplacé la carto active")
+            finally:
+                db.session.delete(db.session.get(Entity, close.id))
+                db.session.delete(db.session.get(User, autre.id))
+                db.session.commit()
+
+    def test_le_role_se_pose_APRES_ouvrirNeuve(self):
+        """⚠️ `viderSaisie` remet `#role-select` à vide : posé avant, le rôle
+        demandé serait écrasé."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("async function arriveeParURL")
+        # ⚠️ La borne est du CODE, pas un commentaire : `_sans_commentaires_js`
+        #    vient de retirer le repère « INIT » qui suit cette fonction.
+        bloc = js[i:js.index("(async () => {", i)]
+        assert bloc.index("ouvrirNeuve('role')") < bloc.index("sel.value ="), (
+            "le rôle se pose APRÈS, sinon il est effacé")
+        assert "loadRoleActivities(rid)" in bloc
+
+    def test_l_adresse_se_nettoie(self):
+        """Sinon un rafraîchissement rouvre la saisie par-dessus ce qu'on est
+        en train d'écrire."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("async function arriveeParURL")
+        assert "history.replaceState" in js[i:i + 700]
+
+    def test_l_ecran_s_ouvre_MEME_si_le_role_est_hors_carto(self):
+        """Le message qui l'explique vit dans ce panneau : laissé sur
+        l'accueil, il ne se verrait nulle part."""
+        js = _sans_commentaires_js(_lire(self.JS))
+        i = js.index("async function arriveeParURL")
+        bloc = js[i:js.index("(async () => {", i)]
+        assert bloc.index("ouvrirNeuve('role')") < bloc.index("role_hors_carto")
+        assert "flashFeedback('role-feedback'" in bloc
+
+
 _SEMIS_ABSENT = not os.path.exists(os.path.join(RACINE, "tools", "db",
                                                 "seed_charge.sql"))
 

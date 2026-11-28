@@ -32,12 +32,13 @@ ligne — c'est le défaut qui mettait le tableau des compétences à deux minut
 et demie.
 """
 
+from flask import has_request_context
 from sqlalchemy.orm import selectinload
 
 from Code.extensions import db
 from Code.models.models import (
     Activities, Entity, Role, User, UserRole,
-    TimeRoleAnalysis,
+    TimeRoleAnalysis, activity_roles,
 )
 
 #: Le plafond de prévention : 80 % d'un temps plein.
@@ -61,6 +62,28 @@ def _decor():
         entites[a.id] = a.entity_id
     noms_entites = {e.id: e.name for e in db.session.query(Entity.id, Entity.name).all()}
     return durees, entites, noms_entites
+
+
+def _cartos_par_role(entites):
+    """Les cartos où chaque rôle porte AU MOINS une activité.
+
+    ⚠️ C'est ce qui sépare « à mesurer » de « rien à mesurer ». La page Temps
+    n'offre que les rôles qui tiennent une activité de la carto regardée
+    (`roles_de_la_carto`) : un rôle qui n'en tient aucune ne peut être pesé
+    NULLE PART. Rangé avec ceux qui attendent une mesure, il transforme la
+    liste de travail en mur — mesuré chez le pilote, 108 lignes identiques
+    dont la plupart ne mènent à rien.
+
+    ⚠️ UNE requête, sur la table d'association : lire les activités de chaque
+    rôle en boucle, c'est le défaut que tout ce module est fait d'éviter.
+    """
+    out = {}
+    for rid, aid in db.session.query(activity_roles.c.role_id,
+                                     activity_roles.c.activity_id).all():
+        e = entites.get(aid)
+        if e:
+            out.setdefault(rid, set()).add(e)
+    return out
 
 
 def _entite_de(analyse, entites):
@@ -198,6 +221,13 @@ def charge(periode=None):
     durees, entites, noms_entites = _decor()
     par_role = _mesures(periode, durees, entites, noms_entites, params) if periode else {}
     derniers = _derniers_mois()
+    cartos_de = _cartos_par_role(entites)
+    # ⚠️ `get_active_id` lit la SESSION : hors requête — un script, un banc —
+    #    elle LÈVE. Relevé au banc, pas en test : la suite appelle `charge()`
+    #    à travers un client HTTP, qui en a toujours une. Sans contexte, le
+    #    tri retombe sur l'alphabet, et c'est juste : il n'y a alors aucune
+    #    carto ouverte à préférer.
+    active = Entity.get_active_id() if has_request_context() else None
 
     roles = Role.query.all()
     # ⚠️ UNE seule lecture de `user_roles`, pour les deux index : la lire deux
@@ -236,6 +266,14 @@ def charge(periode=None):
             "part": (total / plein_min) if (mes and plein_min) else None,
             "mesures": mes,
             "derniere_periode": derniers.get(r.id),
+            # Où ce rôle PEUT être pesé — et donc s'il peut l'être du tout.
+            # ⚠️ La carto OUVERTE d'abord : cliquer la pastille change la
+            # carto active, et on ne déplace pas quelqu'un qui pouvait rester
+            # où il est. L'alphabet ne départage que le reste.
+            "cartos_possibles": sorted(
+                ({"id": e, "nom": noms_entites.get(e) or ""}
+                 for e in cartos_de.get(r.id, ())),
+                key=lambda c: (c["id"] != active, c["nom"].lower())),
             "titulaires": [{"id": i, "nom": _nom(comptes[i]),
                             "entite_id": attache.get((i, r.id)),
                             "entite": noms_entites.get(attache.get((i, r.id))) or ""}

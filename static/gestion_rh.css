@@ -2372,21 +2372,93 @@ table.ch-dm td > div { height: 100%; }
 /* ⚠️ Ils n'ont rien à mettre dans le damier : une ligne vide par rôle non
    mesuré ferait passer un tableau juste pour un tableau cassé. */
 .ch-sans {
-    margin-top: 14px; padding: 12px 14px; border-radius: 11px;
+    margin-top: 14px; border-radius: 11px; overflow: hidden;
     background: color-mix(in srgb, var(--ch-ambre) 6%, var(--card, #fff));
     border: 1px solid color-mix(in srgb, var(--ch-ambre) 24%, var(--card, #fff));
 }
+.ch-sans.est-pointe {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ch-ambre) 34%, transparent);
+}
+/* L'en-tête EST la poignée : le compte s'y lit replié, et c'est ce compte
+   qu'on vient chercher — pas les cent noms. */
 .ch-sans-h {
-    font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
-    color: var(--ch-ambre); margin-bottom: 8px;
+    width: 100%; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+    padding: 11px 14px; border: 0; background: none; cursor: pointer;
+    text-align: left; font: inherit; color: var(--ch-ambre);
+}
+.ch-sans-h:hover { background: color-mix(in srgb, var(--ch-ambre) 8%, transparent); }
+.ch-sans-h > span {
+    font-size: 11.5px; font-weight: 800; letter-spacing: .07em;
+    text-transform: uppercase;
+}
+.ch-sans-h > b {
+    font-size: 13px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+    color: #fff; background: var(--ch-ambre);
+}
+.ch-sans-h > em {
+    font-style: normal; font-size: 12.5px; margin-left: auto;
+    color: var(--muted, #64748b);
+}
+.ch-sans-c { font-size: 12px; transition: transform .18s ease; }
+.ch-sans[data-ouvert="1"] .ch-sans-c { transform: rotate(90deg); }
+/* ⚠️ `[hidden]` est une règle du NAVIGATEUR : une classe d'auteur qui pose un
+   `display` l'emporte. Dixième fois que ce piège se présente ici. */
+.ch-sans-b { padding: 0 14px 12px; }
+.ch-sans[data-ouvert="0"] .ch-sans-b { display: none; }
+.ch-sans-q {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 11px;
+    padding: 6px 11px; border-radius: 999px; background: var(--card, #fff);
+    border: 1px solid var(--border, #e2e8f0); color: var(--muted, #64748b);
+}
+.ch-sans-q input {
+    flex: 1; min-width: 0; border: 0; background: none; outline: none;
+    font: inherit; font-size: 13.5px; color: var(--ink, #0f172a);
+}
+.ch-sans-g { margin-bottom: 10px; }
+.ch-sans-g[hidden] { display: none; }
+.ch-sans-g > u {
+    display: block; text-decoration: none; font-size: 12px; font-weight: 800;
+    letter-spacing: .05em; text-transform: uppercase;
+    color: var(--muted, #64748b); margin-bottom: 7px;
+}
+.ch-sans-g > p {
+    margin: -3px 0 8px; font-size: 12.5px; color: var(--muted, #64748b);
+}
+.ch-sans-l { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+/* ⚠️ Un PLAFOND sur le catalogue, et sur lui seul : chez le pilote il porte
+   99 rôles qu'on ne peut pas peser, et dépliée la zone redevenait le mur
+   qu'on vient de retirer. Ce qu'il y a À FAIRE est au-dessus et n'est jamais
+   coupé ; le champ de recherche, lui, atteint tout ce qui défile ici. */
+.ch-sans-g[data-g="muet"] .ch-sans-l {
+    max-height: 164px; overflow-y: auto; padding-right: 4px;
 }
 .ch-sans-p {
     display: inline-flex; align-items: baseline; gap: 7px;
-    margin: 0 8px 6px 0; padding: 5px 11px; border-radius: 999px;
+    padding: 5px 11px; border-radius: 999px;
     background: var(--card, #fff); border: 1px solid var(--border, #e2e8f0);
 }
+.ch-sans-p[hidden] { display: none; }
 .ch-sans-p b { font-size: 13.5px; font-weight: 600; }
 .ch-sans-p em { font-style: normal; font-size: 13px; color: var(--muted, #64748b); }
+/* Une PORTE : elle mène à la page Temps, et elle nomme la carto où elle va. */
+a.ch-sans-p.est-porte {
+    text-decoration: none; color: inherit;
+    border-color: color-mix(in srgb, var(--ch-ambre) 40%, var(--card, #fff));
+}
+a.ch-sans-p.est-porte:hover {
+    background: color-mix(in srgb, var(--ch-ambre) 10%, var(--card, #fff));
+    border-color: var(--ch-ambre);
+}
+.ch-sans-p > u {
+    display: inline-flex; align-items: center; gap: 5px; text-decoration: none;
+    font-size: 12px; font-weight: 700; color: var(--ch-ambre);
+}
+/* Rien à mesurer : la pastille le dit en s'effaçant, et ne se clique pas. */
+.ch-sans-p.est-muet { opacity: .72; border-style: dashed; }
+.ch-sans-rien {
+    margin: 4px 0 0; font-size: 13px; color: var(--muted, #64748b);
+}
+.ch-sans-rien[hidden] { display: none; }
 
 /* ── l'état vide ────────────────────────────────────────────────────────── */
 .ch-vide {

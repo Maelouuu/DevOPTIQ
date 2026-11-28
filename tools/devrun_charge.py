@@ -116,6 +116,20 @@ with app.app_context():
         r = Role(name=nom, entity_id=cartos["FluidClip"].id)
         db.session.add(r)
         roles[nom] = r
+    # ⚠️ LE CATALOGUE DE L'ENTREPRISE, sans la moindre activité. C'est ce que
+    #    le pilote a sous les yeux : 108 rôles « jamais mesuré » dont la
+    #    plupart ne peuvent être pesés NULLE PART (la page Temps n'offre que
+    #    les rôles qui tiennent une activité de la carto regardée). Sans eux
+    #    on ne voit jamais la seconde famille, ni le mur qu'elle faisait.
+    CATALOGUE = ("Acheteur", "Administration & finance", "Chef de projet",
+                 "Client", "Comptabilité", "Contrôle qualité", "Fournisseur",
+                 "Ingénierie", "Juridique", "KAM", "Magasinier",
+                 "Marketing", "Nettoyage", "Ordonnancement", "Paie",
+                 "Prescripteur", "Sécurité", "Tutorat")
+    for nom in CATALOGUE:
+        r = Role(name=nom, entity_id=cartos["FluidClip"].id)
+        db.session.add(r)
+        roles[nom] = r
     db.session.commit()
 
     gens = {}
@@ -148,6 +162,18 @@ with app.app_context():
             db.session.execute(activity_roles.insert().values(
                 activity_id=a.id, role_id=roles["Qualité" if i < 6 else "Logistique"].id,
                 status="Garant"))
+    # ⚠️ Des rôles QUI PORTENT des activités et ne sont pas mesurés : sans eux
+    #    la zone « sans mesure » n'a que des rôles qu'on ne peut pas peser, et
+    #    on ne regarde que le cas malheureux. « Réseau » en porte sur les DEUX
+    #    cartos — c'est le cas où la pastille doit dire laquelle elle vise.
+    for role, carto, debut in (("Achats", "FluidClip", 0),
+                               ("Méthodes", "FluidClip", 3),
+                               ("Maintenance", "FluidClip", 6),
+                               ("Réseau", "FluidClip", 9),
+                               ("Réseau", "END_DT", 2)):
+        for a in actes[carto][debut:debut + 2]:
+            db.session.execute(activity_roles.insert().values(
+                activity_id=a.id, role_id=roles[role].id, status="Acteur"))
     db.session.commit()
 
     for role, carto, per, n, duree, rec, freq in ANALYSES:
